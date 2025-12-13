@@ -120,3 +120,12 @@
     @apply bg-background text-foreground;
   }
 }
+
+.active-tab {
+  border-bottom: 0;
+  border-top-color: #fb2c36;
+  background-color: white;
+  box-shadow: 
+  2px 0 4px -2px rgba(0, 0, 0, 0.1),
+ -2px 0 4px -2px rgba(0, 0, 0, 0.1);
+}
