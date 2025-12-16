@@ -7,8 +7,8 @@ import { LoadingIndicator } from "@/components/layout/loading-indicator";
 import { useLoading } from "@/components/providers/loader-context";
 
 interface CategorizedProjectIssues {
-  lace: Issue[];
-  cd: Issue[];
+  leap: Issue[];
+  core: Issue[];
   dev: Issue[];
   others: Issue[];
 }
@@ -18,7 +18,7 @@ export default function Dashboard() {
   const [categorizedProjectIssuesData, setCategorizedProjectIssuesData] =
     useState<CategorizedProjectIssues | null>(null);
   const [activeTab, setActiveTab] =
-    useState<keyof CategorizedProjectIssues>("lace");
+    useState<keyof CategorizedProjectIssues>("leap");
 
   const { isLoading, startLoading, stopLoading } = useLoading();
 
@@ -39,19 +39,19 @@ export default function Dashboard() {
   useEffect(() => {
     if (!responseData) return;
 
-    const cd: Issue[] = [];
-    const lace: Issue[] = [];
+    const core: Issue[] = [];
+    const leap: Issue[] = [];
     const dev: Issue[] = [];
     const others: Issue[] = [];
 
     responseData.issues.forEach((issue) => {
-      if (issue.linkedProject === "Contributor Experience Team") cd.push(issue);
-      else if (issue.linkedProject === "LaCE Quality Team") lace.push(issue);
+      if (issue.linkedProject === "CORE Team (Creators, Operations, Reviewers and Editors)") core.push(issue);
+      else if (issue.linkedProject === "LEAP Team (Learners, Educators, Allies, and Parents)") leap.push(issue);
       else if (issue.linkedProject === "Developer Workflow Team") dev.push(issue);
       else others.push(issue);
     });
 
-    setCategorizedProjectIssuesData({ lace, cd, dev, others });
+    setCategorizedProjectIssuesData({ leap, core, dev, others });
   }, [responseData]);
 
   return (
@@ -59,7 +59,7 @@ export default function Dashboard() {
                     px-4 py-18 sm:px-8 md:px-16 lg:px-40">
       {/* Tabs */}
       <div className="flex flex-wrap text-base sm:text-xl translate-y-px">
-        {(["lace", "cd", "dev", "others"] as const).map((tab) => (
+        {(["leap", "core", "dev", "others"] as const).map((tab) => (
           <div
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -67,8 +67,8 @@ export default function Dashboard() {
               activeTab === tab ? "active-tab" : ""
             }`}
           >
-            {tab === "lace" && `LaCE Team (${categorizedProjectIssuesData?.lace.length ?? 0})`}
-            {tab === "cd" && `CD Team (${categorizedProjectIssuesData?.cd.length ?? 0})`}
+            {tab === "leap" && `LEAP Team (${categorizedProjectIssuesData?.leap.length ?? 0})`}
+            {tab === "core" && `CORE Team (${categorizedProjectIssuesData?.core.length ?? 0})`}
             {tab === "dev" && `Dev Workflow Team (${categorizedProjectIssuesData?.dev.length ?? 0})`}
             {tab === "others" && `Others (${categorizedProjectIssuesData?.others.length ?? 0})`}
           </div>
