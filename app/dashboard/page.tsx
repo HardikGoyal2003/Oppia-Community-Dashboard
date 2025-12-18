@@ -45,9 +45,9 @@ export default function Dashboard() {
     const others: Issue[] = [];
 
     responseData.issues.forEach((issue) => {
-      if (issue.linkedProject === "CORE Team (Creators, Operations, Reviewers and Editors)") core.push(issue);
-      else if (issue.linkedProject === "LEAP Team (Learners, Educators, Allies, and Parents)") leap.push(issue);
-      else if (issue.linkedProject === "Developer Workflow Team") dev.push(issue);
+      if (issue.linkedProject === "[Web] CORE Team (Creators, Operations, Reviewers and Editors)") core.push(issue);
+      else if (issue.linkedProject === "[Web] LEAP Team (Learners, Educators, Allies, and Parents)") leap.push(issue);
+      else if (issue.linkedProject === "[Web] Developer Workflow Team") dev.push(issue);
       else others.push(issue);
     });
 
