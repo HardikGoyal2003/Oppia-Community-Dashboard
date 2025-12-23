@@ -26,10 +26,11 @@ export interface RawIssueNode {
   projectsV2: ProjectNode
 }
 
-export interface Issue {
+export interface RawIssue {
   issueNumber: number;
   issueUrl: string;
   issueTitle: string;
+  lastCommentCreatedAt: string,
   linkedProject: string;
 }
 

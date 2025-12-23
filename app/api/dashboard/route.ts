@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { main } from "@/lib/github/scripts/github-issues.fetcher";
-import { Issue, RawIssueNode } from "@/lib/github/types";
+import { RawIssue, RawIssueNode } from "@/lib/github/github-fetcher.types";
 import { formatIssues } from "@/lib/github/service/ format-issues.service";
 
 
@@ -34,7 +34,7 @@ export async function GET() {
   try {
     const issuesData: RawIssueNode[] = await main();
 
-    const normalizedIssues: Issue[] = formatIssues(issuesData);
+    const normalizedIssues: RawIssue[] = formatIssues(issuesData);
     
     return NextResponse.json({
       issues: normalizedIssues,

@@ -2,28 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { IssueCard } from "./components/issue-card";
-import { Issue } from "@/lib/github/types";
+import { RawIssue } from "@/lib/github/github-fetcher.types";
 import { LoadingIndicator } from "@/components/layout/loading-indicator";
 import { useLoading } from "@/components/providers/loader-context";
-
-interface CategorizedProjectIssues {
-  leap: Issue[];
-  core: Issue[];
-  dev: Issue[];
-  others: Issue[];
-}
+import { TeamTabs } from "./components/team-tabs";
+import { CategorizedProjectIssues, Issue } from "./dashboard.types";
+import { getArchiveIssues } from "./services/localstorage.service";
+import { useProjectIssuesStore } from "./dashboard.store";
 
 export default function Dashboard() {
-  const [responseData, setResponseData] = useState<{ issues: Issue[] } | null>(null);
-  const [categorizedProjectIssuesData, setCategorizedProjectIssuesData] =
-    useState<CategorizedProjectIssues | null>(null);
+  const [responseData, setResponseData] = useState<{ issues: RawIssue[] } | null>(null);
   const [activeTab, setActiveTab] =
     useState<keyof CategorizedProjectIssues>("leap");
 
   const { isLoading, startLoading, stopLoading } = useLoading();
 
-  const tabBaseStyle =
-    "border border-t-4 cursor-pointer p-3 sm:p-4 whitespace-nowrap";
+  const { issues, setIssues } = useProjectIssuesStore();
 
   const handleClick = async () => {
     startLoading();
@@ -43,37 +37,66 @@ export default function Dashboard() {
     const leap: Issue[] = [];
     const dev: Issue[] = [];
     const others: Issue[] = [];
+    const archive: Issue[] = getArchiveIssues();
 
-    responseData.issues.forEach((issue) => {
-      if (issue.linkedProject === "[Web] CORE Team (Creators, Operations, Reviewers and Editors)") core.push(issue);
-      else if (issue.linkedProject === "[Web] LEAP Team (Learners, Educators, Allies, and Parents)") leap.push(issue);
-      else if (issue.linkedProject === "[Web] Developer Workflow Team") dev.push(issue);
-      else others.push(issue);
+    responseData.issues.forEach((rawIssue: RawIssue) => {
+      if (rawIssue.linkedProject === "[Web] CORE Team (Creators, Operations, Reviewers and Editors)") {
+        const index = archive.findIndex(i => i.issueNumber == rawIssue.issueNumber)
+        if(index!=-1){
+          if(new Date(rawIssue.lastCommentCreatedAt) > new Date(archive[index].lastCommentCreatedAt)){
+            archive.splice(index,1);
+          }
+        } else {
+
+          let issue = {...rawIssue, isArchived:false};
+          core.push(issue);
+        }
+      } 
+      else if (rawIssue.linkedProject === "[Web] LEAP Team (Learners, Educators, Allies, and Parents)") {
+        const index = archive.findIndex(i => i.issueNumber == rawIssue.issueNumber)
+        if(index!=-1){
+          if(new Date(rawIssue.lastCommentCreatedAt) > new Date(archive[index].lastCommentCreatedAt)){
+            archive.splice(index,1);
+          }
+        } else {
+          let issue = {...rawIssue, isArchived:false};
+          leap.push(issue);
+        }
+      } 
+      else if (rawIssue.linkedProject === "[Web] Developer Workflow Team") {
+        const index = archive.findIndex(i => i.issueNumber == rawIssue.issueNumber)
+        if(index!=-1){
+          if(new Date(rawIssue.lastCommentCreatedAt) > new Date(archive[index].lastCommentCreatedAt)){
+            archive.splice(index,1);
+          }
+        } else {
+          let issue = {...rawIssue, isArchived:false};
+          dev.push(issue);
+        }        
+      } 
+      else {
+        const index = archive.findIndex(i => i.issueNumber == rawIssue.issueNumber)
+        if(index!=-1){
+          if(new Date(rawIssue.lastCommentCreatedAt) > new Date(archive[index].lastCommentCreatedAt)){
+            archive.splice(index,1);
+          }
+        } else {
+          let issue = {...rawIssue, isArchived:false};
+          others.push(issue);
+        } 
+      } 
     });
 
-    setCategorizedProjectIssuesData({ leap, core, dev, others });
+    setIssues({ leap, core, dev, others, archive });
   }, [responseData]);
 
   return (
     <div className="flex flex-col bg-gray-50 min-h-screen
                     px-4 py-18 sm:px-8 md:px-16 lg:px-40">
-      {/* Tabs */}
-      <div className="flex flex-wrap text-base sm:text-xl translate-y-px">
-        {(["leap", "core", "dev", "others"] as const).map((tab) => (
-          <div
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`${tabBaseStyle} ${
-              activeTab === tab ? "active-tab" : ""
-            }`}
-          >
-            {tab === "leap" && `LEAP Team (${categorizedProjectIssuesData?.leap.length ?? 0})`}
-            {tab === "core" && `CORE Team (${categorizedProjectIssuesData?.core.length ?? 0})`}
-            {tab === "dev" && `Dev Workflow Team (${categorizedProjectIssuesData?.dev.length ?? 0})`}
-            {tab === "others" && `Others (${categorizedProjectIssuesData?.others.length ?? 0})`}
-          </div>
-        ))}
-      </div>
+      <TeamTabs 
+      categorizedProjectIssuesData = {issues}
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}/>
 
       {/* Content */}
       <div className="flex flex-col gap-4 border py-6 px-2 sm:px-4 bg-white">
@@ -85,8 +108,8 @@ export default function Dashboard() {
           </button>
         )}
 
-        {categorizedProjectIssuesData &&
-          categorizedProjectIssuesData[activeTab].map((issue, index) => (
+        {issues &&
+          issues[activeTab].map((issue, index) => (
             <IssueCard
               key={issue.issueNumber}
               issue={issue}
