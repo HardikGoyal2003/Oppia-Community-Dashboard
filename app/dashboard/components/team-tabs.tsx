@@ -34,11 +34,10 @@ export const TeamTabs = ({categorizedProjectIssuesData, activeTab, setActiveTab}
         <div
           key={"archive"}
           onClick={() => setActiveTab("archive")}
-          className={`flex absolute right-0 ${tabBaseStyle} ${
+          className={`flex ${tabBaseStyle} ${
             activeTab === "archive" ? "active-tab" : ""
           }`}
         >
-          {/* {tab === "dev" && `Dev Workflow Team (${categorizedProjectIssuesData?.dev.length ?? 0})`} */}
           <ArchiveIcon className="h-6 w-6 mr-1.5 mt-0.1.25" /> {`Archived Issues(${categorizedProjectIssuesData?.archive.length ?? 0})`}
         </div>
       </div>

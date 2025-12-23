@@ -9,6 +9,10 @@ interface ProjectIssuesStore {
     to: keyof CategorizedProjectIssues,
     issueNumber: number
   ) => void;
+  removeIssue: (
+    from: keyof CategorizedProjectIssues,
+    issueNumber: number
+  ) => void;
 }
 
 export const useProjectIssuesStore = create<ProjectIssuesStore>((set) => ({
@@ -21,16 +25,17 @@ export const useProjectIssuesStore = create<ProjectIssuesStore>((set) => ({
   },
 
   setIssues: (newIssues) =>
-    set(() => ({
+    set({
       issues: newIssues,
-    })),
+    }),
 
   moveIssue: (from, to, issueNumber) =>
     set((state) => {
       const issueToMove = state.issues[from].find(
         (i) => i.issueNumber === issueNumber
       );
-      if (!issueToMove) return state;
+
+      if (!issueToMove) return {};
 
       return {
         issues: {
@@ -42,5 +47,14 @@ export const useProjectIssuesStore = create<ProjectIssuesStore>((set) => ({
         },
       };
     }),
-}));
 
+  removeIssue: (from, issueNumber) =>
+    set((state) => ({
+      issues: {
+        ...state.issues,
+        [from]: state.issues[from].filter(
+          (i) => i.issueNumber !== issueNumber
+        ),
+      },
+    })),
+}));

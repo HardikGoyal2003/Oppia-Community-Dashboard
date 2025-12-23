@@ -4,6 +4,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Issue } from "../dashboard.types"; 
 import Link from "next/link";
 import { useArchiveIssue } from "../hooks/use-archive-issue.hook";
+import { CircleCheck } from "lucide-react";
+import { useMarkIssueAsnwered } from "../hooks/use-mark-issue-answered.hook";
 
 interface IssueCardProps {
   issue: Issue;
@@ -12,6 +14,7 @@ interface IssueCardProps {
 
 export const IssueCard = ({ issue, serialNumber }: IssueCardProps) => {
   const archiveIssue = useArchiveIssue();
+  const issueAnswered = useMarkIssueAsnwered();
   
   return (
     <Card className="w-full flex flex-col sm:flex-row px-4 sm:px-10">
@@ -30,6 +33,23 @@ export const IssueCard = ({ issue, serialNumber }: IssueCardProps) => {
           <CardDescription>{`#${issue.issueNumber}`}</CardDescription>
         </CardHeader>
       </Link>
+
+      {!issue.isArchived && 
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={() => issueAnswered(issue)}
+            className="p-2 text-muted-foreground hover:text-foreground"
+            aria-label="Mark as answered">
+            <CircleCheck className="cursor-pointer" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Mark Done</p>
+        </TooltipContent>
+      </Tooltip>
+      }        
 
       {!issue.isArchived && 
       <Tooltip>
