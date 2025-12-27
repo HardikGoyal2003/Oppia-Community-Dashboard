@@ -37,13 +37,15 @@ export const useProjectIssuesStore = create<ProjectIssuesStore>((set) => ({
 
       if (!issueToMove) return {};
 
+      const updatedIssue = { ...issueToMove, isArchived: true };
+
       return {
         issues: {
           ...state.issues,
           [from]: state.issues[from].filter(
             (i) => i.issueNumber !== issueNumber
           ),
-          [to]: [...state.issues[to], issueToMove],
+          [to]: [...state.issues[to], updatedIssue],
         },
       };
     }),
