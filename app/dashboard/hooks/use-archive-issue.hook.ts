@@ -1,15 +1,15 @@
 "use client";
 
 import { useProjectIssuesStore } from "../dashboard.store";
-import { setArchiveIssues } from "../services/localstorage.service";
+import { addArchivedIssueToDB } from "../services/db.service";
 import { Issue } from "../dashboard.types";
 import { CategorizedProjectIssues } from "../dashboard.types";
 
 export function useArchiveIssue() {
   const moveIssue = useProjectIssuesStore((state) => state.moveIssue);
 
-  return (issue: Issue) => {
-    setArchiveIssues(issue);
+  return async (issue: Issue) => {
+    await addArchivedIssueToDB(issue);
 
     let from: keyof CategorizedProjectIssues;
 

@@ -38,7 +38,7 @@ export const TeamTabs = ({categorizedProjectIssuesData, activeTab, setActiveTab}
             activeTab === "archive" ? "active-tab" : ""
           }`}
         >
-          <ArchiveIcon className="h-6 w-6 mr-1.5 mt-0.1.25" /> {`Archived Issues(${categorizedProjectIssuesData?.archive.length ?? 0})`}
+          <ArchiveIcon className="h-6 w-6 mr-1.5 mt-0.1.25" /> {`Archived Issues (${categorizedProjectIssuesData?.archive.length ?? 0})`}
         </div>
       </div>
     )

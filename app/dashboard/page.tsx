@@ -7,7 +7,7 @@ import { LoadingIndicator } from "@/components/layout/loading-indicator";
 import { useLoading } from "@/components/providers/loader-context";
 import { TeamTabs } from "./components/team-tabs";
 import { CategorizedProjectIssues, Issue } from "./dashboard.types";
-import { getArchiveIssues } from "./services/localstorage.service";
+import { getAllArchivedIssuesFromDB, removeArchivedIssueFromDB } from "./services/db.service";
 import { useProjectIssuesStore } from "./dashboard.store";
 
 export default function Dashboard() {
@@ -19,9 +19,13 @@ export default function Dashboard() {
 
   const { issues, setIssues } = useProjectIssuesStore();
 
+  const [archivedIssues, setArchivedIssues] = useState<Issue[]>([]);
+
   const handleClick = async () => {
     startLoading();
     try {
+      const archivedIssues =  await getAllArchivedIssuesFromDB();
+      setArchivedIssues(archivedIssues);
       const res = await fetch("/api/dashboard");
       const data = await res.json();
       setResponseData(data);
@@ -37,14 +41,15 @@ export default function Dashboard() {
     const leap: Issue[] = [];
     const dev: Issue[] = [];
     const others: Issue[] = [];
-    const archive: Issue[] = getArchiveIssues();
+    const archive: Issue[] = archivedIssues;
 
-    responseData.issues.forEach((rawIssue: RawIssue) => {
+    responseData.issues.forEach(async (rawIssue: RawIssue) => {
       if (rawIssue.linkedProject === "[Web] CORE Team (Creators, Operations, Reviewers and Editors)") {
         const index = archive.findIndex(i => i.issueNumber == rawIssue.issueNumber)
         if(index!=-1){
           if(new Date(rawIssue.lastCommentCreatedAt) > new Date(archive[index].lastCommentCreatedAt)){
             archive.splice(index,1);
+            await removeArchivedIssueFromDB(rawIssue.issueNumber);
           }
         } else {
 
@@ -57,6 +62,7 @@ export default function Dashboard() {
         if(index!=-1){
           if(new Date(rawIssue.lastCommentCreatedAt) > new Date(archive[index].lastCommentCreatedAt)){
             archive.splice(index,1);
+            await removeArchivedIssueFromDB(rawIssue.issueNumber);
           }
         } else {
           let issue = {...rawIssue, isArchived:false};
@@ -68,6 +74,7 @@ export default function Dashboard() {
         if(index!=-1){
           if(new Date(rawIssue.lastCommentCreatedAt) > new Date(archive[index].lastCommentCreatedAt)){
             archive.splice(index,1);
+            await removeArchivedIssueFromDB(rawIssue.issueNumber);
           }
         } else {
           let issue = {...rawIssue, isArchived:false};
@@ -79,6 +86,7 @@ export default function Dashboard() {
         if(index!=-1){
           if(new Date(rawIssue.lastCommentCreatedAt) > new Date(archive[index].lastCommentCreatedAt)){
             archive.splice(index,1);
+            await removeArchivedIssueFromDB(rawIssue.issueNumber);
           }
         } else {
           let issue = {...rawIssue, isArchived:false};
