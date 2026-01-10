@@ -7,7 +7,7 @@ import { LoadingIndicator } from "@/components/layout/loading-indicator";
 import { useLoading } from "@/components/providers/loader-context";
 import { TeamTabs } from "./components/team-tabs";
 import { CategorizedProjectIssues, Issue } from "./dashboard.types";
-import { getAllArchivedIssuesFromDB, removeArchivedIssueFromDB } from "./services/db.service";
+import { getArchivedIssues, unarchiveIssue } from "../../lib/db/archived-issues.service";
 import { useProjectIssuesStore } from "./dashboard.store";
 
 export default function Dashboard() {
@@ -24,7 +24,7 @@ export default function Dashboard() {
   const handleClick = async () => {
     startLoading();
     try {
-      const archivedIssues =  await getAllArchivedIssuesFromDB();
+      const archivedIssues =  await getArchivedIssues();
       setArchivedIssues(archivedIssues);
       const res = await fetch("/api/dashboard");
       const data = await res.json();
@@ -49,7 +49,7 @@ export default function Dashboard() {
         if(index!=-1){
           if(new Date(rawIssue.lastCommentCreatedAt) > new Date(archive[index].lastCommentCreatedAt)){
             archive.splice(index,1);
-            await removeArchivedIssueFromDB(rawIssue.issueNumber);
+            await unarchiveIssue(rawIssue.issueNumber);
           }
         } else {
 
@@ -62,7 +62,7 @@ export default function Dashboard() {
         if(index!=-1){
           if(new Date(rawIssue.lastCommentCreatedAt) > new Date(archive[index].lastCommentCreatedAt)){
             archive.splice(index,1);
-            await removeArchivedIssueFromDB(rawIssue.issueNumber);
+            await unarchiveIssue(rawIssue.issueNumber);
           }
         } else {
           let issue = {...rawIssue, isArchived:false};
@@ -74,7 +74,7 @@ export default function Dashboard() {
         if(index!=-1){
           if(new Date(rawIssue.lastCommentCreatedAt) > new Date(archive[index].lastCommentCreatedAt)){
             archive.splice(index,1);
-            await removeArchivedIssueFromDB(rawIssue.issueNumber);
+            await unarchiveIssue(rawIssue.issueNumber);
           }
         } else {
           let issue = {...rawIssue, isArchived:false};
@@ -86,7 +86,7 @@ export default function Dashboard() {
         if(index!=-1){
           if(new Date(rawIssue.lastCommentCreatedAt) > new Date(archive[index].lastCommentCreatedAt)){
             archive.splice(index,1);
-            await removeArchivedIssueFromDB(rawIssue.issueNumber);
+            await unarchiveIssue(rawIssue.issueNumber);
           }
         } else {
           let issue = {...rawIssue, isArchived:false};
