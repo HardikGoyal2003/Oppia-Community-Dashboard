@@ -1,17 +1,30 @@
 "use client";
 
-import { signIn } from "next-auth/react";
-import { useState } from "react";
-import login_form_banner from '../../public/login_form_banner.png';
-
+import { signIn, useSession } from "next-auth/react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.replace("/dashboard");
+    }
+  }, [status, router]);
 
   const handleSignIn = async () => {
     setLoading(true);
     await signIn("google", { callbackUrl: "/dashboard" });
   };
+
+  if (status === "loading") {
+    return null;
+  }
+
+  if (session) return null;
 
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-slate-100">
@@ -50,6 +63,7 @@ export default function LoginPage() {
             )}
           </button>
         </div>
+
         <p className="text-sm text-slate-400 absolute bottom-4">
           © {new Date().getFullYear()} Hardik Goyal. All rights reserved.
         </p>

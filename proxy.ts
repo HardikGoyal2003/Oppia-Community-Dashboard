@@ -1,20 +1,29 @@
 import { withAuth } from "next-auth/middleware";
 import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
 export default withAuth(
   function middleware(req: NextRequest) {
-    // optional: role-based routing can go here
+    const { pathname } = req.nextUrl;
+    const token = (req as any).nextauth.token;
+
+    if (token && (pathname === "/" || pathname === "/login")) {
+      return NextResponse.redirect(
+        new URL("/dashboard", req.url)
+      );
+    }
+
+    return NextResponse.next();
   },
   {
     callbacks: {
       authorized: ({ token, req }) => {
-        // Allow public pages
-        if (req.nextUrl.pathname.startsWith("/login")) {
+        const { pathname } = req.nextUrl;
+        if (pathname === "/" || pathname === "/login") {
           return true;
         }
 
-        // Protect dashboard
-        if (req.nextUrl.pathname.startsWith("/dashboard")) {
+        if (pathname.startsWith("/dashboard")) {
           return !!token;
         }
 
@@ -28,5 +37,5 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: ["/dashboard/:path*"],
+  matcher: ["/", "/login", "/dashboard/:path*"],
 };

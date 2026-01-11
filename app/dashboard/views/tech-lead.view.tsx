@@ -22,7 +22,6 @@ export default function TechLeadView() {
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  // 🔹 Fetch users (Area / Tech Lead only)
   useEffect(() => {
     async function loadUsers() {
       try {
@@ -42,7 +41,6 @@ export default function TechLeadView() {
     loadUsers();
   }, []);
 
-  // 🔹 Update role
   const handleRoleChange = async (
     userId: string,
     role: UserRole
