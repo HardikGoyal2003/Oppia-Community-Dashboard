@@ -1,130 +1,33 @@
-"use client";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth/auth.options";
+import TeamLeadView from "./views/team-lead.view";
+import ContributorView from "./views/contributor.view";
+import TeamMemberView from "./views/team-member.view";
+import TechLeadView from "./views/tech-lead.view";
+import { redirect } from "next/navigation";
 
-import { useEffect, useState } from "react";
-import { IssueCard } from "./components/issue-card";
-import { RawIssue } from "@/lib/github/github-fetcher.types";
-import { LoadingIndicator } from "@/components/layout/loading-indicator";
-import { useLoading } from "@/components/providers/loader-context";
-import { TeamTabs } from "./components/team-tabs";
-import { CategorizedProjectIssues, Issue } from "./dashboard.types";
-import { getArchivedIssues, unarchiveIssue } from "../../lib/db/archived-issues.service";
-import { useProjectIssuesStore } from "./dashboard.store";
+export default async function DashboardPage() {
+  const session = await getServerSession(authOptions);
 
-export default function Dashboard() {
-  const [responseData, setResponseData] = useState<{ issues: RawIssue[] } | null>(null);
-  const [activeTab, setActiveTab] =
-    useState<keyof CategorizedProjectIssues>("leap");
+  if (!session) redirect("/login");
 
-  const { isLoading, startLoading, stopLoading } = useLoading();
+  const { role, isNewUser } = session.user;
 
-  const { issues, setIssues } = useProjectIssuesStore();
+  if (isNewUser) {
+    return <ContributorView message="Lorem Ipsum" />;
+  }
 
-  const [archivedIssues, setArchivedIssues] = useState<Issue[]>([]);
+  switch (role) {
+    case "TEAM_LEAD":
+      return <TeamLeadView />;
 
-  const handleClick = async () => {
-    startLoading();
-    try {
-      const archivedIssues =  await getArchivedIssues();
-      setArchivedIssues(archivedIssues);
-      const res = await fetch("/api/dashboard");
-      const data = await res.json();
-      setResponseData(data);
-    } finally {
-      stopLoading();
-    }
-  };
+    case "TECH_LEAD":
+      return <TechLeadView />;
 
-  useEffect(() => {
-    if (!responseData) return;
+    case "TEAM_MEMBER":
+      return <TeamMemberView />;
 
-    const core: Issue[] = [];
-    const leap: Issue[] = [];
-    const dev: Issue[] = [];
-    const others: Issue[] = [];
-    const archive: Issue[] = archivedIssues;
-
-    responseData.issues.forEach(async (rawIssue: RawIssue) => {
-      if (rawIssue.linkedProject === "[Web] CORE Team (Creators, Operations, Reviewers and Editors)") {
-        const index = archive.findIndex(i => i.issueNumber == rawIssue.issueNumber)
-        if(index!=-1){
-          if(new Date(rawIssue.lastCommentCreatedAt) > new Date(archive[index].lastCommentCreatedAt)){
-            archive.splice(index,1);
-            await unarchiveIssue(rawIssue.issueNumber);
-          }
-        } else {
-
-          let issue = {...rawIssue, isArchived:false};
-          core.push(issue);
-        }
-      } 
-      else if (rawIssue.linkedProject === "[Web] LEAP Team (Learners, Educators, Allies, and Parents)") {
-        const index = archive.findIndex(i => i.issueNumber == rawIssue.issueNumber)
-        if(index!=-1){
-          if(new Date(rawIssue.lastCommentCreatedAt) > new Date(archive[index].lastCommentCreatedAt)){
-            archive.splice(index,1);
-            await unarchiveIssue(rawIssue.issueNumber);
-          }
-        } else {
-          let issue = {...rawIssue, isArchived:false};
-          leap.push(issue);
-        }
-      } 
-      else if (rawIssue.linkedProject === "[Web] Developer Workflow Team") {
-        const index = archive.findIndex(i => i.issueNumber == rawIssue.issueNumber)
-        if(index!=-1){
-          if(new Date(rawIssue.lastCommentCreatedAt) > new Date(archive[index].lastCommentCreatedAt)){
-            archive.splice(index,1);
-            await unarchiveIssue(rawIssue.issueNumber);
-          }
-        } else {
-          let issue = {...rawIssue, isArchived:false};
-          dev.push(issue);
-        }        
-      } 
-      else {
-        const index = archive.findIndex(i => i.issueNumber == rawIssue.issueNumber)
-        if(index!=-1){
-          if(new Date(rawIssue.lastCommentCreatedAt) > new Date(archive[index].lastCommentCreatedAt)){
-            archive.splice(index,1);
-            await unarchiveIssue(rawIssue.issueNumber);
-          }
-        } else {
-          let issue = {...rawIssue, isArchived:false};
-          others.push(issue);
-        } 
-      } 
-    });
-
-    setIssues({ leap, core, dev, others, archive });
-  }, [responseData]);
-
-  return (
-    <div className="flex flex-col bg-gray-50 min-h-screen
-                    px-4 py-18 sm:px-8 md:px-16 lg:px-40">
-      <TeamTabs 
-      categorizedProjectIssuesData = {issues}
-      activeTab={activeTab}
-      setActiveTab={setActiveTab}/>
-
-      {/* Content */}
-      <div className="flex flex-col gap-4 border py-6 px-2 sm:px-4 bg-white">
-        {isLoading && <LoadingIndicator />}
-
-        {!responseData && !isLoading && (
-          <button onClick={handleClick} className="border p-2 w-fit">
-            Load Issues
-          </button>
-        )}
-
-        {issues &&
-          issues[activeTab].map((issue, index) => (
-            <IssueCard
-              key={issue.issueNumber}
-              issue={issue}
-              serialNumber={index + 1}
-            />
-          ))}
-      </div>
-    </div>
-  );
+    default:
+      return <ContributorView message="Lorem Ipsum" />;
+  }
 }
