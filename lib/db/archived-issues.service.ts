@@ -1,4 +1,4 @@
-import { db } from "@/firebaseConfig";
+import { db } from "@/lib/firebase/firebase.client";
 import { Issue } from "@/app/dashboard/dashboard.types";
 import {
   collection,
