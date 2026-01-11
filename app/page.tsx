@@ -33,7 +33,7 @@ export default function Home() {
             <div className="mt-10 flex flex-wrap items-center gap-4">
               <button
                 onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
-                className="inline-flex items-center gap-2 rounded-lg bg-linear-to-r from-emerald-500 to-teal-500 px-8 py-4 text-sm font-semibold text-white shadow-xl transition-all hover:-translate-y-0.5 hover:shadow-2xl focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
+                className="cursor-pointer inline-flex items-center gap-2 rounded-lg bg-linear-to-r from-emerald-500 to-teal-500 px-8 py-4 text-sm font-semibold text-white shadow-xl transition-all hover:-translate-y-0.5 hover:shadow-2xl focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
               >
                 Sign in with Google →
               </button>
@@ -171,7 +171,7 @@ export default function Home() {
 
           <button
             onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
-            className="mt-10 inline-flex items-center gap-2 rounded-lg bg-linear-to-r from-emerald-500 to-teal-500 px-8 py-4 text-sm font-semibold text-white shadow-xl transition-all hover:-translate-y-0.5 hover:shadow-2xl"
+            className="cursor-pointer mt-10 inline-flex items-center gap-2 rounded-lg bg-linear-to-r from-emerald-500 to-teal-500 px-8 py-4 text-sm font-semibold text-white shadow-xl transition-all hover:-translate-y-0.5 hover:shadow-2xl"
           >
             Sign in with Google →
           </button>

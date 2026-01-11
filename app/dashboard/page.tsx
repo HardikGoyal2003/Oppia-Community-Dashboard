@@ -14,7 +14,7 @@ export default async function DashboardPage() {
   const { role, isNewUser } = session.user;
 
   if (isNewUser) {
-    return <ContributorView message="Lorem Ipsum" />;
+    return <ContributorView message="I am new user" />;
   }
 
   switch (role) {
@@ -28,6 +28,6 @@ export default async function DashboardPage() {
       return <TeamMemberView />;
 
     default:
-      return <ContributorView message="Lorem Ipsum" />;
+      return <ContributorView message="This is contributor's view" />;
   }
 }
