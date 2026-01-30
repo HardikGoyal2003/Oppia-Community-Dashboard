@@ -7,9 +7,10 @@ import { LoadingIndicator } from "@/components/layout/loading-indicator";
 import { useLoading } from "@/components/providers/loader-context";
 import { TeamTabs } from "../components/team-tabs";
 import { CategorizedProjectIssues, Issue } from "../dashboard.types";
-import { getArchivedIssues, unarchiveIssue } from "../../../lib/db/archived-issues.service";
+import { getArchivedIssues } from "../../../lib/db/archived-issues.service";
 import { useProjectIssuesStore } from "../dashboard.store";
 import { categorizeIssues } from "../services/categorize-issues.service";
+import { fetchGithubIssues } from "../dashboard.action";
 
 export default function TeamLeadView() {
   const [responseData, setResponseData] = useState<{ issues: RawIssue[] } | null>(null);
@@ -25,10 +26,11 @@ export default function TeamLeadView() {
   const handleClick = async () => {
     startLoading();
     try {
-      const archivedIssues =  await getArchivedIssues();
+      const [archivedIssues, data] = await Promise.all([
+        getArchivedIssues(),
+        fetchGithubIssues()
+      ]) 
       setArchivedIssues(archivedIssues);
-      const res = await fetch("/api/dashboard");
-      const data = await res.json();
       setResponseData(data);
     } finally {
       stopLoading();
