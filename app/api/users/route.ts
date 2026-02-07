@@ -6,7 +6,7 @@ import { authOptions } from "@/lib/auth/auth.options";
 export async function GET() {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "TECH_LEAD") {
+  if (!session || !session.user || session.user.role !== "TECH_LEAD") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
@@ -17,7 +17,7 @@ export async function GET() {
 export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "TECH_LEAD") {
+  if (!session || !session.user || session.user.role !== "TECH_LEAD") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 

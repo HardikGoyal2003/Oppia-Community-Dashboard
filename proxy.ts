@@ -7,7 +7,12 @@ export default withAuth(
     const { pathname } = req.nextUrl;
     const token = (req as any).nextauth.token;
 
-    if (token && (pathname === "/" || pathname === "/login")) {
+    // Valid logged-in users should not access home or login
+    if (
+      token &&
+      !token.invalidUser &&
+      (pathname === "/" || pathname === "/login")
+    ) {
       return NextResponse.redirect(
         new URL("/dashboard", req.url)
       );
@@ -19,12 +24,15 @@ export default withAuth(
     callbacks: {
       authorized: ({ token, req }) => {
         const { pathname } = req.nextUrl;
+
+        // Public pages: always accessible
         if (pathname === "/" || pathname === "/login") {
           return true;
         }
 
+        // Protected routes: only valid users
         if (pathname.startsWith("/dashboard")) {
-          return !!token;
+          return !!token && !token.invalidUser;
         }
 
         return true;

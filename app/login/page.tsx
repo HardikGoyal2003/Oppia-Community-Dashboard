@@ -1,6 +1,6 @@
 "use client";
 
-import { signIn, useSession } from "next-auth/react";
+import { signIn, signOut, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -10,10 +10,15 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (status === "authenticated") {
+    if (status === "authenticated" && session?.user) {
       router.replace("/dashboard");
+      return;
     }
-  }, [status, router]);
+
+    if (status === "authenticated" && !session?.user) {
+      signOut({ redirect: false });
+    }
+  }, [status, session, router]);
 
   const handleSignIn = async () => {
     setLoading(true);
@@ -24,13 +29,10 @@ export default function LoginPage() {
     return null;
   }
 
-  if (session) return null;
-
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-slate-100">
       {/* Left Branding Panel */}
-      <div className="bg-[url('/login_form_banner.png')] bg-cover bg-center hidden lg:flex flex-col justify-between text-white p-12">
-      </div>
+      <div className="bg-[url('/login_form_banner.png')] bg-cover bg-center hidden lg:flex flex-col justify-between text-white p-12" />
 
       {/* Right Login Panel */}
       <div className="flex items-center justify-center px-6 py-12">
