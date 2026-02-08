@@ -14,7 +14,7 @@ const ROLES: UserRole[] = [
   "CONTRIBUTOR",
   "TEAM_MEMBER",
   "TEAM_LEAD",
-  "TECH_LEAD",
+  "ADMIN",
 ];
 
 export default function TechLeadView() {

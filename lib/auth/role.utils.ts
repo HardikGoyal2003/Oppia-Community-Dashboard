@@ -7,7 +7,7 @@ const ROLE_PRIORITY: UserRole[] = [
   "CONTRIBUTOR",
   "TEAM_MEMBER",
   "TEAM_LEAD",
-  "TECH_LEAD",
+  "ADMIN",
 ];
 
 /**
@@ -37,5 +37,5 @@ export function isRoleAllowed(
  * Useful for UI gating
  */
 export function isLead(role: UserRole): boolean {
-  return role === "TEAM_LEAD" || role === "TECH_LEAD";
+  return role === "TEAM_LEAD" || role === "ADMIN";
 }

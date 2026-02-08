@@ -5,6 +5,8 @@ import { archiveIssue } from "../../../lib/db/archived-issues.service";
 import { Issue } from "../dashboard.types";
 import { CategorizedProjectIssues } from "../dashboard.types";
 
+import { CONSTANTS } from "@/lib/contants";
+
 export function useArchiveIssue() {
   const moveIssue = useProjectIssuesStore((state) => state.moveIssue);
 
@@ -15,16 +17,16 @@ export function useArchiveIssue() {
 
     if (
       issue.linkedProject ===
-      "[Web] CORE Team (Creators, Operations, Reviewers and Editors)"
+      CONSTANTS.WEB_TEAMS.CORE
     ) {
       from = "core";
     } else if (
       issue.linkedProject ===
-      "[Web] LEAP Team (Learners, Educators, Allies, and Parents)"
+      CONSTANTS.WEB_TEAMS.LEAP
     ) {
       from = "leap";
     } else if (
-      issue.linkedProject === "[Web] Developer Workflow Team"
+      issue.linkedProject === CONSTANTS.WEB_TEAMS.DEV_WORKFLOW
     ) {
       from = "dev";
     } else {

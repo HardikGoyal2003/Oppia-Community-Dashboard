@@ -1,5 +1,8 @@
 "use client";
 
+import MemberRequestAccessModal from "../components/member-request-access-modal";
+
+
 export default function ContributorView({
   message = "Thanks for signing up! You’ll get access once you’re assigned to a team."
 }: {
@@ -35,14 +38,12 @@ export default function ContributorView({
           <p className="text-gray-500 mb-4">
             Request access to a team by filling out the form below:
           </p>
-          <a
-            href="/request-access" 
-            className="inline-block rounded-md border border-blue-600 bg-white px-5 py-2 text-blue-600 font-medium hover:bg-blue-50 transition"
-          >
-            Request Team Access
-          </a>
+          <MemberRequestAccessModal />
         </div>
+
       </div>
+
+
 
       {/* footer tips */}
       <p className="mt-8 text-gray-400 text-sm text-center max-w-md">

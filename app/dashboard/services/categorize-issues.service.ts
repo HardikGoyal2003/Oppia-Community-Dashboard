@@ -1,6 +1,7 @@
 import { RawIssue } from "@/lib/github/github-fetcher.types";
 import { CategorizedProjectIssues, Issue } from "../dashboard.types";
 import { unarchiveIssue } from "@/lib/db/archived-issues.service";
+import { CONSTANTS } from "@/lib/contants";
 
 export async function categorizeIssues(
   rawIssues: RawIssue[],
@@ -33,13 +34,13 @@ export async function categorizeIssues(
       const issue = { ...rawIssue, isArchived: false };
 
       switch (rawIssue.linkedProject) {
-        case "[Web] CORE Team (Creators, Operations, Reviewers and Editors)":
+        case CONSTANTS.WEB_TEAMS.CORE:
           result.core.push(issue);
           break;
-        case "[Web] LEAP Team (Learners, Educators, Allies, and Parents)":
+        case CONSTANTS.WEB_TEAMS.LEAP:
           result.leap.push(issue);
           break;
-        case "[Web] Developer Workflow Team":
+        case CONSTANTS.WEB_TEAMS.DEV_WORKFLOW:
           result.dev.push(issue);
           break;
         default:

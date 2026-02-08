@@ -24,7 +24,7 @@ export default async function DashboardPage() {
     case "TEAM_LEAD":
       return <TeamLeadView />;
 
-    case "TECH_LEAD":
+    case "ADMIN":
       return <TechLeadView />;
 
     case "TEAM_MEMBER":
