@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { UserRole } from "@/lib/auth/auth.types";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/layout/app-sidebar";
 
 type User = {
   id: string;
@@ -78,50 +80,63 @@ export default function TechLeadView() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 px-6 py-10">
-      <h1 className="mb-6 text-2xl font-semibold">
-        User Role Management
-      </h1>
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+          <div className="flex items-center gap-2 px-4">
+            <SidebarTrigger className="-ml-1" />
+          </div>
+        </header>
 
-      <div className="overflow-x-auto rounded border bg-white">
-        <table className="w-full text-sm">
-          <thead className="border-b bg-gray-100">
-            <tr>
-              <th className="p-3 text-left">Name</th>
-              <th className="p-3 text-left">Email</th>
-              <th className="p-3 text-left">Role</th>
-            </tr>
-          </thead>
+        <div className="min-h-screen bg-gray-50 px-6 py-10">
+          <h1 className="mb-6 text-2xl font-semibold">
+            User Role Management
+          </h1>
 
-          <tbody>
-            {users.map(user => (
-              <tr key={user.id} className="border-b">
-                <td className="p-3">{user.fullName}</td>
-                <td className="p-3">{user.email}</td>
-                <td className="p-3">
-                  <select
-                    value={user.role}
-                    disabled={updatingId === user.id}
-                    onChange={e =>
-                      handleRoleChange(
-                        user.id,
-                        e.target.value as UserRole
-                      )
-                    }
-                    className="border rounded px-2 py-1 disabled:opacity-50"
-                  >
-                    {ROLES.map(role => (
-                      <option key={role} value={role}>
-                        {role}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+          <div className="overflow-x-auto rounded border bg-white">
+            <table className="w-full text-sm">
+              <thead className="border-b bg-gray-100">
+                <tr>
+                  <th className="p-3 text-left">Name</th>
+                  <th className="p-3 text-left">Email</th>
+                  <th className="p-3 text-left">Role</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {users.map(user => (
+                  <tr key={user.id} className="border-b">
+                    <td className="p-3">{user.fullName}</td>
+                    <td className="p-3">{user.email}</td>
+                    <td className="p-3">
+                      <select
+                        value={user.role}
+                        disabled={updatingId === user.id}
+                        onChange={e =>
+                          handleRoleChange(
+                            user.id,
+                            e.target.value as UserRole
+                          )
+                        }
+                        className="border rounded px-2 py-1 disabled:opacity-50"
+                      >
+                        {ROLES.map(role => (
+                          <option key={role} value={role}>
+                            {role}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>        
+
+      </SidebarInset>
+    </SidebarProvider>
+
   );
 }
