@@ -2,9 +2,9 @@
 
 import * as React from "react"
 import {
-  Inbox,
   Bug,
-  Database,
+  Inbox,
+  Users,
 } from "lucide-react"
 
 import { NavProjects } from "./nav-projects"
@@ -16,7 +16,6 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 
-// This is sample data.
 const data = {
   user: {
     name: "shadcn",
@@ -30,9 +29,9 @@ const data = {
       icon: Inbox,
     },
     {
-      name: "Community Database",
+      name: "User Role Manager",
       url: "#",
-      icon: Database,
+      icon: Users,
     },
     {
       name: "Issue Responding",
