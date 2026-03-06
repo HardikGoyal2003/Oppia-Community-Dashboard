@@ -1,6 +1,6 @@
 "use client";
 
-import { useProjectIssuesStore } from "../dashboard.store";
+import { useProjectIssuesStore } from "../stores/project-issues.store";
 import { archiveIssue } from "../../../lib/db/archived-issues.service";
 import { Issue } from "../dashboard.types";
 import { CategorizedProjectIssues } from "../dashboard.types";

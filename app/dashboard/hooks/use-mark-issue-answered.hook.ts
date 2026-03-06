@@ -1,6 +1,6 @@
 "use client";
 
-import { useProjectIssuesStore } from "../dashboard.store";
+import { useProjectIssuesStore } from "../stores/project-issues.store";
 import { Issue } from "../dashboard.types";
 import { CategorizedProjectIssues } from "../dashboard.types";
 import { CONSTANTS } from "@/lib/contants";

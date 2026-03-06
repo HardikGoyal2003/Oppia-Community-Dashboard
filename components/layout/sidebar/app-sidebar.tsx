@@ -7,8 +7,8 @@ import {
   Users,
 } from "lucide-react"
 
-import { NavProjects } from "./nav-projects"
-import { NavUser } from "./nav-user"
+import { SideBarTabs } from "./sidebar-tabs"
+import { SideBarUser } from "./sidebar-user"
 import {
   Sidebar,
   SidebarContent,
@@ -25,17 +25,14 @@ const data = {
   projects: [
     {
       name: "Incoming Requests",
-      url: "#",
       icon: Inbox,
     },
     {
       name: "User Role Manager",
-      url: "#",
       icon: Users,
     },
     {
-      name: "Issue Responding",
-      url: "#",
+      name: "Unanswered Issue",
       icon: Bug,
     },
   ],
@@ -45,10 +42,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarContent>
-        <NavProjects projects={data.projects} />
+        <SideBarTabs projects={data.projects} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <SideBarUser user={data.user} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

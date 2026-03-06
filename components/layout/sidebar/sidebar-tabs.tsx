@@ -1,52 +1,40 @@
 "use client"
 
 import {
-  Folder,
-  Forward,
-  MoreHorizontal,
-  Trash2,
   type LucideIcon,
 } from "lucide-react"
 
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarMenu,
-  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
 } from "@/components/ui/sidebar"
 
-export function NavProjects({
+import { useActiveSidebarTab } from "../../../app/dashboard/stores/sidebar.store";
+
+export function SideBarTabs({
   projects,
 }: {
   projects: {
     name: string
-    url: string
     icon: LucideIcon
   }[]
 }) {
-  const { isMobile } = useSidebar()
+  const updateActiveSidebarTab = useActiveSidebarTab((state) => state.updateActiveSidebarTab);
 
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Modes</SidebarGroupLabel>
       <SidebarMenu>
         {projects.map((item) => (
-          <SidebarMenuItem key={item.name}>
+          <SidebarMenuItem key={item.name} onClick={()=>updateActiveSidebarTab(item.name)}>
             <SidebarMenuButton asChild tooltip={item.name}>
-              <a href={item.url}>
+              <div>
                 <item.icon />
                 <span>{item.name}</span>
-              </a>
+              </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
         ))}
@@ -54,3 +42,4 @@ export function NavProjects({
     </SidebarGroup>
   )
 }
+
