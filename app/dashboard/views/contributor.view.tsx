@@ -13,7 +13,7 @@ export default function ContributorView({
       {/* Welcome Card */}
       <div className="max-w-2xl w-full rounded-lg border bg-white p-8 shadow-md text-center">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Welcome to Oppia Leads Dashboard 👋
+          Welcome to Oppia Community Dashboard 👋
         </h1>
         <p className="text-gray-600 mb-6">{message}</p>
 

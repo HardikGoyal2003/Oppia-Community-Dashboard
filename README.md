@@ -1,4 +1,4 @@
-# Oppia Leads Dashboard
+# Oppia Community Dashboard
 
 ## Local Firestore Emulator
 
