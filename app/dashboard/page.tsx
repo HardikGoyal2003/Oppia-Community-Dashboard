@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import { redirect } from "next/navigation";
+import { Navbar } from "@/components/layout/navbar";
 
 import TeamLeadView from "./views/team-lead.view";
 import ContributorView from "./views/contributor.view";
@@ -16,17 +17,33 @@ export default async function DashboardPage() {
 
   const { role } = session.user;
 
+  if (role === "ADMIN") {
+    return <TechLeadView />;
+  }
+
   switch (role) {
     case "TEAM_LEAD":
-      return <TeamLeadView />;
-
-    case "ADMIN":
-      return <TechLeadView />;
+      return (
+        <div className="min-h-screen bg-gray-50">
+          <Navbar />
+          <TeamLeadView />
+        </div>
+      );
 
     case "TEAM_MEMBER":
-      return <TeamMemberView />;
+      return (
+        <div className="min-h-screen bg-gray-50">
+          <Navbar />
+          <TeamMemberView />
+        </div>
+      );
 
     default:
-      return <ContributorView />;
+      return (
+        <div className="min-h-screen bg-gray-50">
+          <Navbar />
+          <ContributorView />
+        </div>
+      );
   }
 }
