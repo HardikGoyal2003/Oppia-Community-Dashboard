@@ -102,11 +102,13 @@ export default function MemberRequestAccessModal() {
                     <SelectValue placeholder="Select your role" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(CONSTANTS.ROLES).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>
-                        {label}
-                      </SelectItem>
-                    ))}
+                    {Object.entries(CONSTANTS.ROLES)
+                      .filter(([, label]) => label !== CONSTANTS.ROLES.CONTRIBUTOR)
+                      .map(([key, label]) => (
+                        <SelectItem key={key} value={key}>
+                          {label}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </Field>
