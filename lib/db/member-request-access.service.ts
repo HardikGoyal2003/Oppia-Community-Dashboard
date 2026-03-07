@@ -38,8 +38,8 @@ export async function getMemberAccessRequests(): Promise<MemberAccessRequestsMod
   }
 
   const data = snap.data() as {
-    pending?: FirestoreMemberAccessRequest[];
-    responded?: FirestoreMemberAccessRequest[];
+    pending: FirestoreMemberAccessRequest[];
+    responded: FirestoreMemberAccessRequest[];
   };
 
   return {
@@ -60,8 +60,8 @@ export async function submitMemberAccessRequest(
 
     const existing = snap.exists
       ? (snap.data() as {
-          pending?: FirestoreMemberAccessRequest[];
-          responded?: FirestoreMemberAccessRequest[];
+          pending: FirestoreMemberAccessRequest[];
+          responded: FirestoreMemberAccessRequest[];
         })
       : { pending: [], responded: [] };
 
