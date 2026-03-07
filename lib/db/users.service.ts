@@ -1,6 +1,7 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { UserRole, UserModel } from "@/lib/auth/auth.types";
 import { Timestamp } from "firebase-admin/firestore";
+import { normalizeNotifications } from "../utils/notifications.utils";
 
 const USERS_COLLECTION = "users";
 
@@ -44,6 +45,7 @@ export async function getUserById(
   return {
     ...data,
     createdAt: data.createdAt.toDate(),
+    notifications: normalizeNotifications(data.notifications),
   } as UserModel;
 }
 
@@ -65,6 +67,7 @@ export async function getAllUsers(): Promise<
       id: doc.id,
       ...(data as UserModel),
       createdAt: data.createdAt.toDate(),
+      notifications: normalizeNotifications(data.notifications),
     };
   });
 }

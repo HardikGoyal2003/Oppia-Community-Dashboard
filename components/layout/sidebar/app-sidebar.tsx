@@ -8,20 +8,13 @@ import {
 } from "lucide-react"
 
 import { SideBarTabs } from "./sidebar-tabs"
-import { SideBarUser } from "./sidebar-user"
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarRail,
 } from "@/components/ui/sidebar"
 
 const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
   projects: [
     {
       name: "Incoming Requests",
@@ -44,9 +37,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarContent>
         <SideBarTabs projects={data.projects} />
       </SidebarContent>
-      <SidebarFooter>
-        <SideBarUser user={data.user} />
-      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   )

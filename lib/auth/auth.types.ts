@@ -6,6 +6,12 @@ export type UserRole =
   | "TEAM_MEMBER"
   | "CONTRIBUTOR";
 
+export interface Notification {
+  message: string;
+  createdAt: Date;
+  read: boolean;
+}
+
 export interface UserModel {
   email: string;
   fullName: string;
@@ -13,6 +19,7 @@ export interface UserModel {
   role: UserRole;
   team: string | null;
   createdAt: Date;
+  notifications: Notification[];
 }
 
 /**
@@ -24,5 +31,12 @@ declare module "next-auth" {
       role: UserRole;
       team: string | null;
     } & DefaultSession["user"];
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    invalidUser?: boolean;
+    userId?: string;
   }
 }
