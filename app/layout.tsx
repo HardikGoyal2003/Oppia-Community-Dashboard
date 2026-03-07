@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Oppia Leads Dashboard",
+  title: "Oppia Community Dashboard",
   description:
     "Dashboard for easy tracking of individual and team progress on Oppia.",
 };

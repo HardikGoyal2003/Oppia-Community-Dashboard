@@ -42,7 +42,7 @@ export default function LoginPage() {
               Sign in
             </h2>
             <p className="text-slate-500 mt-1">
-              Access your Oppia Leads dashboard
+              Access your Oppia Community dashboard
             </p>
           </div>
 
