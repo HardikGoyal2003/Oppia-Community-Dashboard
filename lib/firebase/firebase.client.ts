@@ -8,6 +8,9 @@ declare global {
   var __firestoreEmulatorConnected: boolean | undefined;
 }
 
+const useFirestoreEmulator =
+  process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === "true";
+
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -21,9 +24,6 @@ const app = getApps().length
   ? getApp()
   : initializeApp(firebaseConfig);
 const db = getFirestore(app);
-
-const useFirestoreEmulator =
-  process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === "true";
 
 const firestoreEmulatorHost =
   process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST || "127.0.0.1";
