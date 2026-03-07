@@ -1,7 +1,10 @@
 import GoogleProvider from "next-auth/providers/google";
-import { createUserIfNotExists, getUserById } from "@/lib/db/users.service";
+import {
+  createUserIfNotExists,
+  getUserById,
+} from "@/lib/db/users.service";
 import type { JWT } from "next-auth/jwt";
-import type { Session, User } from "next-auth";
+import type { Account, Session, User } from "next-auth";
 import { UserRole } from "./auth.types";
 
 export const authOptions = {
@@ -15,10 +18,20 @@ export const authOptions = {
   ],
 
   callbacks: {
-    async signIn({ user }: { user: User }) {
+    async signIn({
+      user,
+      account,
+    }: {
+      user: User;
+      account: Account | null;
+    }) {
       if (!user.email) return false;
 
-      await createUserIfNotExists(user.email, {
+      const subjectId = account?.providerAccountId;
+
+      if (!subjectId) return false;
+
+      await createUserIfNotExists(subjectId, {
         email: user.email,
         fullName: user.name ?? "",
         photoURL: user.image ?? "",
@@ -31,15 +44,19 @@ export const authOptions = {
     },
 
     async jwt({ token }: { token: JWT }) {
-      if (!token.email) {
+      if (!token.sub) {
         token.invalidUser = true;
         return token;
       }
 
-      const dbUser = await getUserById(token.email);
+      token.userId = token.sub;
+
+      const dbUser = await getUserById(token.sub);
 
       if (!dbUser) {
         token.invalidUser = true;
+      } else {
+        token.invalidUser = false;
       }
 
       return token;
@@ -60,7 +77,17 @@ export const authOptions = {
         };
       }
 
-      const dbUser = await getUserById(token.email!);
+      const userId = token.userId ?? token.sub;
+
+      if (!userId) {
+        return {
+          ...session,
+          user: undefined,
+          expires: session.expires,
+        };
+      }
+
+      const dbUser = await getUserById(userId);
 
       if (dbUser) {
         session.user.role = dbUser.role as UserRole;
