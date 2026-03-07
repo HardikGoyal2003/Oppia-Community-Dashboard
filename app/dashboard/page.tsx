@@ -14,11 +14,7 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const { role, isNewUser } = session.user;
-
-  if (isNewUser) {
-    return <ContributorView />;
-  }
+  const { role } = session.user;
 
   switch (role) {
     case "TEAM_LEAD":
