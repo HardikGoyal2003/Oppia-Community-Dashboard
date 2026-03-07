@@ -64,8 +64,6 @@ export const authOptions = {
       if (dbUser) {
         session.user.role = dbUser.role as UserRole;
         session.user.team = dbUser.team ?? null;
-        session.user.isNewUser =
-          Date.now() - dbUser.createdAt.getTime() < 1000 * 60 * 5;
       }
 
       return session;

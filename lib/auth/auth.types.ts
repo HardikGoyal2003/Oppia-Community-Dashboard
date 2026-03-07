@@ -23,7 +23,6 @@ declare module "next-auth" {
     user: {
       role: UserRole;
       team: string | null;
-      isNewUser: boolean;
     } & DefaultSession["user"];
   }
 }
