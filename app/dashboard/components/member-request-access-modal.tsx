@@ -26,27 +26,41 @@ import {
 
 import { CONSTANTS } from "@/lib/contants";
 import { useState } from "react";
+import { submitMemberAccessRequestAction } from "../dashboard.action";
 
 export default function MemberRequestAccessModal() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMessage(null);
 
     const formData = new FormData(e.currentTarget);
-    const username = formData.get("username");
-    const team = formData.get("team");
-    const role = formData.get("role");
-    const notes = formData.get("notes");
+    const username = formData.get("username")!.toString() ;
+    const team = formData.get("team")!.toString();
+    const role = formData.get("role")!.toString();
+    const note = formData.get("notes")?.toString() ?? "";
 
-    // Simulate API call
-    setTimeout(() => {
-      console.log("Request access:", { username, team, role, notes });
-      setLoading(false);
+    try {
+      await submitMemberAccessRequestAction({
+        username,
+        team,
+        role,
+        note,
+      });
       setIsSubmitted(true);
-    }, 2000);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to submit access request."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -135,6 +149,12 @@ export default function MemberRequestAccessModal() {
                 />
               </Field>
             </FieldGroup>
+
+            {errorMessage && (
+              <p className="mt-3 text-sm text-red-600">
+                {errorMessage}
+              </p>
+            )}
 
             <DialogFooter className="mt-6">
               <DialogClose asChild>
