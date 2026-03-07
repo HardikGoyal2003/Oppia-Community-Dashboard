@@ -1,5 +1,12 @@
-import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getApp, getApps, initializeApp } from "firebase/app";
+import {
+  connectFirestoreEmulator,
+  getFirestore,
+} from "firebase/firestore";
+
+declare global {
+  var __firestoreEmulatorConnected: boolean | undefined;
+}
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -10,7 +17,31 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = initializeApp(firebaseConfig);
+const app = getApps().length
+  ? getApp()
+  : initializeApp(firebaseConfig);
 const db = getFirestore(app);
+
+const useFirestoreEmulator =
+  process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === "true";
+
+const firestoreEmulatorHost =
+  process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST || "127.0.0.1";
+
+const firestoreEmulatorPort = Number(
+  process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_PORT || "8080"
+);
+
+if (
+  useFirestoreEmulator &&
+  !globalThis.__firestoreEmulatorConnected
+) {
+  connectFirestoreEmulator(
+    db,
+    firestoreEmulatorHost,
+    firestoreEmulatorPort
+  );
+  globalThis.__firestoreEmulatorConnected = true;
+}
 
 export { db };
