@@ -24,6 +24,7 @@ export const authOptions = {
         photoURL: user.image ?? "",
         role: "CONTRIBUTOR",
         team: null,
+        notifications: [],
       });
 
       return true;

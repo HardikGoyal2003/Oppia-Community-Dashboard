@@ -6,6 +6,7 @@ const USERS_COLLECTION = "users";
 
 const db = getAdminFirestore();
 
+
 /**
  * Create user on first login (idempotent)
  */
@@ -44,6 +45,7 @@ export async function getUserById(
   return {
     ...data,
     createdAt: data.createdAt.toDate(),
+    notifications: data.notifications,
   } as UserModel;
 }
 
@@ -65,6 +67,7 @@ export async function getAllUsers(): Promise<
       id: doc.id,
       ...(data as UserModel),
       createdAt: data.createdAt.toDate(),
+      notifications: data.notifications,
     };
   });
 }
