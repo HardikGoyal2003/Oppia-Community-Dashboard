@@ -108,6 +108,49 @@ export async function updateUserRole(
     });
 }
 
+export async function updateUserRoleTeamAndNotifyByUid(
+  uid: string,
+  role: UserRole,
+  team: string | null,
+  reason: string,
+  changedByEmail?: string
+): Promise<void> {
+  const ref = db.collection(USERS_COLLECTION).doc(uid);
+  const snap = await ref.get();
+
+  if (!snap.exists) {
+    throw new Error("User not found.");
+  }
+
+  const data = snap.data() as Partial<UserModel>;
+  const notifications = normalizeNotifications(
+    (data.notifications ?? []) as Notification[]
+  );
+
+  const roleLabel = role.replace("_", " ");
+  const teamLabel = team ?? "Unassigned";
+  const actor = changedByEmail ?? "Admin";
+
+  const message = [
+    `Your access details were updated by ${actor}.`,
+    `New role: ${roleLabel}`,
+    `New team: ${teamLabel}`,
+    `Reason: ${reason}`,
+  ].join("\n");
+
+  notifications.push({
+    message,
+    createdAt: new Date(),
+    read: false,
+  });
+
+  await ref.update({
+    role,
+    team,
+    notifications: serializeNotifications(notifications),
+  });
+}
+
 export async function updateUserRoleAndTeamByEmail(
   email: string,
   role: UserRole,
@@ -165,6 +208,46 @@ export async function appendUserNotificationByEmail(
     createdAt: new Date(),
     read: false,
   });
+
+  await docRef.update({
+    notifications: serializeNotifications(notifications),
+  });
+}
+
+export async function getNotificationsByEmail(
+  email: string
+): Promise<Notification[]> {
+  const userDoc = await getUserDocRefByEmail(email);
+  const data = userDoc.data();
+
+  return normalizeNotifications(
+    (data.notifications ?? []) as Notification[]
+  );
+}
+
+export async function markNotificationAsReadByEmail(
+  email: string,
+  notificationIndex: number
+): Promise<void> {
+  const userDoc = await getUserDocRefByEmail(email);
+  const docRef = userDoc.ref;
+  const data = userDoc.data();
+
+  const notifications = normalizeNotifications(
+    (data.notifications ?? []) as Notification[]
+  );
+
+  if (
+    notificationIndex < 0 ||
+    notificationIndex >= notifications.length
+  ) {
+    throw new Error("Notification index out of bounds.");
+  }
+
+  notifications[notificationIndex] = {
+    ...notifications[notificationIndex],
+    read: true,
+  };
 
   await docRef.update({
     notifications: serializeNotifications(notifications),

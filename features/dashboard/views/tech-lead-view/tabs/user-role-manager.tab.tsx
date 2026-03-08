@@ -2,12 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { UserRole } from "@/lib/auth/auth.types";
+import { CONSTANTS } from "@/lib/contants";
+import { UserUpdateReasonModal } from "../components/user-update-reason-modal";
 
 type User = {
   id: string;
   fullName: string;
   email: string;
   role: UserRole;
+  team: string | null;
+};
+
+type PendingUpdate = {
+  userId: string;
+  userName: string;
+  role: UserRole;
+  team: string | null;
 };
 
 const ROLES: UserRole[] = [
@@ -17,10 +27,13 @@ const ROLES: UserRole[] = [
   "ADMIN",
 ];
 
-export function UserRoleManagerTab({...prop}) {
+const TEAMS = Object.keys(CONSTANTS.WEB_TEAMS);
+
+export function UserRoleManagerTab() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [pendingUpdate, setPendingUpdate] = useState<PendingUpdate | null>(null);
 
   useEffect(() => {
     async function loadUsers() {
@@ -29,7 +42,7 @@ export function UserRoleManagerTab({...prop}) {
         if (!res.ok) {
           throw new Error("Unauthorized");
         }
-        const data = await res.json();
+        const data = (await res.json()) as User[];
         setUsers(data);
       } catch (err) {
         console.error(err);
@@ -41,11 +54,31 @@ export function UserRoleManagerTab({...prop}) {
     loadUsers();
   }, []);
 
-  const handleRoleChange = async (
-    userId: string,
-    role: UserRole
+  const openUpdateModal = (
+    user: User,
+    role: UserRole,
+    team: string | null
   ) => {
-    setUpdatingId(userId);
+    if (user.role === role && user.team === team) {
+      return;
+    }
+
+    setPendingUpdate({
+      userId: user.id,
+      userName: user.fullName || user.email,
+      role,
+      team,
+    });
+  };
+
+  const closeUpdateModal = () => {
+    setPendingUpdate(null);
+  };
+
+  const submitUpdate = async (reason: string) => {
+    if (!pendingUpdate) return;
+
+    setUpdatingId(pendingUpdate.userId);
 
     try {
       const res = await fetch("/api/users", {
@@ -53,21 +86,34 @@ export function UserRoleManagerTab({...prop}) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ uid: userId, role }),
+        body: JSON.stringify({
+          uid: pendingUpdate.userId,
+          role: pendingUpdate.role,
+          team: pendingUpdate.team,
+          reason,
+        }),
       });
 
       if (!res.ok) {
-        throw new Error("Failed to update role");
+        throw new Error("Failed to update user.");
       }
 
       setUsers(prev =>
-        prev.map(u =>
-          u.id === userId ? { ...u, role } : u
+        prev.map(user =>
+          user.id === pendingUpdate.userId
+            ? {
+                ...user,
+                role: pendingUpdate.role,
+                team: pendingUpdate.team,
+              }
+            : user
         )
       );
-    } catch (err) {
-      console.error(err);
-      alert("Failed to update role");
+
+      closeUpdateModal();
+    } catch (error) {
+      console.error(error);
+      alert("Failed to update user.");
     } finally {
       setUpdatingId(null);
     }
@@ -77,35 +123,60 @@ export function UserRoleManagerTab({...prop}) {
     return <p className="p-6">Loading users...</p>;
   }
 
-  return(
+  return (
     <>
       <h1 className="mb-6 text-2xl font-semibold">
-        User Role Management
+        User Role Manager
       </h1>
 
       <div className="overflow-x-auto rounded border bg-white">
         <table className="w-full text-sm">
           <thead className="border-b bg-gray-100">
             <tr>
+              <th className="p-3 text-left">S.No.</th>
               <th className="p-3 text-left">Name</th>
               <th className="p-3 text-left">Email</th>
+              <th className="p-3 text-left">Team</th>
               <th className="p-3 text-left">Role</th>
             </tr>
           </thead>
 
           <tbody>
-            {users.map(user => (
+            {users.map((user, index) => (
               <tr key={user.id} className="border-b">
+                <td className="p-3">{index + 1}</td>
                 <td className="p-3">{user.fullName}</td>
                 <td className="p-3">{user.email}</td>
+                <td className="p-3">
+                  <select
+                    value={user.team ?? ""}
+                    disabled={updatingId === user.id}
+                    onChange={e =>
+                      openUpdateModal(
+                        user,
+                        user.role,
+                        e.target.value || null
+                      )
+                    }
+                    className="border rounded px-2 py-1 disabled:opacity-50"
+                  >
+                    <option value="">Unassigned</option>
+                    {TEAMS.map(team => (
+                      <option key={team} value={team}>
+                        {team}
+                      </option>
+                    ))}
+                  </select>
+                </td>
                 <td className="p-3">
                   <select
                     value={user.role}
                     disabled={updatingId === user.id}
                     onChange={e =>
-                      handleRoleChange(
-                        user.id,
-                        e.target.value as UserRole
+                      openUpdateModal(
+                        user,
+                        e.target.value as UserRole,
+                        user.team
                       )
                     }
                     className="border rounded px-2 py-1 disabled:opacity-50"
@@ -122,6 +193,18 @@ export function UserRoleManagerTab({...prop}) {
           </tbody>
         </table>
       </div>
+
+      <UserUpdateReasonModal
+        open={Boolean(pendingUpdate)}
+        loading={Boolean(updatingId)}
+        userName={pendingUpdate?.userName ?? "User"}
+        onOpenChange={open => {
+          if (!open) {
+            closeUpdateModal();
+          }
+        }}
+        onSubmit={submitUpdate}
+      />
     </>
-  )
+  );
 }

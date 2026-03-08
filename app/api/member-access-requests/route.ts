@@ -5,21 +5,13 @@ import {
   getMemberAccessRequests,
   resolveMemberAccessRequest,
 } from "@/db/member-request-access/member-request-access.db";
-import { MemberAccessDecision } from "@/db/member-request-access/member-request-access.types";
 import {
   appendUserNotificationByEmail,
   updateUserRoleTeamAndNotifyByEmail,
 } from "@/db/users.db";
 import { UserRole } from "@/lib/auth/auth.types";
+import { isValidUserRole } from "@/lib/utils/roles.utils";
 
-function isValidUserRole(role: string): role is UserRole {
-  return [
-    "CONTRIBUTOR",
-    "TEAM_MEMBER",
-    "TEAM_LEAD",
-    "ADMIN",
-  ].includes(role);
-}
 
 function getPromotionMessage(role: UserRole, team: string): string {
   const roleLabel = role.replace("_", " ");
@@ -38,11 +30,10 @@ function getPromotionMessage(role: UserRole, team: string): string {
 
 function getDeclineMessage(reason: string): string {
   return [
-    "Thank you for your request.",
-    "At this moment, we are unable to approve it.",
+    "Thank you for your request. At this moment, we are unable to approve it.",
     `Reason: ${reason}`,
     "Please refine your request and apply again. We appreciate your interest in contributing with us.",
-  ].join(" ");
+  ].join("\n");
 }
 
 export async function GET() {
