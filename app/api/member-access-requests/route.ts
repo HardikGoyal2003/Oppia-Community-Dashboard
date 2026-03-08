@@ -66,7 +66,8 @@ export async function PATCH(req: Request) {
   const body = await req.json();
   const email = body.email.trim();
   const decision = body.decision.trim();
-  const reason = body.reason.trim();
+  const reason =
+    typeof body.reason === "string" ? body.reason.trim() : "";
 
   if (!email || !decision || !["ACCEPT", "DECLINE"].includes(decision)) {
     return NextResponse.json(
