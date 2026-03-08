@@ -1,4 +1,4 @@
-import { RawIssue, RawIssueNode } from "../github-fetcher.types";
+import { RawIssue, RawIssueNode } from "../github/github.types";
 
 export function formatIssues(rawData: RawIssueNode[]): RawIssue[] {
   return rawData.map(issue => ({

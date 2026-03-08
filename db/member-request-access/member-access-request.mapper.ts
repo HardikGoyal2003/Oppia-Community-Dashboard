@@ -1,5 +1,5 @@
 import { Timestamp } from "firebase-admin/firestore";
-import type { MemberAccessRequestModel } from "@/lib/db/member-request-access.service";
+import type { MemberAccessRequestModel } from "@/db/member-request-access/member-request-access.db";
 
 export type FirestoreMemberAccessRequest = Omit<
   MemberAccessRequestModel,

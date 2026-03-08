@@ -3,7 +3,7 @@ import {
   FirestoreMemberAccessRequest,
   normalizeMemberAccessRequest,
   serializeMemberAccessRequest,
-} from "@/lib/utils/member-access-request.utils";
+} from "@/db/member-request-access/member-access-request.mapper";
 
 const MEMBER_ACCESS_REQUESTS_COLLECTION = "memberAccessRequests";
 const MEMBER_ACCESS_REQUESTS_DOC_ID = "requests";

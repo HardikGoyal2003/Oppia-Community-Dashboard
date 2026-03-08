@@ -2,7 +2,7 @@ import GoogleProvider from "next-auth/providers/google";
 import {
   createUserIfNotExists,
   getUserById,
-} from "@/lib/db/users.service";
+} from "@/db/users.db";
 import type { JWT } from "next-auth/jwt";
 import type { Account, Session, User } from "next-auth";
 import { UserRole } from "./auth.types";

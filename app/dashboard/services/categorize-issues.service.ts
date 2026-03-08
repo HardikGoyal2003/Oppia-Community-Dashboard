@@ -1,6 +1,6 @@
-import { RawIssue } from "@/lib/github/github-fetcher.types";
+import { RawIssue } from "@/lib/github/github.types";
 import { CategorizedProjectIssues, Issue } from "../dashboard.types";
-import { unarchiveIssue } from "@/lib/db/archived-issues.service";
+import { unarchiveIssue } from "@/db/archived-issues.db";
 import { CONSTANTS } from "@/lib/contants";
 
 export async function categorizeIssues(
