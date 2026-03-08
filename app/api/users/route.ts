@@ -1,7 +1,20 @@
 import { NextResponse } from "next/server";
-import { getAllUsers, updateUserRole } from "@/db/users.db";
+import {
+  getAllUsers,
+  updateUserRoleTeamAndNotifyByUid,
+} from "@/db/users.db";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
+import { UserRole } from "@/lib/auth/auth.types";
+
+function isValidUserRole(role: string): role is UserRole {
+  return [
+    "CONTRIBUTOR",
+    "TEAM_MEMBER",
+    "TEAM_LEAD",
+    "ADMIN",
+  ].includes(role);
+}
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -21,8 +34,30 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  const { uid, role } = await req.json();
-  await updateUserRole(uid, role);
+  const body = await req.json();
+  const uid =
+    typeof body.uid === "string" ? body.uid.trim() : "";
+  const role =
+    typeof body.role === "string" ? body.role.trim() : "";
+  const team =
+    typeof body.team === "string" ? body.team.trim() : null;
+  const reason =
+    typeof body.reason === "string" ? body.reason.trim() : "";
+
+  if (!uid || !role || !isValidUserRole(role) || !reason) {
+    return NextResponse.json(
+      { error: "Invalid payload for user update." },
+      { status: 400 }
+    );
+  }
+
+  await updateUserRoleTeamAndNotifyByUid(
+    uid,
+    role,
+    team,
+    reason,
+    session.user.email ?? undefined
+  );
 
   return NextResponse.json({ success: true });
 }

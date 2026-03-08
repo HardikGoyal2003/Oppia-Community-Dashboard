@@ -108,6 +108,49 @@ export async function updateUserRole(
     });
 }
 
+export async function updateUserRoleTeamAndNotifyByUid(
+  uid: string,
+  role: UserRole,
+  team: string | null,
+  reason: string,
+  changedByEmail?: string
+): Promise<void> {
+  const ref = db.collection(USERS_COLLECTION).doc(uid);
+  const snap = await ref.get();
+
+  if (!snap.exists) {
+    throw new Error("User not found.");
+  }
+
+  const data = snap.data() as Partial<UserModel>;
+  const notifications = normalizeNotifications(
+    (data.notifications ?? []) as Notification[]
+  );
+
+  const roleLabel = role.replace("_", " ");
+  const teamLabel = team ?? "Unassigned";
+  const actor = changedByEmail ?? "Admin";
+
+  const message = [
+    `Your access details were updated by ${actor}.`,
+    `New role: ${roleLabel}`,
+    `New team: ${teamLabel}`,
+    `Reason: ${reason}`,
+  ].join("\n");
+
+  notifications.push({
+    message,
+    createdAt: new Date(),
+    read: false,
+  });
+
+  await ref.update({
+    role,
+    team,
+    notifications: serializeNotifications(notifications),
+  });
+}
+
 export async function updateUserRoleAndTeamByEmail(
   email: string,
   role: UserRole,
