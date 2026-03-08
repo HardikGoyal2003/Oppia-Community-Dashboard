@@ -1,4 +1,4 @@
-import { RawIssueNode, User } from "../github-fetcher.types";
+import { RawIssueNode, User } from "./github.types";
 
 const TOKEN = process.env.GITHUB_TOKEN!;
 const ORG = process.env.ORG_NAME!;

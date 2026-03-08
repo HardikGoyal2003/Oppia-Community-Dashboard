@@ -1,11 +1,11 @@
 "use server";
 
-import { main } from "@/lib/github/scripts/github-issues.fetcher";
-import { formatIssues } from "@/lib/github/service/ format-issues.service";
-import { RawIssue, RawIssueNode } from "@/lib/github/github-fetcher.types";
+import { main } from "@/lib/github/github.fetcher";
+import { formatIssues } from "@/lib/utils/ format-issues.utils";
+import { RawIssue, RawIssueNode } from "@/lib/github/github.types";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
-import { submitMemberAccessRequest } from "@/db/member-request-access.db";
+import { submitMemberAccessRequest } from "@/db/member-request-access/member-request-access.db";
 
 export async function fetchGithubIssues(): Promise<{ issues: RawIssue[] }> {
   try {
