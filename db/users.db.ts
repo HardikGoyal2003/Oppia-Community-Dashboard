@@ -1,7 +1,14 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
-import { UserRole, UserModel } from "@/lib/auth/auth.types";
+import {
+  Notification,
+  UserRole,
+  UserModel,
+} from "@/lib/auth/auth.types";
 import { Timestamp } from "firebase-admin/firestore";
-import { normalizeNotifications } from "./notifications/notifications.mapper";
+import {
+  normalizeNotifications,
+  serializeNotifications,
+} from "./notifications/notifications.mapper";
 
 const USERS_COLLECTION = "users";
 
@@ -105,5 +112,41 @@ export async function updateUserRoleAndTeamByEmail(
   await snapshot.docs[0].ref.update({
     role,
     team,
+  });
+}
+
+export async function updateUserRoleTeamAndNotifyByEmail(
+  email: string,
+  role: UserRole,
+  team: string,
+  message: string
+): Promise<void> {
+  const snapshot = await db
+    .collection(USERS_COLLECTION)
+    .where("email", "==", email)
+    .limit(1)
+    .get();
+
+  if (snapshot.empty) {
+    throw new Error("User not found for member access request.");
+  }
+
+  const docRef = snapshot.docs[0].ref;
+  const data = snapshot.docs[0].data() as Partial<UserModel>;
+
+  const notifications = normalizeNotifications(
+    (data.notifications ?? []) as Notification[]
+  );
+
+  notifications.push({
+    message,
+    createdAt: new Date(),
+    read: false,
+  });
+
+  await docRef.update({
+    role,
+    team,
+    notifications: serializeNotifications(notifications),
   });
 }

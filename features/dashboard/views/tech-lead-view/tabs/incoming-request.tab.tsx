@@ -127,7 +127,7 @@ export function IncomingRequestTab() {
                   <td className="p-3">
                     <div className="flex gap-2">
                       <button
-                        className="rounded bg-green-600 px-3 py-1 text-white disabled:opacity-60"
+                        className="rounded bg-green-600 px-3 py-1 cursor-pointer text-white disabled:opacity-60"
                         disabled={updatingEmail === request.email}
                         onClick={() =>
                           handleDecision(request.email, "ACCEPT")
@@ -136,7 +136,7 @@ export function IncomingRequestTab() {
                         Accept
                       </button>
                       <button
-                        className="rounded bg-red-600 px-3 py-1 text-white disabled:opacity-60"
+                        className="rounded bg-red-600 px-3 py-1  cursor-pointer text-white disabled:opacity-60"
                         disabled={updatingEmail === request.email}
                         onClick={() =>
                           handleDecision(request.email, "DECLINE")

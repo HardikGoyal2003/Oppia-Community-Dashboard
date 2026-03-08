@@ -7,7 +7,7 @@ import {
 } from "@/db/member-request-access/member-request-access.db";
 import { MemberAccessDecision } from "@/db/member-request-access/member-request-access.types";
 import {
-  updateUserRoleAndTeamByEmail,
+  updateUserRoleTeamAndNotifyByEmail,
 } from "@/db/users.db";
 import { UserRole } from "@/lib/auth/auth.types";
 
@@ -18,6 +18,21 @@ function isValidUserRole(role: string): role is UserRole {
     "TEAM_LEAD",
     "ADMIN",
   ].includes(role);
+}
+
+function getPromotionMessage(role: UserRole, team: string): string {
+  const roleLabel = role.replace("_", " ");
+
+  switch (role) {
+    case "TEAM_MEMBER":
+      return `Great news! You are now a ${roleLabel} on ${team}. We're really happy to have you onboard.`;
+    case "TEAM_LEAD":
+      return `Amazing! You have been promoted to ${roleLabel} on ${team}. We're truly excited to have you leading with us onboard.`;
+    case "ADMIN":
+      return `Outstanding! You have been promoted to ${roleLabel} on ${team}. We're incredibly grateful and thrilled to have you onboard in this key role.`;
+    default:
+      return `Welcome! Your access request has been approved and your role is now ${roleLabel} on ${team}. We're happy to have you onboard.`;
+  }
 }
 
 export async function GET() {
@@ -63,10 +78,11 @@ export async function PATCH(req: Request) {
       );
     }
 
-    await updateUserRoleAndTeamByEmail(
+    await updateUserRoleTeamAndNotifyByEmail(
       request.email,
       request.role,
-      request.team
+      request.team,
+      getPromotionMessage(request.role, request.team)
     );
   }
 
