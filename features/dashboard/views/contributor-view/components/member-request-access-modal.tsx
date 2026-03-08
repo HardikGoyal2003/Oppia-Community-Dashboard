@@ -26,7 +26,6 @@ import {
 
 import { CONSTANTS } from "@/lib/contants";
 import { useState } from "react";
-import { submitMemberAccessRequestAction } from "../../../dashboard.action";
 
 export default function MemberRequestAccessModal() {
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -45,12 +44,25 @@ export default function MemberRequestAccessModal() {
     const note = formData.get("notes")?.toString() ?? "";
 
     try {
-      await submitMemberAccessRequestAction({
-        username,
-        team,
-        role,
-        note,
+      const response = await fetch("/api/member-access-requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username,
+          team,
+          role,
+          note,
+        }),
       });
+
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        throw new Error(
+          data.error || "Failed to submit access request."
+        );
+      }
       setIsSubmitted(true);
     } catch (error) {
       setErrorMessage(

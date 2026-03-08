@@ -49,7 +49,7 @@ The dashboard is initially intended for **internal Oppia maintainers**, but is d
 
 ## Architecture
 
-**Layered:** UI → Hooks/Stores → Server Actions / API Routes → Services (business logic) → DB Layer (*.db.ts) → Firestore  
+**Layered:** UI → Hooks/Stores → API Routes → Services (business logic) → DB Layer (*.db.ts) → Firestore  
 
 - UI components **cannot access Firestore directly**  
 - Business logic belongs in **services**  

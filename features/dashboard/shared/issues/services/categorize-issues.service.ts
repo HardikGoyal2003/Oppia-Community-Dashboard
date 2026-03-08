@@ -1,5 +1,5 @@
 import { RawIssue } from "@/lib/github/github.types";
-import { CategorizedProjectIssues, Issue } from "../dashboard.types";
+import { CategorizedProjectIssues, Issue } from "../../../dashboard.types";
 import { unarchiveIssue } from "@/db/archived-issues.db";
 import { CONSTANTS } from "@/lib/contants";
 
