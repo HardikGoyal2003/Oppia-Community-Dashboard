@@ -14,6 +14,17 @@ const USERS_COLLECTION = "users";
 
 const db = getAdminFirestore();
 
+function assertGithubUsernameForRole(
+  role: UserRole,
+  githubUsername: string | null
+) {
+  if (role !== "CONTRIBUTOR" && !githubUsername) {
+    throw new Error(
+      "githubUsername is required for non-contributor roles."
+    );
+  }
+}
+
 async function getUserDocRefByEmail(email: string) {
   const snapshot = await db
     .collection(USERS_COLLECTION)
@@ -35,6 +46,8 @@ export async function createUserIfNotExists(
   uid: string,
   data: Omit<UserModel, "createdAt">
 ): Promise<void> {
+  assertGithubUsernameForRole(data.role, data.githubUsername);
+
   const ref = db.collection(USERS_COLLECTION).doc(uid);
   const snap = await ref.get();
 
@@ -113,8 +126,11 @@ export async function updateUserRoleTeamAndNotifyByUid(
   role: UserRole,
   team: string | null,
   reason: string,
+  githubUsername: string | null,
   changedByEmail?: string
 ): Promise<void> {
+  assertGithubUsernameForRole(role, githubUsername);
+
   const ref = db.collection(USERS_COLLECTION).doc(uid);
   const snap = await ref.get();
 
@@ -147,6 +163,7 @@ export async function updateUserRoleTeamAndNotifyByUid(
   await ref.update({
     role,
     team,
+    githubUsername,
     notifications: serializeNotifications(notifications),
   });
 }
@@ -154,13 +171,17 @@ export async function updateUserRoleTeamAndNotifyByUid(
 export async function updateUserRoleAndTeamByEmail(
   email: string,
   role: UserRole,
-  team: string
+  team: string,
+  githubUsername: string | null
 ): Promise<void> {
+  assertGithubUsernameForRole(role, githubUsername);
+
   const userDoc = await getUserDocRefByEmail(email);
 
   await userDoc.ref.update({
     role,
     team,
+    githubUsername,
   });
 }
 
@@ -168,8 +189,11 @@ export async function updateUserRoleTeamAndNotifyByEmail(
   email: string,
   role: UserRole,
   team: string,
+  githubUsername: string | null,
   message: string
 ): Promise<void> {
+  assertGithubUsernameForRole(role, githubUsername);
+
   const userDoc = await getUserDocRefByEmail(email);
   const docRef = userDoc.ref;
   const data = userDoc.data();
@@ -187,6 +211,7 @@ export async function updateUserRoleTeamAndNotifyByEmail(
   await docRef.update({
     role,
     team,
+    githubUsername,
     notifications: serializeNotifications(notifications),
   });
 }

@@ -16,6 +16,7 @@ export interface UserModel {
   email: string;
   fullName: string;
   photoURL: string;
+  githubUsername: string | null;
   role: UserRole;
   team: string | null;
   createdAt: Date;

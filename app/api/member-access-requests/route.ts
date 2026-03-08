@@ -88,6 +88,7 @@ export async function PATCH(req: Request) {
       request.email,
       request.role,
       request.team,
+      request.username,
       getPromotionMessage(request.role, request.team)
     );
   } else {
