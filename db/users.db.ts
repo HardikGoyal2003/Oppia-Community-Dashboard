@@ -1,11 +1,32 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
-import { UserRole, UserModel } from "@/lib/auth/auth.types";
+import {
+  Notification,
+  UserRole,
+  UserModel,
+} from "@/lib/auth/auth.types";
 import { Timestamp } from "firebase-admin/firestore";
-import { normalizeNotifications } from "./notifications/notifications.mapper";
+import {
+  normalizeNotifications,
+  serializeNotifications,
+} from "./notifications/notifications.mapper";
 
 const USERS_COLLECTION = "users";
 
 const db = getAdminFirestore();
+
+async function getUserDocRefByEmail(email: string) {
+  const snapshot = await db
+    .collection(USERS_COLLECTION)
+    .where("email", "==", email)
+    .limit(1)
+    .get();
+
+  if (snapshot.empty) {
+    throw new Error("User not found for member access request.");
+  }
+
+  return snapshot.docs[0];
+}
 
 /**
  * Create user on first login (idempotent)
@@ -85,4 +106,67 @@ export async function updateUserRole(
     .update({
       role
     });
+}
+
+export async function updateUserRoleAndTeamByEmail(
+  email: string,
+  role: UserRole,
+  team: string
+): Promise<void> {
+  const userDoc = await getUserDocRefByEmail(email);
+
+  await userDoc.ref.update({
+    role,
+    team,
+  });
+}
+
+export async function updateUserRoleTeamAndNotifyByEmail(
+  email: string,
+  role: UserRole,
+  team: string,
+  message: string
+): Promise<void> {
+  const userDoc = await getUserDocRefByEmail(email);
+  const docRef = userDoc.ref;
+  const data = userDoc.data();
+
+  const notifications = normalizeNotifications(
+    (data.notifications ?? []) as Notification[]
+  );
+
+  notifications.push({
+    message,
+    createdAt: new Date(),
+    read: false,
+  });
+
+  await docRef.update({
+    role,
+    team,
+    notifications: serializeNotifications(notifications),
+  });
+}
+
+export async function appendUserNotificationByEmail(
+  email: string,
+  message: string
+): Promise<void> {
+  const userDoc = await getUserDocRefByEmail(email);
+  const docRef = userDoc.ref;
+  const data = userDoc.data();
+
+  const notifications = normalizeNotifications(
+    (data.notifications ?? []) as Notification[]
+  );
+
+  notifications.push({
+    message,
+    createdAt: new Date(),
+    read: false,
+  });
+
+  await docRef.update({
+    notifications: serializeNotifications(notifications),
+  });
 }
