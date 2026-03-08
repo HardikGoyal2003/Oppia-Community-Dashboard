@@ -86,3 +86,24 @@ export async function updateUserRole(
       role
     });
 }
+
+export async function updateUserRoleAndTeamByEmail(
+  email: string,
+  role: UserRole,
+  team: string
+): Promise<void> {
+  const snapshot = await db
+    .collection(USERS_COLLECTION)
+    .where("email", "==", email)
+    .limit(1)
+    .get();
+
+  if (snapshot.empty) {
+    throw new Error("User not found for member access request.");
+  }
+
+  await snapshot.docs[0].ref.update({
+    role,
+    team,
+  });
+}
