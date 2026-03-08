@@ -7,6 +7,7 @@ import {
 } from "@/db/member-request-access/member-request-access.db";
 import { MemberAccessDecision } from "@/db/member-request-access/member-request-access.types";
 import {
+  appendUserNotificationByEmail,
   updateUserRoleTeamAndNotifyByEmail,
 } from "@/db/users.db";
 import { UserRole } from "@/lib/auth/auth.types";
@@ -35,6 +36,15 @@ function getPromotionMessage(role: UserRole, team: string): string {
   }
 }
 
+function getDeclineMessage(reason: string): string {
+  return [
+    "Thank you for your request.",
+    "At this moment, we are unable to approve it.",
+    `Reason: ${reason}`,
+    "Please refine your request and apply again. We appreciate your interest in contributing with us.",
+  ].join(" ");
+}
+
 export async function GET() {
   const session = await getServerSession(authOptions);
 
@@ -60,10 +70,19 @@ export async function PATCH(req: Request) {
     typeof body.decision === "string"
       ? (body.decision.trim() as MemberAccessDecision)
       : null;
+  const reason =
+    typeof body.reason === "string" ? body.reason.trim() : "";
 
   if (!email || !decision || !["ACCEPT", "DECLINE"].includes(decision)) {
     return NextResponse.json(
       { error: "Invalid email/decision payload." },
+      { status: 400 }
+    );
+  }
+
+  if (decision === "DECLINE" && !reason) {
+    return NextResponse.json(
+      { error: "Decline reason is required." },
       { status: 400 }
     );
   }
@@ -83,6 +102,11 @@ export async function PATCH(req: Request) {
       request.role,
       request.team,
       getPromotionMessage(request.role, request.team)
+    );
+  } else {
+    await appendUserNotificationByEmail(
+      request.email,
+      getDeclineMessage(reason)
     );
   }
 

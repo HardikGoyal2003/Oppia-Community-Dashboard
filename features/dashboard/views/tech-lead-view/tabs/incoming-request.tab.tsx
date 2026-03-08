@@ -3,6 +3,7 @@
 import { LoadingIndicator } from '@/components/layout/loading-indicator';
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
+import { DeclineRequestModal } from "../components/decline-request-modal";
 
 type MemberAccessRequest = {
   email: string;
@@ -17,6 +18,7 @@ export function IncomingRequestTab() {
   const [requests, setRequests] = useState<MemberAccessRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [updatingEmail, setUpdatingEmail] = useState<string | null>(null);
+  const [declineTargetEmail, setDeclineTargetEmail] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -47,7 +49,8 @@ export function IncomingRequestTab() {
 
   const handleDecision = async (
     email: string,
-    decision: "ACCEPT" | "DECLINE"
+    decision: "ACCEPT" | "DECLINE",
+    reason?: string
   ) => {
     setUpdatingEmail(email);
 
@@ -57,7 +60,7 @@ export function IncomingRequestTab() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, decision }),
+        body: JSON.stringify({ email, decision, reason }),
       });
 
       if (!response.ok) {
@@ -72,6 +75,27 @@ export function IncomingRequestTab() {
     } finally {
       setUpdatingEmail(null);
     }
+  };
+
+  const openDeclineModal = (email: string) => {
+    setDeclineTargetEmail(email);
+  };
+
+  const closeDeclineModal = () => {
+    setDeclineTargetEmail(null);
+  };
+
+  const submitDecline = async (reason: string) => {
+    if (!declineTargetEmail) {
+      return;
+    }
+
+    await handleDecision(
+      declineTargetEmail,
+      "DECLINE",
+      reason
+    );
+    closeDeclineModal();
   };
 
   return(
@@ -138,9 +162,7 @@ export function IncomingRequestTab() {
                       <button
                         className="rounded bg-red-600 px-3 py-1  cursor-pointer text-white disabled:opacity-60"
                         disabled={updatingEmail === request.email}
-                        onClick={() =>
-                          handleDecision(request.email, "DECLINE")
-                        }
+                        onClick={() => openDeclineModal(request.email)}
                       >
                         Decline
                       </button>
@@ -152,6 +174,17 @@ export function IncomingRequestTab() {
           </table>
         </div>
       )}
+
+      <DeclineRequestModal
+        open={Boolean(declineTargetEmail)}
+        loading={Boolean(updatingEmail)}
+        onOpenChange={open => {
+          if (!open) {
+            closeDeclineModal();
+          }
+        }}
+        onSubmit={submitDecline}
+      />
     </>
   )
 }
