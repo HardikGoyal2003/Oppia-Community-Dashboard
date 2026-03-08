@@ -1,17 +1,14 @@
 "use client";
 
-import { useProjectIssuesStore } from "../stores/project-issues.store";
-import { archiveIssue } from "../../../db/archived-issues.db";
-import { Issue } from "../dashboard.types";
-import { CategorizedProjectIssues } from "../dashboard.types";
-
+import { useProjectIssuesStore } from "../store/project-issues.store";
+import { Issue } from "../../../dashboard.types";
+import { CategorizedProjectIssues } from "../../../dashboard.types";
 import { CONSTANTS } from "@/lib/contants";
 
-export function useArchiveIssue() {
-  const moveIssue = useProjectIssuesStore((state) => state.moveIssue);
+export function useMarkIssueAsnwered() {
+  const removeIssue = useProjectIssuesStore((state) => state.removeIssue);
 
-  return async (issue: Issue) => {
-    await archiveIssue(issue);
+  return (issue: Issue) => {
 
     let from: keyof CategorizedProjectIssues;
 
@@ -33,6 +30,6 @@ export function useArchiveIssue() {
       from = "others";
     }
 
-    moveIssue(from, "archive", issue.issueNumber);
+    removeIssue(from, issue.issueNumber);
   };
 }
