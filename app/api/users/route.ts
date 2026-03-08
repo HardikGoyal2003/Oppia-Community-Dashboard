@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAllUsers, updateUserRole } from "@/lib/db/users.service";
+import { getAllUsers, updateUserRole } from "@/db/users.db";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 

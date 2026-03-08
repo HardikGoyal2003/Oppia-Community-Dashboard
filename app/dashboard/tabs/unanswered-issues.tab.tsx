@@ -7,7 +7,7 @@ import { LoadingIndicator } from "@/components/layout/loading-indicator";
 import { useLoading } from "@/components/providers/loader-context";
 import { TeamTabs } from "../components/team-tabs";
 import { CategorizedProjectIssues, Issue } from "../dashboard.types";
-import { getArchivedIssues } from "../../../lib/db/archived-issues.service";
+import { getArchivedIssues } from "../../../db/archived-issues.db";
 import { useProjectIssuesStore } from "../stores/project-issues.store";
 import { categorizeIssues } from "../services/categorize-issues.service";
 import { fetchGithubIssues } from "../dashboard.action";

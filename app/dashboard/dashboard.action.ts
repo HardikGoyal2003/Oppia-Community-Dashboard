@@ -5,7 +5,7 @@ import { formatIssues } from "@/lib/github/service/ format-issues.service";
 import { RawIssue, RawIssueNode } from "@/lib/github/github-fetcher.types";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
-import { submitMemberAccessRequest } from "@/lib/db/member-request-access.service";
+import { submitMemberAccessRequest } from "@/db/member-request-access.db";
 
 export async function fetchGithubIssues(): Promise<{ issues: RawIssue[] }> {
   try {
