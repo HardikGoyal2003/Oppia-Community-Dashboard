@@ -38,11 +38,10 @@ function getPromotionMessage(role: UserRole, team: string): string {
 
 function getDeclineMessage(reason: string): string {
   return [
-    "Thank you for your request.",
-    "At this moment, we are unable to approve it.",
+    "Thank you for your request. At this moment, we are unable to approve it.",
     `Reason: ${reason}`,
     "Please refine your request and apply again. We appreciate your interest in contributing with us.",
-  ].join(" ");
+  ].join("\n");
 }
 
 export async function GET() {

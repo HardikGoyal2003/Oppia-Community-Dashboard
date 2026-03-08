@@ -170,3 +170,43 @@ export async function appendUserNotificationByEmail(
     notifications: serializeNotifications(notifications),
   });
 }
+
+export async function getNotificationsByEmail(
+  email: string
+): Promise<Notification[]> {
+  const userDoc = await getUserDocRefByEmail(email);
+  const data = userDoc.data();
+
+  return normalizeNotifications(
+    (data.notifications ?? []) as Notification[]
+  );
+}
+
+export async function markNotificationAsReadByEmail(
+  email: string,
+  notificationIndex: number
+): Promise<void> {
+  const userDoc = await getUserDocRefByEmail(email);
+  const docRef = userDoc.ref;
+  const data = userDoc.data();
+
+  const notifications = normalizeNotifications(
+    (data.notifications ?? []) as Notification[]
+  );
+
+  if (
+    notificationIndex < 0 ||
+    notificationIndex >= notifications.length
+  ) {
+    throw new Error("Notification index out of bounds.");
+  }
+
+  notifications[notificationIndex] = {
+    ...notifications[notificationIndex],
+    read: true,
+  };
+
+  await docRef.update({
+    notifications: serializeNotifications(notifications),
+  });
+}
