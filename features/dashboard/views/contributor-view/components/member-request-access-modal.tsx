@@ -26,7 +26,7 @@ import {
 
 import { CONSTANTS } from "@/lib/contants";
 import { useState } from "react";
-import { submitMemberAccessRequestAction } from "../dashboard.action";
+import { submitMemberAccessRequestAction } from "../../../dashboard.action";
 
 export default function MemberRequestAccessModal() {
   const [isSubmitted, setIsSubmitted] = useState(false);

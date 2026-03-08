@@ -1,5 +1,5 @@
 import { db } from "@/lib/firebase/firebase.client";
-import { Issue } from "@/app/dashboard/dashboard.types";
+import { Issue } from "@/features/dashboard/dashboard.types";
 import {
   collection,
   deleteDoc,

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { CategorizedProjectIssues } from '../dashboard.types';
+import { CategorizedProjectIssues } from '../../../dashboard.types';
 
 interface ProjectIssuesStore {
   issues: CategorizedProjectIssues;

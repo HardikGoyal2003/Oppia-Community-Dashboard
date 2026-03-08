@@ -3,10 +3,10 @@ import { authOptions } from "@/lib/auth/auth.options";
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 
-import TeamLeadView from "./views/team-lead.view";
-import ContributorView from "./views/contributor.view";
-import TeamMemberView from "./views/team-member.view";
-import TechLeadView from "./views/tech-lead.view";
+import TeamLeadView from "../../features/dashboard/views/team-lead-view/team-lead.view";
+import ContributorView from "../../features/dashboard/views/contributor-view/contributor.view";
+import TeamMemberView from "../../features/dashboard/views/team-member-view/team-member.view";
+import TechLeadView from "../../features/dashboard/views/tech-lead-view/tech-lead.view";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);

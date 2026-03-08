@@ -1,6 +1,6 @@
 "use client";
 
-import MemberRequestAccessModal from "../components/member-request-access-modal";
+import MemberRequestAccessModal from "./components/member-request-access-modal";
 
 
 export default function ContributorView({

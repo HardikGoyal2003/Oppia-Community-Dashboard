@@ -1,7 +1,7 @@
 import { ArchiveIcon } from "@/components/icons/archive-icon";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Issue } from "../dashboard.types"; 
+import { Issue } from "../../../dashboard.types"; 
 import Link from "next/link";
 import { useArchiveIssue } from "../hooks/use-archive-issue.hook";
 import { CircleCheck } from "lucide-react";

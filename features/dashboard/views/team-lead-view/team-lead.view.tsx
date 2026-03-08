@@ -1,6 +1,6 @@
 "use client";
 
-import UnansweredIssuesTab from "../tabs/unanswered-issues.tab";
+import UnansweredIssuesTab from "../../shared/unanswered-issues.tab";
 
 export default function TeamLeadView() {
   return (

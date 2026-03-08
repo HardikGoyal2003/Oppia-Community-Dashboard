@@ -3,10 +3,10 @@
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/sidebar/app-sidebar";
 import { Navbar } from "@/components/layout/navbar";
-import { IncomingRequestTab } from "../tabs/incoming-request.tab";
-import { UserRoleManagerTab } from "../tabs/user-role-manager.tab";
-import { useActiveSidebarTab } from "../stores/sidebar.store";
-import UnansweredIssuesTab from "../tabs/unanswered-issues.tab";
+import { IncomingRequestTab } from "./tabs/incoming-request.tab";
+import { UserRoleManagerTab } from "./tabs/user-role-manager.tab";
+import { useActiveSidebarTab } from "../../../../components/layout/sidebar/sidebar.store";
+import UnansweredIssuesTab from "../../shared/unanswered-issues.tab";
 
 type SidebarTab =
   | 'INCOMING_REQUEST_TAB'

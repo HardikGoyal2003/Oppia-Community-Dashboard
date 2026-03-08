@@ -12,7 +12,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
-import { useActiveSidebarTab } from "../../../app/dashboard/stores/sidebar.store";
+import { useActiveSidebarTab } from "./sidebar.store";
 
 export function SideBarTabs({
   projects,
