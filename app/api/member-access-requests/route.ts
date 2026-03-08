@@ -5,21 +5,13 @@ import {
   getMemberAccessRequests,
   resolveMemberAccessRequest,
 } from "@/db/member-request-access/member-request-access.db";
-import { MemberAccessDecision } from "@/db/member-request-access/member-request-access.types";
 import {
   appendUserNotificationByEmail,
   updateUserRoleTeamAndNotifyByEmail,
 } from "@/db/users.db";
 import { UserRole } from "@/lib/auth/auth.types";
+import { isValidUserRole } from "@/lib/utils/roles.utils";
 
-function isValidUserRole(role: string): role is UserRole {
-  return [
-    "CONTRIBUTOR",
-    "TEAM_MEMBER",
-    "TEAM_LEAD",
-    "ADMIN",
-  ].includes(role);
-}
 
 function getPromotionMessage(role: UserRole, team: string): string {
   const roleLabel = role.replace("_", " ");

@@ -5,16 +5,8 @@ import {
 } from "@/db/users.db";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
-import { UserRole } from "@/lib/auth/auth.types";
+import { isValidUserRole } from "@/lib/utils/roles.utils";
 
-function isValidUserRole(role: string): role is UserRole {
-  return [
-    "CONTRIBUTOR",
-    "TEAM_MEMBER",
-    "TEAM_LEAD",
-    "ADMIN",
-  ].includes(role);
-}
 
 export async function GET() {
   const session = await getServerSession(authOptions);
