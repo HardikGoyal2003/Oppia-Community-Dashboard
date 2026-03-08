@@ -64,14 +64,9 @@ export async function PATCH(req: Request) {
   }
 
   const body = await req.json();
-  const email =
-    typeof body.email === "string" ? body.email.trim() : "";
-  const decision =
-    typeof body.decision === "string"
-      ? (body.decision.trim() as MemberAccessDecision)
-      : null;
-  const reason =
-    typeof body.reason === "string" ? body.reason.trim() : "";
+  const email = body.email.trim();
+  const decision = body.decision.trim();
+  const reason = body.reason.trim();
 
   if (!email || !decision || !["ACCEPT", "DECLINE"].includes(decision)) {
     return NextResponse.json(

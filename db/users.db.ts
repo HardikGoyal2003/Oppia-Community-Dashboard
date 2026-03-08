@@ -129,7 +129,7 @@ export async function updateUserRoleTeamAndNotifyByEmail(
 ): Promise<void> {
   const userDoc = await getUserDocRefByEmail(email);
   const docRef = userDoc.ref;
-  const data = userDoc.data() as Partial<UserModel>;
+  const data = userDoc.data();
 
   const notifications = normalizeNotifications(
     (data.notifications ?? []) as Notification[]
@@ -154,7 +154,7 @@ export async function appendUserNotificationByEmail(
 ): Promise<void> {
   const userDoc = await getUserDocRefByEmail(email);
   const docRef = userDoc.ref;
-  const data = userDoc.data() as Partial<UserModel>;
+  const data = userDoc.data();
 
   const notifications = normalizeNotifications(
     (data.notifications ?? []) as Notification[]
