@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth/auth.options";
 import {
   getMemberAccessRequests,
   resolveMemberAccessRequest,
+  submitMemberAccessRequest,
 } from "@/db/member-request-access/member-request-access.db";
 import {
   appendUserNotificationByEmail,
@@ -47,6 +48,41 @@ export async function GET() {
   return NextResponse.json({ pending: requests.pending });
 }
 
+export async function POST(req: Request) {
+  const session = await getServerSession(authOptions);
+
+  if (!session || !session.user || !session.user.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
+
+  const body = await req.json();
+  const team =
+    typeof body.team === "string" ? body.team.trim() : "";
+  const role =
+    typeof body.role === "string" ? body.role.trim() : "";
+  const note =
+    typeof body.note === "string" ? body.note.trim() : "";
+  const username =
+    typeof body.username === "string" ? body.username.trim() : "";
+
+  if (!team || !role || !username || !isValidUserRole(role)) {
+    return NextResponse.json(
+      { error: "Missing or invalid fields: team, role, username." },
+      { status: 400 }
+    );
+  }
+
+  await submitMemberAccessRequest({
+    email: session.user.email,
+    team,
+    role,
+    note,
+    username,
+  });
+
+  return NextResponse.json({ success: true });
+}
+
 export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions);
 
@@ -88,6 +124,7 @@ export async function PATCH(req: Request) {
       request.email,
       request.role,
       request.team,
+      request.username,
       getPromotionMessage(request.role, request.team)
     );
   } else {

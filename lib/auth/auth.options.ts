@@ -35,6 +35,7 @@ export const authOptions = {
         email: user.email,
         fullName: user.name ?? "",
         photoURL: user.image ?? "",
+        githubUsername: null,
         role: "CONTRIBUTOR",
         team: null,
         notifications: [],

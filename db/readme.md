@@ -45,7 +45,7 @@ The application follows a layered structure:
 ```
 UI (React Components)
         ↓
-Server Actions / API Routes
+API Routes
         ↓
 Services (business logic)
         ↓
@@ -59,7 +59,7 @@ Example flow:
 ```
 IssueCard.tsx
    ↓
-archiveIssueAction()
+route.ts
    ↓
 archiveIssueService()
    ↓

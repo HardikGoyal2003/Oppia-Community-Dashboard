@@ -10,7 +10,6 @@ import { CategorizedProjectIssues, Issue } from "../dashboard.types";
 import { getArchivedIssues } from "../../../db/archived-issues.db";
 import { useProjectIssuesStore } from "./issues/store/project-issues.store";
 import { categorizeIssues } from "./issues/services/categorize-issues.service";
-import { fetchGithubIssues } from "../dashboard.action";
 
 export default function UnansweredIssuesTab() {
   const [responseData, setResponseData] = useState<{ issues: RawIssue[] } | null>(null);
@@ -26,9 +25,21 @@ export default function UnansweredIssuesTab() {
   const handleClick = async () => {
     startLoading();
     try {
+      const issuesResponse = await fetch("/api/github/issues", {
+        cache: "no-store",
+      });
+
+      if (!issuesResponse.ok) {
+        throw new Error("Failed to fetch GitHub issues.");
+      }
+
+      const issuesData = (await issuesResponse.json()) as {
+        issues: RawIssue[];
+      };
+
       const [archivedIssues, data] = await Promise.all([
         getArchivedIssues(),
-        fetchGithubIssues()
+        Promise.resolve(issuesData),
       ]) 
       setArchivedIssues(archivedIssues);
       setResponseData(data);
@@ -47,7 +58,7 @@ export default function UnansweredIssuesTab() {
       );
       setIssues(categorized);
     })();
-  }, [responseData]);
+  }, [responseData, archivedIssues, setIssues]);
 
   return (
     <div className="flex flex-col bg-gray-50 min-h-screen

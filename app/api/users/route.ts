@@ -33,6 +33,10 @@ export async function PATCH(req: Request) {
     typeof body.role === "string" ? body.role.trim() : "";
   const team =
     typeof body.team === "string" ? body.team.trim() : null;
+  const githubUsername =
+    typeof body.githubUsername === "string"
+      ? body.githubUsername.trim()
+      : null;
   const reason =
     typeof body.reason === "string" ? body.reason.trim() : "";
 
@@ -48,6 +52,7 @@ export async function PATCH(req: Request) {
     role,
     team,
     reason,
+    githubUsername,
     session.user.email ?? undefined
   );
 

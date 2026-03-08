@@ -9,6 +9,7 @@ type User = {
   id: string;
   fullName: string;
   email: string;
+  githubUsername: string | null;
   role: UserRole;
   team: string | null;
 };
@@ -16,6 +17,7 @@ type User = {
 type PendingUpdate = {
   userId: string;
   userName: string;
+  githubUsername: string | null;
   role: UserRole;
   team: string | null;
 };
@@ -66,6 +68,7 @@ export function UserRoleManagerTab() {
     setPendingUpdate({
       userId: user.id,
       userName: user.fullName || user.email,
+      githubUsername: user.githubUsername ?? null,
       role,
       team,
     });
@@ -90,6 +93,7 @@ export function UserRoleManagerTab() {
           uid: pendingUpdate.userId,
           role: pendingUpdate.role,
           team: pendingUpdate.team,
+          githubUsername: pendingUpdate.githubUsername,
           reason,
         }),
       });
@@ -105,6 +109,7 @@ export function UserRoleManagerTab() {
                 ...user,
                 role: pendingUpdate.role,
                 team: pendingUpdate.team,
+                githubUsername: pendingUpdate.githubUsername,
               }
             : user
         )
@@ -136,6 +141,7 @@ export function UserRoleManagerTab() {
               <th className="p-3 text-left">S.No.</th>
               <th className="p-3 text-left">Name</th>
               <th className="p-3 text-left">Email</th>
+              <th className="p-3 text-left">GitHub Username</th>
               <th className="p-3 text-left">Team</th>
               <th className="p-3 text-left">Role</th>
             </tr>
@@ -147,6 +153,9 @@ export function UserRoleManagerTab() {
                 <td className="p-3">{index + 1}</td>
                 <td className="p-3">{user.fullName}</td>
                 <td className="p-3">{user.email}</td>
+                <td className="p-3">
+                  {user.githubUsername ?? "-"}
+                </td>
                 <td className="p-3">
                   <select
                     value={user.team ?? ""}
