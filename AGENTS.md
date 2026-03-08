@@ -49,7 +49,7 @@ The dashboard is initially intended for **internal Oppia maintainers**, but is d
 
 ## Architecture
 
-**Layered:** UI → Hooks/Stores → Services → API → Firestore  
+**Layered:** UI → Hooks/Stores → Server Actions / API Routes → Services (business logic) → DB Layer (*.db.ts) → Firestore  
 
 - UI components **cannot access Firestore directly**  
 - Business logic belongs in **services**  
@@ -59,11 +59,17 @@ The dashboard is initially intended for **internal Oppia maintainers**, but is d
 
 ## Key Directories
 
-- `app/dashboard/` – views, hooks, stores, services, tabs, components  
-- `lib/db/` – Firestore services (`users.service.ts`, `archived-issues.service.ts`)  
-- `lib/auth/` – auth & role utilities  
-- `lib/github/` – issue fetcher & formatter  
-- `components/ui/` – reusable UI components  
+- `app/dashboard/` – page entry points for the dashboard  
+- `features/dashboard/` – feature-specific views, tabs, shared components, hooks, stores, services  
+- `db/` – Firestore services (*.db.ts)
+- `lib/auth/` – authentication and role utilities  
+- `lib/firebase/` – Firebase clients (`firebase-admin.ts`, `firebase.client.ts`)  
+- `lib/github/` – GitHub fetcher and types  
+- `lib/utils/` – helper functions 
+- `lib/constants.ts` – global constants  
+- `components/ui/` – reusable UI primitives  
+- `components/layout/sidebar/` – sidebar components, hooks, and store  
+- `components/layout/` – other layout components (navbar, loading indicator)  
 
 ---
 
@@ -89,8 +95,7 @@ The dashboard is initially intended for **internal Oppia maintainers**, but is d
 
 ## GitHub Integration
 
-- Fetch via `lib/github/scripts/github-issues.fetcher.ts`  
-- Format via `lib/github/service/format-issues.service.ts`  
+- Fetch via `lib/github/scripts/github.fetcher.ts`   
 - Handle API errors & rate limits safely  
 
 ---
