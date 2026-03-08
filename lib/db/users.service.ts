@@ -1,7 +1,7 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { UserRole, UserModel } from "@/lib/auth/auth.types";
 import { Timestamp } from "firebase-admin/firestore";
-import { normalizeNotifications } from "../utils/notifications.utils";
+import { normalizeNotifications } from "@/lib/utils/notifications.utils";
 
 const USERS_COLLECTION = "users";
 
@@ -85,4 +85,27 @@ export async function updateUserRole(
     .update({
       role
     });
+}
+
+export async function updateUserRoleAndTeamByEmail(
+  email: string,
+  role: UserRole,
+  team: string | null
+): Promise<void> {
+  const snapshot = await db
+    .collection(USERS_COLLECTION)
+    .where("email", "==", email)
+    .limit(1)
+    .get();
+
+  if (snapshot.empty) {
+    throw new Error("User not found for member access request.");
+  }
+
+  const docRef = snapshot.docs[0].ref;
+
+  await docRef.update({
+    role,
+    team,
+  });
 }

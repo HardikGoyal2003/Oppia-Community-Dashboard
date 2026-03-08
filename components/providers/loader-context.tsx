@@ -1,6 +1,12 @@
 "use client"
 
-import { createContext, useContext, useState } from "react"
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react"
 
 const LoadingContext = createContext<{
   isLoading: boolean
@@ -10,15 +16,20 @@ const LoadingContext = createContext<{
 
 export const LoadingProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(false)
+  const startLoading = useCallback(() => setIsLoading(true), [])
+  const stopLoading = useCallback(() => setIsLoading(false), [])
+
+  const value = useMemo(
+    () => ({
+      isLoading,
+      startLoading,
+      stopLoading,
+    }),
+    [isLoading, startLoading, stopLoading]
+  )
 
   return (
-    <LoadingContext.Provider
-      value={{
-        isLoading,
-        startLoading: () => setIsLoading(true),
-        stopLoading: () => setIsLoading(false),
-      }}
-    >
+    <LoadingContext.Provider value={value}>
       {children}
     </LoadingContext.Provider>
   )
