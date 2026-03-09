@@ -32,7 +32,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col bg-linear-to-b from-slate-100 via-slate-50 to-white px-4 py-8 sm:px-6 sm:py-10">
+    <main className="min-h-screen flex flex-col justify-around bg-linear-to-b from-slate-100 via-slate-50 to-white px-4 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl lg:min-h-[680px] lg:flex-row">
         <section className="relative h-56 w-full overflow-hidden lg:h-auto lg:w-1/2">
           <Image
