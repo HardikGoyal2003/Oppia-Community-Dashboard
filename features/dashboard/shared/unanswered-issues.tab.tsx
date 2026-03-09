@@ -26,7 +26,7 @@ export default function UnansweredIssuesTab() {
     leap: "LEAP Team",
     core: "CORE Team",
     dev: "Dev Workflow Team",
-    others: "Others",
+    others: "",
   };
 
   const handleClick = async () => {
