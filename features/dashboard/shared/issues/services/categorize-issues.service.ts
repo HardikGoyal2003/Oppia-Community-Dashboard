@@ -7,12 +7,30 @@ export async function categorizeIssues(
   rawIssues: RawIssue[],
   archivedIssues: Issue[]
 ): Promise<CategorizedProjectIssues> {
+  const liveIssueNumbers = new Set(
+    rawIssues.map(issue => issue.issueNumber)
+  );
+
+  const activeArchivedIssues = archivedIssues.filter(issue =>
+    liveIssueNumbers.has(issue.issueNumber)
+  );
+
+  const staleArchivedIssues = archivedIssues.filter(
+    issue => !liveIssueNumbers.has(issue.issueNumber)
+  );
+
+  await Promise.all(
+    staleArchivedIssues.map(issue =>
+      unarchiveIssue(issue.issueNumber)
+    )
+  );
+
   const result: CategorizedProjectIssues = {
     core: [],
     leap: [],
     dev: [],
     others: [],
-    archive: [...archivedIssues],
+    archive: [...activeArchivedIssues],
   };
 
   for (const rawIssue of rawIssues) {

@@ -22,6 +22,13 @@ export default function UnansweredIssuesTab() {
 
   const [archivedIssues, setArchivedIssues] = useState<Issue[]>([]);
 
+  const teamLabelMap: Record<string, string> = {
+    leap: "LEAP Team",
+    core: "CORE Team",
+    dev: "Dev Workflow Team",
+    others: "",
+  };
+
   const handleClick = async () => {
     startLoading();
     try {
@@ -77,6 +84,27 @@ export default function UnansweredIssuesTab() {
             Load Issues
           </button>
         )}
+
+        {issues &&
+          responseData &&
+          activeTab !== "archive" &&
+          issues[activeTab].length === 0 && (
+            <div className="py-20 text-center">
+              <div className="mx-auto flex w-fit items-center gap-2 rounded-full bg-slate-100 px-4 py-1 text-sm font-medium text-slate-700">
+                <span>🎉</span>
+                <span>All issues cleared</span>
+              </div>
+
+              <p className="mt-5 text-2xl font-semibold tracking-tight text-slate-900">
+                Great job, {teamLabelMap[activeTab]} leads! 🙌
+              </p>
+
+              <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+                Big thanks for staying responsive and keeping your team&apos;s issue flow healthy.
+                Your consistency is helping keep the Oppia community active, supported, and moving forward.
+              </p>
+            </div>
+          )}
 
         {issues &&
           issues[activeTab].map((issue, index) => (
