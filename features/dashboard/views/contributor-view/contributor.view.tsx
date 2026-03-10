@@ -47,7 +47,7 @@ export default function ContributorView({
 
       {/* footer tips */}
       <p className="mt-8 text-gray-400 text-sm text-center max-w-md">
-        Once your request is approved, you'll be able to see your team dashboard and start contributing.
+        Once your request is approved, you&apos;ll be able to see your team dashboard and start contributing.
       </p>
     </div>
   );
