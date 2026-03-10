@@ -3,7 +3,7 @@
 import { useProjectIssuesStore } from "../store/project-issues.store";
 import { Issue } from "../../../dashboard.types";
 import { CategorizedProjectIssues } from "../../../dashboard.types";
-import { CONSTANTS } from "@/lib/contants";
+import { CONSTANTS } from "@/lib/constants";
 
 export function useMarkIssueAsnwered() {
   const removeIssue = useProjectIssuesStore((state) => state.removeIssue);

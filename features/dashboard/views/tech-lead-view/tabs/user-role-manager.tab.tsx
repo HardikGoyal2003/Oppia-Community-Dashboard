@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { UserRole } from "@/lib/auth/auth.types";
-import { CONSTANTS } from "@/lib/contants";
+import { CONSTANTS } from "@/lib/constants";
 import { UserUpdateReasonModal } from "../components/user-update-reason-modal";
 
 type User = {

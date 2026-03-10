@@ -5,6 +5,11 @@ export const CONSTANTS =  {
     "DEV_WORKFLOW": "[Web] Developer Workflow Team"
   },
 
+  "CONTRIBUTING_DOCS": {
+    "WEB": "https://github.com/oppia/oppia/wiki/Contributing-code-to-Oppia",
+    "ANDROID": "https://github.com/oppia/oppia-android/wiki/Contributing-to-Oppia-android"
+  },
+
   "ROLES": {
     "CONTRIBUTOR": "Contributor",
     "TEAM_MEMBER": "Team Member",
