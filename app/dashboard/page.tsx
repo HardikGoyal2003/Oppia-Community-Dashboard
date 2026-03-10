@@ -7,6 +7,7 @@ import TeamLeadView from "../../features/dashboard/views/team-lead-view/team-lea
 import ContributorView from "../../features/dashboard/views/contributor-view/contributor.view";
 import TeamMemberView from "../../features/dashboard/views/team-member-view/team-member.view";
 import TechLeadView from "../../features/dashboard/views/tech-lead-view/tech-lead.view";
+import { PlatformSelectModal } from "@/features/login-flow/platform-select-modal";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -16,6 +17,16 @@ export default async function DashboardPage() {
   }
 
   const { role } = session.user;
+  const platform = session.user.platform ?? null;
+
+  // Do not render any dashboard content until the user selects a platform.
+  if (platform === null) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <PlatformSelectModal initialPlatform={platform} />
+      </div>
+    );
+  }
 
   if (role === "ADMIN") {
     return <TechLeadView />;

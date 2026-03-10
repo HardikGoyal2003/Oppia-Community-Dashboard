@@ -5,7 +5,7 @@ import { archiveIssue } from "../../../../../db/archived-issues.db";
 import { Issue } from "../../../dashboard.types";
 import { CategorizedProjectIssues } from "../../../dashboard.types";
 
-import { CONSTANTS } from "@/lib/contants";
+import { CONSTANTS } from "@/lib/constants";
 
 export function useArchiveIssue() {
   const moveIssue = useProjectIssuesStore((state) => state.moveIssue);

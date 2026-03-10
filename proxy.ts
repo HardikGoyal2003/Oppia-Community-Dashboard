@@ -5,7 +5,13 @@ import { NextResponse } from "next/server";
 export default withAuth(
   function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
-    const token = (req as any).nextauth.token;
+    const token = (
+      req as NextRequest & {
+        nextauth?: {
+          token?: { invalidUser?: boolean } | null;
+        };
+      }
+    ).nextauth?.token;
 
     // Valid logged-in users should not access home or login
     if (

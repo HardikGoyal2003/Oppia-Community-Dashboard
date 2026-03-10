@@ -1,5 +1,7 @@
 "use client";
 
+import { useSession } from "next-auth/react";
+import { CONSTANTS } from "@/lib/constants";
 import MemberRequestAccessModal from "./components/member-request-access-modal";
 
 
@@ -8,6 +10,13 @@ export default function ContributorView({
 }: {
   message?: string;
 }) {
+  const { data: session } = useSession();
+  const platform = session?.user?.platform ?? "WEB";
+  const docsUrl =
+    CONSTANTS.CONTRIBUTING_DOCS[
+      platform as keyof typeof CONSTANTS.CONTRIBUTING_DOCS
+    ] ?? CONSTANTS.CONTRIBUTING_DOCS.WEB;
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4 py-12">
       {/* Welcome Card */}
@@ -24,7 +33,7 @@ export default function ContributorView({
             Check out the <span className="font-medium">Oppia Contributing Docs</span> to learn how to contribute.
           </p>
           <a
-            href="https://github.com/oppia/oppia/wiki/Contributing-code-to-Oppia"
+            href={docsUrl}
             target="_blank"
             className="inline-block rounded-md bg-blue-600 px-5 py-2 text-white font-medium hover:bg-blue-700 transition"
           >
@@ -47,7 +56,7 @@ export default function ContributorView({
 
       {/* footer tips */}
       <p className="mt-8 text-gray-400 text-sm text-center max-w-md">
-        Once your request is approved, you'll be able to see your team dashboard and start contributing.
+        Once your request is approved, you&apos;ll be able to see your team dashboard and start contributing.
       </p>
     </div>
   );

@@ -6,6 +6,7 @@ import {
 import type { JWT } from "next-auth/jwt";
 import type { Account, Session, User } from "next-auth";
 import { UserRole } from "./auth.types";
+import { ContributionPlatform } from "./auth.types";
 
 export const authOptions = {
   secret: process.env.NEXTAUTH_SECRET,
@@ -38,6 +39,7 @@ export const authOptions = {
         githubUsername: null,
         role: "CONTRIBUTOR",
         team: null,
+        platform: null,
         notifications: [],
       });
 
@@ -91,8 +93,11 @@ export const authOptions = {
       const dbUser = await getUserById(userId);
 
       if (dbUser) {
+        session.user.id = userId;
         session.user.role = dbUser.role as UserRole;
         session.user.team = dbUser.team ?? null;
+        session.user.platform =
+          (dbUser.platform as ContributionPlatform | null) ?? null;
       }
 
       return session;

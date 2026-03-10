@@ -1,6 +1,7 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import {
   Notification,
+  ContributionPlatform,
   UserRole,
   UserModel,
 } from "@/lib/auth/auth.types";
@@ -119,6 +120,16 @@ export async function updateUserRole(
     .update({
       role
     });
+}
+
+export async function updateUserPlatformByUid(
+  uid: string,
+  platform: ContributionPlatform
+): Promise<void> {
+  await db
+    .collection(USERS_COLLECTION)
+    .doc(uid)
+    .update({ platform });
 }
 
 export async function updateUserRoleTeamAndNotifyByUid(

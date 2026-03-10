@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { CONSTANTS } from "@/lib/contants";
+import { CONSTANTS } from "@/lib/constants";
 import { useState } from "react";
 
 export default function MemberRequestAccessModal() {
