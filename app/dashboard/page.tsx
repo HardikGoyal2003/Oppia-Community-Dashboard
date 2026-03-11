@@ -17,13 +17,13 @@ export default async function DashboardPage() {
   }
 
   const { role } = session.user;
-  const platform = session.user.platform ?? null;
+  const selectedPlatform = session.user.platform;
 
   // Do not render any dashboard content until the user selects a platform.
-  if (platform === null) {
+  if (selectedPlatform === null) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <PlatformSelectModal initialPlatform={platform} />
+        <PlatformSelectModal initialPlatform={selectedPlatform} />
       </div>
     );
   }
@@ -53,7 +53,7 @@ export default async function DashboardPage() {
       return (
         <div className="min-h-screen bg-gray-50">
           <Navbar />
-          <ContributorView />
+          <ContributorView platform={selectedPlatform} />
         </div>
       );
   }
