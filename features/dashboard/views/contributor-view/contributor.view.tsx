@@ -45,7 +45,7 @@ export default function ContributorView({
           <p className="text-gray-500 mb-4">
             Request access to a team by filling out the form below:
           </p>
-          <MemberRequestAccessModal />
+          <MemberRequestAccessModal platform={platform} />
         </div>
 
       </div>
