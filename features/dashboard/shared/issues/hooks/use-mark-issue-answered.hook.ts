@@ -11,7 +11,7 @@ export function useMarkIssueAsnwered() {
   const { data: session } = useSession();
 
   return (issue: Issue) => {
-    const platform = session?.user?.platform ?? "WEB";
+    const platform = session?.user.platform;
 
     let from: keyof CategorizedProjectIssues;
 

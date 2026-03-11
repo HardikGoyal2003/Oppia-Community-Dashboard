@@ -7,13 +7,6 @@ export interface Issue {
   linkedProject: string;
 }
 
-export type IssueBucketKey =
-  | "team1"
-  | "team2"
-  | "team3"
-  | "others"
-  | "archive";
-
 export interface CategorizedProjectIssues {
   team1: Issue[];
   team2: Issue[];

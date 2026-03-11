@@ -1,8 +1,6 @@
 import { RawIssueNode, User } from "./github.types";
 
 const TOKEN = process.env.GITHUB_TOKEN!;
-const ORG = process.env.ORG_NAME!;
-const REPO = process.env.REPO_NAME!;
 
 const API_URL = "https://api.github.com/graphql";
 
@@ -186,9 +184,9 @@ async function fetchOrgAndCollaborators(
   return request(query, { owner, repo });
 }
 
-export async function main(target?: Partial<GitHubRepoTarget>) {
-  const owner = target?.owner ?? ORG;
-  const repo = target?.repo ?? REPO;
+export async function main(target: GitHubRepoTarget) {
+  const owner = target.owner;
+  const repo = target.repo;
 
   console.log(`Fetching collaborators and org members...`);
 

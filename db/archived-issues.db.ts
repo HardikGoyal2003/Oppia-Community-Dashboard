@@ -6,13 +6,15 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  query,
   setDoc,
+  where,
 } from "firebase/firestore";
 
 const ARCHIVED_ISSUES_COLLECTION = "archivedIssues";
 
 type ArchivedIssueDoc = Issue & {
-  platform?: ContributionPlatform;
+  platform: ContributionPlatform;
 };
 
 function getArchivedIssueDocId(
@@ -24,17 +26,17 @@ function getArchivedIssueDocId(
 
 export async function getArchivedIssues(
   platform: ContributionPlatform
-): Promise<Issue[]> {
-  const snapshot = await getDocs(
-    collection(db, ARCHIVED_ISSUES_COLLECTION)
+): Promise<ArchivedIssueDoc[]> {
+  const q = query(
+    collection(db, ARCHIVED_ISSUES_COLLECTION),
+    where("platform", "==", platform)
   );
 
-  return snapshot.docs
-    .map((docSnap) => docSnap.data() as ArchivedIssueDoc)
-    .filter((data) => {
-      const docPlatform = data.platform ?? "WEB";
-      return docPlatform === platform;
-    });
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map(
+    (docSnap) => docSnap.data() as ArchivedIssueDoc
+  );
 }
 
 export async function archiveIssue(
@@ -48,13 +50,9 @@ export async function archiveIssue(
       getArchivedIssueDocId(platform, issue.issueNumber)
     ),
     {
+      ...issue,
       platform,
-      issueNumber: issue.issueNumber,
-      issueUrl: issue.issueUrl,
-      issueTitle: issue.issueTitle,
       isArchived: true,
-      lastCommentCreatedAt: issue.lastCommentCreatedAt,
-      linkedProject: issue.linkedProject,
     }
   );
 }

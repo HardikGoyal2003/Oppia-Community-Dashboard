@@ -10,7 +10,7 @@ export const CONSTANTS =  {
     "DEV_WORKFLOW_INFRA": "[Android] Developer Workflow & Infrastructure Team"
   },
 
-  "GITHUB_REPOS_BY_PLATFORM": {
+  "GITHUB_REPOS": {
     "WEB": { "owner": "oppia", "repo": "oppia" },
     "ANDROID": { "owner": "oppia", "repo": "oppia-android" }
   },

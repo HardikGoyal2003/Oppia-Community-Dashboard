@@ -24,7 +24,12 @@ export default function UnansweredIssuesTab() {
   const [archivedIssues, setArchivedIssues] = useState<Issue[]>([]);
 
   const { data: session } = useSession();
-  const platform = session?.user?.platform ?? "WEB";
+  const platform = session?.user.platform;
+
+  if (!platform) {
+    console.error("User platform is undefined. Platform is required to load issues.");
+    return;
+  }
 
   const teamLabelMap: Record<string, string> =
     platform === "ANDROID"

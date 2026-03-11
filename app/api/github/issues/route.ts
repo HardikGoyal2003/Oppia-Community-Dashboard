@@ -15,9 +15,9 @@ export async function GET() {
   try {
     const platform = session.user.platform ?? "WEB";
     const repoTarget =
-      CONSTANTS.GITHUB_REPOS_BY_PLATFORM[
-        platform as keyof typeof CONSTANTS.GITHUB_REPOS_BY_PLATFORM
-      ] ?? CONSTANTS.GITHUB_REPOS_BY_PLATFORM.WEB;
+      CONSTANTS.GITHUB_REPOS[
+        platform as keyof typeof CONSTANTS.GITHUB_REPOS
+      ] ?? CONSTANTS.GITHUB_REPOS.WEB;
 
     const issuesData = await main(repoTarget);
     return NextResponse.json({
