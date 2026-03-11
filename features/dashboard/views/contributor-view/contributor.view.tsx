@@ -1,21 +1,19 @@
 "use client";
 
-import { useSession } from "next-auth/react";
 import { CONSTANTS } from "@/lib/constants";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import MemberRequestAccessModal from "./components/member-request-access-modal";
 
 
 export default function ContributorView({
-  message = "Thanks for signing up! You’ll get access once you’re assigned to a team."
+  message = "Thanks for signing up! You’ll get access once you’re assigned to a team.",
+  platform,
 }: {
   message?: string;
+  platform: ContributionPlatform;
 }) {
-  const { data: session } = useSession();
-  const platform = session?.user?.platform ?? "WEB";
   const docsUrl =
-    CONSTANTS.CONTRIBUTING_DOCS[
-      platform as keyof typeof CONSTANTS.CONTRIBUTING_DOCS
-    ] ?? CONSTANTS.CONTRIBUTING_DOCS.WEB;
+    CONSTANTS.CONTRIBUTING_DOCS[platform];
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4 py-12">
@@ -47,7 +45,7 @@ export default function ContributorView({
           <p className="text-gray-500 mb-4">
             Request access to a team by filling out the form below:
           </p>
-          <MemberRequestAccessModal />
+          <MemberRequestAccessModal platform={platform} />
         </div>
 
       </div>

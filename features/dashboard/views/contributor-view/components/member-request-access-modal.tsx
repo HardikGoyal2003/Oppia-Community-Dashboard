@@ -26,11 +26,18 @@ import {
 
 import { CONSTANTS } from "@/lib/constants";
 import { useState } from "react";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 
-export default function MemberRequestAccessModal() {
+export default function MemberRequestAccessModal({
+  platform,
+}: {
+  platform: ContributionPlatform;
+}) {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const teams =
+    platform === "ANDROID" ? CONSTANTS.ANDROID_TEAMS : CONSTANTS.WEB_TEAMS;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -112,7 +119,7 @@ export default function MemberRequestAccessModal() {
                     <SelectValue placeholder="Select a team" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(CONSTANTS.WEB_TEAMS).map(([key, label]) => (
+                    {Object.entries(teams).map(([key, label]) => (
                       <SelectItem key={key} value={key}>
                         {label}
                       </SelectItem>
