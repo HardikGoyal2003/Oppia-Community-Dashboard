@@ -7,10 +7,17 @@ export interface Issue {
   linkedProject: string;
 }
 
+export type IssueBucketKey =
+  | "team1"
+  | "team2"
+  | "team3"
+  | "others"
+  | "archive";
+
 export interface CategorizedProjectIssues {
-  leap: Issue[];
-  core: Issue[];
-  dev: Issue[];
+  team1: Issue[];
+  team2: Issue[];
+  team3: Issue[];
   others: Issue[];
   archive: Issue[];
 }

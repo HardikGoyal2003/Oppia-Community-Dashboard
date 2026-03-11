@@ -5,6 +5,16 @@ export const CONSTANTS =  {
     "DEV_WORKFLOW": "[Web] Developer Workflow Team"
   },
 
+  "ANDROID_TEAMS": {
+    "CLAM": "[Android] CLAM Team (Core Learner and Mastery & UI Frontend)",
+    "DEV_WORKFLOW_INFRA": "[Android] Developer Workflow & Infrastructure Team"
+  },
+
+  "GITHUB_REPOS_BY_PLATFORM": {
+    "WEB": { "owner": "oppia", "repo": "oppia" },
+    "ANDROID": { "owner": "oppia", "repo": "oppia-android" }
+  },
+
   "CONTRIBUTING_DOCS": {
     "WEB": "https://github.com/oppia/oppia/wiki/Contributing-code-to-Oppia",
     "ANDROID": "https://github.com/oppia/oppia-android/wiki/Contributing-to-Oppia-android"

@@ -6,6 +6,10 @@ const REPO = process.env.REPO_NAME!;
 
 const API_URL = "https://api.github.com/graphql";
 
+export type GitHubRepoTarget = {
+  owner: string;
+  repo: string;
+};
 
 interface IssuesResponse {
   repository: {
@@ -94,7 +98,10 @@ async function fetchRateLimit(): Promise<RateLimit> {
   return request(query);
 }
 
-async function fetchRecentIssues(): Promise<RawIssueNode[]> {
+async function fetchRecentIssues(
+  owner: string,
+  repo: string
+): Promise<RawIssueNode[]> {
   const issues: RawIssueNode[] = [];
   let cursor: string | null = null;
   let hasNextPage = true;
@@ -138,8 +145,8 @@ async function fetchRecentIssues(): Promise<RawIssueNode[]> {
 
   while (hasNextPage) {
     const data: IssuesResponse = await request<IssuesResponse>(query, {
-      owner: ORG,
-      repo: REPO,
+      owner,
+      repo,
       cursor,
       since: SINCE
     });
@@ -154,7 +161,10 @@ async function fetchRecentIssues(): Promise<RawIssueNode[]> {
   return issues;
 }
 
-async function fetchOrgAndCollaborators(): Promise<OrgAndRepoAccessResult> {
+async function fetchOrgAndCollaborators(
+  owner: string,
+  repo: string
+): Promise<OrgAndRepoAccessResult> {
   const query = `
     query($owner: String!, $repo: String!) {
       organization(login: $owner) {
@@ -173,13 +183,16 @@ async function fetchOrgAndCollaborators(): Promise<OrgAndRepoAccessResult> {
     }
   `;
 
-  return request(query, { owner: ORG, repo: REPO });
+  return request(query, { owner, repo });
 }
 
-export async function main() {
+export async function main(target?: Partial<GitHubRepoTarget>) {
+  const owner = target?.owner ?? ORG;
+  const repo = target?.repo ?? REPO;
+
   console.log(`Fetching collaborators and org members...`);
 
-  const orgData = await fetchOrgAndCollaborators();
+  const orgData = await fetchOrgAndCollaborators(owner, repo);
 
   const orgMembers = new Set(orgData.organization?.membersWithRole?.nodes.map((m) => m.login) || []);
   const collaborators = orgData.repository.collaborators.edges;
@@ -196,7 +209,7 @@ export async function main() {
   console.log(`Maintainers: ${maintainers.size}`);
 
   console.log("Fetching recent issues (30-day window)...");
-  const issues = await fetchRecentIssues();
+  const issues = await fetchRecentIssues(owner, repo);
   console.log(`Fetched ${issues.length} recent issues.`);
 
   const cutoffTime = Date.now() - 30 * 86400 * 1000;
@@ -233,4 +246,3 @@ export async function main() {
 
   return filtered;
 }
-

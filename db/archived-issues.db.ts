@@ -1,5 +1,6 @@
 import { db } from "@/lib/firebase/firebase.client";
 import { Issue } from "@/features/dashboard/dashboard.types";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import {
   collection,
   deleteDoc,
@@ -10,20 +11,44 @@ import {
 
 const ARCHIVED_ISSUES_COLLECTION = "archivedIssues";
 
-export async function getArchivedIssues(): Promise<Issue[]> {
+type ArchivedIssueDoc = Issue & {
+  platform?: ContributionPlatform;
+};
+
+function getArchivedIssueDocId(
+  platform: ContributionPlatform,
+  issueNumber: number
+): string {
+  return `${platform}_${issueNumber}`;
+}
+
+export async function getArchivedIssues(
+  platform: ContributionPlatform
+): Promise<Issue[]> {
   const snapshot = await getDocs(
     collection(db, ARCHIVED_ISSUES_COLLECTION)
   );
 
-  return snapshot.docs.map(
-    (doc) => doc.data() as Issue
-  );
+  return snapshot.docs
+    .map((docSnap) => docSnap.data() as ArchivedIssueDoc)
+    .filter((data) => {
+      const docPlatform = data.platform ?? "WEB";
+      return docPlatform === platform;
+    });
 }
 
-export async function archiveIssue(issue: Issue): Promise<void> {
+export async function archiveIssue(
+  issue: Issue,
+  platform: ContributionPlatform
+): Promise<void> {
   await setDoc(
-    doc(db, ARCHIVED_ISSUES_COLLECTION, String(issue.issueNumber)),
+    doc(
+      db,
+      ARCHIVED_ISSUES_COLLECTION,
+      getArchivedIssueDocId(platform, issue.issueNumber)
+    ),
     {
+      platform,
       issueNumber: issue.issueNumber,
       issueUrl: issue.issueUrl,
       issueTitle: issue.issueTitle,
@@ -34,8 +59,15 @@ export async function archiveIssue(issue: Issue): Promise<void> {
   );
 }
 
-export async function unarchiveIssue(issueNumber: number): Promise<void> {
+export async function unarchiveIssue(
+  issueNumber: number,
+  platform: ContributionPlatform
+): Promise<void> {
   await deleteDoc(
-    doc(db, ARCHIVED_ISSUES_COLLECTION, String(issueNumber))
+    doc(
+      db,
+      ARCHIVED_ISSUES_COLLECTION,
+      getArchivedIssueDocId(platform, issueNumber)
+    )
   );
 }

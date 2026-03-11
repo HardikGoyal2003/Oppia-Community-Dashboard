@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { IssueCard } from "./issues/components/issue-card";
 import { RawIssue } from "@/lib/github/github.types";
 import { LoadingIndicator } from "@/components/layout/loading-indicator";
@@ -14,7 +15,7 @@ import { categorizeIssues } from "./issues/services/categorize-issues.service";
 export default function UnansweredIssuesTab() {
   const [responseData, setResponseData] = useState<{ issues: RawIssue[] } | null>(null);
   const [activeTab, setActiveTab] =
-    useState<keyof CategorizedProjectIssues>("leap");
+    useState<keyof CategorizedProjectIssues>("team1");
 
   const { isLoading, startLoading, stopLoading } = useLoading();
 
@@ -22,12 +23,23 @@ export default function UnansweredIssuesTab() {
 
   const [archivedIssues, setArchivedIssues] = useState<Issue[]>([]);
 
-  const teamLabelMap: Record<string, string> = {
-    leap: "LEAP Team",
-    core: "CORE Team",
-    dev: "Dev Workflow Team",
-    others: "",
-  };
+  const { data: session } = useSession();
+  const platform = session?.user?.platform ?? "WEB";
+
+  const teamLabelMap: Record<string, string> =
+    platform === "ANDROID"
+      ? {
+          team1: "CLAM Team",
+          team2: "Dev Workflow & Infrastructure Team",
+          team3: "",
+          others: "",
+        }
+      : {
+          team1: "LEAP Team",
+          team2: "CORE Team",
+          team3: "Dev Workflow Team",
+          others: "",
+        };
 
   const handleClick = async () => {
     startLoading();
@@ -45,7 +57,7 @@ export default function UnansweredIssuesTab() {
       };
 
       const [archivedIssues, data] = await Promise.all([
-        getArchivedIssues(),
+        getArchivedIssues(platform),
         Promise.resolve(issuesData),
       ]) 
       setArchivedIssues(archivedIssues);
@@ -61,16 +73,18 @@ export default function UnansweredIssuesTab() {
     (async () => {
       const categorized = await categorizeIssues(
         responseData.issues,
-        archivedIssues
+        archivedIssues,
+        platform
       );
       setIssues(categorized);
     })();
-  }, [responseData, archivedIssues, setIssues]);
+  }, [responseData, archivedIssues, platform, setIssues]);
 
   return (
     <div className="flex flex-col bg-gray-50 min-h-screen
                     px-4 py-18 sm:px-8 md:px-16 lg:px-40">
       <TeamTabs 
+      platform={platform}
       categorizedProjectIssuesData = {issues}
       activeTab={activeTab}
       setActiveTab={setActiveTab}/>
@@ -96,7 +110,7 @@ export default function UnansweredIssuesTab() {
               </div>
 
               <p className="mt-5 text-2xl font-semibold tracking-tight text-slate-900">
-                Great job, {teamLabelMap[activeTab]} leads! 🙌
+                Great job, {teamLabelMap[activeTab] || "team"} leads! 🙌
               </p>
 
               <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-600">

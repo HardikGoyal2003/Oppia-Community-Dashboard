@@ -2,10 +2,12 @@ import { RawIssue } from "@/lib/github/github.types";
 import { CategorizedProjectIssues, Issue } from "../../../dashboard.types";
 import { unarchiveIssue } from "@/db/archived-issues.db";
 import { CONSTANTS } from "@/lib/constants";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 
 export async function categorizeIssues(
   rawIssues: RawIssue[],
-  archivedIssues: Issue[]
+  archivedIssues: Issue[],
+  platform: ContributionPlatform
 ): Promise<CategorizedProjectIssues> {
   const liveIssueNumbers = new Set(
     rawIssues.map(issue => issue.issueNumber)
@@ -21,14 +23,14 @@ export async function categorizeIssues(
 
   await Promise.all(
     staleArchivedIssues.map(issue =>
-      unarchiveIssue(issue.issueNumber)
+      unarchiveIssue(issue.issueNumber, platform)
     )
   );
 
   const result: CategorizedProjectIssues = {
-    core: [],
-    leap: [],
-    dev: [],
+    team1: [],
+    team2: [],
+    team3: [],
     others: [],
     archive: [...activeArchivedIssues],
   };
@@ -45,24 +47,37 @@ export async function categorizeIssues(
 
     if (isUpdated) {
       result.archive.splice(archiveIndex, 1);
-      await unarchiveIssue(rawIssue.issueNumber);
+      await unarchiveIssue(rawIssue.issueNumber, platform);
     }
 
     if (archiveIndex === -1 || isUpdated) {
       const issue = { ...rawIssue, isArchived: false };
 
-      switch (rawIssue.linkedProject) {
-        case CONSTANTS.WEB_TEAMS.CORE:
-          result.core.push(issue);
-          break;
-        case CONSTANTS.WEB_TEAMS.LEAP:
-          result.leap.push(issue);
-          break;
-        case CONSTANTS.WEB_TEAMS.DEV_WORKFLOW:
-          result.dev.push(issue);
-          break;
-        default:
-          result.others.push(issue);
+      if (platform === "ANDROID") {
+        switch (rawIssue.linkedProject) {
+          case CONSTANTS.ANDROID_TEAMS.CLAM:
+            result.team1.push(issue);
+            break;
+          case CONSTANTS.ANDROID_TEAMS.DEV_WORKFLOW_INFRA:
+            result.team2.push(issue);
+            break;
+          default:
+            result.others.push(issue);
+        }
+      } else {
+        switch (rawIssue.linkedProject) {
+          case CONSTANTS.WEB_TEAMS.LEAP:
+            result.team1.push(issue);
+            break;
+          case CONSTANTS.WEB_TEAMS.CORE:
+            result.team2.push(issue);
+            break;
+          case CONSTANTS.WEB_TEAMS.DEV_WORKFLOW:
+            result.team3.push(issue);
+            break;
+          default:
+            result.others.push(issue);
+        }
       }
     }
   }
