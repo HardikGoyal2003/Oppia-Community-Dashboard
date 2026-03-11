@@ -1,41 +1,71 @@
 import { db } from "@/lib/firebase/firebase.client";
 import { Issue } from "@/features/dashboard/dashboard.types";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import {
   collection,
   deleteDoc,
   doc,
   getDocs,
+  query,
   setDoc,
+  where,
 } from "firebase/firestore";
 
 const ARCHIVED_ISSUES_COLLECTION = "archivedIssues";
 
-export async function getArchivedIssues(): Promise<Issue[]> {
-  const snapshot = await getDocs(
-    collection(db, ARCHIVED_ISSUES_COLLECTION)
+type ArchivedIssueDoc = Issue & {
+  platform: ContributionPlatform;
+};
+
+function getArchivedIssueDocId(
+  platform: ContributionPlatform,
+  issueNumber: number
+): string {
+  return `${platform}_${issueNumber}`;
+}
+
+export async function getArchivedIssues(
+  platform: ContributionPlatform
+): Promise<ArchivedIssueDoc[]> {
+  const q = query(
+    collection(db, ARCHIVED_ISSUES_COLLECTION),
+    where("platform", "==", platform)
   );
 
+  const snapshot = await getDocs(q);
+
   return snapshot.docs.map(
-    (doc) => doc.data() as Issue
+    (docSnap) => docSnap.data() as ArchivedIssueDoc
   );
 }
 
-export async function archiveIssue(issue: Issue): Promise<void> {
+export async function archiveIssue(
+  issue: Issue,
+  platform: ContributionPlatform
+): Promise<void> {
   await setDoc(
-    doc(db, ARCHIVED_ISSUES_COLLECTION, String(issue.issueNumber)),
+    doc(
+      db,
+      ARCHIVED_ISSUES_COLLECTION,
+      getArchivedIssueDocId(platform, issue.issueNumber)
+    ),
     {
-      issueNumber: issue.issueNumber,
-      issueUrl: issue.issueUrl,
-      issueTitle: issue.issueTitle,
+      ...issue,
+      platform,
       isArchived: true,
-      lastCommentCreatedAt: issue.lastCommentCreatedAt,
-      linkedProject: issue.linkedProject,
     }
   );
 }
 
-export async function unarchiveIssue(issueNumber: number): Promise<void> {
+export async function unarchiveIssue(
+  issueNumber: number,
+  platform: ContributionPlatform
+): Promise<void> {
   await deleteDoc(
-    doc(db, ARCHIVED_ISSUES_COLLECTION, String(issueNumber))
+    doc(
+      db,
+      ARCHIVED_ISSUES_COLLECTION,
+      getArchivedIssueDocId(platform, issueNumber)
+    )
   );
 }

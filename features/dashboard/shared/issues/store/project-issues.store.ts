@@ -17,9 +17,9 @@ interface ProjectIssuesStore {
 
 export const useProjectIssuesStore = create<ProjectIssuesStore>((set) => ({
   issues: {
-    leap: [],
-    core: [],
-    dev: [],
+    team1: [],
+    team2: [],
+    team3: [],
     others: [],
     archive: [],
   },

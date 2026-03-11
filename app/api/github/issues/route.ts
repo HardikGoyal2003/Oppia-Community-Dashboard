@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import { main } from "@/lib/github/github.fetcher";
 import { formatIssues } from "@/lib/utils/ format-issues.utils";
+import { CONSTANTS } from "@/lib/constants";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -12,7 +13,13 @@ export async function GET() {
   }
 
   try {
-    const issuesData = await main();
+    const platform = session.user.platform ?? "WEB";
+    const repoTarget =
+      CONSTANTS.GITHUB_REPOS[
+        platform as keyof typeof CONSTANTS.GITHUB_REPOS
+      ] ?? CONSTANTS.GITHUB_REPOS.WEB;
+
+    const issuesData = await main(repoTarget);
     return NextResponse.json({
       issues: formatIssues(issuesData),
     });

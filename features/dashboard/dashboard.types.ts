@@ -8,9 +8,9 @@ export interface Issue {
 }
 
 export interface CategorizedProjectIssues {
-  leap: Issue[];
-  core: Issue[];
-  dev: Issue[];
+  team1: Issue[];
+  team2: Issue[];
+  team3: Issue[];
   others: Issue[];
   archive: Issue[];
 }
