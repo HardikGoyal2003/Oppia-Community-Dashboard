@@ -1,20 +1,24 @@
-import GoogleProvider from "next-auth/providers/google";
+import GitHubProvider from "next-auth/providers/github";
 import {
   createUserIfNotExists,
   getUserById,
 } from "@/db/users.db";
 import type { JWT } from "next-auth/jwt";
+import type { Profile } from "next-auth";
 import type { Account, Session, User } from "next-auth";
 import { UserRole } from "./auth.types";
 import { ContributionPlatform } from "./auth.types";
 
 export const authOptions = {
   secret: process.env.NEXTAUTH_SECRET,
+  session: {
+    maxAge: 7 * 24 * 60 * 60,
+  },
 
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    GitHubProvider({
+      clientId: process.env.GITHUB_ID!,
+      clientSecret: process.env.GITHUB_SECRET!,
     }),
   ],
 
@@ -22,13 +26,16 @@ export const authOptions = {
     async signIn({
       user,
       account,
+      profile,
     }: {
       user: User;
       account: Account | null;
+      profile: Profile & { login: string };
     }) {
       if (!user.email) return false;
 
       const subjectId = account?.providerAccountId;
+      const githubUsername = profile.login;
 
       if (!subjectId) return false;
 
@@ -36,7 +43,7 @@ export const authOptions = {
         email: user.email,
         fullName: user.name ?? "",
         photoURL: user.image ?? "",
-        githubUsername: null,
+        githubUsername,
         role: "CONTRIBUTOR",
         team: null,
         platform: null,

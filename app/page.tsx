@@ -1,6 +1,4 @@
-"use client";
-
-import { signIn } from "next-auth/react";
+import Link from "next/link";
 import { SiteFooter } from "@/components/layout/site-footer";
 
 type RoleCardProps = {
@@ -52,7 +50,7 @@ const JOURNEY_CARDS: JourneyCardProps[] = [
   {
     step: "01",
     title: "Sign in",
-    description: "Join with your Google account and enter a role-based workspace.",
+    description: "Join with your GitHub account and enter a role-based workspace.",
   },
   {
     step: "02",
@@ -116,12 +114,12 @@ export default function Home() {
             </p>
 
             <div className="mt-10 flex flex-wrap items-center gap-4">
-              <button
-                onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+              <Link
+                href="/login"
                 className="cursor-pointer inline-flex items-center gap-2 rounded-lg bg-linear-to-r from-emerald-500 to-teal-500 px-8 py-4 text-sm font-semibold text-white shadow-xl transition-all hover:-translate-y-0.5 hover:shadow-2xl focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
               >
                 Enter Dashboard →
-              </button>
+              </Link>
 
               <span className="text-sm text-muted-foreground">
                 Inclusive workflow • Role-based experience
@@ -231,12 +229,12 @@ export default function Home() {
             Start with the role you have today and progress with a system designed to support every contributor and maintainer.
           </p>
 
-          <button
-            onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+          <Link
+            href="/login"
             className="cursor-pointer mt-10 inline-flex items-center gap-2 rounded-lg bg-linear-to-r from-emerald-500 to-teal-500 px-8 py-4 text-sm font-semibold text-white shadow-xl transition-all hover:-translate-y-0.5 hover:shadow-2xl"
           >
-            Sign in with Google →
-          </button>
+            Sign in with GitHub →
+          </Link>
         </div>
       </section>
 
