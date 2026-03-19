@@ -52,7 +52,7 @@ const JOURNEY_CARDS: JourneyCardProps[] = [
   {
     step: "01",
     title: "Sign in",
-    description: "Join with your Google account and enter a role-based workspace.",
+    description: "Join with your GitHub account and enter a role-based workspace.",
   },
   {
     step: "02",
@@ -117,7 +117,7 @@ export default function Home() {
 
             <div className="mt-10 flex flex-wrap items-center gap-4">
               <button
-                onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+                onClick={() => signIn("github", { callbackUrl: "/dashboard" })}
                 className="cursor-pointer inline-flex items-center gap-2 rounded-lg bg-linear-to-r from-emerald-500 to-teal-500 px-8 py-4 text-sm font-semibold text-white shadow-xl transition-all hover:-translate-y-0.5 hover:shadow-2xl focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
               >
                 Enter Dashboard →
@@ -232,10 +232,10 @@ export default function Home() {
           </p>
 
           <button
-            onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+            onClick={() => signIn("github", { callbackUrl: "/dashboard" })}
             className="cursor-pointer mt-10 inline-flex items-center gap-2 rounded-lg bg-linear-to-r from-emerald-500 to-teal-500 px-8 py-4 text-sm font-semibold text-white shadow-xl transition-all hover:-translate-y-0.5 hover:shadow-2xl"
           >
-            Sign in with Google →
+            Sign in with GitHub →
           </button>
         </div>
       </section>

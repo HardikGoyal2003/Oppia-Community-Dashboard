@@ -24,7 +24,7 @@ export default function LoginPage() {
 
   const handleSignIn = async () => {
     setLoading(true);
-    await signIn("google", { callbackUrl: "/dashboard" });
+    await signIn("github", { callbackUrl: "/dashboard" });
   };
 
   if (status === "loading") {
@@ -64,7 +64,7 @@ export default function LoginPage() {
                 Sign in
               </h2>
               <p className="mt-1 text-slate-500">
-                Access your Oppia dashboard with Google.
+                Access your Oppia dashboard with GitHub.
               </p>
             </div>
 
@@ -77,13 +77,14 @@ export default function LoginPage() {
                 <span className="animate-pulse">Signing you in...</span>
               ) : (
                 <>
-                  <Image
-                    src="https://www.svgrepo.com/show/475656/google-color.svg"
-                    alt="Google"
-                    width={20}
-                    height={20}
-                  />
-                  <span>Continue with Google</span>
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    className="h-5 w-5 fill-slate-900"
+                  >
+                    <path d="M12 .5C5.649.5.5 5.649.5 12c0 5.094 3.292 9.416 7.86 10.94.575.106.785-.25.785-.556 0-.274-.01-1-.016-1.963-3.197.695-3.872-1.54-3.872-1.54-.523-1.33-1.277-1.684-1.277-1.684-1.044-.714.079-.699.079-.699 1.155.081 1.763 1.186 1.763 1.186 1.026 1.759 2.692 1.251 3.348.957.104-.743.401-1.251.729-1.539-2.552-.291-5.236-1.276-5.236-5.682 0-1.255.449-2.282 1.184-3.086-.119-.29-.513-1.462.112-3.048 0 0 .965-.309 3.162 1.179A10.98 10.98 0 0 1 12 6.032c.973.005 1.954.131 2.87.384 2.195-1.488 3.158-1.179 3.158-1.179.627 1.586.233 2.758.114 3.048.737.804 1.182 1.831 1.182 3.086 0 4.417-2.688 5.387-5.248 5.673.412.355.78 1.054.78 2.124 0 1.534-.014 2.772-.014 3.149 0 .309.207.668.79.555C20.21 21.412 23.5 17.092 23.5 12c0-6.351-5.149-11.5-11.5-11.5Z" />
+                  </svg>
+                  <span>Continue with GitHub</span>
                 </>
               )}
             </button>
