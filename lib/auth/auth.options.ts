@@ -11,6 +11,9 @@ import { ContributionPlatform } from "./auth.types";
 
 export const authOptions = {
   secret: process.env.NEXTAUTH_SECRET,
+  session: {
+    maxAge: 7 * 24 * 60 * 60,
+  },
 
   providers: [
     GitHubProvider({
@@ -27,13 +30,12 @@ export const authOptions = {
     }: {
       user: User;
       account: Account | null;
-      profile?: Profile;
+      profile: Profile & { login: string };
     }) {
       if (!user.email) return false;
 
       const subjectId = account?.providerAccountId;
-      const githubUsername =
-        typeof profile?.login === "string" ? profile.login : null;
+      const githubUsername = profile.login;
 
       if (!subjectId) return false;
 
