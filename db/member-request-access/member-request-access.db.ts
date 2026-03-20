@@ -8,6 +8,7 @@ import {
   MemberAccessDecision,
   MemberAccessRequestModel,
 } from "./member-request-access.types";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 
 const MEMBER_ACCESS_REQUESTS_COLLECTION = "memberAccessRequests";
 
@@ -26,17 +27,29 @@ export class PendingMemberAccessRequestError extends Error {
 export async function getPendingMemberAccessRequests(): Promise<
   MemberAccessRequestModel[]
 > {
-  const snapshot = await db
-    .collection(MEMBER_ACCESS_REQUESTS_COLLECTION)
-    .where("status", "==", "PENDING")
-    .orderBy("createdAt", "desc")
-    .get();
+  return getPendingMemberAccessRequestsByPlatform();
+}
 
-  return snapshot.docs.map(doc =>
-    normalizeMemberAccessRequest(
-      doc.data() as FirestoreMemberAccessRequest
+export async function getPendingMemberAccessRequestsByPlatform(
+  platform?: ContributionPlatform
+): Promise<MemberAccessRequestModel[]> {
+  let query: FirebaseFirestore.Query = db
+    .collection(MEMBER_ACCESS_REQUESTS_COLLECTION)
+    .where("status", "==", "PENDING");
+
+  if (platform) {
+    query = query.where("platform", "==", platform);
+  }
+
+  const snapshot = await query.get();
+
+  return snapshot.docs
+    .map(doc =>
+      normalizeMemberAccessRequest(
+        doc.data() as FirestoreMemberAccessRequest
+      )
     )
-  );
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
 export async function submitMemberAccessRequest(

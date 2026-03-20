@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import {
-  getPendingMemberAccessRequests,
+  getPendingMemberAccessRequestsByPlatform,
   PendingMemberAccessRequestError,
   resolveMemberAccessRequest,
   submitMemberAccessRequest,
@@ -12,7 +12,7 @@ import {
   getUserByEmail,
   updateUserRoleTeamAndNotifyByEmail,
 } from "@/db/users.db";
-import { UserRole } from "@/lib/auth/auth.types";
+import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { isValidUserRole } from "@/lib/utils/roles.utils";
 
 function getPromotionMessage(role: UserRole, team: string): string {
@@ -38,14 +38,21 @@ function getDeclineMessage(reason: string): string {
   ].join("\n");
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
 
   if (!session || !session.user || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  const requests = await getPendingMemberAccessRequests();
+  const { searchParams } = new URL(req.url);
+  const platformParam = searchParams.get("platform");
+  const platform =
+    platformParam === "WEB" || platformParam === "ANDROID"
+      ? (platformParam as ContributionPlatform)
+      : undefined;
+
+  const requests = await getPendingMemberAccessRequestsByPlatform(platform);
   return NextResponse.json({
     pending: requests,
   });
@@ -75,6 +82,7 @@ export async function POST(req: Request) {
 
   const dbUser = await getUserByEmail(session.user.email);
   const username = dbUser?.githubUsername;
+  const platform = dbUser?.platform;
 
   if (!username) {
     return NextResponse.json(
@@ -86,9 +94,17 @@ export async function POST(req: Request) {
     );
   }
 
+  if (!platform) {
+    return NextResponse.json(
+      { error: "No contribution platform was found on your account." },
+      { status: 400 }
+    );
+  }
+
   try {
     await submitMemberAccessRequest({
       email: session.user.email,
+      platform: platform as ContributionPlatform,
       team,
       role,
       note,

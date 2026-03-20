@@ -5,9 +5,11 @@ import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { DeclineRequestModal } from "../components/decline-request-modal";
 import { formatDisplayValue } from "@/lib/utils/display-format.utils";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 
 type MemberAccessRequest = {
   email: string;
+  platform: ContributionPlatform;
   team: string;
   role: string;
   note: string;
@@ -18,6 +20,7 @@ type MemberAccessRequest = {
 
 export function IncomingRequestTab() {
   const [requests, setRequests] = useState<MemberAccessRequest[]>([]);
+  const [platform, setPlatform] = useState<ContributionPlatform>("WEB");
   const [isLoading, setIsLoading] = useState(true);
   const [updatingEmail, setUpdatingEmail] = useState<string | null>(null);
   const [declineTargetEmail, setDeclineTargetEmail] = useState<string | null>(null);
@@ -28,7 +31,7 @@ export function IncomingRequestTab() {
 
       try {
         const response = await fetch(
-          "/api/member-access-requests",
+          `/api/member-access-requests?platform=${platform}`,
           { cache: "no-store" }
         );
 
@@ -47,7 +50,7 @@ export function IncomingRequestTab() {
         setIsLoading(false);
       }
     })();
-  }, []);
+  }, [platform]);
 
   const handleDecision = async (
     email: string,
@@ -105,6 +108,22 @@ export function IncomingRequestTab() {
       <h1 className="mb-6 text-2xl font-semibold">
           Incoming Requests
       </h1>
+
+      <div className="mb-4 flex gap-2">
+        {(["WEB", "ANDROID"] as ContributionPlatform[]).map(option => (
+          <button
+            key={option}
+            className={`rounded border px-3 py-1 text-sm ${
+              platform === option
+                ? "border-blue-600 bg-blue-600 text-white"
+                : "border-gray-300 bg-white text-gray-700"
+            }`}
+            onClick={() => setPlatform(option)}
+          >
+            {formatDisplayValue(option)}
+          </button>
+        ))}
+      </div>
 
       {isLoading && <LoadingIndicator />}
 
