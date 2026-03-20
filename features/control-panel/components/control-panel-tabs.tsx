@@ -49,30 +49,6 @@ export function ControlPanelTabs() {
       {activeTab === "PLATFORM_PARAMETERS" && (
         <div className="grid gap-6 md:grid-cols-2">
           <AnnouncementBannerPanel />
-
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">
-              Maintenance Mode
-            </h2>
-            <p className="mt-2 text-sm text-slate-600">
-              Enable or disable maintenance mode while retaining super-admin bypass access.
-            </p>
-            <div className="mt-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
-              Maintenance mode controls pending implementation.
-            </div>
-          </section>
-
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:col-span-2">
-            <h2 className="text-lg font-semibold text-slate-900">
-              Feature Flags
-            </h2>
-            <p className="mt-2 text-sm text-slate-600">
-              Control staged rollouts and platform behavior from one place.
-            </p>
-            <div className="mt-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
-              Feature flag controls pending implementation.
-            </div>
-          </section>
         </div>
       )}
     </div>
