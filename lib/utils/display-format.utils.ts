@@ -1,4 +1,4 @@
-export function formatDisplayValue(value: string | null | undefined): string {
+export function formatDisplayValue(value: string | null): string {
   if (!value) {
     return "-";
   }

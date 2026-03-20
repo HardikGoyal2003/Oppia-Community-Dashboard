@@ -27,6 +27,7 @@ import { CONSTANTS } from "@/lib/constants";
 import { useState } from "react";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { formatDisplayValue } from "@/lib/utils/display-format.utils";
+import { getOrdinalDay } from "@/lib/utils/date-day-format.utils";
 
 type RequestState = "FORM" | "SUBMITTED" | "DUPLICATE";
 type DuplicateRequestDetails = {
@@ -35,29 +36,6 @@ type DuplicateRequestDetails = {
   note: string;
   createdAt: string;
 };
-
-function getOrdinalDay(day: number): string {
-  const remainder = day % 10;
-  const teen = day % 100;
-
-  if (teen >= 11 && teen <= 13) {
-    return `${day}th`;
-  }
-
-  if (remainder === 1) {
-    return `${day}st`;
-  }
-
-  if (remainder === 2) {
-    return `${day}nd`;
-  }
-
-  if (remainder === 3) {
-    return `${day}rd`;
-  }
-
-  return `${day}th`;
-}
 
 function formatDuplicateRequestDate(createdAt: string): string {
   const date = new Date(createdAt);
