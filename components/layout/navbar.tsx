@@ -17,11 +17,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Notification } from "@/lib/auth/auth.types";
-
-type NotificationItem = Notification & {
-  originalIndex: number;
-};
 
 function getDaysAgoLabel(createdAt: Date): string {
   const now = new Date().getTime();
@@ -41,9 +44,12 @@ export const Navbar = ({
   leftContent?: ReactNode;
 }) => {
   const { data: session } = useSession();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadNotifications, setUnreadNotifications] = useState<Notification[]>([]);
+  const [readNotifications, setReadNotifications] = useState<Notification[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
-  const [updatingIndex, setUpdatingIndex] = useState<number | null>(null);
+  const [loadingReadNotifications, setLoadingReadNotifications] = useState(false);
+  const [updatingNotificationId, setUpdatingNotificationId] = useState<string | null>(null);
+  const [isAllNotificationsOpen, setIsAllNotificationsOpen] = useState(false);
 
   const username = session?.user?.name || "User";
   const userEmail = session?.user?.email || "";
@@ -54,7 +60,7 @@ export const Navbar = ({
       setLoadingNotifications(true);
 
       try {
-        const response = await fetch("/api/notifications", {
+        const response = await fetch("/api/notifications?status=unread", {
           cache: "no-store",
         });
 
@@ -66,7 +72,7 @@ export const Navbar = ({
           notifications: Notification[];
         };
 
-        setNotifications(data.notifications ?? []);
+        setUnreadNotifications(data.notifications ?? []);
       } catch (error) {
         console.error(error);
       } finally {
@@ -75,24 +81,19 @@ export const Navbar = ({
     })();
   }, []);
 
-  const unreadCount = useMemo(
-    () => notifications.filter(n => !n.read).length,
-    [notifications]
-  );
+  const unreadCount = unreadNotifications.length;
 
-  const orderedNotifications = useMemo<NotificationItem[]>(
+  const allNotifications = useMemo(
     () =>
-      notifications
-        .map((notification, index) => ({
-          ...notification,
-          originalIndex: index,
-        }))
-        .reverse(),
-    [notifications]
+      [...unreadNotifications, ...readNotifications].sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      ),
+    [readNotifications, unreadNotifications]
   );
 
-  const handleMarkAsRead = async (notificationIndex: number) => {
-    setUpdatingIndex(notificationIndex);
+  const handleMarkAsRead = async (notificationId: string) => {
+    setUpdatingNotificationId(notificationId);
 
     try {
       const response = await fetch("/api/notifications", {
@@ -100,24 +101,57 @@ export const Navbar = ({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ notificationIndex }),
+        body: JSON.stringify({ notificationId }),
       });
 
       if (!response.ok) {
         throw new Error("Failed to mark notification as read.");
       }
 
-      setNotifications(prev =>
-        prev.map((notification, index) =>
-          index === notificationIndex
-            ? { ...notification, read: true }
-            : notification
-        )
+      const notification = unreadNotifications.find(
+        item => item.id === notificationId
       );
+
+      if (!notification) {
+        return;
+      }
+
+      setUnreadNotifications(prev =>
+        prev.filter(item => item.id !== notificationId)
+      );
+      setReadNotifications(prev => [
+        { ...notification, read: true },
+        ...prev.filter(item => item.id !== notificationId),
+      ]);
     } catch (error) {
       console.error(error);
     } finally {
-      setUpdatingIndex(null);
+      setUpdatingNotificationId(null);
+    }
+  };
+
+  const handleSeeAll = async () => {
+    setLoadingReadNotifications(true);
+
+    try {
+      const response = await fetch("/api/notifications?status=read", {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to load all notifications.");
+      }
+
+      const data = (await response.json()) as {
+        notifications: Notification[];
+      };
+
+      setReadNotifications(data.notifications ?? []);
+      setIsAllNotificationsOpen(true);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoadingReadNotifications(false);
     }
   };
 
@@ -159,16 +193,16 @@ export const Navbar = ({
               )}
 
               {!loadingNotifications &&
-                orderedNotifications.length === 0 && (
+                unreadNotifications.length === 0 && (
                   <div className="p-3 text-sm text-gray-500">
-                    No notifications yet.
+                    No unread notifications.
                   </div>
                 )}
 
               {!loadingNotifications &&
-                orderedNotifications.map(notification => (
+                unreadNotifications.map(notification => (
                   <div
-                    key={`${notification.originalIndex}-${notification.createdAt.toString()}`}
+                    key={notification.id}
                     className="border-b last:border-b-0 p-3"
                   >
                     <p className="whitespace-pre-line text-sm text-gray-800">
@@ -182,11 +216,9 @@ export const Navbar = ({
                         variant="outline"
                         size="sm"
                         className="mt-2"
-                        disabled={
-                          updatingIndex === notification.originalIndex
-                        }
+                        disabled={updatingNotificationId === notification.id}
                         onClick={() =>
-                          handleMarkAsRead(notification.originalIndex)
+                          handleMarkAsRead(notification.id)
                         }
                       >
                         Mark as read
@@ -194,6 +226,18 @@ export const Navbar = ({
                     )}
                   </div>
                 ))}
+
+              <DropdownMenuSeparator />
+              <div className="p-2">
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  disabled={loadingReadNotifications}
+                  onClick={handleSeeAll}
+                >
+                  {loadingReadNotifications ? "Loading..." : "See all"}
+                </Button>
+              </div>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -230,6 +274,43 @@ export const Navbar = ({
           </DropdownMenu>
         </div>
       </div>
+
+      <Dialog
+        open={isAllNotificationsOpen}
+        onOpenChange={setIsAllNotificationsOpen}
+      >
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>All Notifications</DialogTitle>
+          </DialogHeader>
+
+          <div className="max-h-[70vh] space-y-3 overflow-y-auto pr-1">
+            {allNotifications.length === 0 && (
+              <p className="text-sm text-gray-500">
+                No notifications yet.
+              </p>
+            )}
+
+            {allNotifications.map(notification => (
+              <div
+                key={notification.id}
+                className="rounded-lg border p-3"
+              >
+                <p className="whitespace-pre-line text-sm text-gray-800">
+                  {notification.message}
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  {getDaysAgoLabel(new Date(notification.createdAt))}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <DialogClose asChild>
+            <Button className="mt-2">Close</Button>
+          </DialogClose>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 };

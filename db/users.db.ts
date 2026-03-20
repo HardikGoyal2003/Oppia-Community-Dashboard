@@ -15,6 +15,8 @@ const NOTIFICATIONS_SUBCOLLECTION = "notifications";
 
 const db = getAdminFirestore();
 
+type NotificationStatusFilter = "READ" | "UNREAD" | "ALL";
+
 function assertGithubUsernameForRole(
   role: UserRole,
   githubUsername: string | null
@@ -246,50 +248,60 @@ export async function appendUserNotificationByEmail(
 }
 
 export async function getNotificationsByEmail(
-  email: string
+  email: string,
+  status: NotificationStatusFilter = "ALL"
 ): Promise<Notification[]> {
   const userDoc = await getUserDocRefByEmail(email);
-  const snapshot = await userDoc.ref
-    .collection(NOTIFICATIONS_SUBCOLLECTION)
-    .orderBy("createdAt", "desc")
-    .get();
+  let query: FirebaseFirestore.Query = userDoc.ref.collection(
+    NOTIFICATIONS_SUBCOLLECTION
+  );
+
+  if (status === "READ") {
+    query = query.where("read", "==", true);
+  } else if (status === "UNREAD") {
+    query = query.where("read", "==", false);
+  }
+
+  const snapshot = await query.orderBy("createdAt", "desc").get();
 
   return normalizeNotifications(
-    snapshot.docs.map(doc => doc.data() as Notification)
+    snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...(doc.data() as Omit<Notification, "id">),
+    }))
   );
 }
 
 export async function markNotificationAsReadByEmail(
   email: string,
-  notificationIndex: number
+  notificationId: string
 ): Promise<void> {
   const userDoc = await getUserDocRefByEmail(email);
-  const snapshot = await userDoc.ref
+  const notificationRef = userDoc.ref
     .collection(NOTIFICATIONS_SUBCOLLECTION)
-    .orderBy("createdAt", "desc")
-    .get();
-  const notifications = snapshot.docs;
+    .doc(notificationId);
+  const notificationSnap = await notificationRef.get();
 
-  if (
-    notificationIndex < 0 ||
-    notificationIndex >= notifications.length
-  ) {
-    throw new Error("Notification index out of bounds.");
+  if (!notificationSnap.exists) {
+    throw new Error("Notification not found.");
   }
 
-  await notifications[notificationIndex].ref.update({
+  await notificationRef.update({
     read: true,
   });
 }
 
 async function appendNotificationByUserDocRef(
   userDocRef: FirebaseFirestore.DocumentReference,
-  notification: Notification
+  notification: Omit<Notification, "id">
 ): Promise<void> {
-  await userDocRef
+  const notificationRef = userDocRef
     .collection(NOTIFICATIONS_SUBCOLLECTION)
-    .add({
-      ...notification,
-      createdAt: Timestamp.fromDate(notification.createdAt),
-    });
+    .doc();
+
+  await notificationRef.set({
+    message: notification.message,
+    read: notification.read,
+    createdAt: Timestamp.fromDate(notification.createdAt),
+  });
 }

@@ -6,15 +6,25 @@ import {
   markNotificationAsReadByEmail,
 } from "@/db/users.db";
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
 
   if (!session || !session.user || !session.user.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
+  const { searchParams } = new URL(req.url);
+  const statusParam = searchParams.get("status");
+  const status =
+    statusParam === "read"
+      ? "READ"
+      : statusParam === "unread"
+        ? "UNREAD"
+        : "ALL";
+
   const notifications = await getNotificationsByEmail(
-    session.user.email
+    session.user.email,
+    status
   );
 
   return NextResponse.json({ notifications });
@@ -28,21 +38,21 @@ export async function PATCH(req: Request) {
   }
 
   const body = await req.json();
-  const notificationIndex =
-    typeof body.notificationIndex === "number"
-      ? body.notificationIndex
-      : -1;
+  const notificationId =
+    typeof body.notificationId === "string"
+      ? body.notificationId.trim()
+      : "";
 
-  if (!Number.isInteger(notificationIndex) || notificationIndex < 0) {
+  if (!notificationId) {
     return NextResponse.json(
-      { error: "Invalid notification index." },
+      { error: "Invalid notification id." },
       { status: 400 }
     );
   }
 
   await markNotificationAsReadByEmail(
     session.user.email,
-    notificationIndex
+    notificationId
   );
 
   return NextResponse.json({ success: true });

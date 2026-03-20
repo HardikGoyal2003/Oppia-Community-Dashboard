@@ -8,6 +8,7 @@ export function normalizeNotifications(
     const createdAt = notification.createdAt;
 
     return {
+      id: notification.id,
       message: notification.message,
       read: notification.read,
       createdAt:

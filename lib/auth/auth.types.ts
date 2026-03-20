@@ -9,6 +9,7 @@ export type UserRole =
 export type ContributionPlatform = "WEB" | "ANDROID";
 
 export interface Notification {
+  id: string;
   message: string;
   createdAt: Date;
   read: boolean;
