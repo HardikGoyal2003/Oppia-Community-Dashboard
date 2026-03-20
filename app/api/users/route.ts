@@ -8,7 +8,7 @@ import { authOptions } from "@/lib/auth/auth.options";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { isValidUserRole } from "@/lib/utils/roles.utils";
 
-function canManageUsers(role: UserRole | undefined): boolean {
+function canManageUsers(role: UserRole): boolean {
   return role === "ADMIN" || role === "SUPER_ADMIN";
 }
 
