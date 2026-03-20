@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import {
   getPendingMemberAccessRequests,
+  PendingMemberAccessRequestError,
   resolveMemberAccessRequest,
   submitMemberAccessRequest,
 } from "@/db/member-request-access/member-request-access.db";
@@ -85,13 +86,40 @@ export async function POST(req: Request) {
     );
   }
 
-  await submitMemberAccessRequest({
-    email: session.user.email,
-    team,
-    role,
-    note,
-    username,
-  });
+  try {
+    await submitMemberAccessRequest({
+      email: session.user.email,
+      team,
+      role,
+      note,
+      username,
+    });
+  } catch (error) {
+    if (error instanceof PendingMemberAccessRequestError) {
+      return NextResponse.json(
+        {
+          error: "You already have a pending team access request.",
+          pendingRequest: {
+            role: error.request.role,
+            team: error.request.team,
+            note: error.request.note,
+            createdAt: error.request.createdAt.toISOString(),
+          },
+        },
+        { status: 409 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to submit access request.",
+      },
+      { status: 409 }
+    );
+  }
 
   return NextResponse.json({ success: true });
 }

@@ -26,17 +26,76 @@ import {
 import { CONSTANTS } from "@/lib/constants";
 import { useState } from "react";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import { formatDisplayValue } from "@/lib/utils/display-format.utils";
+
+type RequestState = "FORM" | "SUBMITTED" | "DUPLICATE";
+type DuplicateRequestDetails = {
+  role: string;
+  team: string;
+  note: string;
+  createdAt: string;
+};
+
+function getOrdinalDay(day: number): string {
+  const remainder = day % 10;
+  const teen = day % 100;
+
+  if (teen >= 11 && teen <= 13) {
+    return `${day}th`;
+  }
+
+  if (remainder === 1) {
+    return `${day}st`;
+  }
+
+  if (remainder === 2) {
+    return `${day}nd`;
+  }
+
+  if (remainder === 3) {
+    return `${day}rd`;
+  }
+
+  return `${day}th`;
+}
+
+function formatDuplicateRequestDate(createdAt: string): string {
+  const date = new Date(createdAt);
+  const day = getOrdinalDay(date.getDate());
+  const month = date.toLocaleString("en-IN", { month: "long" });
+  const year = date.getFullYear();
+
+  return `${day} ${month} ${year}`;
+}
 
 export default function MemberRequestAccessModal({
   platform,
 }: {
   platform: ContributionPlatform;
 }) {
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [requestState, setRequestState] = useState<RequestState>("FORM");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [duplicateRequest, setDuplicateRequest] =
+    useState<DuplicateRequestDetails | null>(null);
   const teams =
     platform === "ANDROID" ? CONSTANTS.ANDROID_TEAMS : CONSTANTS.WEB_TEAMS;
+
+  const resetModalState = () => {
+    setRequestState("FORM");
+    setLoading(false);
+    setErrorMessage(null);
+    setDuplicateRequest(null);
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+
+    if (!open) {
+      resetModalState();
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -62,12 +121,21 @@ export default function MemberRequestAccessModal({
       });
 
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
+        const data = (await response.json()) as {
+          error?: string;
+          pendingRequest?: DuplicateRequestDetails;
+        };
+        if (response.status === 409) {
+          setDuplicateRequest(data.pendingRequest ?? null);
+          setRequestState("DUPLICATE");
+          return;
+        }
+
         throw new Error(
           data.error || "Failed to submit access request."
         );
       }
-      setIsSubmitted(true);
+      setRequestState("SUBMITTED");
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -80,7 +148,7 @@ export default function MemberRequestAccessModal({
   };
 
   return (
-    <Dialog>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button className="inline-flex h-10 text-base rounded-md border border-blue-600 bg-white px-5 py-2 text-blue-600 font-medium hover:bg-blue-50 transition">
           Request Team Access
@@ -88,11 +156,23 @@ export default function MemberRequestAccessModal({
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md">
-        {isSubmitted ? (
+        {requestState === "SUBMITTED" ? (
           <div className="text-center py-10">
             <h2 className="text-xl font-semibold mb-2">Request Submitted ✅</h2>
             <p className="text-gray-600">
               Thank you! Your request has been submitted. Our team will review it and get back to you soon.
+            </p>
+            <DialogClose asChild>
+              <Button className="mt-6">Close</Button>
+            </DialogClose>
+          </div>
+        ) : requestState === "DUPLICATE" ? (
+          <div className="py-10 text-center">
+            <h2 className="text-xl font-semibold mb-6">Request Already Pending</h2>
+            <p className="text-gray-600">
+              {duplicateRequest
+                ? `You already have a pending team access request for ${formatDisplayValue(duplicateRequest.role)} role in ${formatDisplayValue(duplicateRequest.team)}, created at ${formatDuplicateRequestDate(duplicateRequest.createdAt)}. Thanks for your patience. Admins will review it soon.`
+                : "You already have a pending team access request. Thanks for your patience. Admins will review it soon."}
             </p>
             <DialogClose asChild>
               <Button className="mt-6">Close</Button>

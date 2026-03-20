@@ -13,19 +13,14 @@ const MEMBER_ACCESS_REQUESTS_COLLECTION = "memberAccessRequests";
 
 const db = getAdminFirestore();
 
-export async function getMemberAccessRequests(): Promise<
-  MemberAccessRequestModel[]
-> {
-  const snapshot = await db
-    .collection(MEMBER_ACCESS_REQUESTS_COLLECTION)
-    .orderBy("createdAt", "desc")
-    .get();
+export class PendingMemberAccessRequestError extends Error {
+  request: MemberAccessRequestModel;
 
-  return snapshot.docs.map(doc =>
-    normalizeMemberAccessRequest(
-      doc.data() as FirestoreMemberAccessRequest
-    )
-  );
+  constructor(request: MemberAccessRequestModel) {
+    super("A pending member access request already exists.");
+    this.name = "PendingMemberAccessRequestError";
+    this.request = request;
+  }
 }
 
 export async function getPendingMemberAccessRequests(): Promise<
@@ -56,9 +51,13 @@ export async function submitMemberAccessRequest(
   await db.runTransaction(async tx => {
     const existingPending = await tx.get(pendingQuery);
 
-    existingPending.docs.forEach(doc => {
-      tx.delete(doc.ref);
-    });
+    if (!existingPending.empty) {
+      const pendingRequest = normalizeMemberAccessRequest(
+        existingPending.docs[0].data() as FirestoreMemberAccessRequest
+      );
+
+      throw new PendingMemberAccessRequestError(pendingRequest);
+    }
 
     tx.set(
       newRequestRef,
