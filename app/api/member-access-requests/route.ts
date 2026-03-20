@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import {
-  getMemberAccessRequests,
+  getPendingMemberAccessRequests,
   resolveMemberAccessRequest,
   submitMemberAccessRequest,
 } from "@/db/member-request-access/member-request-access.db";
@@ -13,8 +13,6 @@ import {
 } from "@/db/users.db";
 import { UserRole } from "@/lib/auth/auth.types";
 import { isValidUserRole } from "@/lib/utils/roles.utils";
-import type { MemberAccessRequestModel } from "@/db/member-request-access/member-request-access.types";
-
 
 function getPromotionMessage(role: UserRole, team: string): string {
   const roleLabel = role.replace("_", " ");
@@ -46,11 +44,9 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  const requests = await getMemberAccessRequests();
+  const requests = await getPendingMemberAccessRequests();
   return NextResponse.json({
-    pending: requests.filter(
-      (request: MemberAccessRequestModel) => request.status === "PENDING"
-    ),
+    pending: requests,
   });
 }
 
