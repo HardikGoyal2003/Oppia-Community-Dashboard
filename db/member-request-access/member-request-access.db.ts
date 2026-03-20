@@ -4,79 +4,48 @@ import {
   normalizeMemberAccessRequest,
   serializeMemberAccessRequest,
 } from "@/db/member-request-access/member-access-request.mapper";
-import { MemberAccessDecision, MemberAccessRequestModel, MemberAccessRequestsModel } from "./member-request-access.types";
+import {
+  MemberAccessDecision,
+  MemberAccessRequestModel,
+} from "./member-request-access.types";
 
 const MEMBER_ACCESS_REQUESTS_COLLECTION = "memberAccessRequests";
-const MEMBER_ACCESS_REQUESTS_DOC_ID = "requests";
 
 const db = getAdminFirestore();
 
-export async function getMemberAccessRequests(): Promise<MemberAccessRequestsModel> {
-  const ref = db
+function getMemberAccessRequestDocId(email: string): string {
+  return encodeURIComponent(email.trim().toLowerCase());
+}
+
+export async function getMemberAccessRequests(): Promise<
+  MemberAccessRequestModel[]
+> {
+  const snapshot = await db
     .collection(MEMBER_ACCESS_REQUESTS_COLLECTION)
-    .doc(MEMBER_ACCESS_REQUESTS_DOC_ID);
-  const snap = await ref.get();
+    .orderBy("createdAt", "desc")
+    .get();
 
-  if (!snap.exists) {
-    return {
-      pending: [],
-      responded: [],
-    };
-  }
-
-  const data = snap.data() as {
-    pending: FirestoreMemberAccessRequest[];
-    responded: FirestoreMemberAccessRequest[];
-  };
-
-  return {
-    pending: (data.pending ?? []).map(normalizeMemberAccessRequest),
-    responded: (data.responded ?? []).map(normalizeMemberAccessRequest),
-  };
+  return snapshot.docs.map(doc =>
+    normalizeMemberAccessRequest(
+      doc.data() as FirestoreMemberAccessRequest
+    )
+  );
 }
 
 export async function submitMemberAccessRequest(
-  request: Omit<MemberAccessRequestModel, "createdAt">
+  request: Omit<MemberAccessRequestModel, "createdAt" | "status">
 ): Promise<void> {
   const ref = db
     .collection(MEMBER_ACCESS_REQUESTS_COLLECTION)
-    .doc(MEMBER_ACCESS_REQUESTS_DOC_ID);
+    .doc(getMemberAccessRequestDocId(request.email));
 
-  await db.runTransaction(async tx => {
-    const snap = await tx.get(ref);
-
-    const existing = snap.exists
-      ? (snap.data() as {
-          pending: FirestoreMemberAccessRequest[];
-          responded: FirestoreMemberAccessRequest[];
-        })
-      : { pending: [], responded: [] };
-
-    const pending = (existing.pending ?? []).map(
-      normalizeMemberAccessRequest
-    );
-
-    const withoutCurrentEmail = pending.filter(
-      item => item.email !== request.email
-    );
-
-    const nextPending = [
-      ...withoutCurrentEmail,
-      {
-        ...request,
-        createdAt: new Date(),
-      },
-    ];
-
-    tx.set(
-      ref,
-      {
-        pending: nextPending.map(serializeMemberAccessRequest),
-        responded: existing.responded ?? [],
-      },
-      { merge: true }
-    );
-  });
+  await ref.set(
+    serializeMemberAccessRequest({
+      ...request,
+      status: "PENDING",
+      createdAt: new Date(),
+    })
+  );
 }
 
 export async function resolveMemberAccessRequest(
@@ -85,52 +54,32 @@ export async function resolveMemberAccessRequest(
 ): Promise<MemberAccessRequestModel> {
   const ref = db
     .collection(MEMBER_ACCESS_REQUESTS_COLLECTION)
-    .doc(MEMBER_ACCESS_REQUESTS_DOC_ID);
+    .doc(getMemberAccessRequestDocId(email));
 
   return db.runTransaction(async tx => {
     const snap = await tx.get(ref);
 
     if (!snap.exists) {
-      throw new Error("No pending requests found.");
-    }
-
-    const data = snap.data() as {
-      pending: FirestoreMemberAccessRequest[];
-      responded: FirestoreMemberAccessRequest[];
-    };
-
-    const pending = (data.pending ?? []).map(
-      normalizeMemberAccessRequest
-    );
-    const responded = (data.responded ?? []).map(
-      normalizeMemberAccessRequest
-    );
-
-    const request = pending.find(item => item.email === email);
-
-    if (!request) {
       throw new Error("Member access request not found.");
     }
 
-    const nextPending = pending.filter(
-      item => item.email !== email
+    const request = normalizeMemberAccessRequest(
+      snap.data() as FirestoreMemberAccessRequest
     );
+
+    if (request.status !== "PENDING") {
+      throw new Error("Member access request is not pending.");
+    }
+
+    const status = decision === "ACCEPT" ? "ACCEPTED" : "REJECTED";
 
     tx.set(
       ref,
-      {
-        pending: nextPending.map(serializeMemberAccessRequest),
-        responded: [
-          ...responded,
-          {
-            ...request,
-            note: decision === "DECLINE"
-              ? request.note
-              : request.note,
-          },
-        ].map(serializeMemberAccessRequest),
-      },
-      { merge: true }
+      serializeMemberAccessRequest({
+        ...request,
+        status,
+      }),
+      { merge: false }
     );
 
     return request;

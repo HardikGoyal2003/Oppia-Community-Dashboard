@@ -13,6 +13,7 @@ import {
 } from "@/db/users.db";
 import { UserRole } from "@/lib/auth/auth.types";
 import { isValidUserRole } from "@/lib/utils/roles.utils";
+import type { MemberAccessRequestModel } from "@/db/member-request-access/member-request-access.types";
 
 
 function getPromotionMessage(role: UserRole, team: string): string {
@@ -46,7 +47,11 @@ export async function GET() {
   }
 
   const requests = await getMemberAccessRequests();
-  return NextResponse.json({ pending: requests.pending });
+  return NextResponse.json({
+    pending: requests.filter(
+      (request: MemberAccessRequestModel) => request.status === "PENDING"
+    ),
+  });
 }
 
 export async function POST(req: Request) {
@@ -72,7 +77,7 @@ export async function POST(req: Request) {
   }
 
   const dbUser = await getUserByEmail(session.user.email);
-  const username = dbUser?.githubUsername?.trim() ?? "";
+  const username = dbUser?.githubUsername;
 
   if (!username) {
     return NextResponse.json(

@@ -11,6 +11,7 @@ type MemberAccessRequest = {
   role: string;
   note: string;
   username: string;
+  status: "PENDING" | "ACCEPTED" | "REJECTED";
   createdAt: string | Date;
 };
 

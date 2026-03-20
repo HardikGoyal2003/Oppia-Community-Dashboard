@@ -17,6 +17,7 @@ export function normalizeMemberAccessRequest(
     role: request.role,
     note: request.note,
     username: request.username,
+    status: request.status,
     createdAt:
       request.createdAt instanceof Timestamp
         ? request.createdAt.toDate()
