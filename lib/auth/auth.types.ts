@@ -9,6 +9,7 @@ export type UserRole =
 export type ContributionPlatform = "WEB" | "ANDROID";
 
 export interface Notification {
+  id: string;
   message: string;
   createdAt: Date;
   read: boolean;
@@ -24,7 +25,6 @@ export interface UserModel {
   // Selected during first login; can be changed later via a dedicated flow.
   platform: ContributionPlatform | null;
   createdAt: Date;
-  notifications: Notification[];
 }
 
 /**

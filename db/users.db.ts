@@ -8,12 +8,14 @@ import {
 import { Timestamp } from "firebase-admin/firestore";
 import {
   normalizeNotifications,
-  serializeNotifications,
 } from "./notifications/notifications.mapper";
 
 const USERS_COLLECTION = "users";
+const NOTIFICATIONS_SUBCOLLECTION = "notifications";
 
 const db = getAdminFirestore();
+
+type NotificationStatusFilter = "READ" | "UNREAD" | "ALL";
 
 function assertGithubUsernameForRole(
   role: UserRole,
@@ -58,7 +60,6 @@ export async function getUserByEmail(
   return {
     ...(data as UserModel),
     createdAt: data.createdAt.toDate(),
-    notifications: normalizeNotifications(data.notifications),
   };
 }
 
@@ -102,7 +103,6 @@ export async function getUserById(
   return {
     ...data,
     createdAt: data.createdAt.toDate(),
-    notifications: normalizeNotifications(data.notifications),
   } as UserModel;
 }
 
@@ -124,7 +124,6 @@ export async function getAllUsers(): Promise<
       id: doc.id,
       ...(data as UserModel),
       createdAt: data.createdAt.toDate(),
-      notifications: normalizeNotifications(data.notifications),
     };
   });
 }
@@ -171,11 +170,6 @@ export async function updateUserRoleTeamAndNotifyByUid(
     throw new Error("User not found.");
   }
 
-  const data = snap.data() as Partial<UserModel>;
-  const notifications = normalizeNotifications(
-    (data.notifications ?? []) as Notification[]
-  );
-
   const roleLabel = role.replace("_", " ");
   const teamLabel = team ?? "Unassigned";
   const actor = changedByEmail ?? "Admin";
@@ -187,7 +181,7 @@ export async function updateUserRoleTeamAndNotifyByUid(
     `Reason: ${reason}`,
   ].join("\n");
 
-  notifications.push({
+  await appendNotificationByUserDocRef(ref, {
     message,
     createdAt: new Date(),
     read: false,
@@ -197,7 +191,6 @@ export async function updateUserRoleTeamAndNotifyByUid(
     role,
     team,
     githubUsername,
-    notifications: serializeNotifications(notifications),
   });
 }
 
@@ -229,13 +222,7 @@ export async function updateUserRoleTeamAndNotifyByEmail(
 
   const userDoc = await getUserDocRefByEmail(email);
   const docRef = userDoc.ref;
-  const data = userDoc.data();
-
-  const notifications = normalizeNotifications(
-    (data.notifications ?? []) as Notification[]
-  );
-
-  notifications.push({
+  await appendNotificationByUserDocRef(docRef, {
     message,
     createdAt: new Date(),
     read: false,
@@ -245,7 +232,6 @@ export async function updateUserRoleTeamAndNotifyByEmail(
     role,
     team,
     githubUsername,
-    notifications: serializeNotifications(notifications),
   });
 }
 
@@ -254,60 +240,68 @@ export async function appendUserNotificationByEmail(
   message: string
 ): Promise<void> {
   const userDoc = await getUserDocRefByEmail(email);
-  const docRef = userDoc.ref;
-  const data = userDoc.data();
-
-  const notifications = normalizeNotifications(
-    (data.notifications ?? []) as Notification[]
-  );
-
-  notifications.push({
+  await appendNotificationByUserDocRef(userDoc.ref, {
     message,
     createdAt: new Date(),
     read: false,
   });
-
-  await docRef.update({
-    notifications: serializeNotifications(notifications),
-  });
 }
 
 export async function getNotificationsByEmail(
-  email: string
+  email: string,
+  status: NotificationStatusFilter = "ALL"
 ): Promise<Notification[]> {
   const userDoc = await getUserDocRefByEmail(email);
-  const data = userDoc.data();
+  let query: FirebaseFirestore.Query = userDoc.ref.collection(
+    NOTIFICATIONS_SUBCOLLECTION
+  );
+
+  if (status === "READ") {
+    query = query.where("read", "==", true);
+  } else if (status === "UNREAD") {
+    query = query.where("read", "==", false);
+  }
+
+  const snapshot = await query.orderBy("createdAt", "desc").get();
 
   return normalizeNotifications(
-    (data.notifications ?? []) as Notification[]
+    snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...(doc.data() as Omit<Notification, "id">),
+    }))
   );
 }
 
 export async function markNotificationAsReadByEmail(
   email: string,
-  notificationIndex: number
+  notificationId: string
 ): Promise<void> {
   const userDoc = await getUserDocRefByEmail(email);
-  const docRef = userDoc.ref;
-  const data = userDoc.data();
+  const notificationRef = userDoc.ref
+    .collection(NOTIFICATIONS_SUBCOLLECTION)
+    .doc(notificationId);
+  const notificationSnap = await notificationRef.get();
 
-  const notifications = normalizeNotifications(
-    (data.notifications ?? []) as Notification[]
-  );
-
-  if (
-    notificationIndex < 0 ||
-    notificationIndex >= notifications.length
-  ) {
-    throw new Error("Notification index out of bounds.");
+  if (!notificationSnap.exists) {
+    throw new Error("Notification not found.");
   }
 
-  notifications[notificationIndex] = {
-    ...notifications[notificationIndex],
+  await notificationRef.update({
     read: true,
-  };
+  });
+}
 
-  await docRef.update({
-    notifications: serializeNotifications(notifications),
+async function appendNotificationByUserDocRef(
+  userDocRef: FirebaseFirestore.DocumentReference,
+  notification: Omit<Notification, "id">
+): Promise<void> {
+  const notificationRef = userDocRef
+    .collection(NOTIFICATIONS_SUBCOLLECTION)
+    .doc();
+
+  await notificationRef.set({
+    message: notification.message,
+    read: notification.read,
+    createdAt: Timestamp.fromDate(notification.createdAt),
   });
 }
