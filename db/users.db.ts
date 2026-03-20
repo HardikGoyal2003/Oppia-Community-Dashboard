@@ -112,12 +112,22 @@ export async function getUserById(
 export async function getAllUsers(): Promise<
   (UserModel & { id: string })[]
 > {
-  const snap = await db
-    .collection(USERS_COLLECTION)
-    .orderBy("createdAt", "desc")
-    .get();
+  return getUsersByPlatform();
+}
 
-  return snap.docs.map(doc => {
+export async function getUsersByPlatform(
+  platform?: ContributionPlatform
+): Promise<(UserModel & { id: string })[]> {
+  let query: FirebaseFirestore.Query = db.collection(USERS_COLLECTION);
+
+  if (platform) {
+    query = query.where("platform", "==", platform);
+  }
+
+  const snap = await query.get();
+
+  return snap.docs
+    .map(doc => {
     const data = doc.data();
 
     return {
@@ -125,7 +135,8 @@ export async function getAllUsers(): Promise<
       ...(data as UserModel),
       createdAt: data.createdAt.toDate(),
     };
-  });
+    })
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
 /**

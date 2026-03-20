@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { UserRole } from "@/lib/auth/auth.types";
+import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { CONSTANTS } from "@/lib/constants";
 import { UserUpdateReasonModal } from "../components/user-update-reason-modal";
 import { formatDisplayValue } from "@/lib/utils/display-format.utils";
@@ -11,6 +11,7 @@ type User = {
   fullName: string;
   email: string;
   githubUsername: string | null;
+  platform: ContributionPlatform | null;
   role: UserRole;
   team: string | null;
 };
@@ -30,18 +31,27 @@ const ROLES: UserRole[] = [
   "ADMIN",
 ];
 
-const TEAMS = Object.keys(CONSTANTS.WEB_TEAMS);
+function getTeamsForPlatform(platform: ContributionPlatform | null): string[] {
+  if (platform === "ANDROID") {
+    return Object.keys(CONSTANTS.ANDROID_TEAMS);
+  }
+
+  return Object.keys(CONSTANTS.WEB_TEAMS);
+}
 
 export function UserRoleManagerTab() {
   const [users, setUsers] = useState<User[]>([]);
+  const [platform, setPlatform] = useState<ContributionPlatform>("WEB");
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [pendingUpdate, setPendingUpdate] = useState<PendingUpdate | null>(null);
 
   useEffect(() => {
     async function loadUsers() {
+      setLoading(true);
+
       try {
-        const res = await fetch("/api/users");
+        const res = await fetch(`/api/users?platform=${platform}`);
         if (!res.ok) {
           throw new Error("Unauthorized");
         }
@@ -55,7 +65,7 @@ export function UserRoleManagerTab() {
     }
 
     loadUsers();
-  }, []);
+  }, [platform]);
 
   const openUpdateModal = (
     user: User,
@@ -135,6 +145,22 @@ export function UserRoleManagerTab() {
         User Role Manager
       </h1>
 
+      <div className="mb-4 flex gap-2">
+        {(["WEB", "ANDROID"] as ContributionPlatform[]).map(option => (
+          <button
+            key={option}
+            className={`rounded border px-3 py-1 text-sm ${
+              platform === option
+                ? "border-blue-600 bg-blue-600 text-white"
+                : "border-gray-300 bg-white text-gray-700"
+            }`}
+            onClick={() => setPlatform(option)}
+          >
+            {formatDisplayValue(option)}
+          </button>
+        ))}
+      </div>
+
       <div className="overflow-x-auto rounded border bg-white">
         <table className="w-full text-sm">
           <thead className="border-b bg-gray-100">
@@ -171,7 +197,7 @@ export function UserRoleManagerTab() {
                     className="border rounded px-2 py-1 disabled:opacity-50"
                   >
                     <option value="">Unassigned</option>
-                    {TEAMS.map(team => (
+                    {getTeamsForPlatform(user.platform).map(team => (
                       <option key={team} value={team}>
                         {formatDisplayValue(team)}
                       </option>
