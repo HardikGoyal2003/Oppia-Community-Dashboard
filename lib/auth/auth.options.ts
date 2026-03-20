@@ -47,7 +47,6 @@ export const authOptions = {
         role: "CONTRIBUTOR",
         team: null,
         platform: null,
-        notifications: [],
       });
 
       return true;

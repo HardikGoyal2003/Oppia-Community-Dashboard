@@ -24,7 +24,6 @@ export interface UserModel {
   // Selected during first login; can be changed later via a dedicated flow.
   platform: ContributionPlatform | null;
   createdAt: Date;
-  notifications: Notification[];
 }
 
 /**
