@@ -10,12 +10,20 @@ export default withAuth(
     const token = (
       req as NextRequest & {
         nextauth?: {
-          token?: { invalidUser?: boolean } | null;
+          token?: {
+            invalidUser?: boolean;
+            role?: string;
+          } | null;
         };
       }
     ).nextauth?.token;
+    const isSuperAdmin = token?.role === "SUPER_ADMIN";
 
     if (maintenanceModeEnabled) {
+      if (isSuperAdmin) {
+        return NextResponse.next();
+      }
+
       if (pathname.startsWith("/api/")) {
         return NextResponse.json(
           { error: "Maintenance mode is enabled." },
@@ -36,15 +44,23 @@ export default withAuth(
       return NextResponse.redirect(new URL("/", req.url));
     }
 
+    if (pathname === "/control-panel") {
+      if (!token || token.invalidUser) {
+        return NextResponse.redirect(new URL("/login", req.url));
+      }
+
+      if (!isSuperAdmin) {
+        return NextResponse.redirect(new URL("/unauthorized", req.url));
+      }
+    }
+
     // Valid logged-in users should not access home or login
     if (
       token &&
       !token.invalidUser &&
       (pathname === "/" || pathname === "/login")
     ) {
-      return NextResponse.redirect(
-        new URL("/dashboard", req.url)
-      );
+      return NextResponse.redirect(new URL("/dashboard", req.url));
     }
 
     return NextResponse.next();
@@ -59,9 +75,14 @@ export default withAuth(
           pathname === "/" ||
           pathname === "/login" ||
           pathname === "/maintenance" ||
+          pathname === "/unauthorized" ||
           pathname.startsWith("/api/")
         ) {
           return true;
+        }
+
+        if (pathname === "/control-panel") {
+          return !!token && !token.invalidUser;
         }
 
         // Protected routes: only valid users

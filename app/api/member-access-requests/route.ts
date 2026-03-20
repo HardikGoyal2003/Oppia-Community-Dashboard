@@ -15,6 +15,10 @@ import {
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { isValidUserRole } from "@/lib/utils/roles.utils";
 
+function canManageRequests(role: UserRole | undefined): boolean {
+  return role === "ADMIN" || role === "SUPER_ADMIN";
+}
+
 function getPromotionMessage(role: UserRole, team: string): string {
   const roleLabel = role.replace("_", " ");
 
@@ -41,7 +45,7 @@ function getDeclineMessage(reason: string): string {
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
 
-  if (!session || !session.user || session.user.role !== "ADMIN") {
+  if (!session || !session.user || !canManageRequests(session.user.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
@@ -143,7 +147,7 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions);
 
-  if (!session || !session.user || session.user.role !== "ADMIN") {
+  if (!session || !session.user || !canManageRequests(session.user.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
