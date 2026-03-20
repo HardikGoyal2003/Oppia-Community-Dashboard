@@ -40,6 +40,28 @@ async function getUserDocRefByEmail(email: string) {
   return snapshot.docs[0];
 }
 
+export async function getUserByEmail(
+  email: string
+): Promise<UserModel | null> {
+  const snapshot = await db
+    .collection(USERS_COLLECTION)
+    .where("email", "==", email)
+    .limit(1)
+    .get();
+
+  if (snapshot.empty) {
+    return null;
+  }
+
+  const data = snapshot.docs[0].data();
+
+  return {
+    ...(data as UserModel),
+    createdAt: data.createdAt.toDate(),
+    notifications: normalizeNotifications(data.notifications),
+  };
+}
+
 /**
  * Create user on first login (idempotent)
  */

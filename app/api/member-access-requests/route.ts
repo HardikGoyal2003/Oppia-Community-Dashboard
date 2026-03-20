@@ -8,6 +8,7 @@ import {
 } from "@/db/member-request-access/member-request-access.db";
 import {
   appendUserNotificationByEmail,
+  getUserByEmail,
   updateUserRoleTeamAndNotifyByEmail,
 } from "@/db/users.db";
 import { UserRole } from "@/lib/auth/auth.types";
@@ -62,12 +63,23 @@ export async function POST(req: Request) {
     typeof body.role === "string" ? body.role.trim() : "";
   const note =
     typeof body.note === "string" ? body.note.trim() : "";
-  const username =
-    typeof body.username === "string" ? body.username.trim() : "";
 
-  if (!team || !role || !username || !isValidUserRole(role)) {
+  if (!team || !role || !isValidUserRole(role)) {
     return NextResponse.json(
-      { error: "Missing or invalid fields: team, role, username." },
+      { error: "Missing or invalid fields: team, role." },
+      { status: 400 }
+    );
+  }
+
+  const dbUser = await getUserByEmail(session.user.email);
+  const username = dbUser?.githubUsername?.trim() ?? "";
+
+  if (!username) {
+    return NextResponse.json(
+      {
+        error:
+          "No GitHub username was found on your account. Please sign out and sign in again.",
+      },
       { status: 400 }
     );
   }

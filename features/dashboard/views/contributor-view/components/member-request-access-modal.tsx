@@ -13,7 +13,6 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Field, FieldGroup } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -45,7 +44,6 @@ export default function MemberRequestAccessModal({
     setErrorMessage(null);
 
     const formData = new FormData(e.currentTarget);
-    const username = formData.get("username")!.toString() ;
     const team = formData.get("team")!.toString();
     const role = formData.get("role")!.toString();
     const note = formData.get("notes")?.toString() ?? "";
@@ -57,7 +55,6 @@ export default function MemberRequestAccessModal({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          username,
           team,
           role,
           note,
@@ -144,16 +141,6 @@ export default function MemberRequestAccessModal({
                       ))}
                   </SelectContent>
                 </Select>
-              </Field>
-
-              <Field>
-                <Label htmlFor="github">GitHub username</Label>
-                <Input
-                  id="github"
-                  name="username"
-                  placeholder="e.g. oppiaUser201"
-                  required
-                />
               </Field>
 
               <Field>
