@@ -2,29 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { authOptions } from "@/lib/auth/auth.options";
-
-const PANEL_SECTIONS = [
-  {
-    title: "Data Migration Jobs",
-    description:
-      "Run controlled data migrations and track operational changes across collections.",
-  },
-  {
-    title: "Announcement Banners",
-    description:
-      "Create and manage dashboard-wide announcement banners for users.",
-  },
-  {
-    title: "Maintenance Mode",
-    description:
-      "Enable or disable maintenance mode while retaining super-admin bypass access.",
-  },
-  {
-    title: "Feature Flags",
-    description:
-      "Control staged rollouts and environment-specific product behavior.",
-  },
-];
+import { ControlPanelTabs } from "@/features/control-panel/components/control-panel-tabs";
 
 export default async function ControlPanelPage() {
   const session = await getServerSession(authOptions);
@@ -53,24 +31,7 @@ export default async function ControlPanelPage() {
           </p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          {PANEL_SECTIONS.map(section => (
-            <section
-              key={section.title}
-              className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
-            >
-              <h2 className="text-lg font-semibold text-slate-900">
-                {section.title}
-              </h2>
-              <p className="mt-2 text-sm text-slate-600">
-                {section.description}
-              </p>
-              <div className="mt-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
-                Configuration UI pending implementation.
-              </div>
-            </section>
-          ))}
-        </div>
+        <ControlPanelTabs />
       </main>
     </div>
   );
