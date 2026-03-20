@@ -4,77 +4,68 @@ import {
   normalizeMemberAccessRequest,
   serializeMemberAccessRequest,
 } from "@/db/member-request-access/member-access-request.mapper";
-import { MemberAccessDecision, MemberAccessRequestModel, MemberAccessRequestsModel } from "./member-request-access.types";
+import {
+  MemberAccessDecision,
+  MemberAccessRequestModel,
+} from "./member-request-access.types";
 
 const MEMBER_ACCESS_REQUESTS_COLLECTION = "memberAccessRequests";
-const MEMBER_ACCESS_REQUESTS_DOC_ID = "requests";
 
 const db = getAdminFirestore();
 
-export async function getMemberAccessRequests(): Promise<MemberAccessRequestsModel> {
-  const ref = db
-    .collection(MEMBER_ACCESS_REQUESTS_COLLECTION)
-    .doc(MEMBER_ACCESS_REQUESTS_DOC_ID);
-  const snap = await ref.get();
+export class PendingMemberAccessRequestError extends Error {
+  request: MemberAccessRequestModel;
 
-  if (!snap.exists) {
-    return {
-      pending: [],
-      responded: [],
-    };
+  constructor(request: MemberAccessRequestModel) {
+    super("A pending member access request already exists.");
+    this.name = "PendingMemberAccessRequestError";
+    this.request = request;
   }
+}
 
-  const data = snap.data() as {
-    pending: FirestoreMemberAccessRequest[];
-    responded: FirestoreMemberAccessRequest[];
-  };
+export async function getPendingMemberAccessRequests(): Promise<
+  MemberAccessRequestModel[]
+> {
+  const snapshot = await db
+    .collection(MEMBER_ACCESS_REQUESTS_COLLECTION)
+    .where("status", "==", "PENDING")
+    .orderBy("createdAt", "desc")
+    .get();
 
-  return {
-    pending: (data.pending ?? []).map(normalizeMemberAccessRequest),
-    responded: (data.responded ?? []).map(normalizeMemberAccessRequest),
-  };
+  return snapshot.docs.map(doc =>
+    normalizeMemberAccessRequest(
+      doc.data() as FirestoreMemberAccessRequest
+    )
+  );
 }
 
 export async function submitMemberAccessRequest(
-  request: Omit<MemberAccessRequestModel, "createdAt">
+  request: Omit<MemberAccessRequestModel, "createdAt" | "status">
 ): Promise<void> {
-  const ref = db
-    .collection(MEMBER_ACCESS_REQUESTS_COLLECTION)
-    .doc(MEMBER_ACCESS_REQUESTS_DOC_ID);
+  const collectionRef = db.collection(MEMBER_ACCESS_REQUESTS_COLLECTION);
+  const pendingQuery = collectionRef
+    .where("email", "==", request.email)
+    .where("status", "==", "PENDING");
+  const newRequestRef = collectionRef.doc();
 
   await db.runTransaction(async tx => {
-    const snap = await tx.get(ref);
+    const existingPending = await tx.get(pendingQuery);
 
-    const existing = snap.exists
-      ? (snap.data() as {
-          pending: FirestoreMemberAccessRequest[];
-          responded: FirestoreMemberAccessRequest[];
-        })
-      : { pending: [], responded: [] };
+    if (!existingPending.empty) {
+      const pendingRequest = normalizeMemberAccessRequest(
+        existingPending.docs[0].data() as FirestoreMemberAccessRequest
+      );
 
-    const pending = (existing.pending ?? []).map(
-      normalizeMemberAccessRequest
-    );
-
-    const withoutCurrentEmail = pending.filter(
-      item => item.email !== request.email
-    );
-
-    const nextPending = [
-      ...withoutCurrentEmail,
-      {
-        ...request,
-        createdAt: new Date(),
-      },
-    ];
+      throw new PendingMemberAccessRequestError(pendingRequest);
+    }
 
     tx.set(
-      ref,
-      {
-        pending: nextPending.map(serializeMemberAccessRequest),
-        responded: existing.responded ?? [],
-      },
-      { merge: true }
+      newRequestRef,
+      serializeMemberAccessRequest({
+        ...request,
+        status: "PENDING",
+        createdAt: new Date(),
+      })
     );
   });
 }
@@ -83,54 +74,33 @@ export async function resolveMemberAccessRequest(
   email: string,
   decision: MemberAccessDecision
 ): Promise<MemberAccessRequestModel> {
-  const ref = db
-    .collection(MEMBER_ACCESS_REQUESTS_COLLECTION)
-    .doc(MEMBER_ACCESS_REQUESTS_DOC_ID);
+  const collectionRef = db.collection(MEMBER_ACCESS_REQUESTS_COLLECTION);
+  const pendingQuery = collectionRef
+    .where("email", "==", email)
+    .where("status", "==", "PENDING")
+    .limit(1);
 
   return db.runTransaction(async tx => {
-    const snap = await tx.get(ref);
+    const snapshot = await tx.get(pendingQuery);
 
-    if (!snap.exists) {
-      throw new Error("No pending requests found.");
-    }
-
-    const data = snap.data() as {
-      pending: FirestoreMemberAccessRequest[];
-      responded: FirestoreMemberAccessRequest[];
-    };
-
-    const pending = (data.pending ?? []).map(
-      normalizeMemberAccessRequest
-    );
-    const responded = (data.responded ?? []).map(
-      normalizeMemberAccessRequest
-    );
-
-    const request = pending.find(item => item.email === email);
-
-    if (!request) {
+    if (snapshot.empty) {
       throw new Error("Member access request not found.");
     }
 
-    const nextPending = pending.filter(
-      item => item.email !== email
+    const doc = snapshot.docs[0];
+    const request = normalizeMemberAccessRequest(
+      doc.data() as FirestoreMemberAccessRequest
     );
 
+    const status = decision === "ACCEPT" ? "ACCEPTED" : "REJECTED";
+
     tx.set(
-      ref,
-      {
-        pending: nextPending.map(serializeMemberAccessRequest),
-        responded: [
-          ...responded,
-          {
-            ...request,
-            note: decision === "DECLINE"
-              ? request.note
-              : request.note,
-          },
-        ].map(serializeMemberAccessRequest),
-      },
-      { merge: true }
+      doc.ref,
+      serializeMemberAccessRequest({
+        ...request,
+        status,
+      }),
+      { merge: false }
     );
 
     return request;

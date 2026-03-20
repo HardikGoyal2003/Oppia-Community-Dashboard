@@ -4,6 +4,7 @@ import { LoadingIndicator } from '@/components/layout/loading-indicator';
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { DeclineRequestModal } from "../components/decline-request-modal";
+import { formatDisplayValue } from "@/lib/utils/display-format.utils";
 
 type MemberAccessRequest = {
   email: string;
@@ -11,6 +12,7 @@ type MemberAccessRequest = {
   role: string;
   note: string;
   username: string;
+  status: "PENDING" | "ACCEPTED" | "REJECTED";
   createdAt: string | Date;
 };
 
@@ -140,8 +142,8 @@ export function IncomingRequestTab() {
                   <td className="p-3">{index + 1}</td>
                   <td className="p-3">{request.email}</td>
                   <td className="p-3">{request.username}</td>
-                  <td className="p-3">{request.role}</td>
-                  <td className="p-3">{request.team}</td>
+                  <td className="p-3">{formatDisplayValue(request.role)}</td>
+                  <td className="p-3">{formatDisplayValue(request.team)}</td>
                   <td className="p-3 max-w-xs whitespace-pre-wrap">
                     {request.note || "-"}
                   </td>

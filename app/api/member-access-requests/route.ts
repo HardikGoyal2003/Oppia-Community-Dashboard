@@ -2,17 +2,18 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import {
-  getMemberAccessRequests,
+  getPendingMemberAccessRequests,
+  PendingMemberAccessRequestError,
   resolveMemberAccessRequest,
   submitMemberAccessRequest,
 } from "@/db/member-request-access/member-request-access.db";
 import {
   appendUserNotificationByEmail,
+  getUserByEmail,
   updateUserRoleTeamAndNotifyByEmail,
 } from "@/db/users.db";
 import { UserRole } from "@/lib/auth/auth.types";
 import { isValidUserRole } from "@/lib/utils/roles.utils";
-
 
 function getPromotionMessage(role: UserRole, team: string): string {
   const roleLabel = role.replace("_", " ");
@@ -44,8 +45,10 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  const requests = await getMemberAccessRequests();
-  return NextResponse.json({ pending: requests.pending });
+  const requests = await getPendingMemberAccessRequests();
+  return NextResponse.json({
+    pending: requests,
+  });
 }
 
 export async function POST(req: Request) {
@@ -62,23 +65,61 @@ export async function POST(req: Request) {
     typeof body.role === "string" ? body.role.trim() : "";
   const note =
     typeof body.note === "string" ? body.note.trim() : "";
-  const username =
-    typeof body.username === "string" ? body.username.trim() : "";
 
-  if (!team || !role || !username || !isValidUserRole(role)) {
+  if (!team || !role || !isValidUserRole(role)) {
     return NextResponse.json(
-      { error: "Missing or invalid fields: team, role, username." },
+      { error: "Missing or invalid fields: team, role." },
       { status: 400 }
     );
   }
 
-  await submitMemberAccessRequest({
-    email: session.user.email,
-    team,
-    role,
-    note,
-    username,
-  });
+  const dbUser = await getUserByEmail(session.user.email);
+  const username = dbUser?.githubUsername;
+
+  if (!username) {
+    return NextResponse.json(
+      {
+        error:
+          "No GitHub username was found on your account. Please sign out and sign in again.",
+      },
+      { status: 400 }
+    );
+  }
+
+  try {
+    await submitMemberAccessRequest({
+      email: session.user.email,
+      team,
+      role,
+      note,
+      username,
+    });
+  } catch (error) {
+    if (error instanceof PendingMemberAccessRequestError) {
+      return NextResponse.json(
+        {
+          error: "You already have a pending team access request.",
+          pendingRequest: {
+            role: error.request.role,
+            team: error.request.team,
+            note: error.request.note,
+            createdAt: error.request.createdAt.toISOString(),
+          },
+        },
+        { status: 409 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to submit access request.",
+      },
+      { status: 409 }
+    );
+  }
 
   return NextResponse.json({ success: true });
 }

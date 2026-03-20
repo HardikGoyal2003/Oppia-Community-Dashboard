@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { UserRole } from "@/lib/auth/auth.types";
 import { CONSTANTS } from "@/lib/constants";
 import { UserUpdateReasonModal } from "../components/user-update-reason-modal";
+import { formatDisplayValue } from "@/lib/utils/display-format.utils";
 
 type User = {
   id: string;
@@ -172,7 +173,7 @@ export function UserRoleManagerTab() {
                     <option value="">Unassigned</option>
                     {TEAMS.map(team => (
                       <option key={team} value={team}>
-                        {team}
+                        {formatDisplayValue(team)}
                       </option>
                     ))}
                   </select>
@@ -192,7 +193,7 @@ export function UserRoleManagerTab() {
                   >
                     {ROLES.map(role => (
                       <option key={role} value={role}>
-                        {role}
+                        {formatDisplayValue(role)}
                       </option>
                     ))}
                   </select>
