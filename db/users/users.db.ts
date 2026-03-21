@@ -211,6 +211,51 @@ export async function updateUserRoleAndTeamByUid(
 }
 
 /**
+ * Updates a user's role and team by uid and appends a notification atomically.
+ *
+ * @param uid The user id to update.
+ * @param role The new role value.
+ * @param team The new team value.
+ * @param githubUsername The GitHub username to persist.
+ * @param message The notification message to append.
+ * @returns A promise that resolves when the update and notification write have been committed.
+ */
+export async function updateUserRoleAndTeamWithNotificationByUid(
+  uid: string,
+  role: UserRole,
+  team: string | null,
+  githubUsername: string,
+  message: string,
+): Promise<void> {
+  assertGithubUsernameForRole(githubUsername);
+
+  const userDocRef = db.collection(USERS_COLLECTION).doc(uid);
+  const userDocSnap = await userDocRef.get();
+
+  if (!userDocSnap.exists) {
+    throw new Error("User not found.");
+  }
+
+  const notificationRef = userDocRef
+    .collection(NOTIFICATIONS_SUBCOLLECTION)
+    .doc();
+  const batch = db.batch();
+
+  batch.update(userDocRef, {
+    role,
+    team,
+    githubUsername,
+  });
+  batch.set(notificationRef, {
+    message,
+    read: false,
+    createdAt: Timestamp.now(),
+  });
+
+  await batch.commit();
+}
+
+/**
  * Updates a user's role and team by email address.
  *
  * @param email The email address to query by.
@@ -234,6 +279,45 @@ export async function updateUserRoleAndTeamByEmail(
     team,
     githubUsername,
   });
+}
+
+/**
+ * Updates a user's role and team by email address and appends a notification atomically.
+ *
+ * @param email The email address to query by.
+ * @param role The new role value.
+ * @param team The new team value.
+ * @param githubUsername The GitHub username to persist.
+ * @param message The notification message to append.
+ * @returns A promise that resolves when the update and notification write have been committed.
+ */
+export async function updateUserRoleAndTeamWithNotificationByEmail(
+  email: string,
+  role: UserRole,
+  team: string,
+  githubUsername: string,
+  message: string,
+): Promise<void> {
+  assertGithubUsernameForRole(githubUsername);
+
+  const userDoc = await getUserDocRefByEmail(email);
+  const notificationRef = userDoc.ref
+    .collection(NOTIFICATIONS_SUBCOLLECTION)
+    .doc();
+  const batch = db.batch();
+
+  batch.update(userDoc.ref, {
+    role,
+    team,
+    githubUsername,
+  });
+  batch.set(notificationRef, {
+    message,
+    read: false,
+    createdAt: Timestamp.now(),
+  });
+
+  await batch.commit();
 }
 
 /**

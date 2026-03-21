@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import {
-  appendUserNotificationByUid,
   getUsersByPlatform,
-  updateUserRoleAndTeamByUid,
+  updateUserRoleAndTeamWithNotificationByUid,
 } from "@/db/users/users.db";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
@@ -71,10 +70,11 @@ export async function PATCH(req: Request) {
     );
   }
 
-  await updateUserRoleAndTeamByUid(uid, role, team, githubUsername);
-
-  await appendUserNotificationByUid(
+  await updateUserRoleAndTeamWithNotificationByUid(
     uid,
+    role,
+    team,
+    githubUsername,
     getUserAccessUpdatedMessage(
       role,
       team,
