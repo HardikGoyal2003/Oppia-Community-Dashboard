@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import {
+  appendUserNotificationByUid,
   getUsersByPlatform,
-  updateUserRoleTeamAndNotifyByUid,
+  updateUserRoleAndTeamByUid,
 } from "@/db/users.db";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
@@ -10,6 +11,24 @@ import { isValidUserRole } from "@/lib/utils/roles.utils";
 
 function canManageUsers(role: UserRole): boolean {
   return role === "ADMIN" || role === "SUPER_ADMIN";
+}
+
+function getUserAccessUpdatedMessage(
+  role: UserRole,
+  team: string | null,
+  reason: string,
+  changedByEmail?: string,
+): string {
+  const roleLabel = role.replace("_", " ");
+  const teamLabel = team ?? "Unassigned";
+  const actor = changedByEmail ?? "Admin";
+
+  return [
+    `Your access details were updated by ${actor}.`,
+    `New role: ${roleLabel}`,
+    `New team: ${teamLabel}`,
+    `Reason: ${reason}`,
+  ].join("\n");
 }
 
 export async function GET(req: Request) {
@@ -52,13 +71,16 @@ export async function PATCH(req: Request) {
     );
   }
 
-  await updateUserRoleTeamAndNotifyByUid(
+  await updateUserRoleAndTeamByUid(uid, role, team, githubUsername);
+
+  await appendUserNotificationByUid(
     uid,
-    role,
-    team,
-    reason,
-    githubUsername,
-    session.user.email ?? undefined,
+    getUserAccessUpdatedMessage(
+      role,
+      team,
+      reason,
+      session.user.email ?? undefined,
+    ),
   );
 
   return NextResponse.json({ success: true });

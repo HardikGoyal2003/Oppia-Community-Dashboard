@@ -10,7 +10,7 @@ import {
 import {
   appendUserNotificationByEmail,
   getUserByEmail,
-  updateUserRoleTeamAndNotifyByEmail,
+  updateUserRoleAndTeamByEmail,
 } from "@/db/users.db";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { isValidUserRole } from "@/lib/utils/roles.utils";
@@ -177,11 +177,15 @@ export async function PATCH(req: Request) {
       );
     }
 
-    await updateUserRoleTeamAndNotifyByEmail(
+    await updateUserRoleAndTeamByEmail(
       request.email,
       request.role,
       request.team,
       request.username,
+    );
+
+    await appendUserNotificationByEmail(
+      request.email,
       getPromotionMessage(request.role, request.team),
     );
   } else {

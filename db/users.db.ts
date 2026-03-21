@@ -189,23 +189,19 @@ export async function updateUserPlatformByUid(
 }
 
 /**
- * Updates a user's role and team by uid, then appends a notification message.
+ * Updates a user's role and team by uid.
  *
  * @param uid The user id to update.
  * @param role The new role value.
  * @param team The new team value.
- * @param reason The reason included in the notification message.
  * @param githubUsername The GitHub username to persist.
- * @param changedByEmail The optional actor email included in the notification.
- * @returns A promise that resolves when the notification and user update are written.
+ * @returns A promise that resolves when the user update has been written.
  */
-export async function updateUserRoleTeamAndNotifyByUid(
+export async function updateUserRoleAndTeamByUid(
   uid: string,
   role: UserRole,
   team: string | null,
-  reason: string,
   githubUsername: string,
-  changedByEmail?: string,
 ): Promise<void> {
   assertGithubUsernameForRole(githubUsername);
 
@@ -215,23 +211,6 @@ export async function updateUserRoleTeamAndNotifyByUid(
   if (!snap.exists) {
     throw new Error("User not found.");
   }
-
-  const roleLabel = role.replace("_", " ");
-  const teamLabel = team ?? "Unassigned";
-  const actor = changedByEmail ?? "Admin";
-
-  const message = [
-    `Your access details were updated by ${actor}.`,
-    `New role: ${roleLabel}`,
-    `New team: ${teamLabel}`,
-    `Reason: ${reason}`,
-  ].join("\n");
-
-  await appendNotificationByUserDocRef(ref, {
-    message,
-    createdAt: new Date(),
-    read: false,
-  });
 
   await ref.update({
     role,
@@ -267,40 +246,6 @@ export async function updateUserRoleAndTeamByEmail(
 }
 
 /**
- * Updates a user's role and team by email address, then appends a notification.
- *
- * @param email The email address to query by.
- * @param role The new role value.
- * @param team The new team value.
- * @param githubUsername The GitHub username to persist.
- * @param message The notification message to append.
- * @returns A promise that resolves when the notification and user update are written.
- */
-export async function updateUserRoleTeamAndNotifyByEmail(
-  email: string,
-  role: UserRole,
-  team: string,
-  githubUsername: string,
-  message: string,
-): Promise<void> {
-  assertGithubUsernameForRole(githubUsername);
-
-  const userDoc = await getUserDocRefByEmail(email);
-  const docRef = userDoc.ref;
-  await appendNotificationByUserDocRef(docRef, {
-    message,
-    createdAt: new Date(),
-    read: false,
-  });
-
-  await docRef.update({
-    role,
-    team,
-    githubUsername,
-  });
-}
-
-/**
  * Appends a notification to a user located by email address.
  *
  * @param email The email address to query by.
@@ -313,6 +258,31 @@ export async function appendUserNotificationByEmail(
 ): Promise<void> {
   const userDoc = await getUserDocRefByEmail(email);
   await appendNotificationByUserDocRef(userDoc.ref, {
+    message,
+    createdAt: new Date(),
+    read: false,
+  });
+}
+
+/**
+ * Appends a notification to a user located by uid.
+ *
+ * @param uid The user id to update.
+ * @param message The notification message to append.
+ * @returns A promise that resolves when the notification has been written.
+ */
+export async function appendUserNotificationByUid(
+  uid: string,
+  message: string,
+): Promise<void> {
+  const userDocRef = db.collection(USERS_COLLECTION).doc(uid);
+  const userDocSnap = await userDocRef.get();
+
+  if (!userDocSnap.exists) {
+    throw new Error("User not found.");
+  }
+
+  await appendNotificationByUserDocRef(userDocRef, {
     message,
     createdAt: new Date(),
     read: false,
