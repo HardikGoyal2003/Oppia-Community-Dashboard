@@ -13,6 +13,7 @@ export function normalizeMemberAccessRequest(
 ): MemberAccessRequestModel {
   return {
     email: request.email,
+    platform: request.platform,
     team: request.team,
     role: request.role,
     note: request.note,
