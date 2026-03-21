@@ -4,11 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Bell } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,26 +25,27 @@ import { Notification } from "@/lib/auth/auth.types";
 function getDaysAgoLabel(createdAt: Date): string {
   const now = new Date().getTime();
   const then = createdAt.getTime();
-  const diffInDays = Math.floor(
-    (now - then) / (1000 * 60 * 60 * 24)
-  );
+  const diffInDays = Math.floor((now - then) / (1000 * 60 * 60 * 24));
 
   if (diffInDays <= 0) return "Today";
   if (diffInDays === 1) return "1 day ago";
   return `${diffInDays} days ago`;
 }
 
-export const Navbar = ({
-  leftContent,
-}: {
-  leftContent?: ReactNode;
-}) => {
+export const Navbar = ({ leftContent }: { leftContent?: ReactNode }) => {
   const { data: session } = useSession();
-  const [unreadNotifications, setUnreadNotifications] = useState<Notification[]>([]);
-  const [readNotifications, setReadNotifications] = useState<Notification[]>([]);
+  const [unreadNotifications, setUnreadNotifications] = useState<
+    Notification[]
+  >([]);
+  const [readNotifications, setReadNotifications] = useState<Notification[]>(
+    [],
+  );
   const [loadingNotifications, setLoadingNotifications] = useState(false);
-  const [loadingReadNotifications, setLoadingReadNotifications] = useState(false);
-  const [updatingNotificationId, setUpdatingNotificationId] = useState<string | null>(null);
+  const [loadingReadNotifications, setLoadingReadNotifications] =
+    useState(false);
+  const [updatingNotificationId, setUpdatingNotificationId] = useState<
+    string | null
+  >(null);
   const [isAllNotificationsOpen, setIsAllNotificationsOpen] = useState(false);
 
   const username = session?.user?.name || "User";
@@ -87,9 +84,9 @@ export const Navbar = ({
     () =>
       [...unreadNotifications, ...readNotifications].sort(
         (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       ),
-    [readNotifications, unreadNotifications]
+    [readNotifications, unreadNotifications],
   );
 
   const handleMarkAsRead = async (notificationId: string) => {
@@ -109,19 +106,19 @@ export const Navbar = ({
       }
 
       const notification = unreadNotifications.find(
-        item => item.id === notificationId
+        (item) => item.id === notificationId,
       );
 
       if (!notification) {
         return;
       }
 
-      setUnreadNotifications(prev =>
-        prev.filter(item => item.id !== notificationId)
+      setUnreadNotifications((prev) =>
+        prev.filter((item) => item.id !== notificationId),
       );
-      setReadNotifications(prev => [
+      setReadNotifications((prev) => [
         { ...notification, read: true },
-        ...prev.filter(item => item.id !== notificationId),
+        ...prev.filter((item) => item.id !== notificationId),
       ]);
     } catch (error) {
       console.error(error);
@@ -158,9 +155,7 @@ export const Navbar = ({
   return (
     <header className="sticky top-0 z-40 h-16 border-b bg-white px-6">
       <div className="mx-auto flex h-full w-full items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          {leftContent}
-        </div>
+        <div className="flex items-center gap-2">{leftContent}</div>
 
         <div className="flex items-center gap-2">
           <DropdownMenu>
@@ -181,9 +176,7 @@ export const Navbar = ({
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="end" className="w-96">
-              <DropdownMenuLabel>
-                Notifications
-              </DropdownMenuLabel>
+              <DropdownMenuLabel>Notifications</DropdownMenuLabel>
               <DropdownMenuSeparator />
 
               {loadingNotifications && (
@@ -192,15 +185,14 @@ export const Navbar = ({
                 </div>
               )}
 
-              {!loadingNotifications &&
-                unreadNotifications.length === 0 && (
-                  <div className="p-3 text-sm text-gray-500">
-                    No unread notifications.
-                  </div>
-                )}
+              {!loadingNotifications && unreadNotifications.length === 0 && (
+                <div className="p-3 text-sm text-gray-500">
+                  No unread notifications.
+                </div>
+              )}
 
               {!loadingNotifications &&
-                unreadNotifications.map(notification => (
+                unreadNotifications.map((notification) => (
                   <div
                     key={notification.id}
                     className="border-b last:border-b-0 p-3"
@@ -217,9 +209,7 @@ export const Navbar = ({
                         size="sm"
                         className="mt-2"
                         disabled={updatingNotificationId === notification.id}
-                        onClick={() =>
-                          handleMarkAsRead(notification.id)
-                        }
+                        onClick={() => handleMarkAsRead(notification.id)}
                       >
                         Mark as read
                       </Button>
@@ -286,16 +276,11 @@ export const Navbar = ({
 
           <div className="max-h-[70vh] space-y-3 overflow-y-auto pr-1">
             {allNotifications.length === 0 && (
-              <p className="text-sm text-gray-500">
-                No notifications yet.
-              </p>
+              <p className="text-sm text-gray-500">No notifications yet.</p>
             )}
 
-            {allNotifications.map(notification => (
-              <div
-                key={notification.id}
-                className="rounded-lg border p-3"
-              >
+            {allNotifications.map((notification) => (
+              <div key={notification.id} className="rounded-lg border p-3">
                 <p className="whitespace-pre-line text-sm text-gray-800">
                   {notification.message}
                 </p>

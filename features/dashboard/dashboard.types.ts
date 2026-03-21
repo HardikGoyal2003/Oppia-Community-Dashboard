@@ -3,7 +3,7 @@ export interface Issue {
   issueUrl: string;
   issueTitle: string;
   isArchived: boolean;
-  lastCommentCreatedAt: string,
+  lastCommentCreatedAt: string;
   linkedProject: string;
 }
 

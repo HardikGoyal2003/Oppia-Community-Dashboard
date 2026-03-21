@@ -10,9 +10,7 @@ export default function AppProviders({
 }) {
   return (
     <SessionProvider>
-      <LoadingProvider>
-        {children}
-      </LoadingProvider>
+      <LoadingProvider>{children}</LoadingProvider>
     </SessionProvider>
   );
 }

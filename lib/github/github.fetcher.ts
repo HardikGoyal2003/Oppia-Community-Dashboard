@@ -55,23 +55,16 @@ interface CollaboratorEdge {
   node: User;
 }
 
-type Permission =
-  | "READ"
-  | "TRIAGE"
-  | "WRITE"
-  | "MAINTAIN"
-  | "ADMIN";
-
-
+type Permission = "READ" | "TRIAGE" | "WRITE" | "MAINTAIN" | "ADMIN";
 
 async function request<T>(query: string, variables = {}): Promise<T> {
   const res = await fetch(API_URL, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${TOKEN}`,
-      "Content-Type": "application/json"
+      Authorization: `Bearer ${TOKEN}`,
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify({ query, variables })
+    body: JSON.stringify({ query, variables }),
   });
 
   const json = await res.json();
@@ -98,7 +91,7 @@ async function fetchRateLimit(): Promise<RateLimit> {
 
 async function fetchRecentIssues(
   owner: string,
-  repo: string
+  repo: string,
 ): Promise<RawIssueNode[]> {
   const issues: RawIssueNode[] = [];
   let cursor: string | null = null;
@@ -146,7 +139,7 @@ async function fetchRecentIssues(
       owner,
       repo,
       cursor,
-      since: SINCE
+      since: SINCE,
     });
 
     const page = data.repository.issues;
@@ -161,7 +154,7 @@ async function fetchRecentIssues(
 
 async function fetchOrgAndCollaborators(
   owner: string,
-  repo: string
+  repo: string,
 ): Promise<OrgAndRepoAccessResult> {
   const query = `
     query($owner: String!, $repo: String!) {
@@ -192,14 +185,16 @@ export async function main(target: GitHubRepoTarget) {
 
   const orgData = await fetchOrgAndCollaborators(owner, repo);
 
-  const orgMembers = new Set(orgData.organization?.membersWithRole?.nodes.map((m) => m.login) || []);
+  const orgMembers = new Set(
+    orgData.organization?.membersWithRole?.nodes.map((m) => m.login) || [],
+  );
   const collaborators = orgData.repository.collaborators.edges;
 
   const collabAll = new Set(collaborators.map((e) => e.node.login));
   const maintainers = new Set(
     collaborators
       .filter((e) => ["ADMIN", "MAINTAIN", "WRITE"].includes(e.permission))
-      .map((e) => e.node.login)
+      .map((e) => e.node.login),
   );
 
   console.log(`Org members: ${orgMembers.size}`);
@@ -212,7 +207,7 @@ export async function main(target: GitHubRepoTarget) {
 
   const cutoffTime = Date.now() - 30 * 86400 * 1000;
 
-  const filtered = issues.filter(issue => {
+  const filtered = issues.filter((issue) => {
     if (issue.state === "CLOSED") return false;
 
     const lastComment = issue.comments.nodes[0];
@@ -234,7 +229,9 @@ export async function main(target: GitHubRepoTarget) {
     return !isAllowed;
   });
 
-  console.log("\n📌 Issues where last comment in past 30 days is from non-maintainer");
+  console.log(
+    "\n📌 Issues where last comment in past 30 days is from non-maintainer",
+  );
   console.log("--------------------------------------------------------------");
   console.log(`\n✅ Total filtered issues: ${filtered.length}`);
 

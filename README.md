@@ -3,6 +3,7 @@
 ## Local Firestore Emulator
 
 `npm run dev` starts both:
+
 - Firestore emulator (`127.0.0.1:8080`)
 - Next.js dev server
 

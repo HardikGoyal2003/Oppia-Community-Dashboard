@@ -9,7 +9,7 @@ export type FirestoreMemberAccessRequest = Omit<
 };
 
 export function normalizeMemberAccessRequest(
-  request: FirestoreMemberAccessRequest
+  request: FirestoreMemberAccessRequest,
 ): MemberAccessRequestModel {
   return {
     email: request.email,
@@ -26,7 +26,7 @@ export function normalizeMemberAccessRequest(
 }
 
 export function serializeMemberAccessRequest(
-  request: MemberAccessRequestModel
+  request: MemberAccessRequestModel,
 ): FirestoreMemberAccessRequest {
   return {
     ...request,

@@ -1,8 +1,6 @@
-"use client"
+"use client";
 
-import {
-  type LucideIcon,
-} from "lucide-react"
+import { type LucideIcon } from "lucide-react";
 
 import {
   SidebarGroup,
@@ -10,7 +8,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
 
 import { useActiveSidebarTab } from "./sidebar.store";
 
@@ -18,18 +16,23 @@ export function SideBarTabs({
   projects,
 }: {
   projects: {
-    name: string
-    icon: LucideIcon
-  }[]
+    name: string;
+    icon: LucideIcon;
+  }[];
 }) {
-  const updateActiveSidebarTab = useActiveSidebarTab((state) => state.updateActiveSidebarTab);
+  const updateActiveSidebarTab = useActiveSidebarTab(
+    (state) => state.updateActiveSidebarTab,
+  );
 
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Modes</SidebarGroupLabel>
       <SidebarMenu>
         {projects.map((item) => (
-          <SidebarMenuItem key={item.name} onClick={()=>updateActiveSidebarTab(item.name)}>
+          <SidebarMenuItem
+            key={item.name}
+            onClick={() => updateActiveSidebarTab(item.name)}
+          >
             <SidebarMenuButton asChild tooltip={item.name}>
               <div>
                 <item.icon />
@@ -40,6 +43,5 @@ export function SideBarTabs({
         ))}
       </SidebarMenu>
     </SidebarGroup>
-  )
+  );
 }
-

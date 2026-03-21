@@ -10,17 +10,17 @@ Its purpose is to **centralize all direct interactions with the database** (e.g.
 
 Files in this folder should:
 
-* Execute **database queries**
-* Perform **CRUD operations**
-* Handle **data retrieval and persistence**
-* Contain logic directly related to the **database schema**
+- Execute **database queries**
+- Perform **CRUD operations**
+- Handle **data retrieval and persistence**
+- Contain logic directly related to the **database schema**
 
 Examples of valid responsibilities:
 
-* Fetching a user by ID
-* Saving an archived issue
-* Creating a member access request
-* Updating issue status in the database
+- Fetching a user by ID
+- Saving an archived issue
+- Creating a member access request
+- Updating issue status in the database
 
 ---
 
@@ -28,11 +28,11 @@ Examples of valid responsibilities:
 
 Files in this folder **must NOT**:
 
-* Contain **business logic**
-* Perform **authorization checks**
-* Handle **UI logic**
-* Contain **complex application rules**
-* Trigger notifications or external services
+- Contain **business logic**
+- Perform **authorization checks**
+- Handle **UI logic**
+- Contain **complex application rules**
+- Trigger notifications or external services
 
 Those responsibilities belong in the **`services/` layer**.
 
@@ -89,7 +89,6 @@ member-request.db.ts
 
 ---
 
-
 ## Where Business Logic Goes
 
 Any **application rules** should live in the `services/` directory.
@@ -118,11 +117,11 @@ export async function getUserProfile(userId: string) {
 
 Keeping database logic isolated provides several benefits:
 
-* **Separation of concerns**
-* **Cleaner architecture**
-* **Easier testing**
-* **Reusable queries**
-* **Simpler database migrations**
+- **Separation of concerns**
+- **Cleaner architecture**
+- **Easier testing**
+- **Reusable queries**
+- **Simpler database migrations**
 
 If the database changes in the future, updates should primarily occur **inside this folder only**.
 
@@ -132,7 +131,6 @@ If the database changes in the future, updates should primarily occur **inside t
 
 Before adding new code:
 
-* If your code **queries the database**, place it here.
-* If your code **contains application rules**, place it in `services/`.
-* If your code **handles UI behavior**, place it in `components/` or `features/`.
-
+- If your code **queries the database**, place it here.
+- If your code **contains application rules**, place it in `services/`.
+- If your code **handles UI behavior**, place it in `components/` or `features/`.

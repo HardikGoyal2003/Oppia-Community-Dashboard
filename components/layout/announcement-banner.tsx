@@ -41,10 +41,7 @@ export function AnnouncementBanner() {
 
     const syncBannerHeight = () => {
       const height = bannerRef.current?.offsetHeight ?? 0;
-      root.style.setProperty(
-        "--announcement-banner-height",
-        `${height}px`
-      );
+      root.style.setProperty("--announcement-banner-height", `${height}px`);
     };
 
     syncBannerHeight();

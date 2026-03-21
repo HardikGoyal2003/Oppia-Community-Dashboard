@@ -39,7 +39,7 @@ export function DeclineRequestModal({
   return (
     <Dialog
       open={open}
-      onOpenChange={nextOpen => {
+      onOpenChange={(nextOpen) => {
         if (!nextOpen) {
           setReason("");
         }
@@ -50,13 +50,14 @@ export function DeclineRequestModal({
         <DialogHeader>
           <DialogTitle>Decline Request</DialogTitle>
           <DialogDescription>
-            Add a reason for declining this request. This message will be sent as a notification to the user.
+            Add a reason for declining this request. This message will be sent
+            as a notification to the user.
           </DialogDescription>
         </DialogHeader>
 
         <Textarea
           value={reason}
-          onChange={e => setReason(e.target.value)}
+          onChange={(e) => setReason(e.target.value)}
           placeholder="Provide a clear reason for declining..."
           rows={4}
         />
@@ -69,10 +70,7 @@ export function DeclineRequestModal({
           >
             Cancel
           </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={!reason.trim() || loading}
-          >
+          <Button onClick={handleSubmit} disabled={!reason.trim() || loading}>
             Submit Decline
           </Button>
         </DialogFooter>

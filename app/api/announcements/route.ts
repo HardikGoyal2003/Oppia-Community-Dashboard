@@ -30,8 +30,7 @@ export async function PUT(req: Request) {
 
   const body = await req.json();
   const title = typeof body.title === "string" ? body.title.trim() : "";
-  const message =
-    typeof body.message === "string" ? body.message.trim() : "";
+  const message = typeof body.message === "string" ? body.message.trim() : "";
   const isEnabled = Boolean(body.isEnabled);
 
   await upsertAnnouncementBanner({

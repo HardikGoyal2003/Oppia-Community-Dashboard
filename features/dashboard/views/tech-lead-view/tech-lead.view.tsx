@@ -1,6 +1,10 @@
 "use client";
 
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/sidebar/app-sidebar";
 import { Navbar } from "@/components/layout/navbar";
 import { IncomingRequestTab } from "./tabs/incoming-request.tab";
@@ -9,12 +13,14 @@ import { useActiveSidebarTab } from "../../../../components/layout/sidebar/sideb
 import UnansweredIssuesTab from "../../shared/unanswered-issues.tab";
 
 type SidebarTab =
-  | 'INCOMING_REQUEST_TAB'
-  | 'USER_ROLE_MANAGER_TAB'
-  | 'UNANSWERED_ISSUES_TAB'
+  | "INCOMING_REQUEST_TAB"
+  | "USER_ROLE_MANAGER_TAB"
+  | "UNANSWERED_ISSUES_TAB";
 
 export default function TechLeadView() {
-  const activeSidebarTab = useActiveSidebarTab((state) => state.activeSidebarTab);
+  const activeSidebarTab = useActiveSidebarTab(
+    (state) => state.activeSidebarTab,
+  );
 
   return (
     <SidebarProvider>
@@ -23,15 +29,15 @@ export default function TechLeadView() {
         <Navbar leftContent={<SidebarTrigger className="-ml-1" />} />
 
         <div className="min-h-screen bg-gray-50 px-6 py-10">
-          {activeSidebarTab === 'INCOMING_REQUEST_TAB' && (
+          {activeSidebarTab === "INCOMING_REQUEST_TAB" && (
             <IncomingRequestTab />
           )}
 
-          {activeSidebarTab === 'USER_ROLE_MANAGER_TAB' && (
+          {activeSidebarTab === "USER_ROLE_MANAGER_TAB" && (
             <UserRoleManagerTab />
           )}
 
-          {activeSidebarTab === 'UNANSWERED_ISSUES_TAB' && (
+          {activeSidebarTab === "UNANSWERED_ISSUES_TAB" && (
             <UnansweredIssuesTab />
           )}
         </div>

@@ -8,8 +8,7 @@ export default function TeamMemberView() {
           Team Dashboard Coming Soon 🚧
         </h1>
         <p className="text-gray-600">
-          We’re working on a dashboard tailored for team members.
-          Stay tuned!
+          We’re working on a dashboard tailored for team members. Stay tuned!
         </p>
       </div>
     </div>

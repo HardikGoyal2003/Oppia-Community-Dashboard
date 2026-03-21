@@ -14,7 +14,7 @@ interface CommentNode {
 }
 
 interface ProjectNode {
-  nodes: Project[]
+  nodes: Project[];
 }
 
 export interface RawIssueNode {
@@ -23,18 +23,13 @@ export interface RawIssueNode {
   url: string;
   state: string;
   comments: CommentNode;
-  projectsV2: ProjectNode
+  projectsV2: ProjectNode;
 }
 
 export interface RawIssue {
   issueNumber: number;
   issueUrl: string;
   issueTitle: string;
-  lastCommentCreatedAt: string,
+  lastCommentCreatedAt: string;
   linkedProject: string;
 }
-
-
-
-
-

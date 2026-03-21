@@ -19,8 +19,7 @@ export function useMarkIssueAsnwered() {
       if (issue.linkedProject === CONSTANTS.ANDROID_TEAMS.CLAM) {
         from = "team1";
       } else if (
-        issue.linkedProject ===
-        CONSTANTS.ANDROID_TEAMS.DEV_WORKFLOW_INFRA
+        issue.linkedProject === CONSTANTS.ANDROID_TEAMS.DEV_WORKFLOW_INFRA
       ) {
         from = "team2";
       } else {
@@ -31,9 +30,7 @@ export function useMarkIssueAsnwered() {
         from = "team1";
       } else if (issue.linkedProject === CONSTANTS.WEB_TEAMS.CORE) {
         from = "team2";
-      } else if (
-        issue.linkedProject === CONSTANTS.WEB_TEAMS.DEV_WORKFLOW
-      ) {
+      } else if (issue.linkedProject === CONSTANTS.WEB_TEAMS.DEV_WORKFLOW) {
         from = "team3";
       } else {
         from = "others";

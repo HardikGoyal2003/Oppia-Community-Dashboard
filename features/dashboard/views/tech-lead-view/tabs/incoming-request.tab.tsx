@@ -1,8 +1,8 @@
-'use client'
+"use client";
 
-import { LoadingIndicator } from '@/components/layout/loading-indicator';
-import Image from 'next/image'
-import { useEffect, useState } from 'react'
+import { LoadingIndicator } from "@/components/layout/loading-indicator";
+import Image from "next/image";
+import { useEffect, useState } from "react";
 import { DeclineRequestModal } from "../components/decline-request-modal";
 import { formatDisplayValue } from "@/lib/utils/display-format.utils";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
@@ -23,7 +23,9 @@ export function IncomingRequestTab() {
   const [platform, setPlatform] = useState<ContributionPlatform>("WEB");
   const [isLoading, setIsLoading] = useState(true);
   const [updatingEmail, setUpdatingEmail] = useState<string | null>(null);
-  const [declineTargetEmail, setDeclineTargetEmail] = useState<string | null>(null);
+  const [declineTargetEmail, setDeclineTargetEmail] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     (async () => {
@@ -32,7 +34,7 @@ export function IncomingRequestTab() {
       try {
         const response = await fetch(
           `/api/member-access-requests?platform=${platform}`,
-          { cache: "no-store" }
+          { cache: "no-store" },
         );
 
         if (!response.ok) {
@@ -55,7 +57,7 @@ export function IncomingRequestTab() {
   const handleDecision = async (
     email: string,
     decision: "ACCEPT" | "DECLINE",
-    reason?: string
+    reason?: string,
   ) => {
     setUpdatingEmail(email);
 
@@ -72,9 +74,7 @@ export function IncomingRequestTab() {
         throw new Error("Failed to update request.");
       }
 
-      setRequests(prev =>
-        prev.filter(request => request.email !== email)
-      );
+      setRequests((prev) => prev.filter((request) => request.email !== email));
     } catch (error) {
       console.error(error);
     } finally {
@@ -95,22 +95,16 @@ export function IncomingRequestTab() {
       return;
     }
 
-    await handleDecision(
-      declineTargetEmail,
-      "DECLINE",
-      reason
-    );
+    await handleDecision(declineTargetEmail, "DECLINE", reason);
     closeDeclineModal();
   };
 
-  return(
+  return (
     <>
-      <h1 className="mb-6 text-2xl font-semibold">
-          Incoming Requests
-      </h1>
+      <h1 className="mb-6 text-2xl font-semibold">Incoming Requests</h1>
 
       <div className="mb-4 flex gap-2">
-        {(["WEB", "ANDROID"] as ContributionPlatform[]).map(option => (
+        {(["WEB", "ANDROID"] as ContributionPlatform[]).map((option) => (
           <button
             key={option}
             className={`rounded border px-3 py-1 text-sm ${
@@ -128,13 +122,13 @@ export function IncomingRequestTab() {
       {isLoading && <LoadingIndicator />}
 
       {!isLoading && requests.length === 0 && (
-        <div className='flex justify-center items-center h-[75vh]'>
+        <div className="flex justify-center items-center h-[75vh]">
           <Image
             src="/no_pending_invites.jpeg"
             width={500}
             height={500}
             alt="No Pending Requests"
-            className='max-h-96'
+            className="max-h-96"
           />
         </div>
       )}
@@ -174,9 +168,7 @@ export function IncomingRequestTab() {
                       <button
                         className="rounded bg-green-600 px-3 py-1 cursor-pointer text-white disabled:opacity-60"
                         disabled={updatingEmail === request.email}
-                        onClick={() =>
-                          handleDecision(request.email, "ACCEPT")
-                        }
+                        onClick={() => handleDecision(request.email, "ACCEPT")}
                       >
                         Accept
                       </button>
@@ -199,7 +191,7 @@ export function IncomingRequestTab() {
       <DeclineRequestModal
         open={Boolean(declineTargetEmail)}
         loading={Boolean(updatingEmail)}
-        onOpenChange={open => {
+        onOpenChange={(open) => {
           if (!open) {
             closeDeclineModal();
           }
@@ -207,5 +199,5 @@ export function IncomingRequestTab() {
         onSubmit={submitDecline}
       />
     </>
-  )
+  );
 }

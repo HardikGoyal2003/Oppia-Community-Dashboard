@@ -19,7 +19,7 @@ export function PlatformSelectModal({
 }) {
   const router = useRouter();
   const [platform, setPlatform] = useState<ContributionPlatform | null>(
-    initialPlatform
+    initialPlatform,
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,9 +38,9 @@ export function PlatformSelectModal({
       });
 
       if (!res.ok) {
-        const data = (await res.json().catch(() => null)) as
-          | { error?: string }
-          | null;
+        const data = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
         throw new Error(data?.error ?? "Failed to update platform.");
       }
 
@@ -58,10 +58,10 @@ export function PlatformSelectModal({
     <Dialog open={isOpen}>
       <DialogContent
         showCloseButton={false}
-        onEscapeKeyDown={e => e.preventDefault()}
-        onPointerDownOutside={e => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
         // Radix sometimes fires this on outside interactions.
-        onInteractOutside={e => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
         className="sm:max-w-md"
       >
         <DialogHeader>
@@ -100,4 +100,3 @@ export function PlatformSelectModal({
     </Dialog>
   );
 }
-

@@ -27,7 +27,9 @@ export default async function ControlPanelPage() {
             Control Panel
           </h1>
           <p className="mt-3 max-w-3xl text-sm text-slate-600">
-            This page is reserved for operational controls that must never be exposed through normal role workflows. Super admin access must be assigned directly in the database.
+            This page is reserved for operational controls that must never be
+            exposed through normal role workflows. Super admin access must be
+            assigned directly in the database.
           </p>
         </div>
 

@@ -1,8 +1,5 @@
 import { getApp, getApps, initializeApp } from "firebase/app";
-import {
-  connectFirestoreEmulator,
-  getFirestore,
-} from "firebase/firestore";
+import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
 
 declare global {
   var __firestoreEmulatorConnected: boolean | undefined;
@@ -20,27 +17,18 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = getApps().length
-  ? getApp()
-  : initializeApp(firebaseConfig);
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const firestoreEmulatorHost =
   process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST || "127.0.0.1";
 
 const firestoreEmulatorPort = Number(
-  process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_PORT || "8080"
+  process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_PORT || "8080",
 );
 
-if (
-  useFirestoreEmulator &&
-  !globalThis.__firestoreEmulatorConnected
-) {
-  connectFirestoreEmulator(
-    db,
-    firestoreEmulatorHost,
-    firestoreEmulatorPort
-  );
+if (useFirestoreEmulator && !globalThis.__firestoreEmulatorConnected) {
+  connectFirestoreEmulator(db, firestoreEmulatorHost, firestoreEmulatorPort);
   globalThis.__firestoreEmulatorConnected = true;
 }
 

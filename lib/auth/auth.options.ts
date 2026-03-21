@@ -1,8 +1,5 @@
 import GitHubProvider from "next-auth/providers/github";
-import {
-  createUserIfNotExists,
-  getUserById,
-} from "@/db/users.db";
+import { createUserIfNotExists, getUserById } from "@/db/users.db";
 import type { JWT } from "next-auth/jwt";
 import type { Profile } from "next-auth";
 import type { Account, Session, User } from "next-auth";
@@ -72,13 +69,7 @@ export const authOptions = {
       return token;
     },
 
-    async session({
-      session,
-      token,
-    }: {
-      session: Session;
-      token: JWT;
-    }) {
+    async session({ session, token }: { session: Session; token: JWT }) {
       if (token.invalidUser) {
         return {
           ...session,

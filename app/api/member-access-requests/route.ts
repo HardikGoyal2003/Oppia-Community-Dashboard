@@ -70,17 +70,14 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const team =
-    typeof body.team === "string" ? body.team.trim() : "";
-  const role =
-    typeof body.role === "string" ? body.role.trim() : "";
-  const note =
-    typeof body.note === "string" ? body.note.trim() : "";
+  const team = typeof body.team === "string" ? body.team.trim() : "";
+  const role = typeof body.role === "string" ? body.role.trim() : "";
+  const note = typeof body.note === "string" ? body.note.trim() : "";
 
   if (!team || !role || !isValidUserRole(role)) {
     return NextResponse.json(
       { error: "Missing or invalid fields: team, role." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -94,14 +91,14 @@ export async function POST(req: Request) {
         error:
           "No GitHub username was found on your account. Please sign out and sign in again.",
       },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   if (!platform) {
     return NextResponse.json(
       { error: "No contribution platform was found on your account." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -126,7 +123,7 @@ export async function POST(req: Request) {
             createdAt: error.request.createdAt.toISOString(),
           },
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
@@ -137,7 +134,7 @@ export async function POST(req: Request) {
             ? error.message
             : "Failed to submit access request.",
       },
-      { status: 409 }
+      { status: 409 },
     );
   }
 
@@ -154,20 +151,19 @@ export async function PATCH(req: Request) {
   const body = await req.json();
   const email = body.email.trim();
   const decision = body.decision.trim();
-  const reason =
-    typeof body.reason === "string" ? body.reason.trim() : "";
+  const reason = typeof body.reason === "string" ? body.reason.trim() : "";
 
   if (!email || !decision || !["ACCEPT", "DECLINE"].includes(decision)) {
     return NextResponse.json(
       { error: "Invalid email/decision payload." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   if (decision === "DECLINE" && !reason) {
     return NextResponse.json(
       { error: "Decline reason is required." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -177,7 +173,7 @@ export async function PATCH(req: Request) {
     if (!isValidUserRole(request.role)) {
       return NextResponse.json(
         { error: "Invalid role in request." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -186,12 +182,12 @@ export async function PATCH(req: Request) {
       request.role,
       request.team,
       request.username,
-      getPromotionMessage(request.role, request.team)
+      getPromotionMessage(request.role, request.team),
     );
   } else {
     await appendUserNotificationByEmail(
       request.email,
-      getDeclineMessage(reason)
+      getDeclineMessage(reason),
     );
   }
 

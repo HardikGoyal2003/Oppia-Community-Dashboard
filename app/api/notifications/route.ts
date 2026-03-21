@@ -24,7 +24,7 @@ export async function GET(req: Request) {
 
   const notifications = await getNotificationsByEmail(
     session.user.email,
-    status
+    status,
   );
 
   return NextResponse.json({ notifications });
@@ -39,21 +39,16 @@ export async function PATCH(req: Request) {
 
   const body = await req.json();
   const notificationId =
-    typeof body.notificationId === "string"
-      ? body.notificationId.trim()
-      : "";
+    typeof body.notificationId === "string" ? body.notificationId.trim() : "";
 
   if (!notificationId) {
     return NextResponse.json(
       { error: "Invalid notification id." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
-  await markNotificationAsReadByEmail(
-    session.user.email,
-    notificationId
-  );
+  await markNotificationAsReadByEmail(session.user.email, notificationId);
 
   return NextResponse.json({ success: true });
 }

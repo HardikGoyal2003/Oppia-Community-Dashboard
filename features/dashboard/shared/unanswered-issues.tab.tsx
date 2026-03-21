@@ -13,7 +13,9 @@ import { useProjectIssuesStore } from "./issues/store/project-issues.store";
 import { categorizeIssues } from "./issues/services/categorize-issues.service";
 
 export default function UnansweredIssuesTab() {
-  const [responseData, setResponseData] = useState<{ issues: RawIssue[] } | null>(null);
+  const [responseData, setResponseData] = useState<{
+    issues: RawIssue[];
+  } | null>(null);
   const [activeTab, setActiveTab] =
     useState<keyof CategorizedProjectIssues>("team1");
 
@@ -59,7 +61,7 @@ export default function UnansweredIssuesTab() {
       const [archivedIssues, data] = await Promise.all([
         getArchivedIssues(platform),
         Promise.resolve(issuesData),
-      ]) 
+      ]);
       setArchivedIssues(archivedIssues);
       setResponseData(data);
     } finally {
@@ -74,20 +76,23 @@ export default function UnansweredIssuesTab() {
       const categorized = await categorizeIssues(
         responseData.issues,
         archivedIssues,
-        platform
+        platform,
       );
       setIssues(categorized);
     })();
   }, [responseData, archivedIssues, platform, setIssues]);
 
   return (
-    <div className="flex flex-col bg-gray-50 min-h-screen
-                    px-4 py-18 sm:px-8 md:px-16 lg:px-40">
-      <TeamTabs 
-      platform={platform}
-      categorizedProjectIssuesData = {issues}
-      activeTab={activeTab}
-      setActiveTab={setActiveTab}/>
+    <div
+      className="flex flex-col bg-gray-50 min-h-screen
+                    px-4 py-18 sm:px-8 md:px-16 lg:px-40"
+    >
+      <TeamTabs
+        platform={platform}
+        categorizedProjectIssuesData={issues}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+      />
 
       {/* Content */}
       <div className="flex flex-col gap-4 border py-6 px-2 sm:px-4 bg-white">
@@ -114,8 +119,9 @@ export default function UnansweredIssuesTab() {
               </p>
 
               <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-                Big thanks for staying responsive and keeping your team&apos;s issue flow healthy.
-                Your consistency is helping keep the Oppia community active, supported, and moving forward.
+                Big thanks for staying responsive and keeping your team&apos;s
+                issue flow healthy. Your consistency is helping keep the Oppia
+                community active, supported, and moving forward.
               </p>
             </div>
           )}

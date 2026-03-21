@@ -1,5 +1,5 @@
-import { create } from 'zustand';
-import { CategorizedProjectIssues } from '../../../dashboard.types';
+import { create } from "zustand";
+import { CategorizedProjectIssues } from "../../../dashboard.types";
 
 interface ProjectIssuesStore {
   issues: CategorizedProjectIssues;
@@ -7,11 +7,11 @@ interface ProjectIssuesStore {
   moveIssue: (
     from: keyof CategorizedProjectIssues,
     to: keyof CategorizedProjectIssues,
-    issueNumber: number
+    issueNumber: number,
   ) => void;
   removeIssue: (
     from: keyof CategorizedProjectIssues,
-    issueNumber: number
+    issueNumber: number,
   ) => void;
 }
 
@@ -32,7 +32,7 @@ export const useProjectIssuesStore = create<ProjectIssuesStore>((set) => ({
   moveIssue: (from, to, issueNumber) =>
     set((state) => {
       const issueToMove = state.issues[from].find(
-        (i) => i.issueNumber === issueNumber
+        (i) => i.issueNumber === issueNumber,
       );
 
       if (!issueToMove) return {};
@@ -43,7 +43,7 @@ export const useProjectIssuesStore = create<ProjectIssuesStore>((set) => ({
         issues: {
           ...state.issues,
           [from]: state.issues[from].filter(
-            (i) => i.issueNumber !== issueNumber
+            (i) => i.issueNumber !== issueNumber,
           ),
           [to]: [...state.issues[to], updatedIssue],
         },
@@ -54,9 +54,7 @@ export const useProjectIssuesStore = create<ProjectIssuesStore>((set) => ({
     set((state) => ({
       issues: {
         ...state.issues,
-        [from]: state.issues[from].filter(
-          (i) => i.issueNumber !== issueNumber
-        ),
+        [from]: state.issues[from].filter((i) => i.issueNumber !== issueNumber),
       },
     })),
 }));

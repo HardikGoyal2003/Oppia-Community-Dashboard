@@ -4,7 +4,6 @@ import { CONSTANTS } from "@/lib/constants";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import MemberRequestAccessModal from "./components/member-request-access-modal";
 
-
 export default function ContributorView({
   message = "Thanks for signing up! You’ll get access once you’re assigned to a team.",
   platform,
@@ -12,8 +11,7 @@ export default function ContributorView({
   message?: string;
   platform: ContributionPlatform;
 }) {
-  const docsUrl =
-    CONSTANTS.CONTRIBUTING_DOCS[platform];
+  const docsUrl = CONSTANTS.CONTRIBUTING_DOCS[platform];
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4 py-12">
@@ -26,9 +24,13 @@ export default function ContributorView({
 
         {/* Info Section */}
         <div className="mb-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-2">Get started as a contributor</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">
+            Get started as a contributor
+          </h2>
           <p className="text-gray-500 mb-4">
-            Check out the <span className="font-medium">Oppia Contributing Docs</span> to learn how to contribute.
+            Check out the{" "}
+            <span className="font-medium">Oppia Contributing Docs</span> to
+            learn how to contribute.
           </p>
           <a
             href={docsUrl}
@@ -41,20 +43,20 @@ export default function ContributorView({
 
         {/* Action Section */}
         <div className="mb-4 border-t pt-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-2">Are you an Oppia member or collaborator?</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">
+            Are you an Oppia member or collaborator?
+          </h2>
           <p className="text-gray-500 mb-4">
             Request access to a team by filling out the form below:
           </p>
           <MemberRequestAccessModal platform={platform} />
         </div>
-
       </div>
-
-
 
       {/* footer tips */}
       <p className="mt-8 text-gray-400 text-sm text-center max-w-md">
-        Once your request is approved, you&apos;ll be able to see your team dashboard and start contributing.
+        Once your request is approved, you&apos;ll be able to see your team
+        dashboard and start contributing.
       </p>
     </div>
   );

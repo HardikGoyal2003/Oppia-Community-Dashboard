@@ -38,23 +38,17 @@ export async function PATCH(req: Request) {
   }
 
   const body = await req.json();
-  const uid =
-    typeof body.uid === "string" ? body.uid.trim() : "";
-  const role =
-    typeof body.role === "string" ? body.role.trim() : "";
-  const team =
-    typeof body.team === "string" ? body.team.trim() : null;
+  const uid = typeof body.uid === "string" ? body.uid.trim() : "";
+  const role = typeof body.role === "string" ? body.role.trim() : "";
+  const team = typeof body.team === "string" ? body.team.trim() : null;
   const githubUsername =
-    typeof body.githubUsername === "string"
-      ? body.githubUsername.trim()
-      : null;
-  const reason =
-    typeof body.reason === "string" ? body.reason.trim() : "";
+    typeof body.githubUsername === "string" ? body.githubUsername.trim() : null;
+  const reason = typeof body.reason === "string" ? body.reason.trim() : "";
 
   if (!uid || !role || !isValidUserRole(role) || !reason) {
     return NextResponse.json(
       { error: "Invalid payload for user update." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -64,7 +58,7 @@ export async function PATCH(req: Request) {
     team,
     reason,
     githubUsername,
-    session.user.email ?? undefined
+    session.user.email ?? undefined,
   );
 
   return NextResponse.json({ success: true });

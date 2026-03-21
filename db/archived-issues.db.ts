@@ -19,53 +19,51 @@ type ArchivedIssueDoc = Issue & {
 
 function getArchivedIssueDocId(
   platform: ContributionPlatform,
-  issueNumber: number
+  issueNumber: number,
 ): string {
   return `${platform}_${issueNumber}`;
 }
 
 export async function getArchivedIssues(
-  platform: ContributionPlatform
+  platform: ContributionPlatform,
 ): Promise<ArchivedIssueDoc[]> {
   const q = query(
     collection(db, ARCHIVED_ISSUES_COLLECTION),
-    where("platform", "==", platform)
+    where("platform", "==", platform),
   );
 
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map(
-    (docSnap) => docSnap.data() as ArchivedIssueDoc
-  );
+  return snapshot.docs.map((docSnap) => docSnap.data() as ArchivedIssueDoc);
 }
 
 export async function archiveIssue(
   issue: Issue,
-  platform: ContributionPlatform
+  platform: ContributionPlatform,
 ): Promise<void> {
   await setDoc(
     doc(
       db,
       ARCHIVED_ISSUES_COLLECTION,
-      getArchivedIssueDocId(platform, issue.issueNumber)
+      getArchivedIssueDocId(platform, issue.issueNumber),
     ),
     {
       ...issue,
       platform,
       isArchived: true,
-    }
+    },
   );
 }
 
 export async function unarchiveIssue(
   issueNumber: number,
-  platform: ContributionPlatform
+  platform: ContributionPlatform,
 ): Promise<void> {
   await deleteDoc(
     doc(
       db,
       ARCHIVED_ISSUES_COLLECTION,
-      getArchivedIssueDocId(platform, issueNumber)
-    )
+      getArchivedIssueDocId(platform, issueNumber),
+    ),
   );
 }

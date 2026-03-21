@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import {
   Dialog,
@@ -109,16 +109,14 @@ export default function MemberRequestAccessModal({
           return;
         }
 
-        throw new Error(
-          data.error || "Failed to submit access request."
-        );
+        throw new Error(data.error || "Failed to submit access request.");
       }
       setRequestState("SUBMITTED");
     } catch (error) {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "Failed to submit access request."
+          : "Failed to submit access request.",
       );
     } finally {
       setLoading(false);
@@ -138,7 +136,8 @@ export default function MemberRequestAccessModal({
           <div className="text-center py-10">
             <h2 className="text-xl font-semibold mb-2">Request Submitted ✅</h2>
             <p className="text-gray-600">
-              Thank you! Your request has been submitted. Our team will review it and get back to you soon.
+              Thank you! Your request has been submitted. Our team will review
+              it and get back to you soon.
             </p>
             <DialogClose asChild>
               <Button className="mt-6">Close</Button>
@@ -146,7 +145,9 @@ export default function MemberRequestAccessModal({
           </div>
         ) : requestState === "DUPLICATE" ? (
           <div className="py-10 text-center">
-            <h2 className="text-xl font-semibold mb-6">Request Already Pending</h2>
+            <h2 className="text-xl font-semibold mb-6">
+              Request Already Pending
+            </h2>
             <p className="text-gray-600">
               {duplicateRequest
                 ? `You already have a pending team access request for ${formatDisplayValue(duplicateRequest.role)} role in ${formatDisplayValue(duplicateRequest.team)}, created at ${formatDuplicateRequestDate(duplicateRequest.createdAt)}. Thanks for your patience. Admins will review it soon.`
@@ -194,7 +195,7 @@ export default function MemberRequestAccessModal({
                       .filter(
                         ([key, label]) =>
                           key !== "SUPER_ADMIN" &&
-                          label !== CONSTANTS.ROLES.CONTRIBUTOR
+                          label !== CONSTANTS.ROLES.CONTRIBUTOR,
                       )
                       .map(([key, label]) => (
                         <SelectItem key={key} value={key}>
@@ -207,7 +208,8 @@ export default function MemberRequestAccessModal({
 
               <Field>
                 <Label htmlFor="notes">
-                  Additional notes <span className="text-gray-400">(optional)</span>
+                  Additional notes{" "}
+                  <span className="text-gray-400">(optional)</span>
                 </Label>
                 <Textarea
                   id="notes"
@@ -219,9 +221,7 @@ export default function MemberRequestAccessModal({
             </FieldGroup>
 
             {errorMessage && (
-              <p className="mt-3 text-sm text-red-600">
-                {errorMessage}
-              </p>
+              <p className="mt-3 text-sm text-red-600">{errorMessage}</p>
             )}
 
             <DialogFooter className="mt-6">
