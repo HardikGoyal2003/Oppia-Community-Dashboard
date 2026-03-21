@@ -54,11 +54,11 @@ export async function getPendingMemberAccessRequestsByPlatform(
     query = query.where("platform", "==", platform);
   }
 
-  const snapshot = await query.get();
+  const snapshot = await query.orderBy("createdAt", "desc").get();
 
-  return snapshot.docs
-    .map((doc) => normalizeMemberAccessRequestDocument(doc.data()))
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  return snapshot.docs.map((doc) =>
+    normalizeMemberAccessRequestDocument(doc.data()),
+  );
 }
 
 /**

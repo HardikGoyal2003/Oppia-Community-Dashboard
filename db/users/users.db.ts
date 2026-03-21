@@ -139,16 +139,14 @@ export async function getUsersByPlatform(
     query = query.where("platform", "==", platform);
   }
 
-  const snap = await query.get();
+  const snap = await query.orderBy("createdAt", "desc").get();
 
-  return snap.docs
-    .map((doc) => {
-      return {
-        id: doc.id,
-        ...normalizeUserDocument(doc.data()),
-      };
-    })
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  return snap.docs.map((doc) => {
+    return {
+      id: doc.id,
+      ...normalizeUserDocument(doc.data()),
+    };
+  });
 }
 
 /**
