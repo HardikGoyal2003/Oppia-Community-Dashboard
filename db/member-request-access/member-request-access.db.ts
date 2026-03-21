@@ -1,7 +1,6 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import {
-  FirestoreMemberAccessRequest,
-  normalizeMemberAccessRequest,
+  normalizeMemberAccessRequestDocument,
   serializeMemberAccessRequest,
 } from "@/db/member-request-access/member-access-request.mapper";
 import {
@@ -58,9 +57,7 @@ export async function getPendingMemberAccessRequestsByPlatform(
   const snapshot = await query.get();
 
   return snapshot.docs
-    .map((doc) =>
-      normalizeMemberAccessRequest(doc.data() as FirestoreMemberAccessRequest),
-    )
+    .map((doc) => normalizeMemberAccessRequestDocument(doc.data()))
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
@@ -83,8 +80,8 @@ export async function submitMemberAccessRequest(
     const existingPending = await tx.get(pendingQuery);
 
     if (!existingPending.empty) {
-      const pendingRequest = normalizeMemberAccessRequest(
-        existingPending.docs[0].data() as FirestoreMemberAccessRequest,
+      const pendingRequest = normalizeMemberAccessRequestDocument(
+        existingPending.docs[0].data(),
       );
 
       throw new PendingMemberAccessRequestError(pendingRequest);
@@ -126,9 +123,7 @@ export async function resolveMemberAccessRequest(
     }
 
     const doc = snapshot.docs[0];
-    const request = normalizeMemberAccessRequest(
-      doc.data() as FirestoreMemberAccessRequest,
-    );
+    const request = normalizeMemberAccessRequestDocument(doc.data());
 
     const status = decision === "ACCEPT" ? "ACCEPTED" : "REJECTED";
 

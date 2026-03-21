@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth/auth.options";
 import {
   getNotificationsByEmail,
   markNotificationAsReadByEmail,
-} from "@/db/users.db";
+} from "@/db/users/users.db";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);

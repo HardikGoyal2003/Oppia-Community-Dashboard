@@ -1,5 +1,5 @@
 import GitHubProvider from "next-auth/providers/github";
-import { createUserIfNotExists, getUserById } from "@/db/users.db";
+import { createUserIfNotExists, getUserById } from "@/db/users/users.db";
 import type { JWT } from "next-auth/jwt";
 import type { Account, AuthOptions, Profile, Session, User } from "next-auth";
 import { UserRole } from "./auth.types";

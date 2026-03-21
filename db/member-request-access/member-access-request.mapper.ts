@@ -10,6 +10,36 @@ export type FirestoreMemberAccessRequest = Omit<
 };
 
 /**
+ * Validates the raw Firestore member-access request document shape.
+ *
+ * @param request The raw Firestore member-access request document data.
+ * @returns Nothing. Throws when the request document shape is invalid.
+ */
+function assertFirestoreMemberAccessRequest(
+  request: FirebaseFirestore.DocumentData,
+): asserts request is FirestoreMemberAccessRequest {
+  if (typeof request.email !== "string") {
+    throw new Error("Member access request email must be a string.");
+  }
+
+  if (typeof request.team !== "string") {
+    throw new Error("Member access request team must be a string.");
+  }
+
+  if (typeof request.role !== "string") {
+    throw new Error("Member access request role must be a string.");
+  }
+
+  if (typeof request.note !== "string") {
+    throw new Error("Member access request note must be a string.");
+  }
+
+  if (typeof request.username !== "string") {
+    throw new Error("Member access request username must be a string.");
+  }
+}
+
+/**
  * Normalizes a Firestore member-access request document into the app model.
  *
  * @param request The raw Firestore member-access request document.
@@ -28,6 +58,19 @@ export function normalizeMemberAccessRequest(
     status: request.status,
     createdAt: normalizeTimestamp(request.createdAt),
   };
+}
+
+/**
+ * Normalizes raw Firestore member-access request document data into the app model.
+ *
+ * @param request The raw Firestore member-access request document data.
+ * @returns The normalized member-access request model.
+ */
+export function normalizeMemberAccessRequestDocument(
+  request: FirebaseFirestore.DocumentData,
+): MemberAccessRequestModel {
+  assertFirestoreMemberAccessRequest(request);
+  return normalizeMemberAccessRequest(request);
 }
 
 /**

@@ -3,7 +3,7 @@ import {
   appendUserNotificationByUid,
   getUsersByPlatform,
   updateUserRoleAndTeamByUid,
-} from "@/db/users.db";
+} from "@/db/users/users.db";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";

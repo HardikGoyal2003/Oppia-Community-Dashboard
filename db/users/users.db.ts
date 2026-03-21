@@ -6,8 +6,8 @@ import {
   UserModel,
 } from "@/lib/auth/auth.types";
 import { Timestamp } from "firebase-admin/firestore";
-import { normalizeNotifications } from "./notifications/notifications.mapper";
-import { normalizeTimestamp } from "./timestamp.utils";
+import { normalizeNotificationDocument } from "../notifications/notifications.mapper";
+import { normalizeUserDocument, serializeUser } from "./users.mapper";
 
 const USERS_COLLECTION = "users";
 const NOTIFICATIONS_SUBCOLLECTION = "notifications";
@@ -68,10 +68,7 @@ export async function getUserByEmail(email: string): Promise<UserModel | null> {
 
   const data = snapshot.docs[0].data();
 
-  return {
-    ...(data as UserModel),
-    createdAt: normalizeTimestamp(data.createdAt),
-  };
+  return normalizeUserDocument(data);
 }
 
 /**
@@ -93,10 +90,12 @@ export async function createUserIfNotExists(
   if (!snap.exists) {
     const now = Timestamp.now();
 
-    await ref.set({
-      ...data,
-      createdAt: now,
-    });
+    await ref.set(
+      serializeUser({
+        ...data,
+        createdAt: now,
+      }),
+    );
   }
 }
 
@@ -113,10 +112,7 @@ export async function getUserById(uid: string): Promise<UserModel | null> {
 
   const data = snap.data()!;
 
-  return {
-    ...data,
-    createdAt: normalizeTimestamp(data.createdAt),
-  } as UserModel;
+  return normalizeUserDocument(data);
 }
 
 /**
@@ -147,12 +143,9 @@ export async function getUsersByPlatform(
 
   return snap.docs
     .map((doc) => {
-      const data = doc.data();
-
       return {
         id: doc.id,
-        ...(data as UserModel),
-        createdAt: normalizeTimestamp(data.createdAt),
+        ...normalizeUserDocument(doc.data()),
       };
     })
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
@@ -313,11 +306,11 @@ export async function getNotificationsByEmail(
 
   const snapshot = await query.orderBy("createdAt", "desc").get();
 
-  return normalizeNotifications(
-    snapshot.docs.map((doc) => ({
+  return snapshot.docs.map((doc) =>
+    normalizeNotificationDocument({
       id: doc.id,
-      ...(doc.data() as Omit<Notification, "id">),
-    })),
+      ...doc.data(),
+    }),
   );
 }
 

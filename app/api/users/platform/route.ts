@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
-import { updateUserPlatformByUid } from "@/db/users.db";
+import { updateUserPlatformByUid } from "@/db/users/users.db";
 import { ContributionPlatform } from "@/lib/auth/auth.types";
 
 function parsePlatform(value: unknown): ContributionPlatform | null {

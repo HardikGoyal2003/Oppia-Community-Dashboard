@@ -11,7 +11,7 @@ import {
   appendUserNotificationByEmail,
   getUserByEmail,
   updateUserRoleAndTeamByEmail,
-} from "@/db/users.db";
+} from "@/db/users/users.db";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { isValidUserRole } from "@/lib/utils/roles.utils";
 
