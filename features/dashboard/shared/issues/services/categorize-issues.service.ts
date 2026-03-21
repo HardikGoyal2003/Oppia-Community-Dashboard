@@ -1,8 +1,8 @@
 import { RawIssue } from "@/lib/github/github.types";
 import { CategorizedProjectIssues, Issue } from "../../../dashboard.types";
-import { unarchiveIssue } from "@/db/archived-issues.db";
 import { CONSTANTS } from "@/lib/constants";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import { unarchiveIssueForPlatform } from "./archived-issues-api.service";
 
 export async function categorizeIssues(
   rawIssues: RawIssue[],
@@ -21,7 +21,7 @@ export async function categorizeIssues(
 
   await Promise.all(
     staleArchivedIssues.map((issue) =>
-      unarchiveIssue(issue.issueNumber, platform),
+      unarchiveIssueForPlatform(issue.issueNumber, platform),
     ),
   );
 
@@ -45,7 +45,7 @@ export async function categorizeIssues(
 
     if (isUpdated) {
       result.archive.splice(archiveIndex, 1);
-      await unarchiveIssue(rawIssue.issueNumber, platform);
+      await unarchiveIssueForPlatform(rawIssue.issueNumber, platform);
     }
 
     if (archiveIndex === -1 || isUpdated) {

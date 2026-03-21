@@ -8,10 +8,10 @@ import { LoadingIndicator } from "@/components/layout/loading-indicator";
 import { useLoading } from "@/components/providers/loader-context";
 import { TeamTabs } from "./team-tabs";
 import { CategorizedProjectIssues, Issue } from "../dashboard.types";
-import { getArchivedIssues } from "../../../db/archived-issues.db";
 import { useProjectIssuesStore } from "./issues/store/project-issues.store";
 import { categorizeIssues } from "./issues/services/categorize-issues.service";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import { getArchivedIssuesForPlatform } from "./issues/services/archived-issues-api.service";
 
 export default function UnansweredIssuesTab() {
   const [responseData, setResponseData] = useState<{
@@ -63,7 +63,7 @@ export default function UnansweredIssuesTab() {
       };
 
       const [archivedIssues, data] = await Promise.all([
-        getArchivedIssues(platform),
+        getArchivedIssuesForPlatform(platform),
         Promise.resolve(issuesData),
       ]);
       setArchivedIssues(archivedIssues);

@@ -1,17 +1,9 @@
-import { db } from "@/lib/firebase/firebase.client";
+import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { Issue } from "@/features/dashboard/dashboard.types";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
-import {
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  query,
-  setDoc,
-  where,
-} from "firebase/firestore";
 
 const ARCHIVED_ISSUES_COLLECTION = "archivedIssues";
+const db = getAdminFirestore();
 
 type ArchivedIssueDoc = Issue & {
   platform: ContributionPlatform;
@@ -40,12 +32,10 @@ function getArchivedIssueDocId(
 export async function getArchivedIssues(
   platform: ContributionPlatform,
 ): Promise<ArchivedIssueDoc[]> {
-  const q = query(
-    collection(db, ARCHIVED_ISSUES_COLLECTION),
-    where("platform", "==", platform),
-  );
-
-  const snapshot = await getDocs(q);
+  const snapshot = await db
+    .collection(ARCHIVED_ISSUES_COLLECTION)
+    .where("platform", "==", platform)
+    .get();
 
   return snapshot.docs.map((docSnap) => docSnap.data() as ArchivedIssueDoc);
 }
@@ -61,18 +51,14 @@ export async function archiveIssue(
   issue: Issue,
   platform: ContributionPlatform,
 ): Promise<void> {
-  await setDoc(
-    doc(
-      db,
-      ARCHIVED_ISSUES_COLLECTION,
-      getArchivedIssueDocId(platform, issue.issueNumber),
-    ),
-    {
+  await db
+    .collection(ARCHIVED_ISSUES_COLLECTION)
+    .doc(getArchivedIssueDocId(platform, issue.issueNumber))
+    .set({
       ...issue,
       platform,
       isArchived: true,
-    },
-  );
+    });
 }
 
 /**
@@ -86,11 +72,8 @@ export async function unarchiveIssue(
   issueNumber: number,
   platform: ContributionPlatform,
 ): Promise<void> {
-  await deleteDoc(
-    doc(
-      db,
-      ARCHIVED_ISSUES_COLLECTION,
-      getArchivedIssueDocId(platform, issueNumber),
-    ),
-  );
+  await db
+    .collection(ARCHIVED_ISSUES_COLLECTION)
+    .doc(getArchivedIssueDocId(platform, issueNumber))
+    .delete();
 }
