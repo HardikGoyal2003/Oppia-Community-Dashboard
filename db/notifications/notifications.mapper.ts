@@ -1,10 +1,8 @@
 import { Notification } from "@/lib/auth/auth.types";
 import { Timestamp } from "firebase-admin/firestore";
 
-export function normalizeNotifications(
-  value: Notification[]
-): Notification[] {
-  return value.map(notification => {
+export function normalizeNotifications(value: Notification[]): Notification[] {
+  return value.map((notification) => {
     const createdAt = notification.createdAt;
 
     return {
@@ -19,13 +17,4 @@ export function normalizeNotifications(
             : new Date(),
     };
   });
-}
-
-export function serializeNotifications(
-  notifications: Notification[]
-) {
-  return notifications.map(notification => ({
-    ...notification,
-    createdAt: Timestamp.fromDate(notification.createdAt),
-  }));
 }

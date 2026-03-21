@@ -52,7 +52,8 @@ export default function LoginPage() {
               A contribution system for every role.
             </h1>
             <p className="mt-2 max-w-md text-sm text-white/90">
-              Structured onboarding for contributors and reliable coordination tools for maintainers.
+              Structured onboarding for contributors and reliable coordination
+              tools for maintainers.
             </p>
           </div>
         </section>
@@ -60,9 +61,7 @@ export default function LoginPage() {
         <section className="flex w-full flex-1 items-center justify-center px-5 py-8 sm:px-8 sm:py-10 lg:w-1/2">
           <div className="w-full max-w-md">
             <div className="mb-8">
-              <h2 className="text-2xl font-semibold text-slate-900">
-                Sign in
-              </h2>
+              <h2 className="text-2xl font-semibold text-slate-900">Sign in</h2>
               <p className="mt-1 text-slate-500">
                 Access your Oppia dashboard with GitHub.
               </p>

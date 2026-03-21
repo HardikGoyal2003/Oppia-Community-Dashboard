@@ -31,7 +31,7 @@ export async function getPendingMemberAccessRequests(): Promise<
 }
 
 export async function getPendingMemberAccessRequestsByPlatform(
-  platform?: ContributionPlatform
+  platform?: ContributionPlatform,
 ): Promise<MemberAccessRequestModel[]> {
   let query: FirebaseFirestore.Query = db
     .collection(MEMBER_ACCESS_REQUESTS_COLLECTION)
@@ -44,16 +44,14 @@ export async function getPendingMemberAccessRequestsByPlatform(
   const snapshot = await query.get();
 
   return snapshot.docs
-    .map(doc =>
-      normalizeMemberAccessRequest(
-        doc.data() as FirestoreMemberAccessRequest
-      )
+    .map((doc) =>
+      normalizeMemberAccessRequest(doc.data() as FirestoreMemberAccessRequest),
     )
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
 export async function submitMemberAccessRequest(
-  request: Omit<MemberAccessRequestModel, "createdAt" | "status">
+  request: Omit<MemberAccessRequestModel, "createdAt" | "status">,
 ): Promise<void> {
   const collectionRef = db.collection(MEMBER_ACCESS_REQUESTS_COLLECTION);
   const pendingQuery = collectionRef
@@ -61,12 +59,12 @@ export async function submitMemberAccessRequest(
     .where("status", "==", "PENDING");
   const newRequestRef = collectionRef.doc();
 
-  await db.runTransaction(async tx => {
+  await db.runTransaction(async (tx) => {
     const existingPending = await tx.get(pendingQuery);
 
     if (!existingPending.empty) {
       const pendingRequest = normalizeMemberAccessRequest(
-        existingPending.docs[0].data() as FirestoreMemberAccessRequest
+        existingPending.docs[0].data() as FirestoreMemberAccessRequest,
       );
 
       throw new PendingMemberAccessRequestError(pendingRequest);
@@ -78,14 +76,14 @@ export async function submitMemberAccessRequest(
         ...request,
         status: "PENDING",
         createdAt: new Date(),
-      })
+      }),
     );
   });
 }
 
 export async function resolveMemberAccessRequest(
   email: string,
-  decision: MemberAccessDecision
+  decision: MemberAccessDecision,
 ): Promise<MemberAccessRequestModel> {
   const collectionRef = db.collection(MEMBER_ACCESS_REQUESTS_COLLECTION);
   const pendingQuery = collectionRef
@@ -93,7 +91,7 @@ export async function resolveMemberAccessRequest(
     .where("status", "==", "PENDING")
     .limit(1);
 
-  return db.runTransaction(async tx => {
+  return db.runTransaction(async (tx) => {
     const snapshot = await tx.get(pendingQuery);
 
     if (snapshot.empty) {
@@ -102,7 +100,7 @@ export async function resolveMemberAccessRequest(
 
     const doc = snapshot.docs[0];
     const request = normalizeMemberAccessRequest(
-      doc.data() as FirestoreMemberAccessRequest
+      doc.data() as FirestoreMemberAccessRequest,
     );
 
     const status = decision === "ACCEPT" ? "ACCEPTED" : "REJECTED";
@@ -113,7 +111,7 @@ export async function resolveMemberAccessRequest(
         ...request,
         status,
       }),
-      { merge: false }
+      { merge: false },
     );
 
     return request;

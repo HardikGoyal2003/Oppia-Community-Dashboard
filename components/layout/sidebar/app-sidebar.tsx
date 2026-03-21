@@ -1,18 +1,10 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import {
-  Bug,
-  Inbox,
-  Users,
-} from "lucide-react"
+import * as React from "react";
+import { Bug, Inbox, Users } from "lucide-react";
 
-import { SideBarTabs } from "./sidebar-tabs"
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarRail,
-} from "@/components/ui/sidebar"
+import { SideBarTabs } from "./sidebar-tabs";
+import { Sidebar, SidebarContent, SidebarRail } from "@/components/ui/sidebar";
 
 const data = {
   projects: [
@@ -29,7 +21,7 @@ const data = {
       icon: Bug,
     },
   ],
-}
+};
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
@@ -39,5 +31,5 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarContent>
       <SidebarRail />
     </Sidebar>
-  )
+  );
 }

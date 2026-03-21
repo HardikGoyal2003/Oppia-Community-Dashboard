@@ -2,10 +2,7 @@ import type { ContributionPlatform } from "@/lib/auth/auth.types";
 
 export type MemberAccessDecision = "ACCEPT" | "DECLINE";
 
-export type MemberAccessRequestStatus =
-  | "PENDING"
-  | "ACCEPTED"
-  | "REJECTED";
+export type MemberAccessRequestStatus = "PENDING" | "ACCEPTED" | "REJECTED";
 
 export interface MemberAccessRequestModel {
   email: string;

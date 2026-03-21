@@ -41,7 +41,7 @@ export function UserUpdateReasonModal({
   return (
     <Dialog
       open={open}
-      onOpenChange={nextOpen => {
+      onOpenChange={(nextOpen) => {
         if (!nextOpen) {
           setReason("");
         }
@@ -52,13 +52,14 @@ export function UserUpdateReasonModal({
         <DialogHeader>
           <DialogTitle>Provide Update Reason</DialogTitle>
           <DialogDescription>
-            You are updating team/role for {userName}. Add a reason. This message will be sent to user notifications.
+            You are updating team/role for {userName}. Add a reason. This
+            message will be sent to user notifications.
           </DialogDescription>
         </DialogHeader>
 
         <Textarea
           value={reason}
-          onChange={e => setReason(e.target.value)}
+          onChange={(e) => setReason(e.target.value)}
           placeholder="Write the reason for this update..."
           rows={4}
         />
@@ -71,10 +72,7 @@ export function UserUpdateReasonModal({
           >
             Cancel
           </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={!reason.trim() || loading}
-          >
+          <Button onClick={handleSubmit} disabled={!reason.trim() || loading}>
             Submit Update
           </Button>
         </DialogFooter>

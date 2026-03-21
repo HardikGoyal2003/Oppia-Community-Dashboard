@@ -7,8 +7,7 @@ export function initFirebaseAdmin() {
     Boolean(process.env.FIRESTORE_EMULATOR_HOST);
 
   const projectId =
-    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ||
-    "demo-oppia-leads-dashboard";
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "demo-oppia-leads-dashboard";
 
   if (!getApps().length) {
     if (useFirestoreEmulator) {
@@ -20,10 +19,7 @@ export function initFirebaseAdmin() {
       credential: cert({
         projectId,
         clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(
-          /\\n/g,
-          "\n"
-        ),
+        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
       }),
     });
   }

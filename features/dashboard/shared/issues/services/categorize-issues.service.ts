@@ -7,24 +7,22 @@ import type { ContributionPlatform } from "@/lib/auth/auth.types";
 export async function categorizeIssues(
   rawIssues: RawIssue[],
   archivedIssues: Issue[],
-  platform: ContributionPlatform
+  platform: ContributionPlatform,
 ): Promise<CategorizedProjectIssues> {
-  const liveIssueNumbers = new Set(
-    rawIssues.map(issue => issue.issueNumber)
-  );
+  const liveIssueNumbers = new Set(rawIssues.map((issue) => issue.issueNumber));
 
-  const activeArchivedIssues = archivedIssues.filter(issue =>
-    liveIssueNumbers.has(issue.issueNumber)
+  const activeArchivedIssues = archivedIssues.filter((issue) =>
+    liveIssueNumbers.has(issue.issueNumber),
   );
 
   const staleArchivedIssues = archivedIssues.filter(
-    issue => !liveIssueNumbers.has(issue.issueNumber)
+    (issue) => !liveIssueNumbers.has(issue.issueNumber),
   );
 
   await Promise.all(
-    staleArchivedIssues.map(issue =>
-      unarchiveIssue(issue.issueNumber, platform)
-    )
+    staleArchivedIssues.map((issue) =>
+      unarchiveIssue(issue.issueNumber, platform),
+    ),
   );
 
   const result: CategorizedProjectIssues = {
@@ -37,13 +35,13 @@ export async function categorizeIssues(
 
   for (const rawIssue of rawIssues) {
     const archiveIndex = result.archive.findIndex(
-      i => i.issueNumber === rawIssue.issueNumber
+      (i) => i.issueNumber === rawIssue.issueNumber,
     );
 
     const isUpdated =
       archiveIndex !== -1 &&
       new Date(rawIssue.lastCommentCreatedAt) >
-      new Date(result.archive[archiveIndex].lastCommentCreatedAt);
+        new Date(result.archive[archiveIndex].lastCommentCreatedAt);
 
     if (isUpdated) {
       result.archive.splice(archiveIndex, 1);

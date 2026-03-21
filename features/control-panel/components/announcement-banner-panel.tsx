@@ -47,7 +47,7 @@ export function AnnouncementBannerPanel() {
         setErrorMessage(
           error instanceof Error
             ? error.message
-            : "Failed to load announcement banner."
+            : "Failed to load announcement banner.",
         );
       } finally {
         setLoading(false);
@@ -83,7 +83,7 @@ export function AnnouncementBannerPanel() {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "Failed to save announcement banner."
+          : "Failed to save announcement banner.",
       );
     } finally {
       setSaving(false);
@@ -98,14 +98,15 @@ export function AnnouncementBannerPanel() {
             Announcement Banner
           </h2>
           <p className="mt-2 text-sm text-slate-600">
-            Create and enable a single global announcement visible across the app.
+            Create and enable a single global announcement visible across the
+            app.
           </p>
         </div>
         <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
           <input
             type="checkbox"
             checked={isEnabled}
-            onChange={event => setIsEnabled(event.target.checked)}
+            onChange={(event) => setIsEnabled(event.target.checked)}
             disabled={loading || saving}
             className="h-4 w-4 rounded border-slate-300"
           />
@@ -120,7 +121,7 @@ export function AnnouncementBannerPanel() {
           </label>
           <Input
             value={title}
-            onChange={event => setTitle(event.target.value)}
+            onChange={(event) => setTitle(event.target.value)}
             placeholder="🚧 Scheduled maintenance:"
             disabled={loading || saving}
           />
@@ -132,7 +133,7 @@ export function AnnouncementBannerPanel() {
           </label>
           <Textarea
             value={message}
-            onChange={event => setMessage(event.target.value)}
+            onChange={(event) => setMessage(event.target.value)}
             rows={4}
             placeholder="Our website will be temporarily unavailable on [date] from [start time] to [end time]. Thank you for your understanding."
             disabled={loading || saving}

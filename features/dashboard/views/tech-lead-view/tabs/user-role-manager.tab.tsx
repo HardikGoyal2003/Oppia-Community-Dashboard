@@ -24,12 +24,7 @@ type PendingUpdate = {
   team: string | null;
 };
 
-const ROLES: UserRole[] = [
-  "CONTRIBUTOR",
-  "TEAM_MEMBER",
-  "TEAM_LEAD",
-  "ADMIN",
-];
+const ROLES: UserRole[] = ["CONTRIBUTOR", "TEAM_MEMBER", "TEAM_LEAD", "ADMIN"];
 
 function getDisplayRole(role: UserRole): UserRole {
   return role === "SUPER_ADMIN" ? "ADMIN" : role;
@@ -52,7 +47,9 @@ export function UserRoleManagerTab() {
   const [platform, setPlatform] = useState<ContributionPlatform>("WEB");
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [pendingUpdate, setPendingUpdate] = useState<PendingUpdate | null>(null);
+  const [pendingUpdate, setPendingUpdate] = useState<PendingUpdate | null>(
+    null,
+  );
 
   useEffect(() => {
     async function loadUsers() {
@@ -75,11 +72,7 @@ export function UserRoleManagerTab() {
     loadUsers();
   }, [platform]);
 
-  const openUpdateModal = (
-    user: User,
-    role: UserRole,
-    team: string | null
-  ) => {
+  const openUpdateModal = (user: User, role: UserRole, team: string | null) => {
     if (user.role === role && user.team === team) {
       return;
     }
@@ -121,8 +114,8 @@ export function UserRoleManagerTab() {
         throw new Error("Failed to update user.");
       }
 
-      setUsers(prev =>
-        prev.map(user =>
+      setUsers((prev) =>
+        prev.map((user) =>
           user.id === pendingUpdate.userId
             ? {
                 ...user,
@@ -130,8 +123,8 @@ export function UserRoleManagerTab() {
                 team: pendingUpdate.team,
                 githubUsername: pendingUpdate.githubUsername,
               }
-            : user
-        )
+            : user,
+        ),
       );
 
       closeUpdateModal();
@@ -149,12 +142,10 @@ export function UserRoleManagerTab() {
 
   return (
     <>
-      <h1 className="mb-6 text-2xl font-semibold">
-        User Role Manager
-      </h1>
+      <h1 className="mb-6 text-2xl font-semibold">User Role Manager</h1>
 
       <div className="mb-4 flex gap-2">
-        {(["WEB", "ANDROID"] as ContributionPlatform[]).map(option => (
+        {(["WEB", "ANDROID"] as ContributionPlatform[]).map((option) => (
           <button
             key={option}
             className={`rounded border px-3 py-1 text-sm ${
@@ -188,26 +179,20 @@ export function UserRoleManagerTab() {
                 <td className="p-3">{index + 1}</td>
                 <td className="p-3">{user.fullName}</td>
                 <td className="p-3">{user.email}</td>
-                <td className="p-3">
-                  {user.githubUsername ?? "-"}
-                </td>
+                <td className="p-3">{user.githubUsername ?? "-"}</td>
                 <td className="p-3">
                   <select
                     value={user.team ?? ""}
                     disabled={
                       updatingId === user.id || !isManagedRole(user.role)
                     }
-                    onChange={e =>
-                      openUpdateModal(
-                        user,
-                        user.role,
-                        e.target.value || null
-                      )
+                    onChange={(e) =>
+                      openUpdateModal(user, user.role, e.target.value || null)
                     }
                     className="border rounded px-2 py-1 disabled:opacity-50"
                   >
                     <option value="">Unassigned</option>
-                    {getTeamsForPlatform(user.platform).map(team => (
+                    {getTeamsForPlatform(user.platform).map((team) => (
                       <option key={team} value={team}>
                         {formatDisplayValue(team)}
                       </option>
@@ -220,16 +205,16 @@ export function UserRoleManagerTab() {
                     disabled={
                       updatingId === user.id || !isManagedRole(user.role)
                     }
-                    onChange={e =>
+                    onChange={(e) =>
                       openUpdateModal(
                         user,
                         e.target.value as UserRole,
-                        user.team
+                        user.team,
                       )
                     }
                     className="border rounded px-2 py-1 disabled:opacity-50"
                   >
-                    {ROLES.map(role => (
+                    {ROLES.map((role) => (
                       <option key={role} value={role}>
                         {formatDisplayValue(role)}
                       </option>
@@ -246,7 +231,7 @@ export function UserRoleManagerTab() {
         open={Boolean(pendingUpdate)}
         loading={Boolean(updatingId)}
         userName={pendingUpdate?.userName ?? "User"}
-        onOpenChange={open => {
+        onOpenChange={(open) => {
           if (!open) {
             closeUpdateModal();
           }

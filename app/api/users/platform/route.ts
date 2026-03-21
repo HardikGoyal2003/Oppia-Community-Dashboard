@@ -26,11 +26,10 @@ export async function PATCH(req: Request) {
   if (!platform) {
     return NextResponse.json(
       { error: "Invalid platform. Expected WEB or ANDROID." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   await updateUserPlatformByUid(session.user.id, platform);
   return NextResponse.json({ success: true, platform });
 }
-

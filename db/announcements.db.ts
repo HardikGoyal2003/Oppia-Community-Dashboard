@@ -35,14 +35,12 @@ export async function getAnnouncementBanner(): Promise<AnnouncementBannerModel> 
     message: typeof data.message === "string" ? data.message : "",
     isEnabled: Boolean(data.isEnabled),
     updatedAt:
-      data.updatedAt instanceof Timestamp
-        ? data.updatedAt.toDate()
-        : null,
+      data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : null,
   };
 }
 
 export async function upsertAnnouncementBanner(
-  banner: Omit<AnnouncementBannerModel, "updatedAt">
+  banner: Omit<AnnouncementBannerModel, "updatedAt">,
 ): Promise<void> {
   await db
     .collection(ANNOUNCEMENTS_COLLECTION)

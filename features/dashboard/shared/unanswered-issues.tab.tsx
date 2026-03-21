@@ -11,9 +11,12 @@ import { CategorizedProjectIssues, Issue } from "../dashboard.types";
 import { getArchivedIssues } from "../../../db/archived-issues.db";
 import { useProjectIssuesStore } from "./issues/store/project-issues.store";
 import { categorizeIssues } from "./issues/services/categorize-issues.service";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 
 export default function UnansweredIssuesTab() {
-  const [responseData, setResponseData] = useState<{ issues: RawIssue[] } | null>(null);
+  const [responseData, setResponseData] = useState<{
+    issues: RawIssue[];
+  } | null>(null);
   const [activeTab, setActiveTab] =
     useState<keyof CategorizedProjectIssues>("team1");
 
@@ -25,6 +28,7 @@ export default function UnansweredIssuesTab() {
 
   const { data: session } = useSession();
   const platform = session?.user.platform;
+  const hasPlatform = platform !== null && platform !== undefined;
 
   const teamLabelMap: Record<string, string> =
     platform === "ANDROID"
@@ -42,6 +46,8 @@ export default function UnansweredIssuesTab() {
         };
 
   const handleClick = async () => {
+    if (!hasPlatform) return;
+
     startLoading();
     try {
       const issuesResponse = await fetch("/api/github/issues", {
@@ -59,7 +65,7 @@ export default function UnansweredIssuesTab() {
       const [archivedIssues, data] = await Promise.all([
         getArchivedIssues(platform),
         Promise.resolve(issuesData),
-      ]) 
+      ]);
       setArchivedIssues(archivedIssues);
       setResponseData(data);
     } finally {
@@ -68,26 +74,31 @@ export default function UnansweredIssuesTab() {
   };
 
   useEffect(() => {
-    if (!responseData) return;
+    if (!responseData || !hasPlatform) return;
 
     (async () => {
       const categorized = await categorizeIssues(
         responseData.issues,
         archivedIssues,
-        platform
+        platform,
       );
       setIssues(categorized);
     })();
-  }, [responseData, archivedIssues, platform, setIssues]);
+  }, [responseData, archivedIssues, hasPlatform, platform, setIssues]);
 
   return (
-    <div className="flex flex-col bg-gray-50 min-h-screen
-                    px-4 py-18 sm:px-8 md:px-16 lg:px-40">
-      <TeamTabs 
-      platform={platform}
-      categorizedProjectIssuesData = {issues}
-      activeTab={activeTab}
-      setActiveTab={setActiveTab}/>
+    <div
+      className="flex flex-col bg-gray-50 min-h-screen
+                    px-4 py-18 sm:px-8 md:px-16 lg:px-40"
+    >
+      {hasPlatform && (
+        <TeamTabs
+          platform={platform as ContributionPlatform}
+          categorizedProjectIssuesData={issues}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+        />
+      )}
 
       {/* Content */}
       <div className="flex flex-col gap-4 border py-6 px-2 sm:px-4 bg-white">
@@ -97,6 +108,12 @@ export default function UnansweredIssuesTab() {
           <button onClick={handleClick} className="border p-2 w-fit">
             Load Issues
           </button>
+        )}
+
+        {!hasPlatform && (
+          <div className="border p-4 text-sm text-slate-600">
+            Select a contribution platform to load issues.
+          </div>
         )}
 
         {issues &&
@@ -114,8 +131,9 @@ export default function UnansweredIssuesTab() {
               </p>
 
               <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-                Big thanks for staying responsive and keeping your team&apos;s issue flow healthy.
-                Your consistency is helping keep the Oppia community active, supported, and moving forward.
+                Big thanks for staying responsive and keeping your team&apos;s
+                issue flow healthy. Your consistency is helping keep the Oppia
+                community active, supported, and moving forward.
               </p>
             </div>
           )}

@@ -15,9 +15,8 @@ export async function GET() {
   try {
     const platform = session.user.platform ?? "WEB";
     const repoTarget =
-      CONSTANTS.GITHUB_REPOS[
-        platform as keyof typeof CONSTANTS.GITHUB_REPOS
-      ] ?? CONSTANTS.GITHUB_REPOS.WEB;
+      CONSTANTS.GITHUB_REPOS[platform as keyof typeof CONSTANTS.GITHUB_REPOS] ??
+      CONSTANTS.GITHUB_REPOS.WEB;
 
     const issuesData = await main(repoTarget);
     return NextResponse.json({
@@ -27,7 +26,7 @@ export async function GET() {
     console.error(error);
     return NextResponse.json(
       { error: "Failed to fetch GitHub issues" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

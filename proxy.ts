@@ -27,14 +27,12 @@ export default withAuth(
       if (pathname.startsWith("/api/")) {
         return NextResponse.json(
           { error: "Maintenance mode is enabled." },
-          { status: 503 }
+          { status: 503 },
         );
       }
 
       if (pathname !== "/maintenance") {
-        return NextResponse.redirect(
-          new URL("/maintenance", req.url)
-        );
+        return NextResponse.redirect(new URL("/maintenance", req.url));
       }
 
       return NextResponse.next();
@@ -96,11 +94,9 @@ export default withAuth(
     pages: {
       signIn: "/login",
     },
-  }
+  },
 );
 
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

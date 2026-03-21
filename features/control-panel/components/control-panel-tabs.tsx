@@ -11,13 +11,14 @@ const TAB_LABELS: Record<ControlPanelTab, string> = {
 };
 
 export function ControlPanelTabs() {
-  const [activeTab, setActiveTab] =
-    useState<ControlPanelTab>("PLATFORM_PARAMETERS");
+  const [activeTab, setActiveTab] = useState<ControlPanelTab>(
+    "PLATFORM_PARAMETERS",
+  );
 
   return (
     <div>
       <div className="mb-6 flex gap-2">
-        {(Object.keys(TAB_LABELS) as ControlPanelTab[]).map(tab => (
+        {(Object.keys(TAB_LABELS) as ControlPanelTab[]).map((tab) => (
           <button
             key={tab}
             className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
@@ -34,9 +35,7 @@ export function ControlPanelTabs() {
 
       {activeTab === "BEAM_JOBS" && (
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">
-            Beam Jobs
-          </h2>
+          <h2 className="text-lg font-semibold text-slate-900">Beam Jobs</h2>
           <p className="mt-2 text-sm text-slate-600">
             Run and monitor operational data jobs from this section.
           </p>

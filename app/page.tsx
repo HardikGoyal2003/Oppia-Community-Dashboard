@@ -50,22 +50,26 @@ const JOURNEY_CARDS: JourneyCardProps[] = [
   {
     step: "01",
     title: "Sign in",
-    description: "Join with your GitHub account and enter a role-based workspace.",
+    description:
+      "Join with your GitHub account and enter a role-based workspace.",
   },
   {
     step: "02",
     title: "Choose your path",
-    description: "Request team access and get mapped to a clear contribution journey.",
+    description:
+      "Request team access and get mapped to a clear contribution journey.",
   },
   {
     step: "03",
     title: "Contribute with guidance",
-    description: "Work on issues with visibility, ownership, and timely follow-ups.",
+    description:
+      "Work on issues with visibility, ownership, and timely follow-ups.",
   },
   {
     step: "04",
     title: "Grow with the community",
-    description: "Maintainers can mentor, review progress, and keep everyone aligned.",
+    description:
+      "Maintainers can mentor, review progress, and keep everyone aligned.",
   },
 ];
 
@@ -110,7 +114,10 @@ export default function Home() {
             </h1>
 
             <p className="mt-6 max-w-xl text-lg text-muted-foreground">
-              What started for maintainers now scales to everyone. New contributors get a clear contribution path, while leads and admins can keep teams active, track progress, and support the community at scale.
+              What started for maintainers now scales to everyone. New
+              contributors get a clear contribution path, while leads and admins
+              can keep teams active, track progress, and support the community
+              at scale.
             </p>
 
             <div className="mt-10 flex flex-wrap items-center gap-4">
@@ -154,12 +161,14 @@ export default function Home() {
           <div className="mb-14 text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
               A dashboard that scales with
-              <span className="block text-emerald-700">the whole community</span>
+              <span className="block text-emerald-700">
+                the whole community
+              </span>
             </h2>
           </div>
 
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            {ROLE_CARDS.map(card => (
+            {ROLE_CARDS.map((card) => (
               <RoleCard
                 key={card.title}
                 icon={card.icon}
@@ -176,12 +185,14 @@ export default function Home() {
           <div className="mb-14 max-w-3xl">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
               Structured from first contribution
-              <span className="block text-emerald-700">to long-term leadership</span>
+              <span className="block text-emerald-700">
+                to long-term leadership
+              </span>
             </h2>
           </div>
 
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            {JOURNEY_CARDS.map(card => (
+            {JOURNEY_CARDS.map((card) => (
               <JourneyCard
                 key={card.step}
                 step={card.step}
@@ -202,7 +213,7 @@ export default function Home() {
           </div>
 
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            {IMPACT_CARDS.map(card => (
+            {IMPACT_CARDS.map((card) => (
               <ImpactCard
                 key={card.title}
                 icon={card.icon}
@@ -226,7 +237,8 @@ export default function Home() {
           </h2>
 
           <p className="mt-6 text-lg text-muted-foreground">
-            Start with the role you have today and progress with a system designed to support every contributor and maintainer.
+            Start with the role you have today and progress with a system
+            designed to support every contributor and maintainer.
           </p>
 
           <Link

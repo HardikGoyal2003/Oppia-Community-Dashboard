@@ -1,15 +1,11 @@
 import GitHubProvider from "next-auth/providers/github";
-import {
-  createUserIfNotExists,
-  getUserById,
-} from "@/db/users.db";
+import { createUserIfNotExists, getUserById } from "@/db/users.db";
 import type { JWT } from "next-auth/jwt";
-import type { Profile } from "next-auth";
-import type { Account, Session, User } from "next-auth";
+import type { Account, AuthOptions, Profile, Session, User } from "next-auth";
 import { UserRole } from "./auth.types";
 import { ContributionPlatform } from "./auth.types";
 
-export const authOptions = {
+export const authOptions: AuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   session: {
     maxAge: 7 * 24 * 60 * 60,
@@ -28,16 +24,25 @@ export const authOptions = {
       account,
       profile,
     }: {
-      user: User;
+      user:
+        | User
+        | {
+            email?: string | null;
+            name?: string | null;
+            image?: string | null;
+          };
       account: Account | null;
-      profile: Profile & { login: string };
+      profile?: Profile;
     }) {
       if (!user.email) return false;
 
       const subjectId = account?.providerAccountId;
-      const githubUsername = profile.login;
+      const githubUsername =
+        profile && "login" in profile && typeof profile.login === "string"
+          ? profile.login
+          : null;
 
-      if (!subjectId) return false;
+      if (!subjectId || !githubUsername) return false;
 
       await createUserIfNotExists(subjectId, {
         email: user.email,
@@ -72,13 +77,7 @@ export const authOptions = {
       return token;
     },
 
-    async session({
-      session,
-      token,
-    }: {
-      session: Session;
-      token: JWT;
-    }) {
+    async session({ session, token }: { session: Session; token: JWT }) {
       if (token.invalidUser) {
         return {
           ...session,
