@@ -85,17 +85,21 @@ export async function createUserIfNotExists(
   assertGithubUsernameForRole(data.githubUsername);
 
   const ref = db.collection(USERS_COLLECTION).doc(uid);
-  const snap = await ref.get();
+  const now = Timestamp.now();
 
-  if (!snap.exists) {
-    const now = Timestamp.now();
-
-    await ref.set(
+  try {
+    await ref.create(
       serializeUser({
         ...data,
         createdAt: now,
       }),
     );
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Already exists")) {
+      return;
+    }
+
+    throw error;
   }
 }
 
