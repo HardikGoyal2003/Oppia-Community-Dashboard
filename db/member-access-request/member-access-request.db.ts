@@ -2,11 +2,11 @@ import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import {
   normalizeMemberAccessRequestDocument,
   serializeMemberAccessRequest,
-} from "@/db/member-request-access/member-access-request.mapper";
+} from "@/db/member-access-request/member-access-request.mapper";
 import {
   MemberAccessDecision,
   MemberAccessRequestModel,
-} from "./member-request-access.types";
+} from "./member-access-request.types";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 
 const MEMBER_ACCESS_REQUESTS_COLLECTION = "memberAccessRequests";
