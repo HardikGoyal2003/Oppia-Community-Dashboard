@@ -20,12 +20,3 @@ export function normalizeNotifications(
     };
   });
 }
-
-export function serializeNotifications(
-  notifications: Notification[]
-) {
-  return notifications.map(notification => ({
-    ...notification,
-    createdAt: Timestamp.fromDate(notification.createdAt),
-  }));
-}
