@@ -16,6 +16,13 @@ const db = getAdminFirestore();
 
 type NotificationStatusFilter = "READ" | "UNREAD" | "ALL";
 
+/**
+ * Validates the GitHub username requirement for non-contributor roles.
+ *
+ * @param role The role being assigned.
+ * @param githubUsername The GitHub username associated with the user.
+ * @returns Nothing. Throws when the role requires a GitHub username and one is missing.
+ */
 function assertGithubUsernameForRole(
   role: UserRole,
   githubUsername: string | null,
@@ -25,6 +32,12 @@ function assertGithubUsernameForRole(
   }
 }
 
+/**
+ * Retrieves the first user document snapshot that matches an email address.
+ *
+ * @param email The email address to query by.
+ * @returns The matching Firestore user document snapshot.
+ */
 async function getUserDocRefByEmail(email: string) {
   const snapshot = await db
     .collection(USERS_COLLECTION)
@@ -39,6 +52,12 @@ async function getUserDocRefByEmail(email: string) {
   return snapshot.docs[0];
 }
 
+/**
+ * Retrieves a user by email address.
+ *
+ * @param email The email address to query by.
+ * @returns The normalized user model, or null when no user exists.
+ */
 export async function getUserByEmail(email: string): Promise<UserModel | null> {
   const snapshot = await db
     .collection(USERS_COLLECTION)
@@ -59,7 +78,11 @@ export async function getUserByEmail(email: string): Promise<UserModel | null> {
 }
 
 /**
- * Create user on first login (idempotent)
+ * Creates a user document on first login when one does not already exist.
+ *
+ * @param uid The user id to write under.
+ * @param data The user payload to persist.
+ * @returns A promise that resolves when the user has been ensured in Firestore.
  */
 export async function createUserIfNotExists(
   uid: string,
@@ -81,7 +104,10 @@ export async function createUserIfNotExists(
 }
 
 /**
- * Get user by UID
+ * Retrieves a user by uid.
+ *
+ * @param uid The user id to fetch.
+ * @returns The normalized user model, or null when no user exists.
  */
 export async function getUserById(uid: string): Promise<UserModel | null> {
   const snap = await db.collection(USERS_COLLECTION).doc(uid).get();
@@ -97,12 +123,20 @@ export async function getUserById(uid: string): Promise<UserModel | null> {
 }
 
 /**
- * Get all users (Area Lead only)
+ * Retrieves all users across platforms.
+ *
+ * @returns The normalized user models with document ids attached.
  */
 export async function getAllUsers(): Promise<(UserModel & { id: string })[]> {
   return getUsersByPlatform();
 }
 
+/**
+ * Retrieves users, optionally scoped to a contribution platform.
+ *
+ * @param platform The optional contribution platform filter.
+ * @returns The normalized user models with document ids attached.
+ */
 export async function getUsersByPlatform(
   platform?: ContributionPlatform,
 ): Promise<(UserModel & { id: string })[]> {
@@ -128,7 +162,11 @@ export async function getUsersByPlatform(
 }
 
 /**
- * Update user role (Area Lead only)
+ * Updates the role of an existing user.
+ *
+ * @param uid The user id to update.
+ * @param role The new role value.
+ * @returns A promise that resolves when the update has been written.
  */
 export async function updateUserRole(
   uid: string,
@@ -139,6 +177,13 @@ export async function updateUserRole(
   });
 }
 
+/**
+ * Updates the contribution platform for an existing user.
+ *
+ * @param uid The user id to update.
+ * @param platform The platform value to persist.
+ * @returns A promise that resolves when the update has been written.
+ */
 export async function updateUserPlatformByUid(
   uid: string,
   platform: ContributionPlatform,
@@ -146,6 +191,17 @@ export async function updateUserPlatformByUid(
   await db.collection(USERS_COLLECTION).doc(uid).update({ platform });
 }
 
+/**
+ * Updates a user's role and team by uid, then appends a notification message.
+ *
+ * @param uid The user id to update.
+ * @param role The new role value.
+ * @param team The new team value.
+ * @param reason The reason included in the notification message.
+ * @param githubUsername The GitHub username to persist.
+ * @param changedByEmail The optional actor email included in the notification.
+ * @returns A promise that resolves when the notification and user update are written.
+ */
 export async function updateUserRoleTeamAndNotifyByUid(
   uid: string,
   role: UserRole,
@@ -187,6 +243,15 @@ export async function updateUserRoleTeamAndNotifyByUid(
   });
 }
 
+/**
+ * Updates a user's role and team by email address.
+ *
+ * @param email The email address to query by.
+ * @param role The new role value.
+ * @param team The new team value.
+ * @param githubUsername The GitHub username to persist.
+ * @returns A promise that resolves when the update has been written.
+ */
 export async function updateUserRoleAndTeamByEmail(
   email: string,
   role: UserRole,
@@ -204,6 +269,16 @@ export async function updateUserRoleAndTeamByEmail(
   });
 }
 
+/**
+ * Updates a user's role and team by email address, then appends a notification.
+ *
+ * @param email The email address to query by.
+ * @param role The new role value.
+ * @param team The new team value.
+ * @param githubUsername The GitHub username to persist.
+ * @param message The notification message to append.
+ * @returns A promise that resolves when the notification and user update are written.
+ */
 export async function updateUserRoleTeamAndNotifyByEmail(
   email: string,
   role: UserRole,
@@ -228,6 +303,13 @@ export async function updateUserRoleTeamAndNotifyByEmail(
   });
 }
 
+/**
+ * Appends a notification to a user located by email address.
+ *
+ * @param email The email address to query by.
+ * @param message The notification message to append.
+ * @returns A promise that resolves when the notification has been written.
+ */
 export async function appendUserNotificationByEmail(
   email: string,
   message: string,
@@ -240,6 +322,13 @@ export async function appendUserNotificationByEmail(
   });
 }
 
+/**
+ * Retrieves notifications for a user, optionally filtered by read status.
+ *
+ * @param email The email address to query by.
+ * @param status The optional notification status filter.
+ * @returns The normalized notifications sorted by creation time descending.
+ */
 export async function getNotificationsByEmail(
   email: string,
   status: NotificationStatusFilter = "ALL",
@@ -265,6 +354,13 @@ export async function getNotificationsByEmail(
   );
 }
 
+/**
+ * Marks a notification as read for the user identified by email address.
+ *
+ * @param email The email address to query by.
+ * @param notificationId The notification document id to update.
+ * @returns A promise that resolves when the notification has been marked as read.
+ */
 export async function markNotificationAsReadByEmail(
   email: string,
   notificationId: string,
@@ -284,6 +380,13 @@ export async function markNotificationAsReadByEmail(
   });
 }
 
+/**
+ * Appends a notification document under an already-resolved user document reference.
+ *
+ * @param userDocRef The Firestore user document reference.
+ * @param notification The notification payload to persist.
+ * @returns A promise that resolves when the notification has been written.
+ */
 async function appendNotificationByUserDocRef(
   userDocRef: FirebaseFirestore.DocumentReference,
   notification: Omit<Notification, "id">,

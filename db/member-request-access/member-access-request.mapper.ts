@@ -9,6 +9,12 @@ export type FirestoreMemberAccessRequest = Omit<
   createdAt: Timestamp;
 };
 
+/**
+ * Normalizes a Firestore member-access request document into the app model.
+ *
+ * @param request The raw Firestore member-access request document.
+ * @returns The normalized member-access request model.
+ */
 export function normalizeMemberAccessRequest(
   request: FirestoreMemberAccessRequest,
 ): MemberAccessRequestModel {
@@ -24,6 +30,12 @@ export function normalizeMemberAccessRequest(
   };
 }
 
+/**
+ * Serializes a member-access request model for Firestore storage.
+ *
+ * @param request The normalized member-access request model.
+ * @returns The Firestore-ready member-access request document.
+ */
 export function serializeMemberAccessRequest(
   request: MemberAccessRequestModel,
 ): FirestoreMemberAccessRequest {

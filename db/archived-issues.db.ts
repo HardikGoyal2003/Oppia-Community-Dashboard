@@ -17,6 +17,13 @@ type ArchivedIssueDoc = Issue & {
   platform: ContributionPlatform;
 };
 
+/**
+ * Builds the archived issue document id for a platform-specific issue record.
+ *
+ * @param platform The contribution platform that owns the archived issue.
+ * @param issueNumber The GitHub issue number.
+ * @returns The Firestore document id for the archived issue.
+ */
 function getArchivedIssueDocId(
   platform: ContributionPlatform,
   issueNumber: number,
@@ -24,6 +31,12 @@ function getArchivedIssueDocId(
   return `${platform}_${issueNumber}`;
 }
 
+/**
+ * Retrieves archived issues for a single contribution platform.
+ *
+ * @param platform The contribution platform to filter by.
+ * @returns The archived issue records stored for the platform.
+ */
 export async function getArchivedIssues(
   platform: ContributionPlatform,
 ): Promise<ArchivedIssueDoc[]> {
@@ -37,6 +50,13 @@ export async function getArchivedIssues(
   return snapshot.docs.map((docSnap) => docSnap.data() as ArchivedIssueDoc);
 }
 
+/**
+ * Stores an issue as archived for the given platform.
+ *
+ * @param issue The issue to archive.
+ * @param platform The contribution platform that owns the archive entry.
+ * @returns A promise that resolves when the archive record has been written.
+ */
 export async function archiveIssue(
   issue: Issue,
   platform: ContributionPlatform,
@@ -55,6 +75,13 @@ export async function archiveIssue(
   );
 }
 
+/**
+ * Removes an archived issue record for the given platform.
+ *
+ * @param issueNumber The GitHub issue number to unarchive.
+ * @param platform The contribution platform that owns the archive entry.
+ * @returns A promise that resolves when the archive record has been deleted.
+ */
 export async function unarchiveIssue(
   issueNumber: number,
   platform: ContributionPlatform,

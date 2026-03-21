@@ -14,6 +14,11 @@ const GLOBAL_BANNER_DOC_ID = "global-banner";
 
 const db = getAdminFirestore();
 
+/**
+ * Fetches the persisted global announcement banner configuration.
+ *
+ * @returns The stored banner configuration, or a disabled default banner when no document exists.
+ */
 export async function getAnnouncementBanner(): Promise<AnnouncementBannerModel> {
   const snapshot = await db
     .collection(ANNOUNCEMENTS_COLLECTION)
@@ -39,6 +44,12 @@ export async function getAnnouncementBanner(): Promise<AnnouncementBannerModel> 
   };
 }
 
+/**
+ * Persists the global announcement banner and refreshes its update timestamp.
+ *
+ * @param banner The banner payload to store.
+ * @returns A promise that resolves when the banner document has been written.
+ */
 export async function upsertAnnouncementBanner(
   banner: Omit<AnnouncementBannerModel, "updatedAt">,
 ): Promise<void> {
