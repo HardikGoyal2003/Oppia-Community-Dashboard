@@ -9,14 +9,14 @@ type AnnouncementBannerData = {
   title: string;
   message: string;
   isEnabled: boolean;
-  updatedAt: string | null;
+  updatedAt: string;
 };
 
 export function AnnouncementBannerPanel() {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [isEnabled, setIsEnabled] = useState(false);
-  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [updatedAt, setUpdatedAt] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);

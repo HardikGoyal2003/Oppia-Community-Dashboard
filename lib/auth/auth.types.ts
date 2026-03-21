@@ -20,7 +20,7 @@ export interface UserModel {
   email: string;
   fullName: string;
   photoURL: string;
-  githubUsername: string | null;
+  githubUsername: string;
   role: UserRole;
   team: string | null;
   // Selected during first login; can be changed later via a dedicated flow.

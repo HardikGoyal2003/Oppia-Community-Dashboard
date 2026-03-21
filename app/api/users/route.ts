@@ -42,10 +42,10 @@ export async function PATCH(req: Request) {
   const role = typeof body.role === "string" ? body.role.trim() : "";
   const team = typeof body.team === "string" ? body.team.trim() : null;
   const githubUsername =
-    typeof body.githubUsername === "string" ? body.githubUsername.trim() : null;
+    typeof body.githubUsername === "string" ? body.githubUsername.trim() : "";
   const reason = typeof body.reason === "string" ? body.reason.trim() : "";
 
-  if (!uid || !role || !isValidUserRole(role) || !reason) {
+  if (!uid || !role || !isValidUserRole(role) || !githubUsername || !reason) {
     return NextResponse.json(
       { error: "Invalid payload for user update." },
       { status: 400 },

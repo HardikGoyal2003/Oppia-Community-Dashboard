@@ -6,7 +6,7 @@ type AnnouncementBannerData = {
   title: string;
   message: string;
   isEnabled: boolean;
-  updatedAt: string | null;
+  updatedAt: string;
 };
 
 export function AnnouncementBanner() {

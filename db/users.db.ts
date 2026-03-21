@@ -23,12 +23,9 @@ type NotificationStatusFilter = "READ" | "UNREAD" | "ALL";
  * @param githubUsername The GitHub username associated with the user.
  * @returns Nothing. Throws when the role requires a GitHub username and one is missing.
  */
-function assertGithubUsernameForRole(
-  role: UserRole,
-  githubUsername: string | null,
-) {
-  if (role !== "CONTRIBUTOR" && !githubUsername) {
-    throw new Error("githubUsername is required for non-contributor roles.");
+function assertGithubUsernameForRole(githubUsername: string) {
+  if (!githubUsername.trim()) {
+    throw new Error("githubUsername is required.");
   }
 }
 
@@ -88,7 +85,7 @@ export async function createUserIfNotExists(
   uid: string,
   data: Omit<UserModel, "createdAt">,
 ): Promise<void> {
-  assertGithubUsernameForRole(data.role, data.githubUsername);
+  assertGithubUsernameForRole(data.githubUsername);
 
   const ref = db.collection(USERS_COLLECTION).doc(uid);
   const snap = await ref.get();
@@ -207,10 +204,10 @@ export async function updateUserRoleTeamAndNotifyByUid(
   role: UserRole,
   team: string | null,
   reason: string,
-  githubUsername: string | null,
+  githubUsername: string,
   changedByEmail?: string,
 ): Promise<void> {
-  assertGithubUsernameForRole(role, githubUsername);
+  assertGithubUsernameForRole(githubUsername);
 
   const ref = db.collection(USERS_COLLECTION).doc(uid);
   const snap = await ref.get();
@@ -256,9 +253,9 @@ export async function updateUserRoleAndTeamByEmail(
   email: string,
   role: UserRole,
   team: string,
-  githubUsername: string | null,
+  githubUsername: string,
 ): Promise<void> {
-  assertGithubUsernameForRole(role, githubUsername);
+  assertGithubUsernameForRole(githubUsername);
 
   const userDoc = await getUserDocRefByEmail(email);
 
@@ -283,10 +280,10 @@ export async function updateUserRoleTeamAndNotifyByEmail(
   email: string,
   role: UserRole,
   team: string,
-  githubUsername: string | null,
+  githubUsername: string,
   message: string,
 ): Promise<void> {
-  assertGithubUsernameForRole(role, githubUsername);
+  assertGithubUsernameForRole(githubUsername);
 
   const userDoc = await getUserDocRefByEmail(email);
   const docRef = userDoc.ref;

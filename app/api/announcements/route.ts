@@ -16,7 +16,7 @@ export async function GET() {
   return NextResponse.json({
     announcement: {
       ...banner,
-      updatedAt: banner.updatedAt?.toISOString() ?? null,
+      updatedAt: banner.updatedAt.toISOString(),
     },
   });
 }

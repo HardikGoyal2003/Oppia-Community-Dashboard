@@ -1,12 +1,12 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
-import { normalizeOptionalTimestamp } from "./timestamp.utils";
+import { normalizeTimestamp } from "./timestamp.utils";
 
 export interface AnnouncementBannerModel {
   title: string;
   message: string;
   isEnabled: boolean;
-  updatedAt: Date | null;
+  updatedAt: Date;
 }
 
 const ANNOUNCEMENTS_COLLECTION = "announcements";
@@ -26,12 +26,7 @@ export async function getAnnouncementBanner(): Promise<AnnouncementBannerModel> 
     .get();
 
   if (!snapshot.exists) {
-    return {
-      title: "",
-      message: "",
-      isEnabled: false,
-      updatedAt: null,
-    };
+    throw new Error("Announcement banner not found.");
   }
 
   const data = snapshot.data()!;
@@ -40,7 +35,7 @@ export async function getAnnouncementBanner(): Promise<AnnouncementBannerModel> 
     title: typeof data.title === "string" ? data.title : "",
     message: typeof data.message === "string" ? data.message : "",
     isEnabled: Boolean(data.isEnabled),
-    updatedAt: normalizeOptionalTimestamp(data.updatedAt),
+    updatedAt: normalizeTimestamp(data.updatedAt),
   };
 }
 
