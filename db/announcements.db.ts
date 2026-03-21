@@ -15,6 +15,33 @@ const GLOBAL_BANNER_DOC_ID = "global-banner";
 const db = getAdminFirestore();
 
 /**
+ * Validates the raw announcement banner document shape from Firestore.
+ *
+ * @param data The raw Firestore document data.
+ * @returns Nothing. Throws when the announcement banner data is invalid.
+ */
+function assertAnnouncementBannerData(
+  data: FirebaseFirestore.DocumentData,
+): asserts data is {
+  title: string;
+  message: string;
+  isEnabled: boolean;
+  updatedAt: Date | Timestamp;
+} {
+  if (typeof data.title !== "string") {
+    throw new Error("Announcement banner title must be a string.");
+  }
+
+  if (typeof data.message !== "string") {
+    throw new Error("Announcement banner message must be a string.");
+  }
+
+  if (typeof data.isEnabled !== "boolean") {
+    throw new Error("Announcement banner isEnabled must be a boolean.");
+  }
+}
+
+/**
  * Fetches the persisted global announcement banner configuration.
  *
  * @returns The stored banner configuration, or a disabled default banner when no document exists.
@@ -30,11 +57,12 @@ export async function getAnnouncementBanner(): Promise<AnnouncementBannerModel> 
   }
 
   const data = snapshot.data()!;
+  assertAnnouncementBannerData(data);
 
   return {
-    title: typeof data.title === "string" ? data.title : "",
-    message: typeof data.message === "string" ? data.message : "",
-    isEnabled: Boolean(data.isEnabled),
+    title: data.title,
+    message: data.message,
+    isEnabled: data.isEnabled,
     updatedAt: normalizeTimestamp(data.updatedAt),
   };
 }
