@@ -12,11 +12,6 @@ import { UserRoleManagerTab } from "./tabs/user-role-manager.tab";
 import { useActiveSidebarTab } from "../../../../components/layout/sidebar/sidebar.store";
 import UnansweredIssuesTab from "../../shared/unanswered-issues.tab";
 
-type SidebarTab =
-  | "INCOMING_REQUEST_TAB"
-  | "USER_ROLE_MANAGER_TAB"
-  | "UNANSWERED_ISSUES_TAB";
-
 export default function TechLeadView() {
   const activeSidebarTab = useActiveSidebarTab(
     (state) => state.activeSidebarTab,

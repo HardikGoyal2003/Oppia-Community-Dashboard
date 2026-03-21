@@ -14,10 +14,10 @@
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,cjs}": [
-      "prettier --check",
+      "prettier --write",
       "eslint --max-warnings=0"
     ],
-    "*.{json,md,css,scss,html,yml,yaml}": "prettier --check"
+    "*.{json,md,css,scss,html,yml,yaml}": "prettier --write"
   },
   "dependencies": {
     "@radix-ui/react-dropdown-menu": "^2.1.16",
