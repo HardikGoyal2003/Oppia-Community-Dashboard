@@ -28,7 +28,7 @@ export default async function DashboardPage() {
     );
   }
 
-  if (role === "ADMIN") {
+  if (role === "ADMIN" || role === "SUPER_ADMIN") {
     return <TechLeadView />;
   }
 

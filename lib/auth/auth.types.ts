@@ -1,6 +1,7 @@
 import { DefaultSession } from "next-auth";
 
 export type UserRole =
+  | "SUPER_ADMIN"
   | "ADMIN"
   | "TEAM_LEAD"
   | "TEAM_MEMBER"
@@ -45,5 +46,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     invalidUser?: boolean;
     userId?: string;
+    role?: UserRole;
   }
 }

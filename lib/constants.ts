@@ -21,6 +21,7 @@ export const CONSTANTS =  {
   },
 
   "ROLES": {
+    "SUPER_ADMIN": "Super Admin",
     "CONTRIBUTOR": "Contributor",
     "TEAM_MEMBER": "Team Member",
     "TEAM_LEAD": "Team Lead",

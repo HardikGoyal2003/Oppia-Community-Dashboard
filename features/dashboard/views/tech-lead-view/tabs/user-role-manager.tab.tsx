@@ -31,6 +31,14 @@ const ROLES: UserRole[] = [
   "ADMIN",
 ];
 
+function getDisplayRole(role: UserRole): UserRole {
+  return role === "SUPER_ADMIN" ? "ADMIN" : role;
+}
+
+function isManagedRole(role: UserRole): boolean {
+  return role !== "SUPER_ADMIN";
+}
+
 function getTeamsForPlatform(platform: ContributionPlatform | null): string[] {
   if (platform === "ANDROID") {
     return Object.keys(CONSTANTS.ANDROID_TEAMS);
@@ -186,7 +194,9 @@ export function UserRoleManagerTab() {
                 <td className="p-3">
                   <select
                     value={user.team ?? ""}
-                    disabled={updatingId === user.id}
+                    disabled={
+                      updatingId === user.id || !isManagedRole(user.role)
+                    }
                     onChange={e =>
                       openUpdateModal(
                         user,
@@ -206,8 +216,10 @@ export function UserRoleManagerTab() {
                 </td>
                 <td className="p-3">
                   <select
-                    value={user.role}
-                    disabled={updatingId === user.id}
+                    value={getDisplayRole(user.role)}
+                    disabled={
+                      updatingId === user.id || !isManagedRole(user.role)
+                    }
                     onChange={e =>
                       openUpdateModal(
                         user,

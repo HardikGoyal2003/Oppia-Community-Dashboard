@@ -66,6 +66,7 @@ export const authOptions = {
         token.invalidUser = true;
       } else {
         token.invalidUser = false;
+        token.role = dbUser.role as UserRole;
       }
 
       return token;

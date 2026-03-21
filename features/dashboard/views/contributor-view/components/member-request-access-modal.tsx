@@ -191,7 +191,11 @@ export default function MemberRequestAccessModal({
                   </SelectTrigger>
                   <SelectContent>
                     {Object.entries(CONSTANTS.ROLES)
-                      .filter(([, label]) => label !== CONSTANTS.ROLES.CONTRIBUTOR)
+                      .filter(
+                        ([key, label]) =>
+                          key !== "SUPER_ADMIN" &&
+                          label !== CONSTANTS.ROLES.CONTRIBUTOR
+                      )
                       .map(([key, label]) => (
                         <SelectItem key={key} value={key}>
                           {label}
