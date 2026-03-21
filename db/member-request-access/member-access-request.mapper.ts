@@ -1,5 +1,6 @@
 import { Timestamp } from "firebase-admin/firestore";
 import type { MemberAccessRequestModel } from "@/db/member-request-access/member-request-access.types";
+import { normalizeTimestamp } from "@/db/timestamp.utils";
 
 export type FirestoreMemberAccessRequest = Omit<
   MemberAccessRequestModel,
@@ -19,10 +20,7 @@ export function normalizeMemberAccessRequest(
     note: request.note,
     username: request.username,
     status: request.status,
-    createdAt:
-      request.createdAt instanceof Timestamp
-        ? request.createdAt.toDate()
-        : new Date(),
+    createdAt: normalizeTimestamp(request.createdAt),
   };
 }
 

@@ -1,5 +1,6 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
+import { normalizeOptionalTimestamp } from "./timestamp.utils";
 
 export interface AnnouncementBannerModel {
   title: string;
@@ -34,8 +35,7 @@ export async function getAnnouncementBanner(): Promise<AnnouncementBannerModel> 
     title: typeof data.title === "string" ? data.title : "",
     message: typeof data.message === "string" ? data.message : "",
     isEnabled: Boolean(data.isEnabled),
-    updatedAt:
-      data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : null,
+    updatedAt: normalizeOptionalTimestamp(data.updatedAt),
   };
 }
 

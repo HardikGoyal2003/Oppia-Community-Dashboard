@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth/auth.types";
 import { Timestamp } from "firebase-admin/firestore";
 import { normalizeNotifications } from "./notifications/notifications.mapper";
+import { normalizeTimestamp } from "./timestamp.utils";
 
 const USERS_COLLECTION = "users";
 const NOTIFICATIONS_SUBCOLLECTION = "notifications";
@@ -53,7 +54,7 @@ export async function getUserByEmail(email: string): Promise<UserModel | null> {
 
   return {
     ...(data as UserModel),
-    createdAt: data.createdAt.toDate(),
+    createdAt: normalizeTimestamp(data.createdAt),
   };
 }
 
@@ -91,7 +92,7 @@ export async function getUserById(uid: string): Promise<UserModel | null> {
 
   return {
     ...data,
-    createdAt: data.createdAt.toDate(),
+    createdAt: normalizeTimestamp(data.createdAt),
   } as UserModel;
 }
 
@@ -120,7 +121,7 @@ export async function getUsersByPlatform(
       return {
         id: doc.id,
         ...(data as UserModel),
-        createdAt: data.createdAt.toDate(),
+        createdAt: normalizeTimestamp(data.createdAt),
       };
     })
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
