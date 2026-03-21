@@ -6,9 +6,7 @@ import { Timestamp } from "firebase-admin/firestore";
  * @param value The timestamp-like value to normalize.
  * @returns The normalized Date instance.
  */
-export function normalizeTimestamp(
-  value: Date | Timestamp | undefined | null,
-): Date {
+export function normalizeTimestamp(value: Date | Timestamp): Date {
   if (value instanceof Timestamp) {
     return value.toDate();
   }
@@ -18,20 +16,4 @@ export function normalizeTimestamp(
   }
 
   throw new Error("Expected Firestore timestamp value.");
-}
-
-/**
- * Normalizes an optional Firestore timestamp-like value into a nullable Date.
- *
- * @param value The optional timestamp-like value to normalize.
- * @returns The normalized Date, or null when the field is absent.
- */
-export function normalizeOptionalTimestamp(
-  value: Date | Timestamp | undefined | null,
-): Date | null {
-  if (value === null || value === undefined) {
-    return null;
-  }
-
-  return normalizeTimestamp(value);
 }

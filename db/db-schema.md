@@ -48,11 +48,6 @@ Fields:
 - `isEnabled: boolean`
 - `updatedAt: Timestamp`
 
-Notes:
-
-- `updatedAt` is required
-- the `global-banner` document is expected to exist; missing data is treated as an error
-
 ### `archivedIssues`
 
 Document id:
