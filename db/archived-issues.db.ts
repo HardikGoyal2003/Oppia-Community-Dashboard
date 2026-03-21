@@ -1,8 +1,8 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { Issue } from "@/features/dashboard/dashboard.types";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import { DB_PATHS } from "./db-paths";
 
-const ARCHIVED_ISSUES_COLLECTION = "archivedIssues";
 const db = getAdminFirestore();
 
 type ArchivedIssueDoc = Issue & {
@@ -33,7 +33,7 @@ export async function getArchivedIssues(
   platform: ContributionPlatform,
 ): Promise<ArchivedIssueDoc[]> {
   const snapshot = await db
-    .collection(ARCHIVED_ISSUES_COLLECTION)
+    .collection(DB_PATHS.ARCHIVED_ISSUES.COLLECTION)
     .where("platform", "==", platform)
     .get();
 
@@ -52,7 +52,7 @@ export async function archiveIssue(
   platform: ContributionPlatform,
 ): Promise<void> {
   await db
-    .collection(ARCHIVED_ISSUES_COLLECTION)
+    .collection(DB_PATHS.ARCHIVED_ISSUES.COLLECTION)
     .doc(getArchivedIssueDocId(platform, issue.issueNumber))
     .set({
       ...issue,
@@ -73,7 +73,7 @@ export async function unarchiveIssue(
   platform: ContributionPlatform,
 ): Promise<void> {
   await db
-    .collection(ARCHIVED_ISSUES_COLLECTION)
+    .collection(DB_PATHS.ARCHIVED_ISSUES.COLLECTION)
     .doc(getArchivedIssueDocId(platform, issueNumber))
     .delete();
 }

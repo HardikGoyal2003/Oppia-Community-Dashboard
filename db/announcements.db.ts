@@ -1,5 +1,6 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
+import { DB_PATHS } from "./db-paths";
 import { normalizeTimestamp } from "./timestamp.utils";
 
 export interface AnnouncementBannerModel {
@@ -8,9 +9,6 @@ export interface AnnouncementBannerModel {
   isEnabled: boolean;
   updatedAt: Date;
 }
-
-const ANNOUNCEMENTS_COLLECTION = "announcements";
-const GLOBAL_BANNER_DOC_ID = "global-banner";
 
 const db = getAdminFirestore();
 
@@ -48,8 +46,8 @@ function assertAnnouncementBannerData(
  */
 export async function getAnnouncementBanner(): Promise<AnnouncementBannerModel> {
   const snapshot = await db
-    .collection(ANNOUNCEMENTS_COLLECTION)
-    .doc(GLOBAL_BANNER_DOC_ID)
+    .collection(DB_PATHS.ANNOUNCEMENTS.COLLECTION)
+    .doc(DB_PATHS.ANNOUNCEMENTS.GLOBAL_BANNER_DOC_ID)
     .get();
 
   if (!snapshot.exists) {
@@ -77,8 +75,8 @@ export async function upsertAnnouncementBanner(
   banner: Omit<AnnouncementBannerModel, "updatedAt">,
 ): Promise<void> {
   await db
-    .collection(ANNOUNCEMENTS_COLLECTION)
-    .doc(GLOBAL_BANNER_DOC_ID)
+    .collection(DB_PATHS.ANNOUNCEMENTS.COLLECTION)
+    .doc(DB_PATHS.ANNOUNCEMENTS.GLOBAL_BANNER_DOC_ID)
     .set({
       ...banner,
       updatedAt: Timestamp.now(),

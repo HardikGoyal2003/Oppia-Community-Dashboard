@@ -6,11 +6,9 @@ import {
   UserModel,
 } from "@/lib/auth/auth.types";
 import { Timestamp } from "firebase-admin/firestore";
+import { DB_PATHS } from "../db-paths";
 import { normalizeNotificationDocument } from "../notifications/notifications.mapper";
 import { normalizeUserDocument, serializeUser } from "./users.mapper";
-
-const USERS_COLLECTION = "users";
-const NOTIFICATIONS_SUBCOLLECTION = "notifications";
 
 const db = getAdminFirestore();
 
@@ -37,7 +35,7 @@ function assertGithubUsernameForRole(githubUsername: string) {
  */
 async function getUserDocRefByEmail(email: string) {
   const snapshot = await db
-    .collection(USERS_COLLECTION)
+    .collection(DB_PATHS.USERS.COLLECTION)
     .where("email", "==", email)
     .limit(1)
     .get();
@@ -57,7 +55,7 @@ async function getUserDocRefByEmail(email: string) {
  */
 export async function getUserByEmail(email: string): Promise<UserModel | null> {
   const snapshot = await db
-    .collection(USERS_COLLECTION)
+    .collection(DB_PATHS.USERS.COLLECTION)
     .where("email", "==", email)
     .limit(1)
     .get();
@@ -84,7 +82,7 @@ export async function createUserIfNotExists(
 ): Promise<void> {
   assertGithubUsernameForRole(data.githubUsername);
 
-  const ref = db.collection(USERS_COLLECTION).doc(uid);
+  const ref = db.collection(DB_PATHS.USERS.COLLECTION).doc(uid);
   const now = Timestamp.now();
 
   try {
@@ -110,7 +108,7 @@ export async function createUserIfNotExists(
  * @returns The normalized user model, or null when no user exists.
  */
 export async function getUserById(uid: string): Promise<UserModel | null> {
-  const snap = await db.collection(USERS_COLLECTION).doc(uid).get();
+  const snap = await db.collection(DB_PATHS.USERS.COLLECTION).doc(uid).get();
 
   if (!snap.exists) return null;
 
@@ -137,7 +135,7 @@ export async function getAllUsers(): Promise<(UserModel & { id: string })[]> {
 export async function getUsersByPlatform(
   platform?: ContributionPlatform,
 ): Promise<(UserModel & { id: string })[]> {
-  let query: FirebaseFirestore.Query = db.collection(USERS_COLLECTION);
+  let query: FirebaseFirestore.Query = db.collection(DB_PATHS.USERS.COLLECTION);
 
   if (platform) {
     query = query.where("platform", "==", platform);
@@ -164,7 +162,7 @@ export async function updateUserRole(
   uid: string,
   role: UserRole,
 ): Promise<void> {
-  await db.collection(USERS_COLLECTION).doc(uid).update({
+  await db.collection(DB_PATHS.USERS.COLLECTION).doc(uid).update({
     role,
   });
 }
@@ -180,7 +178,7 @@ export async function updateUserPlatformByUid(
   uid: string,
   platform: ContributionPlatform,
 ): Promise<void> {
-  await db.collection(USERS_COLLECTION).doc(uid).update({ platform });
+  await db.collection(DB_PATHS.USERS.COLLECTION).doc(uid).update({ platform });
 }
 
 /**
@@ -200,7 +198,7 @@ export async function updateUserRoleAndTeamByUid(
 ): Promise<void> {
   assertGithubUsernameForRole(githubUsername);
 
-  const ref = db.collection(USERS_COLLECTION).doc(uid);
+  const ref = db.collection(DB_PATHS.USERS.COLLECTION).doc(uid);
   const snap = await ref.get();
 
   if (!snap.exists) {
@@ -233,7 +231,7 @@ export async function updateUserRoleAndTeamWithNotificationByUid(
 ): Promise<void> {
   assertGithubUsernameForRole(githubUsername);
 
-  const userDocRef = db.collection(USERS_COLLECTION).doc(uid);
+  const userDocRef = db.collection(DB_PATHS.USERS.COLLECTION).doc(uid);
   const userDocSnap = await userDocRef.get();
 
   if (!userDocSnap.exists) {
@@ -241,7 +239,7 @@ export async function updateUserRoleAndTeamWithNotificationByUid(
   }
 
   const notificationRef = userDocRef
-    .collection(NOTIFICATIONS_SUBCOLLECTION)
+    .collection(DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION)
     .doc();
   const batch = db.batch();
 
@@ -306,7 +304,7 @@ export async function updateUserRoleAndTeamWithNotificationByEmail(
 
   const userDoc = await getUserDocRefByEmail(email);
   const notificationRef = userDoc.ref
-    .collection(NOTIFICATIONS_SUBCOLLECTION)
+    .collection(DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION)
     .doc();
   const batch = db.batch();
 
@@ -354,7 +352,7 @@ export async function appendUserNotificationByUid(
   uid: string,
   message: string,
 ): Promise<void> {
-  const userDocRef = db.collection(USERS_COLLECTION).doc(uid);
+  const userDocRef = db.collection(DB_PATHS.USERS.COLLECTION).doc(uid);
   const userDocSnap = await userDocRef.get();
 
   if (!userDocSnap.exists) {
@@ -381,7 +379,7 @@ export async function getNotificationsByEmail(
 ): Promise<Notification[]> {
   const userDoc = await getUserDocRefByEmail(email);
   let query: FirebaseFirestore.Query = userDoc.ref.collection(
-    NOTIFICATIONS_SUBCOLLECTION,
+    DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION,
   );
 
   if (status === "READ") {
@@ -413,7 +411,7 @@ export async function markNotificationAsReadByEmail(
 ): Promise<void> {
   const userDoc = await getUserDocRefByEmail(email);
   const notificationRef = userDoc.ref
-    .collection(NOTIFICATIONS_SUBCOLLECTION)
+    .collection(DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION)
     .doc(notificationId);
   const notificationSnap = await notificationRef.get();
 
@@ -438,7 +436,7 @@ async function appendNotificationByUserDocRef(
   notification: Omit<Notification, "id">,
 ): Promise<void> {
   const notificationRef = userDocRef
-    .collection(NOTIFICATIONS_SUBCOLLECTION)
+    .collection(DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION)
     .doc();
 
   await notificationRef.set({

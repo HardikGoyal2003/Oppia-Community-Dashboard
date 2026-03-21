@@ -1,4 +1,5 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
+import { DB_PATHS } from "@/db/db-paths";
 import {
   normalizeMemberAccessRequestDocument,
   serializeMemberAccessRequest,
@@ -8,8 +9,6 @@ import {
   MemberAccessRequestModel,
 } from "./member-access-request.types";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
-
-const MEMBER_ACCESS_REQUESTS_COLLECTION = "memberAccessRequests";
 
 const db = getAdminFirestore();
 
@@ -47,7 +46,7 @@ export async function getPendingMemberAccessRequestsByPlatform(
   platform?: ContributionPlatform,
 ): Promise<MemberAccessRequestModel[]> {
   let query: FirebaseFirestore.Query = db
-    .collection(MEMBER_ACCESS_REQUESTS_COLLECTION)
+    .collection(DB_PATHS.MEMBER_ACCESS_REQUESTS.COLLECTION)
     .where("status", "==", "PENDING");
 
   if (platform) {
@@ -70,7 +69,9 @@ export async function getPendingMemberAccessRequestsByPlatform(
 export async function submitMemberAccessRequest(
   request: Omit<MemberAccessRequestModel, "createdAt" | "status">,
 ): Promise<void> {
-  const collectionRef = db.collection(MEMBER_ACCESS_REQUESTS_COLLECTION);
+  const collectionRef = db.collection(
+    DB_PATHS.MEMBER_ACCESS_REQUESTS.COLLECTION,
+  );
   const pendingQuery = collectionRef
     .where("email", "==", request.email)
     .where("status", "==", "PENDING");
@@ -109,7 +110,9 @@ export async function resolveMemberAccessRequest(
   email: string,
   decision: MemberAccessDecision,
 ): Promise<MemberAccessRequestModel> {
-  const collectionRef = db.collection(MEMBER_ACCESS_REQUESTS_COLLECTION);
+  const collectionRef = db.collection(
+    DB_PATHS.MEMBER_ACCESS_REQUESTS.COLLECTION,
+  );
   const pendingQuery = collectionRef
     .where("email", "==", email)
     .where("status", "==", "PENDING")
