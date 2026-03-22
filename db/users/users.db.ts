@@ -28,48 +28,6 @@ function assertGithubUsernameForRole(githubUsername: string) {
 }
 
 /**
- * Retrieves the first user document snapshot that matches an email address.
- *
- * @param email The email address to query by.
- * @returns The matching Firestore user document snapshot.
- */
-async function getUserDocRefByEmail(email: string) {
-  const snapshot = await db
-    .collection(DB_PATHS.USERS.COLLECTION)
-    .where("email", "==", email)
-    .limit(1)
-    .get();
-
-  if (snapshot.empty) {
-    throw new Error("User not found for member access request.");
-  }
-
-  return snapshot.docs[0];
-}
-
-/**
- * Retrieves a user by email address.
- *
- * @param email The email address to query by.
- * @returns The normalized user model, or null when no user exists.
- */
-export async function getUserByEmail(email: string): Promise<UserModel | null> {
-  const snapshot = await db
-    .collection(DB_PATHS.USERS.COLLECTION)
-    .where("email", "==", email)
-    .limit(1)
-    .get();
-
-  if (snapshot.empty) {
-    return null;
-  }
-
-  const data = snapshot.docs[0].data();
-
-  return normalizeUserDocument(data);
-}
-
-/**
  * Creates a user document on first login when one does not already exist.
  *
  * @param uid The user id to write under.
@@ -258,90 +216,6 @@ export async function updateUserRoleAndTeamWithNotificationByUid(
 }
 
 /**
- * Updates a user's role and team by email address.
- *
- * @param email The email address to query by.
- * @param role The new role value.
- * @param team The new team value.
- * @param githubUsername The GitHub username to persist.
- * @returns A promise that resolves when the update has been written.
- */
-export async function updateUserRoleAndTeamByEmail(
-  email: string,
-  role: UserRole,
-  team: string,
-  githubUsername: string,
-): Promise<void> {
-  assertGithubUsernameForRole(githubUsername);
-
-  const userDoc = await getUserDocRefByEmail(email);
-
-  await userDoc.ref.update({
-    role,
-    team,
-    githubUsername,
-  });
-}
-
-/**
- * Updates a user's role and team by email address and appends a notification atomically.
- *
- * @param email The email address to query by.
- * @param role The new role value.
- * @param team The new team value.
- * @param githubUsername The GitHub username to persist.
- * @param message The notification message to append.
- * @returns A promise that resolves when the update and notification write have been committed.
- */
-export async function updateUserRoleAndTeamWithNotificationByEmail(
-  email: string,
-  role: UserRole,
-  team: string,
-  githubUsername: string,
-  message: string,
-): Promise<void> {
-  assertGithubUsernameForRole(githubUsername);
-
-  const userDoc = await getUserDocRefByEmail(email);
-  const notificationRef = userDoc.ref
-    .collection(DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION)
-    .doc();
-  const batch = db.batch();
-
-  batch.update(userDoc.ref, {
-    role,
-    team,
-    githubUsername,
-  });
-  batch.set(notificationRef, {
-    message,
-    read: false,
-    createdAt: Timestamp.now(),
-  });
-
-  await batch.commit();
-}
-
-/**
- * Appends a notification to a user located by email address.
- *
- * @param email The email address to query by.
- * @param message The notification message to append.
- * @returns A promise that resolves when the notification has been written.
- */
-export async function appendUserNotificationByEmail(
-  email: string,
-  message: string,
-): Promise<void> {
-  const userDoc = await getUserDocRefByEmail(email);
-  await appendNotificationByUserDocRef(userDoc.ref, {
-    message,
-    createdAt: new Date(),
-    read: false,
-  });
-}
-
-/**
  * Appends a notification to a user located by uid.
  *
  * @param uid The user id to update.
@@ -364,38 +238,6 @@ export async function appendUserNotificationByUid(
     createdAt: new Date(),
     read: false,
   });
-}
-
-/**
- * Retrieves notifications for a user, optionally filtered by read status.
- *
- * @param email The email address to query by.
- * @param status The optional notification status filter.
- * @returns The normalized notifications sorted by creation time descending.
- */
-export async function getNotificationsByEmail(
-  email: string,
-  status: NotificationStatusFilter = "ALL",
-): Promise<Notification[]> {
-  const userDoc = await getUserDocRefByEmail(email);
-  let query: FirebaseFirestore.Query = userDoc.ref.collection(
-    DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION,
-  );
-
-  if (status === "READ") {
-    query = query.where("read", "==", true);
-  } else if (status === "UNREAD") {
-    query = query.where("read", "==", false);
-  }
-
-  const snapshot = await query.orderBy("createdAt", "desc").get();
-
-  return snapshot.docs.map((doc) =>
-    normalizeNotificationDocument({
-      id: doc.id,
-      ...doc.data(),
-    }),
-  );
 }
 
 /**
@@ -434,32 +276,6 @@ export async function getNotificationsByUid(
       ...doc.data(),
     }),
   );
-}
-
-/**
- * Marks a notification as read for the user identified by email address.
- *
- * @param email The email address to query by.
- * @param notificationId The notification document id to update.
- * @returns A promise that resolves when the notification has been marked as read.
- */
-export async function markNotificationAsReadByEmail(
-  email: string,
-  notificationId: string,
-): Promise<void> {
-  const userDoc = await getUserDocRefByEmail(email);
-  const notificationRef = userDoc.ref
-    .collection(DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION)
-    .doc(notificationId);
-  const notificationSnap = await notificationRef.get();
-
-  if (!notificationSnap.exists) {
-    throw new Error("Notification not found.");
-  }
-
-  await notificationRef.update({
-    read: true,
-  });
 }
 
 /**

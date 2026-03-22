@@ -5,7 +5,7 @@ import {
   archiveIssue,
   getArchivedIssues,
   unarchiveIssue,
-} from "@/db/archived-issues.db";
+} from "@/db/archived-issues/archived-issues.db";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type { Issue } from "@/lib/domain/issues.types";
 

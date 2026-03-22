@@ -1,7 +1,7 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import type { Issue } from "@/lib/domain/issues.types";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
-import { DB_PATHS } from "./db-paths";
+import { DB_PATHS } from "../db-paths";
 import {
   FirestoreArchivedIssue,
   normalizeArchivedIssueDocument,
