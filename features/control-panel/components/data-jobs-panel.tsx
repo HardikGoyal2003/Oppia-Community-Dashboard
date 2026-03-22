@@ -57,7 +57,7 @@ export function DataJobsPanel() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const loadData = async () => {
+  const loadData = async (): Promise<DataJobsResponse | null> => {
     setLoading(true);
 
     try {
@@ -75,10 +75,12 @@ export function DataJobsPanel() {
       setSelectedJobKey(
         (currentValue) => currentValue || data.jobs[0]?.key || "",
       );
+      return data;
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Failed to load data jobs.",
       );
+      return null;
     } finally {
       setLoading(false);
     }
@@ -110,10 +112,19 @@ export function DataJobsPanel() {
         }),
       });
 
-      const data = (await response.json()) as { error?: string };
+      await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to run data job.");
+        const refreshedData = await loadData();
+        const latestRun = refreshedData?.runs.find(
+          (run) => run.jobKey === selectedJobKey,
+        );
+
+        if (latestRun) {
+          setSelectedRun(latestRun);
+        }
+
+        throw new Error("Data job failed. See run output for details.");
       }
 
       setSuccessMessage(

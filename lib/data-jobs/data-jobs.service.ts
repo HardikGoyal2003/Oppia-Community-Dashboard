@@ -1,4 +1,4 @@
-import { DbNotFoundError } from "@/db/db.errors";
+import { DbInvalidStateError, DbNotFoundError } from "@/db/db.errors";
 import {
   getArchivedIssueDocId,
   listArchivedIssueDocumentIds,
@@ -100,7 +100,7 @@ async function migrateArchivedIssuesToPlatformScopedIds(
     }
 
     if (existingDocIds.has(targetId)) {
-      conflicts.push(`${issue.id} -> ${targetId}`);
+      conflicts.push(`old ${issue.id} -> new ${targetId}`);
       return false;
     }
 
@@ -123,7 +123,7 @@ async function migrateArchivedIssuesToPlatformScopedIds(
         .slice(0, 5)
         .map(
           (issue) =>
-            `${issue.id} -> ${getArchivedIssueDocId("WEB", issue.issueNumber)}`,
+            `old ${issue.id} -> new ${getArchivedIssueDocId("WEB", issue.issueNumber)}`,
         )
         .join(", ")}.`,
     );
@@ -136,6 +136,13 @@ async function migrateArchivedIssuesToPlatformScopedIds(
   if (invalidDates.length > 0) {
     summaryLines.push(
       `Invalid timestamp samples: ${invalidDates.slice(0, 5).join(", ")}.`,
+    );
+  }
+
+  if (!context.dryRun && (conflicts.length > 0 || invalidDates.length > 0)) {
+    throw new DbInvalidStateError(
+      "Archived issue migration",
+      summaryLines.join("\n"),
     );
   }
 
