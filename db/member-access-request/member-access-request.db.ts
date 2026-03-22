@@ -2,11 +2,13 @@ import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DB_PATHS } from "@/db/db-paths";
 import {
   normalizeMemberAccessRequestDocument,
+  normalizeMemberAccessRequestRecord,
   serializeMemberAccessRequest,
 } from "@/db/member-access-request/member-access-request.mapper";
 import {
   MemberAccessDecision,
   MemberAccessRequestModel,
+  MemberAccessRequestRecord,
 } from "./member-access-request.types";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 
@@ -31,7 +33,7 @@ export class PendingMemberAccessRequestError extends Error {
  * @returns The pending member-access requests sorted by creation time descending.
  */
 export async function getPendingMemberAccessRequests(): Promise<
-  MemberAccessRequestModel[]
+  MemberAccessRequestRecord[]
 > {
   return getPendingMemberAccessRequestsByPlatform();
 }
@@ -44,7 +46,7 @@ export async function getPendingMemberAccessRequests(): Promise<
  */
 export async function getPendingMemberAccessRequestsByPlatform(
   platform?: ContributionPlatform,
-): Promise<MemberAccessRequestModel[]> {
+): Promise<MemberAccessRequestRecord[]> {
   let query: FirebaseFirestore.Query = db
     .collection(DB_PATHS.MEMBER_ACCESS_REQUESTS.COLLECTION)
     .where("status", "==", "PENDING");
@@ -56,7 +58,7 @@ export async function getPendingMemberAccessRequestsByPlatform(
   const snapshot = await query.orderBy("createdAt", "desc").get();
 
   return snapshot.docs.map((doc) =>
-    normalizeMemberAccessRequestDocument(doc.data()),
+    normalizeMemberAccessRequestRecord(doc.id, doc.data()),
   );
 }
 
@@ -73,7 +75,7 @@ export async function submitMemberAccessRequest(
     DB_PATHS.MEMBER_ACCESS_REQUESTS.COLLECTION,
   );
   const pendingQuery = collectionRef
-    .where("email", "==", request.email)
+    .where("userId", "==", request.userId)
     .where("status", "==", "PENDING");
   const newRequestRef = collectionRef.doc();
 
@@ -100,38 +102,40 @@ export async function submitMemberAccessRequest(
 }
 
 /**
- * Resolves the pending member-access request for an email address.
+ * Resolves the pending member-access request for a request id.
  *
- * @param email The email address that owns the pending request.
+ * @param requestId The member-access request document id.
  * @param decision The resolution decision to apply.
- * @returns The normalized request that was resolved.
+ * @returns The normalized request record that was resolved.
  */
 export async function resolveMemberAccessRequest(
-  email: string,
+  requestId: string,
   decision: MemberAccessDecision,
-): Promise<MemberAccessRequestModel> {
-  const collectionRef = db.collection(
-    DB_PATHS.MEMBER_ACCESS_REQUESTS.COLLECTION,
-  );
-  const pendingQuery = collectionRef
-    .where("email", "==", email)
-    .where("status", "==", "PENDING")
-    .limit(1);
+): Promise<MemberAccessRequestRecord> {
+  const requestRef = db
+    .collection(DB_PATHS.MEMBER_ACCESS_REQUESTS.COLLECTION)
+    .doc(requestId);
 
   return db.runTransaction(async (tx) => {
-    const snapshot = await tx.get(pendingQuery);
+    const snapshot = await tx.get(requestRef);
 
-    if (snapshot.empty) {
+    if (!snapshot.exists) {
       throw new Error("Member access request not found.");
     }
 
-    const doc = snapshot.docs[0];
-    const request = normalizeMemberAccessRequestDocument(doc.data());
+    const request = normalizeMemberAccessRequestRecord(
+      snapshot.id,
+      snapshot.data()!,
+    );
+
+    if (request.status !== "PENDING") {
+      throw new Error("Member access request is no longer pending.");
+    }
 
     const status = decision === "ACCEPT" ? "ACCEPTED" : "REJECTED";
 
     tx.set(
-      doc.ref,
+      requestRef,
       serializeMemberAccessRequest({
         ...request,
         status,

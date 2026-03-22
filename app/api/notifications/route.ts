@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import {
-  getNotificationsByEmail,
-  markNotificationAsReadByEmail,
+  getNotificationsByUid,
+  markNotificationAsReadByUid,
 } from "@/db/users/users.db";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
 
-  if (!session || !session.user || !session.user.email) {
+  if (!session || !session.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
@@ -22,10 +22,7 @@ export async function GET(req: Request) {
         ? "UNREAD"
         : "ALL";
 
-  const notifications = await getNotificationsByEmail(
-    session.user.email,
-    status,
-  );
+  const notifications = await getNotificationsByUid(session.user.id, status);
 
   return NextResponse.json({ notifications });
 }
@@ -33,7 +30,7 @@ export async function GET(req: Request) {
 export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions);
 
-  if (!session || !session.user || !session.user.email) {
+  if (!session || !session.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
@@ -48,7 +45,7 @@ export async function PATCH(req: Request) {
     );
   }
 
-  await markNotificationAsReadByEmail(session.user.email, notificationId);
+  await markNotificationAsReadByUid(session.user.id, notificationId);
 
   return NextResponse.json({ success: true });
 }

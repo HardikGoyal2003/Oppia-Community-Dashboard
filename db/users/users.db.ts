@@ -399,6 +399,44 @@ export async function getNotificationsByEmail(
 }
 
 /**
+ * Retrieves notifications for a user id, optionally filtered by read status.
+ *
+ * @param uid The user id to query by.
+ * @param status The optional notification status filter.
+ * @returns The normalized notifications sorted by creation time descending.
+ */
+export async function getNotificationsByUid(
+  uid: string,
+  status: NotificationStatusFilter = "ALL",
+): Promise<Notification[]> {
+  const userDocRef = db.collection(DB_PATHS.USERS.COLLECTION).doc(uid);
+  const userDocSnap = await userDocRef.get();
+
+  if (!userDocSnap.exists) {
+    throw new Error("User not found.");
+  }
+
+  let query: FirebaseFirestore.Query = userDocRef.collection(
+    DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION,
+  );
+
+  if (status === "READ") {
+    query = query.where("read", "==", true);
+  } else if (status === "UNREAD") {
+    query = query.where("read", "==", false);
+  }
+
+  const snapshot = await query.orderBy("createdAt", "desc").get();
+
+  return snapshot.docs.map((doc) =>
+    normalizeNotificationDocument({
+      id: doc.id,
+      ...doc.data(),
+    }),
+  );
+}
+
+/**
  * Marks a notification as read for the user identified by email address.
  *
  * @param email The email address to query by.
@@ -411,6 +449,38 @@ export async function markNotificationAsReadByEmail(
 ): Promise<void> {
   const userDoc = await getUserDocRefByEmail(email);
   const notificationRef = userDoc.ref
+    .collection(DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION)
+    .doc(notificationId);
+  const notificationSnap = await notificationRef.get();
+
+  if (!notificationSnap.exists) {
+    throw new Error("Notification not found.");
+  }
+
+  await notificationRef.update({
+    read: true,
+  });
+}
+
+/**
+ * Marks a notification as read for the user identified by uid.
+ *
+ * @param uid The user id to query by.
+ * @param notificationId The notification document id to update.
+ * @returns A promise that resolves when the notification has been marked as read.
+ */
+export async function markNotificationAsReadByUid(
+  uid: string,
+  notificationId: string,
+): Promise<void> {
+  const userDocRef = db.collection(DB_PATHS.USERS.COLLECTION).doc(uid);
+  const userDocSnap = await userDocRef.get();
+
+  if (!userDocSnap.exists) {
+    throw new Error("User not found.");
+  }
+
+  const notificationRef = userDocRef
     .collection(DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION)
     .doc(notificationId);
   const notificationSnap = await notificationRef.get();

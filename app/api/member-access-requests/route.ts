@@ -8,9 +8,9 @@ import {
   submitMemberAccessRequest,
 } from "@/db/member-access-request/member-access-request.db";
 import {
-  appendUserNotificationByEmail,
-  getUserByEmail,
-  updateUserRoleAndTeamWithNotificationByEmail,
+  appendUserNotificationByUid,
+  getUserById,
+  updateUserRoleAndTeamWithNotificationByUid,
 } from "@/db/users/users.db";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { isValidUserRole } from "@/lib/utils/roles.utils";
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const dbUser = await getUserByEmail(session.user.email);
+  const dbUser = await getUserById(session.user.id);
   const username = dbUser?.githubUsername;
   const platform = dbUser?.platform;
 
@@ -104,6 +104,7 @@ export async function POST(req: Request) {
 
   try {
     await submitMemberAccessRequest({
+      userId: session.user.id,
       email: session.user.email,
       platform: platform as ContributionPlatform,
       team,
@@ -149,13 +150,15 @@ export async function PATCH(req: Request) {
   }
 
   const body = await req.json();
-  const email = body.email.trim();
-  const decision = body.decision.trim();
+  const requestId =
+    typeof body.requestId === "string" ? body.requestId.trim() : "";
+  const decision =
+    typeof body.decision === "string" ? body.decision.trim() : "";
   const reason = typeof body.reason === "string" ? body.reason.trim() : "";
 
-  if (!email || !decision || !["ACCEPT", "DECLINE"].includes(decision)) {
+  if (!requestId || !decision || !["ACCEPT", "DECLINE"].includes(decision)) {
     return NextResponse.json(
-      { error: "Invalid email/decision payload." },
+      { error: "Invalid requestId/decision payload." },
       { status: 400 },
     );
   }
@@ -167,7 +170,7 @@ export async function PATCH(req: Request) {
     );
   }
 
-  const request = await resolveMemberAccessRequest(email, decision);
+  const request = await resolveMemberAccessRequest(requestId, decision);
 
   if (decision === "ACCEPT") {
     if (!isValidUserRole(request.role)) {
@@ -177,16 +180,16 @@ export async function PATCH(req: Request) {
       );
     }
 
-    await updateUserRoleAndTeamWithNotificationByEmail(
-      request.email,
+    await updateUserRoleAndTeamWithNotificationByUid(
+      request.userId,
       request.role,
       request.team,
       request.username,
       getPromotionMessage(request.role, request.team),
     );
   } else {
-    await appendUserNotificationByEmail(
-      request.email,
+    await appendUserNotificationByUid(
+      request.userId,
       getDeclineMessage(reason),
     );
   }

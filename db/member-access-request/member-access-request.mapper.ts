@@ -1,5 +1,8 @@
 import { Timestamp } from "firebase-admin/firestore";
-import type { MemberAccessRequestModel } from "@/db/member-access-request/member-access-request.types";
+import type {
+  MemberAccessRequestModel,
+  MemberAccessRequestRecord,
+} from "@/db/member-access-request/member-access-request.types";
 import { normalizeTimestamp } from "@/db/timestamp.utils";
 
 export type FirestoreMemberAccessRequest = Omit<
@@ -18,6 +21,10 @@ export type FirestoreMemberAccessRequest = Omit<
 function assertFirestoreMemberAccessRequest(
   request: FirebaseFirestore.DocumentData,
 ): asserts request is FirestoreMemberAccessRequest {
+  if (typeof request.userId !== "string") {
+    throw new Error("Member access request userId must be a string.");
+  }
+
   if (typeof request.email !== "string") {
     throw new Error("Member access request email must be a string.");
   }
@@ -49,6 +56,7 @@ export function normalizeMemberAccessRequest(
   request: FirestoreMemberAccessRequest,
 ): MemberAccessRequestModel {
   return {
+    userId: request.userId,
     email: request.email,
     platform: request.platform,
     team: request.team,
@@ -71,6 +79,23 @@ export function normalizeMemberAccessRequestDocument(
 ): MemberAccessRequestModel {
   assertFirestoreMemberAccessRequest(request);
   return normalizeMemberAccessRequest(request);
+}
+
+/**
+ * Normalizes a Firestore member-access request document plus id into the app record model.
+ *
+ * @param id The Firestore document id.
+ * @param request The raw Firestore member-access request document data.
+ * @returns The normalized member-access request record.
+ */
+export function normalizeMemberAccessRequestRecord(
+  id: string,
+  request: FirebaseFirestore.DocumentData,
+): MemberAccessRequestRecord {
+  return {
+    id,
+    ...normalizeMemberAccessRequestDocument(request),
+  };
 }
 
 /**

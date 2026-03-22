@@ -8,6 +8,8 @@ import { formatDisplayValue } from "@/lib/utils/display-format.utils";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 
 type MemberAccessRequest = {
+  id: string;
+  userId: string;
   email: string;
   platform: ContributionPlatform;
   team: string;
@@ -22,10 +24,12 @@ export function IncomingRequestTab() {
   const [requests, setRequests] = useState<MemberAccessRequest[]>([]);
   const [platform, setPlatform] = useState<ContributionPlatform>("WEB");
   const [isLoading, setIsLoading] = useState(true);
-  const [updatingEmail, setUpdatingEmail] = useState<string | null>(null);
-  const [declineTargetEmail, setDeclineTargetEmail] = useState<string | null>(
+  const [updatingRequestId, setUpdatingRequestId] = useState<string | null>(
     null,
   );
+  const [declineTargetRequestId, setDeclineTargetRequestId] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     (async () => {
@@ -55,11 +59,11 @@ export function IncomingRequestTab() {
   }, [platform]);
 
   const handleDecision = async (
-    email: string,
+    requestId: string,
     decision: "ACCEPT" | "DECLINE",
     reason?: string,
   ) => {
-    setUpdatingEmail(email);
+    setUpdatingRequestId(requestId);
 
     try {
       const response = await fetch("/api/member-access-requests", {
@@ -67,35 +71,35 @@ export function IncomingRequestTab() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, decision, reason }),
+        body: JSON.stringify({ requestId, decision, reason }),
       });
 
       if (!response.ok) {
         throw new Error("Failed to update request.");
       }
 
-      setRequests((prev) => prev.filter((request) => request.email !== email));
+      setRequests((prev) => prev.filter((request) => request.id !== requestId));
     } catch (error) {
       console.error(error);
     } finally {
-      setUpdatingEmail(null);
+      setUpdatingRequestId(null);
     }
   };
 
-  const openDeclineModal = (email: string) => {
-    setDeclineTargetEmail(email);
+  const openDeclineModal = (requestId: string) => {
+    setDeclineTargetRequestId(requestId);
   };
 
   const closeDeclineModal = () => {
-    setDeclineTargetEmail(null);
+    setDeclineTargetRequestId(null);
   };
 
   const submitDecline = async (reason: string) => {
-    if (!declineTargetEmail) {
+    if (!declineTargetRequestId) {
       return;
     }
 
-    await handleDecision(declineTargetEmail, "DECLINE", reason);
+    await handleDecision(declineTargetRequestId, "DECLINE", reason);
     closeDeclineModal();
   };
 
@@ -151,7 +155,7 @@ export function IncomingRequestTab() {
 
             <tbody>
               {requests.map((request, index) => (
-                <tr key={request.email} className="border-b align-top">
+                <tr key={request.id} className="border-b align-top">
                   <td className="p-3">{index + 1}</td>
                   <td className="p-3">{request.email}</td>
                   <td className="p-3">{request.username}</td>
@@ -167,15 +171,15 @@ export function IncomingRequestTab() {
                     <div className="flex gap-2">
                       <button
                         className="rounded bg-green-600 px-3 py-1 cursor-pointer text-white disabled:opacity-60"
-                        disabled={updatingEmail === request.email}
-                        onClick={() => handleDecision(request.email, "ACCEPT")}
+                        disabled={updatingRequestId === request.id}
+                        onClick={() => handleDecision(request.id, "ACCEPT")}
                       >
                         Accept
                       </button>
                       <button
                         className="rounded bg-red-600 px-3 py-1  cursor-pointer text-white disabled:opacity-60"
-                        disabled={updatingEmail === request.email}
-                        onClick={() => openDeclineModal(request.email)}
+                        disabled={updatingRequestId === request.id}
+                        onClick={() => openDeclineModal(request.id)}
                       >
                         Decline
                       </button>
@@ -189,8 +193,8 @@ export function IncomingRequestTab() {
       )}
 
       <DeclineRequestModal
-        open={Boolean(declineTargetEmail)}
-        loading={Boolean(updatingEmail)}
+        open={Boolean(declineTargetRequestId)}
+        loading={Boolean(updatingRequestId)}
         onOpenChange={(open) => {
           if (!open) {
             closeDeclineModal();
