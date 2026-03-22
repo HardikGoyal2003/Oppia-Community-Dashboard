@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import {
+  getUserById,
   getUsersByPlatform,
   updateUserRoleAndTeamWithNotificationByUid,
 } from "@/db/users/users.db";
@@ -17,11 +18,11 @@ function getUserAccessUpdatedMessage(
   role: UserRole,
   team: string | null,
   reason: string,
-  changedByEmail?: string,
+  changedByGithubUsername?: string,
 ): string {
   const roleLabel = role.replace("_", " ");
   const teamLabel = team ?? "Unassigned";
-  const actor = changedByEmail ?? "Admin";
+  const actor = changedByGithubUsername ?? "Admin";
 
   return [
     `Your access details were updated by ${actor}.`,
@@ -72,6 +73,8 @@ export async function PATCH(req: Request) {
   }
 
   try {
+    const adminUser = await getUserById(session.user.id);
+
     await updateUserRoleAndTeamWithNotificationByUid(
       uid,
       role,
@@ -81,7 +84,7 @@ export async function PATCH(req: Request) {
         role,
         team,
         reason,
-        session.user.email ?? undefined,
+        adminUser?.githubUsername,
       ),
     );
   } catch (error) {

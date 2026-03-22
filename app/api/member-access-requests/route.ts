@@ -39,9 +39,14 @@ function getPromotionMessage(role: UserRole, team: string): string {
   }
 }
 
-function getDeclineMessage(reason: string): string {
+function getDeclineMessage(
+  reason: string,
+  changedByGithubUsername?: string,
+): string {
+  const actor = changedByGithubUsername ?? "Admin";
+
   return [
-    "Thank you for your request. At this moment, we are unable to approve it.",
+    `Thank you for your request. ${actor} reviewed it and we are unable to approve it at this moment.`,
     `Reason: ${reason}`,
     "Please refine your request and apply again. We appreciate your interest in contributing with us.",
   ].join("\n");
@@ -176,6 +181,7 @@ export async function PATCH(req: Request) {
 
   try {
     const request = await resolveMemberAccessRequest(requestId, decision);
+    const adminUser = await getUserById(session.user.id);
 
     if (decision === "ACCEPT") {
       if (!isValidUserRole(request.role)) {
@@ -195,7 +201,7 @@ export async function PATCH(req: Request) {
     } else {
       await appendUserNotificationByUid(
         request.userId,
-        getDeclineMessage(reason),
+        getDeclineMessage(reason, adminUser?.githubUsername),
       );
     }
   } catch (error) {
