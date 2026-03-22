@@ -1,5 +1,5 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
-import { Issue } from "@/features/dashboard/dashboard.types";
+import type { Issue } from "@/lib/domain/issues.types";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { DB_PATHS } from "./db-paths";
 import {

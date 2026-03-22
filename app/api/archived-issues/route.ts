@@ -7,7 +7,7 @@ import {
   unarchiveIssue,
 } from "@/db/archived-issues.db";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
-import type { Issue } from "@/features/dashboard/dashboard.types";
+import type { Issue } from "@/lib/domain/issues.types";
 
 function parsePlatform(value: unknown): ContributionPlatform | null {
   return value === "WEB" || value === "ANDROID" ? value : null;

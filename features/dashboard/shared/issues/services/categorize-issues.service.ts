@@ -1,5 +1,6 @@
 import { RawIssue } from "@/lib/github/github.types";
-import { CategorizedProjectIssues, Issue } from "../../../dashboard.types";
+import type { Issue } from "@/lib/domain/issues.types";
+import { CategorizedProjectIssues } from "../../../dashboard.types";
 import { CONSTANTS } from "@/lib/constants";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { unarchiveIssueForPlatform } from "./archived-issues-api.service";

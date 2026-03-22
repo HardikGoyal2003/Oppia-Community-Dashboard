@@ -2,8 +2,8 @@
 
 import { useSession } from "next-auth/react";
 import { useProjectIssuesStore } from "../store/project-issues.store";
-import { Issue } from "../../../dashboard.types";
 import { CategorizedProjectIssues } from "../../../dashboard.types";
+import type { Issue } from "@/lib/domain/issues.types";
 import { CONSTANTS } from "@/lib/constants";
 
 export function useMarkIssueAsnwered() {

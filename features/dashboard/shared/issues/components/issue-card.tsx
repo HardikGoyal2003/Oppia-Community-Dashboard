@@ -10,7 +10,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Issue } from "../../../dashboard.types";
+import type { Issue } from "@/lib/domain/issues.types";
 import Link from "next/link";
 import { useArchiveIssue } from "../hooks/use-archive-issue.hook";
 import { CircleCheck } from "lucide-react";

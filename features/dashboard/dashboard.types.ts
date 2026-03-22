@@ -1,11 +1,4 @@
-export interface Issue {
-  issueNumber: number;
-  issueUrl: string;
-  issueTitle: string;
-  isArchived: boolean;
-  lastCommentCreatedAt: string;
-  linkedProject: string;
-}
+import type { Issue } from "@/lib/domain/issues.types";
 
 export interface CategorizedProjectIssues {
   team1: Issue[];
