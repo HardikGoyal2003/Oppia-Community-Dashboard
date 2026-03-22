@@ -47,15 +47,13 @@ Fields:
 - `issueUrl: string`
 - `issueTitle: string`
 - `isArchived: true` **(Audit if this field is needed or not)**
-- `lastCommentCreatedAt: string` **(Needs to changed into Timestamp type
-  from the string)**
+- `lastCommentCreatedAt: Timestamp`
 - `linkedProject: string`
 - `platform: "WEB" | "ANDROID"`
 
 Notes:
 
 - this schema currently mirrors the shared `Issue` domain type plus `platform`
-- `lastCommentCreatedAt` is still stored as `string`, not `Timestamp`
 - `isArchived` is currently persisted even though the collection itself already implies archived state
 
 ### `memberAccessRequests`
