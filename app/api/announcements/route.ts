@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth/auth.options";
 import {
   getAnnouncementBanner,
   upsertAnnouncementBanner,
-} from "@/db/announcements.db";
+} from "@/db/announcements/announcements.db";
 
 function isSuperAdmin(role: string | undefined): boolean {
   return role === "SUPER_ADMIN";

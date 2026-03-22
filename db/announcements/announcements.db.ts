@@ -1,7 +1,7 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
-import { DB_PATHS } from "./db-paths";
-import { normalizeTimestamp } from "./timestamp.utils";
+import { DB_PATHS } from "../db-paths";
+import { normalizeAnnouncementBannerDocument } from "./announcements.mapper";
 
 export interface AnnouncementBannerModel {
   title: string;
@@ -11,33 +11,6 @@ export interface AnnouncementBannerModel {
 }
 
 const db = getAdminFirestore();
-
-/**
- * Validates the raw announcement banner document shape from Firestore.
- *
- * @param data The raw Firestore document data.
- * @returns Nothing. Throws when the announcement banner data is invalid.
- */
-function assertAnnouncementBannerData(
-  data: FirebaseFirestore.DocumentData,
-): asserts data is {
-  title: string;
-  message: string;
-  isEnabled: boolean;
-  updatedAt: Date | Timestamp;
-} {
-  if (typeof data.title !== "string") {
-    throw new Error("Announcement banner title must be a string.");
-  }
-
-  if (typeof data.message !== "string") {
-    throw new Error("Announcement banner message must be a string.");
-  }
-
-  if (typeof data.isEnabled !== "boolean") {
-    throw new Error("Announcement banner isEnabled must be a boolean.");
-  }
-}
 
 /**
  * Fetches the persisted global announcement banner configuration.
@@ -54,15 +27,7 @@ export async function getAnnouncementBanner(): Promise<AnnouncementBannerModel> 
     throw new Error("Announcement banner not found.");
   }
 
-  const data = snapshot.data()!;
-  assertAnnouncementBannerData(data);
-
-  return {
-    title: data.title,
-    message: data.message,
-    isEnabled: data.isEnabled,
-    updatedAt: normalizeTimestamp(data.updatedAt),
-  };
+  return normalizeAnnouncementBannerDocument(snapshot.data()!);
 }
 
 /**

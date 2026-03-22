@@ -4,6 +4,15 @@ import type {
   MemberAccessRequestRecord,
 } from "@/db/member-access-request/member-access-request.types";
 import { normalizeTimestamp } from "@/db/timestamp.utils";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import type { MemberAccessRequestStatus } from "@/db/member-access-request/member-access-request.types";
+
+const CONTRIBUTION_PLATFORMS: ContributionPlatform[] = ["WEB", "ANDROID"];
+const MEMBER_ACCESS_REQUEST_STATUSES: MemberAccessRequestStatus[] = [
+  "PENDING",
+  "ACCEPTED",
+  "REJECTED",
+];
 
 export type FirestoreMemberAccessRequest = Omit<
   MemberAccessRequestModel,
@@ -39,6 +48,20 @@ function assertFirestoreMemberAccessRequest(
 
   if (typeof request.username !== "string") {
     throw new Error("Member access request username must be a string.");
+  }
+
+  if (!CONTRIBUTION_PLATFORMS.includes(request.platform)) {
+    throw new Error("Member access request platform must be WEB or ANDROID.");
+  }
+
+  if (!MEMBER_ACCESS_REQUEST_STATUSES.includes(request.status)) {
+    throw new Error(
+      "Member access request status must be PENDING, ACCEPTED, or REJECTED.",
+    );
+  }
+
+  if (!(request.createdAt instanceof Timestamp)) {
+    throw new Error("Member access request createdAt must be a Timestamp.");
   }
 }
 

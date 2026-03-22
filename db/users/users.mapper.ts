@@ -6,6 +6,16 @@ import type {
 } from "@/lib/auth/auth.types";
 import { normalizeTimestamp } from "../timestamp.utils";
 
+const USER_ROLES: UserRole[] = [
+  "SUPER_ADMIN",
+  "ADMIN",
+  "TEAM_LEAD",
+  "TEAM_MEMBER",
+  "CONTRIBUTOR",
+];
+
+const CONTRIBUTION_PLATFORMS: ContributionPlatform[] = ["WEB", "ANDROID"];
+
 export type FirestoreUser = {
   email: string;
   fullName: string;
@@ -40,6 +50,25 @@ function assertFirestoreUser(
 
   if (typeof user.githubUsername !== "string") {
     throw new Error("User githubUsername must be a string.");
+  }
+
+  if (!USER_ROLES.includes(user.role)) {
+    throw new Error("User role must be a valid UserRole.");
+  }
+
+  if (user.team !== null && typeof user.team !== "string") {
+    throw new Error("User team must be a string or null.");
+  }
+
+  if (
+    user.platform !== null &&
+    !CONTRIBUTION_PLATFORMS.includes(user.platform)
+  ) {
+    throw new Error("User platform must be WEB, ANDROID, or null.");
+  }
+
+  if (!(user.createdAt instanceof Timestamp)) {
+    throw new Error("User createdAt must be a Timestamp.");
   }
 }
 

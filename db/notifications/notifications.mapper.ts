@@ -24,6 +24,10 @@ function assertFirestoreNotification(
   if (typeof notification.read !== "boolean") {
     throw new Error("Notification read must be a boolean.");
   }
+
+  if (!(notification.createdAt instanceof Timestamp)) {
+    throw new Error("Notification createdAt must be a Timestamp.");
+  }
 }
 
 /**
