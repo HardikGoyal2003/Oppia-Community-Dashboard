@@ -1,6 +1,6 @@
 import { Notification } from "@/lib/auth/auth.types";
 import { Timestamp } from "firebase-admin/firestore";
-import { normalizeTimestamp } from "@/db/timestamp.utils";
+import { normalizeTimestamp } from "@/db/utils/timestamp.utils";
 
 export type FirestoreNotification = {
   message: string;

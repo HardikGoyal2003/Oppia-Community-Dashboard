@@ -1,5 +1,5 @@
 import { Timestamp } from "firebase-admin/firestore";
-import { normalizeTimestamp } from "../timestamp.utils";
+import { normalizeTimestamp } from "../utils/timestamp.utils";
 import type { AnnouncementBannerModel } from "./announcements.db";
 
 export type FirestoreAnnouncementBanner = Omit<

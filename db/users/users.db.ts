@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth/auth.types";
 import { Timestamp } from "firebase-admin/firestore";
 import { DB_PATHS } from "../db-paths";
+import { DbNotFoundError, DbValidationError } from "../db.errors";
 import { normalizeNotificationDocument } from "../notifications/notifications.mapper";
 import { normalizeUserDocument, serializeUser } from "./users.mapper";
 
@@ -23,8 +24,30 @@ type NotificationStatusFilter = "READ" | "UNREAD" | "ALL";
  */
 function assertGithubUsernameForRole(githubUsername: string) {
   if (!githubUsername.trim()) {
-    throw new Error("githubUsername is required.");
+    throw new DbValidationError(
+      "githubUsername",
+      "githubUsername is required.",
+    );
   }
+}
+
+/**
+ * Resolves a user document reference by uid and guarantees that the document exists.
+ *
+ * @param uid The user id to fetch.
+ * @returns The existing Firestore user document reference.
+ */
+async function getRequiredUserDocRefByUid(
+  uid: string,
+): Promise<FirebaseFirestore.DocumentReference> {
+  const userDocRef = db.collection(DB_PATHS.USERS.COLLECTION).doc(uid);
+  const userDocSnap = await userDocRef.get();
+
+  if (!userDocSnap.exists) {
+    throw new DbNotFoundError("User");
+  }
+
+  return userDocRef;
 }
 
 /**
@@ -120,7 +143,9 @@ export async function updateUserRole(
   uid: string,
   role: UserRole,
 ): Promise<void> {
-  await db.collection(DB_PATHS.USERS.COLLECTION).doc(uid).update({
+  const userDocRef = await getRequiredUserDocRefByUid(uid);
+
+  await userDocRef.update({
     role,
   });
 }
@@ -136,7 +161,9 @@ export async function updateUserPlatformByUid(
   uid: string,
   platform: ContributionPlatform,
 ): Promise<void> {
-  await db.collection(DB_PATHS.USERS.COLLECTION).doc(uid).update({ platform });
+  const userDocRef = await getRequiredUserDocRefByUid(uid);
+
+  await userDocRef.update({ platform });
 }
 
 /**
@@ -156,14 +183,9 @@ export async function updateUserRoleAndTeamByUid(
 ): Promise<void> {
   assertGithubUsernameForRole(githubUsername);
 
-  const ref = db.collection(DB_PATHS.USERS.COLLECTION).doc(uid);
-  const snap = await ref.get();
+  const userDocRef = await getRequiredUserDocRefByUid(uid);
 
-  if (!snap.exists) {
-    throw new Error("User not found.");
-  }
-
-  await ref.update({
+  await userDocRef.update({
     role,
     team,
     githubUsername,
@@ -189,12 +211,7 @@ export async function updateUserRoleAndTeamWithNotificationByUid(
 ): Promise<void> {
   assertGithubUsernameForRole(githubUsername);
 
-  const userDocRef = db.collection(DB_PATHS.USERS.COLLECTION).doc(uid);
-  const userDocSnap = await userDocRef.get();
-
-  if (!userDocSnap.exists) {
-    throw new Error("User not found.");
-  }
+  const userDocRef = await getRequiredUserDocRefByUid(uid);
 
   const notificationRef = userDocRef
     .collection(DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION)
@@ -226,12 +243,7 @@ export async function appendUserNotificationByUid(
   uid: string,
   message: string,
 ): Promise<void> {
-  const userDocRef = db.collection(DB_PATHS.USERS.COLLECTION).doc(uid);
-  const userDocSnap = await userDocRef.get();
-
-  if (!userDocSnap.exists) {
-    throw new Error("User not found.");
-  }
+  const userDocRef = await getRequiredUserDocRefByUid(uid);
 
   await appendNotificationByUserDocRef(userDocRef, {
     message,
@@ -251,12 +263,7 @@ export async function getNotificationsByUid(
   uid: string,
   status: NotificationStatusFilter = "ALL",
 ): Promise<Notification[]> {
-  const userDocRef = db.collection(DB_PATHS.USERS.COLLECTION).doc(uid);
-  const userDocSnap = await userDocRef.get();
-
-  if (!userDocSnap.exists) {
-    throw new Error("User not found.");
-  }
+  const userDocRef = await getRequiredUserDocRefByUid(uid);
 
   let query: FirebaseFirestore.Query = userDocRef.collection(
     DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION,
@@ -289,12 +296,7 @@ export async function markNotificationAsReadByUid(
   uid: string,
   notificationId: string,
 ): Promise<void> {
-  const userDocRef = db.collection(DB_PATHS.USERS.COLLECTION).doc(uid);
-  const userDocSnap = await userDocRef.get();
-
-  if (!userDocSnap.exists) {
-    throw new Error("User not found.");
-  }
+  const userDocRef = await getRequiredUserDocRefByUid(uid);
 
   const notificationRef = userDocRef
     .collection(DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION)
@@ -302,7 +304,7 @@ export async function markNotificationAsReadByUid(
   const notificationSnap = await notificationRef.get();
 
   if (!notificationSnap.exists) {
-    throw new Error("Notification not found.");
+    throw new DbNotFoundError("Notification");
   }
 
   await notificationRef.update({

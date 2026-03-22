@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import { updateUserPlatformByUid } from "@/db/users/users.db";
 import { ContributionPlatform } from "@/lib/auth/auth.types";
+import { DbNotFoundError } from "@/db/db.errors";
 
 function parsePlatform(value: unknown): ContributionPlatform | null {
   if (typeof value !== "string") return null;
@@ -30,6 +31,15 @@ export async function PATCH(req: Request) {
     );
   }
 
-  await updateUserPlatformByUid(session.user.id, platform);
+  try {
+    await updateUserPlatformByUid(session.user.id, platform);
+  } catch (error) {
+    if (error instanceof DbNotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+
+    throw error;
+  }
+
   return NextResponse.json({ success: true, platform });
 }

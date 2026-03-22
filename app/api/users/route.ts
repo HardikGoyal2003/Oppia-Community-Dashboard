@@ -7,6 +7,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { isValidUserRole } from "@/lib/utils/roles.utils";
+import { DbNotFoundError, DbValidationError } from "@/db/db.errors";
 
 function canManageUsers(role: UserRole): boolean {
   return role === "ADMIN" || role === "SUPER_ADMIN";
@@ -70,18 +71,30 @@ export async function PATCH(req: Request) {
     );
   }
 
-  await updateUserRoleAndTeamWithNotificationByUid(
-    uid,
-    role,
-    team,
-    githubUsername,
-    getUserAccessUpdatedMessage(
+  try {
+    await updateUserRoleAndTeamWithNotificationByUid(
+      uid,
       role,
       team,
-      reason,
-      session.user.email ?? undefined,
-    ),
-  );
+      githubUsername,
+      getUserAccessUpdatedMessage(
+        role,
+        team,
+        reason,
+        session.user.email ?? undefined,
+      ),
+    );
+  } catch (error) {
+    if (error instanceof DbNotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+
+    if (error instanceof DbValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    throw error;
+  }
 
   return NextResponse.json({ success: true });
 }

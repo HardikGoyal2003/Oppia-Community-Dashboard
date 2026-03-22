@@ -14,6 +14,11 @@ import {
 } from "@/db/users/users.db";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { isValidUserRole } from "@/lib/utils/roles.utils";
+import {
+  DbInvalidStateError,
+  DbNotFoundError,
+  DbValidationError,
+} from "@/db/db.errors";
 
 function canManageRequests(role: UserRole): boolean {
   return role === "ADMIN" || role === "SUPER_ADMIN";
@@ -169,28 +174,44 @@ export async function PATCH(req: Request) {
     );
   }
 
-  const request = await resolveMemberAccessRequest(requestId, decision);
+  try {
+    const request = await resolveMemberAccessRequest(requestId, decision);
 
-  if (decision === "ACCEPT") {
-    if (!isValidUserRole(request.role)) {
-      return NextResponse.json(
-        { error: "Invalid role in request." },
-        { status: 400 },
+    if (decision === "ACCEPT") {
+      if (!isValidUserRole(request.role)) {
+        return NextResponse.json(
+          { error: "Invalid role in request." },
+          { status: 400 },
+        );
+      }
+
+      await updateUserRoleAndTeamWithNotificationByUid(
+        request.userId,
+        request.role,
+        request.team,
+        request.username,
+        getPromotionMessage(request.role, request.team),
+      );
+    } else {
+      await appendUserNotificationByUid(
+        request.userId,
+        getDeclineMessage(reason),
       );
     }
+  } catch (error) {
+    if (error instanceof DbNotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
 
-    await updateUserRoleAndTeamWithNotificationByUid(
-      request.userId,
-      request.role,
-      request.team,
-      request.username,
-      getPromotionMessage(request.role, request.team),
-    );
-  } else {
-    await appendUserNotificationByUid(
-      request.userId,
-      getDeclineMessage(reason),
-    );
+    if (error instanceof DbInvalidStateError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+
+    if (error instanceof DbValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    throw error;
   }
 
   return NextResponse.json({ success: true });

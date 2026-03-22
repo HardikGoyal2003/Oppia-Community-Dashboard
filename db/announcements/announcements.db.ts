@@ -1,6 +1,7 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DB_PATHS } from "../db-paths";
+import { DbNotFoundError } from "../db.errors";
 import { normalizeAnnouncementBannerDocument } from "./announcements.mapper";
 
 export interface AnnouncementBannerModel {
@@ -24,7 +25,7 @@ export async function getAnnouncementBanner(): Promise<AnnouncementBannerModel> 
     .get();
 
   if (!snapshot.exists) {
-    throw new Error("Announcement banner not found.");
+    throw new DbNotFoundError("Announcement banner");
   }
 
   return normalizeAnnouncementBannerDocument(snapshot.data()!);

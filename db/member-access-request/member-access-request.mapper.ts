@@ -3,7 +3,7 @@ import type {
   MemberAccessRequestModel,
   MemberAccessRequestRecord,
 } from "@/db/member-access-request/member-access-request.types";
-import { normalizeTimestamp } from "@/db/timestamp.utils";
+import { normalizeTimestamp } from "@/db/utils/timestamp.utils";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type { MemberAccessRequestStatus } from "@/db/member-access-request/member-access-request.types";
 

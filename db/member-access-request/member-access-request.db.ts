@@ -1,5 +1,6 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DB_PATHS } from "@/db/db-paths";
+import { DbInvalidStateError, DbNotFoundError } from "@/db/db.errors";
 import {
   normalizeMemberAccessRequestDocument,
   normalizeMemberAccessRequestRecord,
@@ -120,7 +121,7 @@ export async function resolveMemberAccessRequest(
     const snapshot = await tx.get(requestRef);
 
     if (!snapshot.exists) {
-      throw new Error("Member access request not found.");
+      throw new DbNotFoundError("Member access request");
     }
 
     const request = normalizeMemberAccessRequestRecord(
@@ -129,7 +130,10 @@ export async function resolveMemberAccessRequest(
     );
 
     if (request.status !== "PENDING") {
-      throw new Error("Member access request is no longer pending.");
+      throw new DbInvalidStateError(
+        "Member access request",
+        "Member access request is no longer pending.",
+      );
     }
 
     const status = decision === "ACCEPT" ? "ACCEPTED" : "REJECTED";

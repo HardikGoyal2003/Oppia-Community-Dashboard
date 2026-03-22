@@ -5,6 +5,7 @@ import {
   getNotificationsByUid,
   markNotificationAsReadByUid,
 } from "@/db/users/users.db";
+import { DbNotFoundError } from "@/db/db.errors";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
@@ -22,9 +23,17 @@ export async function GET(req: Request) {
         ? "UNREAD"
         : "ALL";
 
-  const notifications = await getNotificationsByUid(session.user.id, status);
+  try {
+    const notifications = await getNotificationsByUid(session.user.id, status);
 
-  return NextResponse.json({ notifications });
+    return NextResponse.json({ notifications });
+  } catch (error) {
+    if (error instanceof DbNotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+
+    throw error;
+  }
 }
 
 export async function PATCH(req: Request) {
@@ -45,7 +54,15 @@ export async function PATCH(req: Request) {
     );
   }
 
-  await markNotificationAsReadByUid(session.user.id, notificationId);
+  try {
+    await markNotificationAsReadByUid(session.user.id, notificationId);
+  } catch (error) {
+    if (error instanceof DbNotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+
+    throw error;
+  }
 
   return NextResponse.json({ success: true });
 }

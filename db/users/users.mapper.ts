@@ -4,7 +4,7 @@ import type {
   UserModel,
   UserRole,
 } from "@/lib/auth/auth.types";
-import { normalizeTimestamp } from "../timestamp.utils";
+import { normalizeTimestamp } from "../utils/timestamp.utils";
 
 const USER_ROLES: UserRole[] = [
   "SUPER_ADMIN",
