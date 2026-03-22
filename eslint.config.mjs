@@ -7,6 +7,22 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
+    files: ["**/*.ts", "**/*.tsx", "**/*.mts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "TSAnyKeyword",
+          message: "Avoid `any`. Use a specific type instead.",
+        },
+        {
+          selector: "TSUnknownKeyword",
+          message: "Avoid `unknown`. Use a specific type instead.",
+        },
+      ],
+    },
+  },
+  {
     files: ["db/**/*.ts"],
     plugins: {
       jsdoclocal: requireJsdocPlugin,

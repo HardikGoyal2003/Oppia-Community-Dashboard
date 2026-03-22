@@ -5,7 +5,13 @@ import { updateUserPlatformByUid } from "@/db/users/users.db";
 import { ContributionPlatform } from "@/lib/auth/auth.types";
 import { DbNotFoundError } from "@/db/db.errors";
 
-function parsePlatform(value: unknown): ContributionPlatform | null {
+type PlatformRequestBody = {
+  platform?: string | null;
+};
+
+function parsePlatform(
+  value: string | null | undefined,
+): ContributionPlatform | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim().toUpperCase();
   if (trimmed === "WEB") return "WEB";
@@ -21,7 +27,9 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await req.json().catch(() => null);
+  const body = (await req
+    .json()
+    .catch(() => null)) as PlatformRequestBody | null;
   const platform = parsePlatform(body?.platform);
 
   if (!platform) {

@@ -9,24 +9,30 @@ import {
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type { Issue } from "@/lib/domain/issues.types";
 
-function parsePlatform(value: unknown): ContributionPlatform | null {
+type ArchivedIssueRequestBody = {
+  issue?: Partial<Issue> | null;
+  issueNumber?: number | null;
+  platform?: string | null;
+};
+
+function parsePlatform(
+  value: string | null | undefined,
+): ContributionPlatform | null {
   return value === "WEB" || value === "ANDROID" ? value : null;
 }
 
-function isIssue(value: unknown): value is Issue {
-  if (typeof value !== "object" || value === null) {
+function isIssue(value: Partial<Issue> | null | undefined): value is Issue {
+  if (!value) {
     return false;
   }
 
-  const candidate = value as Record<string, unknown>;
-
   return (
-    typeof candidate.issueNumber === "number" &&
-    typeof candidate.issueUrl === "string" &&
-    typeof candidate.issueTitle === "string" &&
-    typeof candidate.isArchived === "boolean" &&
-    typeof candidate.lastCommentCreatedAt === "string" &&
-    typeof candidate.linkedProject === "string"
+    typeof value.issueNumber === "number" &&
+    typeof value.issueUrl === "string" &&
+    typeof value.issueTitle === "string" &&
+    typeof value.isArchived === "boolean" &&
+    typeof value.lastCommentCreatedAt === "string" &&
+    typeof value.linkedProject === "string"
   );
 }
 
@@ -55,10 +61,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  const body = (await req.json()) as {
-    issue?: unknown;
-    platform?: unknown;
-  };
+  const body = (await req.json()) as ArchivedIssueRequestBody;
   const platform = parsePlatform(body.platform);
 
   if (!platform || !isIssue(body.issue)) {
@@ -79,10 +82,7 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  const body = (await req.json()) as {
-    issueNumber?: unknown;
-    platform?: unknown;
-  };
+  const body = (await req.json()) as ArchivedIssueRequestBody;
   const platform = parsePlatform(body.platform);
 
   if (!platform || typeof body.issueNumber !== "number") {
