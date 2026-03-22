@@ -2,14 +2,15 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import {
-  getNotificationsByEmail,
-  markNotificationAsReadByEmail,
-} from "@/db/users.db";
+  getNotificationsByUid,
+  markNotificationAsReadByUid,
+} from "@/db/users/users.db";
+import { DbNotFoundError } from "@/db/db.errors";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
 
-  if (!session || !session.user || !session.user.email) {
+  if (!session || !session.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
@@ -22,18 +23,23 @@ export async function GET(req: Request) {
         ? "UNREAD"
         : "ALL";
 
-  const notifications = await getNotificationsByEmail(
-    session.user.email,
-    status,
-  );
+  try {
+    const notifications = await getNotificationsByUid(session.user.id, status);
 
-  return NextResponse.json({ notifications });
+    return NextResponse.json({ notifications });
+  } catch (error) {
+    if (error instanceof DbNotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+
+    throw error;
+  }
 }
 
 export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions);
 
-  if (!session || !session.user || !session.user.email) {
+  if (!session || !session.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
@@ -48,7 +54,15 @@ export async function PATCH(req: Request) {
     );
   }
 
-  await markNotificationAsReadByEmail(session.user.email, notificationId);
+  try {
+    await markNotificationAsReadByUid(session.user.id, notificationId);
+  } catch (error) {
+    if (error instanceof DbNotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+
+    throw error;
+  }
 
   return NextResponse.json({ success: true });
 }

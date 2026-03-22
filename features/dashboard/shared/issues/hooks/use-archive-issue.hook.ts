@@ -2,11 +2,11 @@
 
 import { useSession } from "next-auth/react";
 import { useProjectIssuesStore } from "../store/project-issues.store";
-import { archiveIssue } from "../../../../../db/archived-issues.db";
-import { Issue } from "../../../dashboard.types";
 import { CategorizedProjectIssues } from "../../../dashboard.types";
+import type { Issue } from "@/lib/domain/issues.types";
 
 import { CONSTANTS } from "@/lib/constants";
+import { archiveIssueForPlatform } from "../services/archived-issues-api.service";
 
 export function useArchiveIssue() {
   const moveIssue = useProjectIssuesStore((state) => state.moveIssue);
@@ -20,7 +20,7 @@ export function useArchiveIssue() {
       return;
     }
 
-    await archiveIssue(issue, platform);
+    await archiveIssueForPlatform(issue, platform);
 
     let from: keyof CategorizedProjectIssues;
 

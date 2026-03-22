@@ -5,7 +5,7 @@ export type MemberAccessDecision = "ACCEPT" | "DECLINE";
 export type MemberAccessRequestStatus = "PENDING" | "ACCEPTED" | "REJECTED";
 
 export interface MemberAccessRequestModel {
-  email: string;
+  userId: string;
   platform: ContributionPlatform;
   team: string;
   role: string;
@@ -13,4 +13,8 @@ export interface MemberAccessRequestModel {
   username: string;
   status: MemberAccessRequestStatus;
   createdAt: Date;
+}
+
+export interface MemberAccessRequestRecord extends MemberAccessRequestModel {
+  id: string;
 }

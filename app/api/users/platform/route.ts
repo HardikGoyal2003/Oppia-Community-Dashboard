@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
-import { updateUserPlatformByUid } from "@/db/users.db";
+import { updateUserPlatformByUid } from "@/db/users/users.db";
 import { ContributionPlatform } from "@/lib/auth/auth.types";
+import { DbNotFoundError } from "@/db/db.errors";
 
-function parsePlatform(value: unknown): ContributionPlatform | null {
+type PlatformRequestBody = {
+  platform?: string | null;
+};
+
+function parsePlatform(
+  value: string | null | undefined,
+): ContributionPlatform | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim().toUpperCase();
   if (trimmed === "WEB") return "WEB";
@@ -20,7 +27,9 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await req.json().catch(() => null);
+  const body = (await req
+    .json()
+    .catch(() => null)) as PlatformRequestBody | null;
   const platform = parsePlatform(body?.platform);
 
   if (!platform) {
@@ -30,6 +39,15 @@ export async function PATCH(req: Request) {
     );
   }
 
-  await updateUserPlatformByUid(session.user.id, platform);
+  try {
+    await updateUserPlatformByUid(session.user.id, platform);
+  } catch (error) {
+    if (error instanceof DbNotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+
+    throw error;
+  }
+
   return NextResponse.json({ success: true, platform });
 }

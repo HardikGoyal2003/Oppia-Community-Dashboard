@@ -6,14 +6,19 @@ import {
   PendingMemberAccessRequestError,
   resolveMemberAccessRequest,
   submitMemberAccessRequest,
-} from "@/db/member-request-access/member-request-access.db";
+} from "@/db/member-access-request/member-access-request.db";
 import {
-  appendUserNotificationByEmail,
-  getUserByEmail,
-  updateUserRoleTeamAndNotifyByEmail,
-} from "@/db/users.db";
+  appendUserNotificationByUid,
+  getUserById,
+  updateUserRoleAndTeamWithNotificationByUid,
+} from "@/db/users/users.db";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { isValidUserRole } from "@/lib/utils/roles.utils";
+import {
+  DbInvalidStateError,
+  DbNotFoundError,
+  DbValidationError,
+} from "@/db/db.errors";
 
 function canManageRequests(role: UserRole): boolean {
   return role === "ADMIN" || role === "SUPER_ADMIN";
@@ -34,9 +39,14 @@ function getPromotionMessage(role: UserRole, team: string): string {
   }
 }
 
-function getDeclineMessage(reason: string): string {
+function getDeclineMessage(
+  reason: string,
+  changedByGithubUsername?: string,
+): string {
+  const actor = changedByGithubUsername ?? "Admin";
+
   return [
-    "Thank you for your request. At this moment, we are unable to approve it.",
+    `Thank you for your request. ${actor} reviewed it and we are unable to approve it at this moment.`,
     `Reason: ${reason}`,
     "Please refine your request and apply again. We appreciate your interest in contributing with us.",
   ].join("\n");
@@ -65,7 +75,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
 
-  if (!session || !session.user || !session.user.email) {
+  if (!session || !session.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
@@ -81,7 +91,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const dbUser = await getUserByEmail(session.user.email);
+  const dbUser = await getUserById(session.user.id);
   const username = dbUser?.githubUsername;
   const platform = dbUser?.platform;
 
@@ -104,7 +114,7 @@ export async function POST(req: Request) {
 
   try {
     await submitMemberAccessRequest({
-      email: session.user.email,
+      userId: session.user.id,
       platform: platform as ContributionPlatform,
       team,
       role,
@@ -149,13 +159,15 @@ export async function PATCH(req: Request) {
   }
 
   const body = await req.json();
-  const email = body.email.trim();
-  const decision = body.decision.trim();
+  const requestId =
+    typeof body.requestId === "string" ? body.requestId.trim() : "";
+  const decision =
+    typeof body.decision === "string" ? body.decision.trim() : "";
   const reason = typeof body.reason === "string" ? body.reason.trim() : "";
 
-  if (!email || !decision || !["ACCEPT", "DECLINE"].includes(decision)) {
+  if (!requestId || !decision || !["ACCEPT", "DECLINE"].includes(decision)) {
     return NextResponse.json(
-      { error: "Invalid email/decision payload." },
+      { error: "Invalid requestId/decision payload." },
       { status: 400 },
     );
   }
@@ -167,28 +179,45 @@ export async function PATCH(req: Request) {
     );
   }
 
-  const request = await resolveMemberAccessRequest(email, decision);
+  try {
+    const request = await resolveMemberAccessRequest(requestId, decision);
+    const adminUser = await getUserById(session.user.id);
 
-  if (decision === "ACCEPT") {
-    if (!isValidUserRole(request.role)) {
-      return NextResponse.json(
-        { error: "Invalid role in request." },
-        { status: 400 },
+    if (decision === "ACCEPT") {
+      if (!isValidUserRole(request.role)) {
+        return NextResponse.json(
+          { error: "Invalid role in request." },
+          { status: 400 },
+        );
+      }
+
+      await updateUserRoleAndTeamWithNotificationByUid(
+        request.userId,
+        request.role,
+        request.team,
+        request.username,
+        getPromotionMessage(request.role, request.team),
+      );
+    } else {
+      await appendUserNotificationByUid(
+        request.userId,
+        getDeclineMessage(reason, adminUser?.githubUsername),
       );
     }
+  } catch (error) {
+    if (error instanceof DbNotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
 
-    await updateUserRoleTeamAndNotifyByEmail(
-      request.email,
-      request.role,
-      request.team,
-      request.username,
-      getPromotionMessage(request.role, request.team),
-    );
-  } else {
-    await appendUserNotificationByEmail(
-      request.email,
-      getDeclineMessage(reason),
-    );
+    if (error instanceof DbInvalidStateError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+
+    if (error instanceof DbValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    throw error;
   }
 
   return NextResponse.json({ success: true });

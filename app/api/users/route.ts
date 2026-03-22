@@ -1,15 +1,35 @@
 import { NextResponse } from "next/server";
 import {
+  getUserById,
   getUsersByPlatform,
-  updateUserRoleTeamAndNotifyByUid,
-} from "@/db/users.db";
+  updateUserRoleAndTeamWithNotificationByUid,
+} from "@/db/users/users.db";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { isValidUserRole } from "@/lib/utils/roles.utils";
+import { DbNotFoundError, DbValidationError } from "@/db/db.errors";
 
 function canManageUsers(role: UserRole): boolean {
   return role === "ADMIN" || role === "SUPER_ADMIN";
+}
+
+function getUserAccessUpdatedMessage(
+  role: UserRole,
+  team: string | null,
+  reason: string,
+  changedByGithubUsername?: string,
+): string {
+  const roleLabel = role.replace("_", " ");
+  const teamLabel = team ?? "Unassigned";
+  const actor = changedByGithubUsername ?? "Admin";
+
+  return [
+    `Your access details were updated by ${actor}.`,
+    `New role: ${roleLabel}`,
+    `New team: ${teamLabel}`,
+    `Reason: ${reason}`,
+  ].join("\n");
 }
 
 export async function GET(req: Request) {
@@ -42,24 +62,42 @@ export async function PATCH(req: Request) {
   const role = typeof body.role === "string" ? body.role.trim() : "";
   const team = typeof body.team === "string" ? body.team.trim() : null;
   const githubUsername =
-    typeof body.githubUsername === "string" ? body.githubUsername.trim() : null;
+    typeof body.githubUsername === "string" ? body.githubUsername.trim() : "";
   const reason = typeof body.reason === "string" ? body.reason.trim() : "";
 
-  if (!uid || !role || !isValidUserRole(role) || !reason) {
+  if (!uid || !role || !isValidUserRole(role) || !githubUsername || !reason) {
     return NextResponse.json(
       { error: "Invalid payload for user update." },
       { status: 400 },
     );
   }
 
-  await updateUserRoleTeamAndNotifyByUid(
-    uid,
-    role,
-    team,
-    reason,
-    githubUsername,
-    session.user.email ?? undefined,
-  );
+  try {
+    const adminUser = await getUserById(session.user.id);
+
+    await updateUserRoleAndTeamWithNotificationByUid(
+      uid,
+      role,
+      team,
+      githubUsername,
+      getUserAccessUpdatedMessage(
+        role,
+        team,
+        reason,
+        adminUser?.githubUsername,
+      ),
+    );
+  } catch (error) {
+    if (error instanceof DbNotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+
+    if (error instanceof DbValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    throw error;
+  }
 
   return NextResponse.json({ success: true });
 }

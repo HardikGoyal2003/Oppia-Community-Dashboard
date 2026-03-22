@@ -10,7 +10,7 @@ type User = {
   id: string;
   fullName: string;
   email: string;
-  githubUsername: string | null;
+  githubUsername: string;
   platform: ContributionPlatform | null;
   role: UserRole;
   team: string | null;
@@ -19,7 +19,7 @@ type User = {
 type PendingUpdate = {
   userId: string;
   userName: string;
-  githubUsername: string | null;
+  githubUsername: string;
   role: UserRole;
   team: string | null;
 };
@@ -80,7 +80,7 @@ export function UserRoleManagerTab() {
     setPendingUpdate({
       userId: user.id,
       userName: user.fullName || user.email,
-      githubUsername: user.githubUsername ?? null,
+      githubUsername: user.githubUsername,
       role,
       team,
     });
@@ -179,7 +179,7 @@ export function UserRoleManagerTab() {
                 <td className="p-3">{index + 1}</td>
                 <td className="p-3">{user.fullName}</td>
                 <td className="p-3">{user.email}</td>
-                <td className="p-3">{user.githubUsername ?? "-"}</td>
+                <td className="p-3">{user.githubUsername}</td>
                 <td className="p-3">
                   <select
                     value={user.team ?? ""}

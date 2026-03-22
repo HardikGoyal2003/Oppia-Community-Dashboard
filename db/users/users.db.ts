@@ -1,0 +1,335 @@
+import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
+import {
+  Notification,
+  ContributionPlatform,
+  UserRole,
+  UserModel,
+} from "@/lib/auth/auth.types";
+import { Timestamp } from "firebase-admin/firestore";
+import { DB_PATHS } from "../db-paths";
+import { DbNotFoundError, DbValidationError } from "../db.errors";
+import { normalizeNotificationDocument } from "../notifications/notifications.mapper";
+import { normalizeUserDocument, serializeUser } from "./users.mapper";
+
+const db = getAdminFirestore();
+
+type NotificationStatusFilter = "READ" | "UNREAD" | "ALL";
+
+/**
+ * Validates the GitHub username requirement for non-contributor roles.
+ *
+ * @param role The role being assigned.
+ * @param githubUsername The GitHub username associated with the user.
+ * @returns Nothing. Throws when the role requires a GitHub username and one is missing.
+ */
+function assertGithubUsernameForRole(githubUsername: string) {
+  if (!githubUsername.trim()) {
+    throw new DbValidationError(
+      "githubUsername",
+      "githubUsername is required.",
+    );
+  }
+}
+
+/**
+ * Resolves a user document reference by uid and guarantees that the document exists.
+ *
+ * @param uid The user id to fetch.
+ * @returns The existing Firestore user document reference.
+ */
+async function getRequiredUserDocRefByUid(
+  uid: string,
+): Promise<FirebaseFirestore.DocumentReference> {
+  const userDocRef = db.collection(DB_PATHS.USERS.COLLECTION).doc(uid);
+  const userDocSnap = await userDocRef.get();
+
+  if (!userDocSnap.exists) {
+    throw new DbNotFoundError("User");
+  }
+
+  return userDocRef;
+}
+
+/**
+ * Creates a user document on first login when one does not already exist.
+ *
+ * @param uid The user id to write under.
+ * @param data The user payload to persist.
+ * @returns A promise that resolves when the user has been ensured in Firestore.
+ */
+export async function createUserIfNotExists(
+  uid: string,
+  data: Omit<UserModel, "createdAt">,
+): Promise<void> {
+  assertGithubUsernameForRole(data.githubUsername);
+
+  const ref = db.collection(DB_PATHS.USERS.COLLECTION).doc(uid);
+  const now = Timestamp.now();
+
+  try {
+    await ref.create(
+      serializeUser({
+        ...data,
+        createdAt: now,
+      }),
+    );
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Already exists")) {
+      return;
+    }
+
+    throw error;
+  }
+}
+
+/**
+ * Retrieves a user by uid.
+ *
+ * @param uid The user id to fetch.
+ * @returns The normalized user model, or null when no user exists.
+ */
+export async function getUserById(uid: string): Promise<UserModel | null> {
+  const snap = await db.collection(DB_PATHS.USERS.COLLECTION).doc(uid).get();
+
+  if (!snap.exists) return null;
+
+  const data = snap.data()!;
+
+  return normalizeUserDocument(data);
+}
+
+/**
+ * Retrieves all users across platforms.
+ *
+ * @returns The normalized user models with document ids attached.
+ */
+export async function getAllUsers(): Promise<(UserModel & { id: string })[]> {
+  return getUsersByPlatform();
+}
+
+/**
+ * Retrieves users, optionally scoped to a contribution platform.
+ *
+ * @param platform The optional contribution platform filter.
+ * @returns The normalized user models with document ids attached.
+ */
+export async function getUsersByPlatform(
+  platform?: ContributionPlatform,
+): Promise<(UserModel & { id: string })[]> {
+  let query: FirebaseFirestore.Query = db.collection(DB_PATHS.USERS.COLLECTION);
+
+  if (platform) {
+    query = query.where("platform", "==", platform);
+  }
+
+  const snap = await query.orderBy("createdAt", "desc").get();
+
+  return snap.docs.map((doc) => {
+    return {
+      id: doc.id,
+      ...normalizeUserDocument(doc.data()),
+    };
+  });
+}
+
+/**
+ * Updates the role of an existing user.
+ *
+ * @param uid The user id to update.
+ * @param role The new role value.
+ * @returns A promise that resolves when the update has been written.
+ */
+export async function updateUserRole(
+  uid: string,
+  role: UserRole,
+): Promise<void> {
+  const userDocRef = await getRequiredUserDocRefByUid(uid);
+
+  await userDocRef.update({
+    role,
+  });
+}
+
+/**
+ * Updates the contribution platform for an existing user.
+ *
+ * @param uid The user id to update.
+ * @param platform The platform value to persist.
+ * @returns A promise that resolves when the update has been written.
+ */
+export async function updateUserPlatformByUid(
+  uid: string,
+  platform: ContributionPlatform,
+): Promise<void> {
+  const userDocRef = await getRequiredUserDocRefByUid(uid);
+
+  await userDocRef.update({ platform });
+}
+
+/**
+ * Updates a user's role and team by uid.
+ *
+ * @param uid The user id to update.
+ * @param role The new role value.
+ * @param team The new team value.
+ * @param githubUsername The GitHub username to persist.
+ * @returns A promise that resolves when the user update has been written.
+ */
+export async function updateUserRoleAndTeamByUid(
+  uid: string,
+  role: UserRole,
+  team: string | null,
+  githubUsername: string,
+): Promise<void> {
+  assertGithubUsernameForRole(githubUsername);
+
+  const userDocRef = await getRequiredUserDocRefByUid(uid);
+
+  await userDocRef.update({
+    role,
+    team,
+    githubUsername,
+  });
+}
+
+/**
+ * Updates a user's role and team by uid and appends a notification atomically.
+ *
+ * @param uid The user id to update.
+ * @param role The new role value.
+ * @param team The new team value.
+ * @param githubUsername The GitHub username to persist.
+ * @param message The notification message to append.
+ * @returns A promise that resolves when the update and notification write have been committed.
+ */
+export async function updateUserRoleAndTeamWithNotificationByUid(
+  uid: string,
+  role: UserRole,
+  team: string | null,
+  githubUsername: string,
+  message: string,
+): Promise<void> {
+  assertGithubUsernameForRole(githubUsername);
+
+  const userDocRef = await getRequiredUserDocRefByUid(uid);
+
+  const notificationRef = userDocRef
+    .collection(DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION)
+    .doc();
+  const batch = db.batch();
+
+  batch.update(userDocRef, {
+    role,
+    team,
+    githubUsername,
+  });
+  batch.set(notificationRef, {
+    message,
+    read: false,
+    createdAt: Timestamp.now(),
+  });
+
+  await batch.commit();
+}
+
+/**
+ * Appends a notification to a user located by uid.
+ *
+ * @param uid The user id to update.
+ * @param message The notification message to append.
+ * @returns A promise that resolves when the notification has been written.
+ */
+export async function appendUserNotificationByUid(
+  uid: string,
+  message: string,
+): Promise<void> {
+  const userDocRef = await getRequiredUserDocRefByUid(uid);
+
+  await appendNotificationByUserDocRef(userDocRef, {
+    message,
+    createdAt: new Date(),
+    read: false,
+  });
+}
+
+/**
+ * Retrieves notifications for a user id, optionally filtered by read status.
+ *
+ * @param uid The user id to query by.
+ * @param status The optional notification status filter.
+ * @returns The normalized notifications sorted by creation time descending.
+ */
+export async function getNotificationsByUid(
+  uid: string,
+  status: NotificationStatusFilter = "ALL",
+): Promise<Notification[]> {
+  const userDocRef = await getRequiredUserDocRefByUid(uid);
+
+  let query: FirebaseFirestore.Query = userDocRef.collection(
+    DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION,
+  );
+
+  if (status === "READ") {
+    query = query.where("read", "==", true);
+  } else if (status === "UNREAD") {
+    query = query.where("read", "==", false);
+  }
+
+  const snapshot = await query.orderBy("createdAt", "desc").get();
+
+  return snapshot.docs.map((doc) =>
+    normalizeNotificationDocument({
+      id: doc.id,
+      ...doc.data(),
+    }),
+  );
+}
+
+/**
+ * Marks a notification as read for the user identified by uid.
+ *
+ * @param uid The user id to query by.
+ * @param notificationId The notification document id to update.
+ * @returns A promise that resolves when the notification has been marked as read.
+ */
+export async function markNotificationAsReadByUid(
+  uid: string,
+  notificationId: string,
+): Promise<void> {
+  const userDocRef = await getRequiredUserDocRefByUid(uid);
+
+  const notificationRef = userDocRef
+    .collection(DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION)
+    .doc(notificationId);
+  const notificationSnap = await notificationRef.get();
+
+  if (!notificationSnap.exists) {
+    throw new DbNotFoundError("Notification");
+  }
+
+  await notificationRef.update({
+    read: true,
+  });
+}
+
+/**
+ * Appends a notification document under an already-resolved user document reference.
+ *
+ * @param userDocRef The Firestore user document reference.
+ * @param notification The notification payload to persist.
+ * @returns A promise that resolves when the notification has been written.
+ */
+async function appendNotificationByUserDocRef(
+  userDocRef: FirebaseFirestore.DocumentReference,
+  notification: Omit<Notification, "id">,
+): Promise<void> {
+  const notificationRef = userDocRef
+    .collection(DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION)
+    .doc();
+
+  await notificationRef.set({
+    message: notification.message,
+    read: notification.read,
+    createdAt: Timestamp.fromDate(notification.createdAt),
+  });
+}

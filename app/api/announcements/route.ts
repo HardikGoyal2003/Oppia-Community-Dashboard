@@ -4,21 +4,30 @@ import { authOptions } from "@/lib/auth/auth.options";
 import {
   getAnnouncementBanner,
   upsertAnnouncementBanner,
-} from "@/db/announcements.db";
+} from "@/db/announcements/announcements.db";
+import { DbNotFoundError } from "@/db/db.errors";
 
 function isSuperAdmin(role: string | undefined): boolean {
   return role === "SUPER_ADMIN";
 }
 
 export async function GET() {
-  const banner = await getAnnouncementBanner();
+  try {
+    const banner = await getAnnouncementBanner();
 
-  return NextResponse.json({
-    announcement: {
-      ...banner,
-      updatedAt: banner.updatedAt?.toISOString() ?? null,
-    },
-  });
+    return NextResponse.json({
+      announcement: {
+        ...banner,
+        updatedAt: banner.updatedAt.toISOString(),
+      },
+    });
+  } catch (error) {
+    if (error instanceof DbNotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+
+    throw error;
+  }
 }
 
 export async function PUT(req: Request) {
