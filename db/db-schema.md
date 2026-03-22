@@ -75,6 +75,26 @@ Fields:
 - `status: "PENDING" | "ACCEPTED" | "REJECTED"`
 - `createdAt: Timestamp`
 
+### `dataJobRuns`
+
+Document id:
+
+- auto-generated run id
+
+Fields:
+
+- `jobKey: string`
+- `jobName: string`
+- `kind: "AUDIT" | "BACKFILL" | "MIGRATION" | "CLEANUP"`
+- `status: "RUNNING" | "SUCCEEDED" | "FAILED"`
+- `dryRun: boolean`
+- `triggeredByUserId: string`
+- `triggeredByGithubUsername: string`
+- `summary: string`
+- `errorMessage: string | null`
+- `startedAt: Timestamp`
+- `finishedAt: Timestamp | null`
+
 ## Derived Type Summary
 
 Normalized app-layer models convert Firestore timestamps as follows:
@@ -82,3 +102,5 @@ Normalized app-layer models convert Firestore timestamps as follows:
 - `users.createdAt -> Date`
 - `users/{uid}/notifications.createdAt -> Date`
 - `memberAccessRequests.createdAt -> Date`
+- `dataJobRuns.startedAt -> Date`
+- `dataJobRuns.finishedAt -> Date | null`
