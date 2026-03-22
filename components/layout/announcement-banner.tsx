@@ -1,40 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-
-type AnnouncementBannerData = {
-  title: string;
-  message: string;
-  isEnabled: boolean;
-  updatedAt: string;
-};
+import { useEffect, useRef } from "react";
+import { CONSTANTS } from "@/lib/constants";
 
 export function AnnouncementBanner() {
-  const [announcement, setAnnouncement] =
-    useState<AnnouncementBannerData | null>(null);
   const bannerRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const response = await fetch("/api/announcements", {
-          cache: "no-store",
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to load announcement.");
-        }
-
-        const data = (await response.json()) as {
-          announcement: AnnouncementBannerData;
-        };
-
-        setAnnouncement(data.announcement);
-      } catch (error) {
-        console.error(error);
-      }
-    })();
-  }, []);
+  const title = CONSTANTS.ANNOUNCEMENT_BANNER.TITLE;
+  const message = CONSTANTS.ANNOUNCEMENT_BANNER.MESSAGE;
+  const isEnabled = CONSTANTS.ANNOUNCEMENT_BANNER.IS_ENABLED;
 
   useEffect(() => {
     const root = document.documentElement;
@@ -51,13 +24,9 @@ export function AnnouncementBanner() {
       window.removeEventListener("resize", syncBannerHeight);
       root.style.setProperty("--announcement-banner-height", "0px");
     };
-  }, [announcement]);
+  }, [isEnabled, message, title]);
 
-  if (
-    !announcement ||
-    !announcement.isEnabled ||
-    (!announcement.title && !announcement.message)
-  ) {
+  if (!isEnabled || (!title && !message)) {
     return null;
   }
 
@@ -67,12 +36,8 @@ export function AnnouncementBanner() {
       className="relative z-20 border-b border-amber-200 bg-amber-50 px-6 py-3 text-amber-950"
     >
       <div className="mx-auto max-w-7xl flex justify-center items-center">
-        {announcement.title && (
-          <p className="text-sm font-semibold">{announcement.title}</p>
-        )}
-        {announcement.message && (
-          <p className="mx-1 text-sm">{announcement.message}</p>
-        )}
+        {title && <p className="text-sm font-semibold">{title}</p>}
+        {message && <p className="mx-1 text-sm">{message}</p>}
       </div>
     </div>
   );

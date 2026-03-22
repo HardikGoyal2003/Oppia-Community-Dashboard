@@ -21,6 +21,13 @@ export const CONSTANTS = {
       "https://github.com/oppia/oppia-android/wiki/Contributing-to-Oppia-android",
   },
 
+  ANNOUNCEMENT_BANNER: {
+    TITLE: "🚧 Scheduled maintenance:",
+    MESSAGE:
+      "Our website will be temporarily unavailable on [date] from [start time] to [end time]. Thank you for your understanding.",
+    IS_ENABLED: false,
+  },
+
   ROLES: {
     SUPER_ADMIN: "Super Admin",
     CONTRIBUTOR: "Contributor",
