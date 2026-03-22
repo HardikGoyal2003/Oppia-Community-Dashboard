@@ -65,7 +65,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
 
-  if (!session || !session.user || !session.user.email) {
+  if (!session || !session.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
@@ -105,7 +105,6 @@ export async function POST(req: Request) {
   try {
     await submitMemberAccessRequest({
       userId: session.user.id,
-      email: session.user.email,
       platform: platform as ContributionPlatform,
       team,
       role,

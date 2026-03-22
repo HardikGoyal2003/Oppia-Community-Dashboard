@@ -6,7 +6,6 @@ export type MemberAccessRequestStatus = "PENDING" | "ACCEPTED" | "REJECTED";
 
 export interface MemberAccessRequestModel {
   userId: string;
-  email: string;
   platform: ContributionPlatform;
   team: string;
   role: string;

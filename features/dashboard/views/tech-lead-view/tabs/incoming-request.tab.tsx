@@ -10,7 +10,6 @@ import type { ContributionPlatform } from "@/lib/auth/auth.types";
 type MemberAccessRequest = {
   id: string;
   userId: string;
-  email: string;
   platform: ContributionPlatform;
   team: string;
   role: string;
@@ -143,7 +142,6 @@ export function IncomingRequestTab() {
             <thead className="border-b bg-gray-100">
               <tr>
                 <th className="p-3 text-left">S.No.</th>
-                <th className="p-3 text-left">Email</th>
                 <th className="p-3 text-left">Github Username</th>
                 <th className="p-3 text-left">Role</th>
                 <th className="p-3 text-left">Team</th>
@@ -157,7 +155,6 @@ export function IncomingRequestTab() {
               {requests.map((request, index) => (
                 <tr key={request.id} className="border-b align-top">
                   <td className="p-3">{index + 1}</td>
-                  <td className="p-3">{request.email}</td>
                   <td className="p-3">{request.username}</td>
                   <td className="p-3">{formatDisplayValue(request.role)}</td>
                   <td className="p-3">{formatDisplayValue(request.team)}</td>

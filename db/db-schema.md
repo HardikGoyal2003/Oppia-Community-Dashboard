@@ -1,6 +1,6 @@
 # DB Schema
 
-This document describes the Firestore schema currently implied by the codebase.
+This document describes the Firestore schema currently enforced by the DB layer.
 
 ## Collections
 
@@ -17,13 +17,13 @@ Fields:
 - `photoURL: string`
 - `githubUsername: string`
 - `role: "SUPER_ADMIN" | "ADMIN" | "TEAM_LEAD" | "TEAM_MEMBER" | "CONTRIBUTOR"`
-- `team: string | null` (Can be null when a new user sign-in on the dashboard)
-- `platform: "WEB" | "ANDROID" | null` (Can be null when a new user sign-in on the dashboard)
+- `team: string | null` **(Can be null when a new user sign-in on the dashboard)**
+- `platform: "WEB" | "ANDROID" | null` **(Can be null when a new user sign-in on the dashboard)**
 - `createdAt: Timestamp`
 
 Subcollections:
 
-#### `users/{uid}/notifications`
+### `users/{uid}/notifications`
 
 Document id:
 
@@ -60,14 +60,16 @@ Fields:
 - `issueUrl: string`
 - `issueTitle: string`
 - `isArchived: true` **(Audit if this field is needed or not)**
-- `lastCommentCreatedAt: string` **(Needs to changed into Timestamp type from the string)**
+- `lastCommentCreatedAt: string` **(Needs to changed into Timestamp type
+  from the string)**
 - `linkedProject: string`
 - `platform: "WEB" | "ANDROID"`
 
 Notes:
 
-- this schema is based on the dashboard `Issue` shape plus the `platform` field
-- `lastCommentCreatedAt` is currently stored as a string, not a Firestore timestamp
+- this schema currently mirrors the shared `Issue` domain type plus `platform`
+- `lastCommentCreatedAt` is still stored as `string`, not `Timestamp`
+- `isArchived` is currently persisted even though the collection itself already implies archived state
 
 ### `memberAccessRequests`
 
@@ -77,7 +79,7 @@ Document id:
 
 Fields:
 
-- `email: string`
+- `userId: string`
 - `platform: "WEB" | "ANDROID"`
 - `team: string`
 - `role: string`
@@ -92,5 +94,5 @@ Normalized app-layer models convert Firestore timestamps as follows:
 
 - `users.createdAt -> Date`
 - `users/{uid}/notifications.createdAt -> Date`
-- `memberAccessRequests.createdAt -> Date`
 - `announcements/global-banner.updatedAt -> Date`
+- `memberAccessRequests.createdAt -> Date`

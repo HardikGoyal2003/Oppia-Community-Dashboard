@@ -25,10 +25,6 @@ function assertFirestoreMemberAccessRequest(
     throw new Error("Member access request userId must be a string.");
   }
 
-  if (typeof request.email !== "string") {
-    throw new Error("Member access request email must be a string.");
-  }
-
   if (typeof request.team !== "string") {
     throw new Error("Member access request team must be a string.");
   }
@@ -57,7 +53,6 @@ export function normalizeMemberAccessRequest(
 ): MemberAccessRequestModel {
   return {
     userId: request.userId,
-    email: request.email,
     platform: request.platform,
     team: request.team,
     role: request.role,
