@@ -35,19 +35,6 @@ Fields:
 - `read: boolean`
 - `createdAt: Timestamp`
 
-### `announcements`
-
-Document id:
-
-- `global-banner`
-
-Fields:
-
-- `title: string`
-- `message: string`
-- `isEnabled: boolean`
-- `updatedAt: Timestamp`
-
 ### `archivedIssues`
 
 Document id:
@@ -94,5 +81,4 @@ Normalized app-layer models convert Firestore timestamps as follows:
 
 - `users.createdAt -> Date`
 - `users/{uid}/notifications.createdAt -> Date`
-- `announcements/global-banner.updatedAt -> Date`
 - `memberAccessRequests.createdAt -> Date`
