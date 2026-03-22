@@ -10,9 +10,9 @@ import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type { Issue } from "@/lib/domain/issues.types";
 
 type ArchivedIssueRequestBody = {
-  issue?: Partial<Issue> | null;
-  issueNumber?: number | null;
-  platform?: string | null;
+  issue: Issue;
+  issueNumber: number;
+  platform: string;
 };
 
 function parsePlatform(
@@ -21,7 +21,7 @@ function parsePlatform(
   return value === "WEB" || value === "ANDROID" ? value : null;
 }
 
-function isIssue(value: Partial<Issue> | null | undefined): value is Issue {
+function isIssue(value: Issue | null | undefined): value is Issue {
   if (!value) {
     return false;
   }
