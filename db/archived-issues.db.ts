@@ -2,12 +2,12 @@ import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { Issue } from "@/features/dashboard/dashboard.types";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { DB_PATHS } from "./db-paths";
+import {
+  FirestoreArchivedIssue,
+  normalizeArchivedIssueDocument,
+} from "./archived-issues.mapper";
 
 const db = getAdminFirestore();
-
-type ArchivedIssueDoc = Issue & {
-  platform: ContributionPlatform;
-};
 
 /**
  * Builds the archived issue document id for a platform-specific issue record.
@@ -31,13 +31,15 @@ function getArchivedIssueDocId(
  */
 export async function getArchivedIssues(
   platform: ContributionPlatform,
-): Promise<ArchivedIssueDoc[]> {
+): Promise<FirestoreArchivedIssue[]> {
   const snapshot = await db
     .collection(DB_PATHS.ARCHIVED_ISSUES.COLLECTION)
     .where("platform", "==", platform)
     .get();
 
-  return snapshot.docs.map((docSnap) => docSnap.data() as ArchivedIssueDoc);
+  return snapshot.docs.map((docSnap) =>
+    normalizeArchivedIssueDocument(docSnap.data()),
+  );
 }
 
 /**
