@@ -47,15 +47,13 @@ Fields:
 - `issueUrl: string`
 - `issueTitle: string`
 - `isArchived: true` **(Audit if this field is needed or not)**
-- `lastCommentCreatedAt: string` **(Needs to changed into Timestamp type
-  from the string)**
+- `lastCommentCreatedAt: Timestamp`
 - `linkedProject: string`
 - `platform: "WEB" | "ANDROID"`
 
 Notes:
 
 - this schema currently mirrors the shared `Issue` domain type plus `platform`
-- `lastCommentCreatedAt` is still stored as `string`, not `Timestamp`
 - `isArchived` is currently persisted even though the collection itself already implies archived state
 
 ### `memberAccessRequests`
@@ -75,6 +73,26 @@ Fields:
 - `status: "PENDING" | "ACCEPTED" | "REJECTED"`
 - `createdAt: Timestamp`
 
+### `dataJobRuns`
+
+Document id:
+
+- auto-generated run id
+
+Fields:
+
+- `jobKey: string`
+- `jobName: string`
+- `kind: "AUDIT" | "BACKFILL" | "MIGRATION" | "CLEANUP"`
+- `status: "RUNNING" | "SUCCEEDED" | "FAILED"`
+- `dryRun: boolean`
+- `triggeredByUserId: string`
+- `triggeredByGithubUsername: string`
+- `summary: string`
+- `errorMessage: string | null`
+- `startedAt: Timestamp`
+- `finishedAt: Timestamp | null`
+
 ## Derived Type Summary
 
 Normalized app-layer models convert Firestore timestamps as follows:
@@ -82,3 +100,5 @@ Normalized app-layer models convert Firestore timestamps as follows:
 - `users.createdAt -> Date`
 - `users/{uid}/notifications.createdAt -> Date`
 - `memberAccessRequests.createdAt -> Date`
+- `dataJobRuns.startedAt -> Date`
+- `dataJobRuns.finishedAt -> Date | null`
