@@ -14,6 +14,11 @@ export function AnnouncementBanner() {
   useEffect(() => {
     const root = document.documentElement;
 
+    if (isDismissed || !isEnabled || (!title && !message)) {
+      root.style.setProperty("--announcement-banner-height", "0px");
+      return undefined;
+    }
+
     const syncBannerHeight = () => {
       const height = bannerRef.current?.offsetHeight ?? 0;
       root.style.setProperty("--announcement-banner-height", `${height}px`);
@@ -26,13 +31,17 @@ export function AnnouncementBanner() {
       window.removeEventListener("resize", syncBannerHeight);
       root.style.setProperty("--announcement-banner-height", "0px");
     };
-  }, [isEnabled, message, title]);
+  }, [isDismissed, isEnabled, message, title]);
 
   if (!isEnabled || isDismissed || (!title && !message)) {
     return null;
   }
 
   const handleDismiss = () => {
+    document.documentElement.style.setProperty(
+      "--announcement-banner-height",
+      "0px",
+    );
     setIsDismissed(true);
   };
 

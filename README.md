@@ -4,7 +4,7 @@ The Oppia Community Dashboard is a role-based operations dashboard for the Oppia
 
 ![Landing Page](docs/images/landing-page.png)
 
-### 🔥 Features
+## 🔥 Features
 
 This project is designed to support the full lifecycle of community contribution:
 
@@ -20,7 +20,7 @@ This project is designed to support the full lifecycle of community contribution
 
 The dashboard is built primarily for Oppia maintainers and community operators, while still giving contributors a structured path into the system.
 
-### 🏗️ Project Structure
+## 🏗️ Project Structure
 
 Key directories:
 
@@ -30,7 +30,7 @@ Key directories:
 - [`db/`](/home/hardik/oppia-leads-dashboard/db) – Firestore access layer
 - [`lib/`](/home/hardik/oppia-leads-dashboard/lib) – domain types, auth, constants, utilities, services
 
-### ⚡ Live Deployment
+## ⚡ Live Deployment
 
 Try the live app here:
 
@@ -38,19 +38,19 @@ Try the live app here:
 
 If you find this project helpful, please consider starring the repository, as it makes the project easier to discover: 🌟[Star this repository](https://github.com/HardikGoyal2003/Oppia-Leads-Dashboard)
 
-### 🤝 Contributing
+## 🤝 Contributing
 
 If you want to suggest improvements or report bugs, please use the GitHub issue tracker:
 
 - [File a bug or feature request](https://github.com/HardikGoyal2003/Oppia-Leads-Dashboard/issues)
 
-### 🙌 Reach Out
+## 🙌 Reach Out
 
 If you want to connect, share feedback, or discuss the project:
 
 - GitHub: [@HardikGoyal2003](https://github.com/HardikGoyal2003)
 - LinkedIn: [hardikgoyal2003](https://www.linkedin.com/in/hardikgoyal2003)
 
-### 📄 License
+## 📄 License
 
 This repository is licensed under the Apache License 2.0. See [LICENSE](LICENSE).
