@@ -34,7 +34,7 @@ Key directories:
 
 Try the live app here:
 
-- [Oppia Community Dashboard](oppia-community-dashboard.vercel.app)
+- [Oppia Community Dashboard](https://oppia-community-dashboard.vercel.app/)
 
 If you find this project helpful, please consider starring the repository, as it makes the project easier to discover: 🌟[Star this repository](https://github.com/HardikGoyal2003/Oppia-Leads-Dashboard)
 
