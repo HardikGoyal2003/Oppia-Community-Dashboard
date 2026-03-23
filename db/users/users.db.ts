@@ -32,6 +32,24 @@ function assertGithubUsernameForRole(githubUsername: string) {
 }
 
 /**
+ * Determines whether a Firestore create failure represents an existing document.
+ *
+ * @param error The thrown Firestore error candidate.
+ * @returns True when the error indicates the document already exists.
+ */
+function isDocumentAlreadyExistsError(error: object): boolean {
+  if ("code" in error && error.code === 6) {
+    return true;
+  }
+
+  if ("message" in error && typeof error.message === "string") {
+    return error.message.toUpperCase().includes("ALREADY_EXISTS");
+  }
+
+  return false;
+}
+
+/**
  * Resolves a user document reference by uid and guarantees that the document exists.
  *
  * @param uid The user id to fetch.
@@ -74,7 +92,11 @@ export async function createUserIfNotExists(
       }),
     );
   } catch (error) {
-    if (error instanceof Error && error.message.includes("Already exists")) {
+    if (
+      error &&
+      typeof error === "object" &&
+      isDocumentAlreadyExistsError(error)
+    ) {
       return;
     }
 
