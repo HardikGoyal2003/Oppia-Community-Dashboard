@@ -43,12 +43,7 @@ export default async function DashboardPage() {
 
     case "LEAD_TRAINEE":
     case "TEAM_MEMBER":
-      return (
-        <div className="min-h-screen bg-gray-50">
-          <Navbar />
-          <TeamMemberView />
-        </div>
-      );
+      return <TeamMemberView />;
 
     default:
       return (

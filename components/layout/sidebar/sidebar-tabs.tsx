@@ -26,7 +26,7 @@ export function SideBarTabs({
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>Modes</SidebarGroupLabel>
+      <SidebarGroupLabel>Navigation</SidebarGroupLabel>
       <SidebarMenu>
         {projects.map((item) => (
           <SidebarMenuItem
