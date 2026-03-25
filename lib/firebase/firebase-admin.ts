@@ -1,21 +1,10 @@
 import { getApps, initializeApp, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
-import {
-  readBooleanEnv,
-  readEnv,
-  readEnvWithDefault,
-  requireEnv,
-} from "@/lib/config/env";
+import { requireEnv } from "@/lib/config/env";
+import { getFirebaseRuntimeConfig } from "./firebase.config";
 
 export function initFirebaseAdmin() {
-  const useFirestoreEmulator =
-    readBooleanEnv("FIREBASE_EMULATOR_ENABLED") ||
-    Boolean(readEnv("FIRESTORE_EMULATOR_HOST"));
-
-  const projectId = readEnvWithDefault(
-    "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
-    "demo-oppia-leads-dashboard",
-  );
+  const { projectId, useFirestoreEmulator } = getFirebaseRuntimeConfig();
 
   if (!getApps().length) {
     if (useFirestoreEmulator) {
