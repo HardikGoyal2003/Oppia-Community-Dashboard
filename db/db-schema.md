@@ -16,7 +16,7 @@ Fields:
 - `fullName: string`
 - `photoURL: string`
 - `githubUsername: string`
-- `role: "SUPER_ADMIN" | "ADMIN" | "TEAM_LEAD" | "TEAM_MEMBER" | "CONTRIBUTOR"`
+- `role: "SUPER_ADMIN" | "ADMIN" | "TEAM_LEAD" | "LEAD_TRAINEE" | "TEAM_MEMBER" | "CONTRIBUTOR"`
 - `team: string | null` **(Can be null when a new user sign-in on the dashboard)**
 - `platform: "WEB" | "ANDROID" | null` **(Can be null when a new user sign-in on the dashboard)**
 - `createdAt: Timestamp`

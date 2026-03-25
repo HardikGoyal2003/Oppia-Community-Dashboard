@@ -12,28 +12,39 @@ import {
 
 import { useActiveSidebarTab } from "./sidebar.store";
 
+export type SidebarNavigationItem = {
+  name: string;
+  icon: LucideIcon;
+};
+
 export function SideBarTabs({
-  projects,
+  items,
+  activeItemName,
+  onItemSelect,
 }: {
-  projects: {
-    name: string;
-    icon: LucideIcon;
-  }[];
+  items: SidebarNavigationItem[];
+  activeItemName?: string;
+  onItemSelect?: (itemName: string) => void;
 }) {
   const updateActiveSidebarTab = useActiveSidebarTab(
     (state) => state.updateActiveSidebarTab,
   );
+  const handleItemSelect = onItemSelect ?? updateActiveSidebarTab;
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>Modes</SidebarGroupLabel>
+      <SidebarGroupLabel>Navigation</SidebarGroupLabel>
       <SidebarMenu>
-        {projects.map((item) => (
+        {items.map((item) => (
           <SidebarMenuItem
             key={item.name}
-            onClick={() => updateActiveSidebarTab(item.name)}
+            onClick={() => handleItemSelect(item.name)}
           >
-            <SidebarMenuButton asChild tooltip={item.name}>
+            <SidebarMenuButton
+              asChild
+              tooltip={item.name}
+              isActive={activeItemName === item.name}
+            >
               <div>
                 <item.icon />
                 <span>{item.name}</span>

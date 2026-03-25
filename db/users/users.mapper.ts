@@ -10,6 +10,7 @@ const USER_ROLES: UserRole[] = [
   "SUPER_ADMIN",
   "ADMIN",
   "TEAM_LEAD",
+  "LEAD_TRAINEE",
   "TEAM_MEMBER",
   "CONTRIBUTOR",
 ];

@@ -28,13 +28,14 @@ export const CONSTANTS = {
     TITLE: "🎉 New version is live:",
     MESSAGE:
       "Explore the latest Oppia Community Dashboard and feel free to share your feedback or any bug reports.",
-    IS_ENABLED: true,
+    IS_ENABLED: false,
   },
 
   ROLES: {
     SUPER_ADMIN: "Super Admin",
     CONTRIBUTOR: "Contributor",
     TEAM_MEMBER: "Team Member",
+    LEAD_TRAINEE: "Lead Trainee",
     TEAM_LEAD: "Team Lead",
     ADMIN: "Admin",
   },

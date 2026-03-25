@@ -1,33 +1,29 @@
 "use client";
 
 import * as React from "react";
-import { Bug, Inbox, Users } from "lucide-react";
-
-import { SideBarTabs } from "./sidebar-tabs";
+import { SideBarTabs, type SidebarNavigationItem } from "./sidebar-tabs";
 import { Sidebar, SidebarContent, SidebarRail } from "@/components/ui/sidebar";
 
-const data = {
-  projects: [
-    {
-      name: "Incoming Requests",
-      icon: Inbox,
-    },
-    {
-      name: "User Role Manager",
-      icon: Users,
-    },
-    {
-      name: "Unanswered Issue",
-      icon: Bug,
-    },
-  ],
+type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
+  items: SidebarNavigationItem[];
+  activeItemName?: string;
+  onItemSelect?: (itemName: string) => void;
 };
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar({
+  items,
+  activeItemName,
+  onItemSelect,
+  ...props
+}: AppSidebarProps) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarContent>
-        <SideBarTabs projects={data.projects} />
+        <SideBarTabs
+          items={items}
+          activeItemName={activeItemName}
+          onItemSelect={onItemSelect}
+        />
       </SidebarContent>
       <SidebarRail />
     </Sidebar>
