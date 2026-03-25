@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import { main } from "@/lib/github/github.fetcher";
-import { formatIssues } from "@/lib/utils/ format-issues.utils";
+import { formatIssues } from "@/lib/utils/format-issues.utils";
 import { CONSTANTS } from "@/lib/constants";
 
 export async function GET() {
