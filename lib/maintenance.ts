@@ -1,3 +1,5 @@
+import { readBooleanEnv } from "@/lib/config/env";
+
 export function isMaintenanceModeEnabled(): boolean {
-  return process.env.MAINTENANCE_MODE_ENABLED === "true";
+  return readBooleanEnv("MAINTENANCE_MODE_ENABLED");
 }

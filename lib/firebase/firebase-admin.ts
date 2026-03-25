@@ -1,13 +1,21 @@
 import { getApps, initializeApp, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
+import {
+  readBooleanEnv,
+  readEnv,
+  readEnvWithDefault,
+  requireEnv,
+} from "@/lib/config/env";
 
 export function initFirebaseAdmin() {
   const useFirestoreEmulator =
-    process.env.FIREBASE_EMULATOR_ENABLED === "true" ||
-    Boolean(process.env.FIRESTORE_EMULATOR_HOST);
+    readBooleanEnv("FIREBASE_EMULATOR_ENABLED") ||
+    Boolean(readEnv("FIRESTORE_EMULATOR_HOST"));
 
-  const projectId =
-    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "demo-oppia-leads-dashboard";
+  const projectId = readEnvWithDefault(
+    "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
+    "demo-oppia-leads-dashboard",
+  );
 
   if (!getApps().length) {
     if (useFirestoreEmulator) {
@@ -18,8 +26,8 @@ export function initFirebaseAdmin() {
     initializeApp({
       credential: cert({
         projectId,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+        clientEmail: requireEnv("FIREBASE_CLIENT_EMAIL"),
+        privateKey: requireEnv("FIREBASE_PRIVATE_KEY").replace(/\\n/g, "\n"),
       }),
     });
   }

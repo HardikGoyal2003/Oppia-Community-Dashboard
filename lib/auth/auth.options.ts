@@ -1,20 +1,19 @@
 import GitHubProvider from "next-auth/providers/github";
 import { createUserIfNotExists, getUserById } from "@/db/users/users.db";
+import { requireEnv, readEnv } from "@/lib/config/env";
 import type { JWT } from "next-auth/jwt";
 import type { Account, AuthOptions, Profile, Session, User } from "next-auth";
-import { UserRole } from "./auth.types";
-import { ContributionPlatform } from "./auth.types";
 
 export const authOptions: AuthOptions = {
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: readEnv("NEXTAUTH_SECRET"),
   session: {
     maxAge: 7 * 24 * 60 * 60,
   },
 
   providers: [
     GitHubProvider({
-      clientId: process.env.GITHUB_ID!,
-      clientSecret: process.env.GITHUB_SECRET!,
+      clientId: requireEnv("GITHUB_ID"),
+      clientSecret: requireEnv("GITHUB_SECRET"),
     }),
   ],
 
@@ -71,7 +70,7 @@ export const authOptions: AuthOptions = {
         token.invalidUser = true;
       } else {
         token.invalidUser = false;
-        token.role = dbUser.role as UserRole;
+        token.role = dbUser.role;
       }
 
       return token;
@@ -100,10 +99,9 @@ export const authOptions: AuthOptions = {
 
       if (dbUser) {
         session.user.id = userId;
-        session.user.role = dbUser.role as UserRole;
+        session.user.role = dbUser.role;
         session.user.team = dbUser.team ?? null;
-        session.user.platform =
-          (dbUser.platform as ContributionPlatform | null) ?? null;
+        session.user.platform = dbUser.platform ?? null;
       }
 
       return session;

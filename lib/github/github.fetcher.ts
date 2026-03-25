@@ -1,6 +1,7 @@
+import { requireEnv } from "@/lib/config/env";
 import { RawIssueNode, User } from "./github.types";
 
-const TOKEN = process.env.GITHUB_TOKEN!;
+const TOKEN = requireEnv("GITHUB_TOKEN");
 
 const API_URL = "https://api.github.com/graphql";
 
