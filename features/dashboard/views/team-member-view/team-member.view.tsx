@@ -3,17 +3,13 @@
 import { useState } from "react";
 import { Bug, LayoutDashboard } from "lucide-react";
 import { useSession } from "next-auth/react";
+import { SideBarTabs } from "@/components/layout/sidebar/sidebar-tabs";
 import { Navbar } from "@/components/layout/navbar";
 import UnansweredIssuesTab from "../../shared/unanswered-issues.tab";
 import {
   Sidebar,
   SidebarContent,
-  SidebarGroup,
-  SidebarGroupLabel,
   SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
@@ -25,45 +21,40 @@ export default function TeamMemberView() {
   const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState<TeamMemberSidebarTab>("OVERVIEW");
   const isLeadTrainee = session?.user.role === "LEAD_TRAINEE";
+  const sidebarItems = [
+    {
+      name: "Overview",
+      icon: LayoutDashboard,
+    },
+    ...(isLeadTrainee
+      ? [
+          {
+            name: "Unanswered Issues",
+            icon: Bug,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <SidebarProvider>
       <Sidebar collapsible="icon">
         <SidebarContent>
-          <SidebarGroup>
-            <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-            <SidebarMenu>
-              <SidebarMenuItem onClick={() => setActiveTab("OVERVIEW")}>
-                <SidebarMenuButton
-                  asChild
-                  tooltip="Overview"
-                  isActive={activeTab === "OVERVIEW"}
-                >
-                  <div>
-                    <LayoutDashboard />
-                    <span>Overview</span>
-                  </div>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              {isLeadTrainee && (
-                <SidebarMenuItem
-                  onClick={() => setActiveTab("UNANSWERED_ISSUES")}
-                >
-                  <SidebarMenuButton
-                    asChild
-                    tooltip="Unanswered Issues"
-                    isActive={activeTab === "UNANSWERED_ISSUES"}
-                  >
-                    <div>
-                      <Bug />
-                      <span>Unanswered Issues</span>
-                    </div>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-            </SidebarMenu>
-          </SidebarGroup>
+          <SideBarTabs
+            items={sidebarItems}
+            activeItemName={
+              activeTab === "UNANSWERED_ISSUES"
+                ? "Unanswered Issues"
+                : "Overview"
+            }
+            onItemSelect={(itemName) => {
+              setActiveTab(
+                itemName === "Unanswered Issues"
+                  ? "UNANSWERED_ISSUES"
+                  : "OVERVIEW",
+              );
+            }}
+          />
         </SidebarContent>
         <SidebarRail />
       </Sidebar>

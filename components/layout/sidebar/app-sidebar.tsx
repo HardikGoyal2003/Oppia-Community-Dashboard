@@ -5,9 +5,10 @@ import { Bug, Inbox, Users } from "lucide-react";
 
 import { SideBarTabs } from "./sidebar-tabs";
 import { Sidebar, SidebarContent, SidebarRail } from "@/components/ui/sidebar";
+import { useActiveSidebarTab } from "./sidebar.store";
 
 const data = {
-  projects: [
+  items: [
     {
       name: "Incoming Requests",
       icon: Inbox,
@@ -24,10 +25,20 @@ const data = {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const activeSidebarTab = useActiveSidebarTab(
+    (state) => state.activeSidebarTab,
+  );
+  const activeItemName =
+    activeSidebarTab === "USER_ROLE_MANAGER_TAB"
+      ? "User Role Manager"
+      : activeSidebarTab === "UNANSWERED_ISSUES_TAB"
+        ? "Unanswered Issue"
+        : "Incoming Requests";
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarContent>
-        <SideBarTabs projects={data.projects} />
+        <SideBarTabs items={data.items} activeItemName={activeItemName} />
       </SidebarContent>
       <SidebarRail />
     </Sidebar>
