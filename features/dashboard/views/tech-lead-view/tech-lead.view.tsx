@@ -1,5 +1,6 @@
 "use client";
 
+import { Bug, Inbox, Users } from "lucide-react";
 import {
   SidebarInset,
   SidebarProvider,
@@ -16,10 +17,37 @@ export default function TechLeadView() {
   const activeSidebarTab = useActiveSidebarTab(
     (state) => state.activeSidebarTab,
   );
+  const updateActiveSidebarTab = useActiveSidebarTab(
+    (state) => state.updateActiveSidebarTab,
+  );
+  const sidebarItems = [
+    {
+      name: "Incoming Requests",
+      icon: Inbox,
+    },
+    {
+      name: "User Role Manager",
+      icon: Users,
+    },
+    {
+      name: "Unanswered Issue",
+      icon: Bug,
+    },
+  ];
+  const activeItemName =
+    activeSidebarTab === "USER_ROLE_MANAGER_TAB"
+      ? "User Role Manager"
+      : activeSidebarTab === "UNANSWERED_ISSUES_TAB"
+        ? "Unanswered Issue"
+        : "Incoming Requests";
 
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <AppSidebar
+        items={sidebarItems}
+        activeItemName={activeItemName}
+        onItemSelect={updateActiveSidebarTab}
+      />
       <SidebarInset>
         <Navbar leftContent={<SidebarTrigger className="-ml-1" />} />
 
