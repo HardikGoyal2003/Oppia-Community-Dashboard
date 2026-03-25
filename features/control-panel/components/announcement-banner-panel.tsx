@@ -1,11 +1,11 @@
 "use client";
 
-import { CONSTANTS } from "@/lib/constants";
+import { ANNOUNCEMENT_BANNER } from "@/lib/config/announcement.constants";
 
 export function AnnouncementBannerPanel() {
-  const title = CONSTANTS.ANNOUNCEMENT_BANNER.TITLE;
-  const message = CONSTANTS.ANNOUNCEMENT_BANNER.MESSAGE;
-  const isEnabled = CONSTANTS.ANNOUNCEMENT_BANNER.IS_ENABLED;
+  const title = ANNOUNCEMENT_BANNER.TITLE;
+  const message = ANNOUNCEMENT_BANNER.MESSAGE;
+  const isEnabled = ANNOUNCEMENT_BANNER.IS_ENABLED;
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -16,7 +16,8 @@ export function AnnouncementBannerPanel() {
           </h2>
           <p className="mt-2 text-sm text-slate-600">
             The announcement banner is now hardcoded to avoid runtime server
-            calls. Update it in <code>lib/constants.ts</code> and redeploy.
+            calls. Update it in{" "}
+            <code>lib/config/announcement.constants.ts</code> and redeploy.
           </p>
         </div>
         <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">
@@ -46,7 +47,7 @@ export function AnnouncementBannerPanel() {
 
       <p className="mt-4 text-xs text-slate-500">
         This panel is read-only. Change the banner values in{" "}
-        <code>lib/constants.ts</code>.
+        <code>lib/config/announcement.constants.ts</code>.
       </p>
     </section>
   );

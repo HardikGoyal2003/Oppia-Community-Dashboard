@@ -118,6 +118,14 @@ function buildGraphQLError(errors: GraphQLErrorPayload[]): GitHubGraphQLError {
   );
 }
 
+/**
+ * Executes a GitHub GraphQL request and returns the validated data payload.
+ *
+ * @param query The GraphQL query string to execute.
+ * @param variables The variables to send with the request.
+ * @returns The validated GraphQL data payload.
+ * @throws {GitHubGraphQLError} When GitHub returns an HTTP or GraphQL error, or the response is malformed.
+ */
 async function request<T>(query: string, variables = {}): Promise<T> {
   const res = await fetch(API_URL, {
     method: "POST",
@@ -146,6 +154,11 @@ async function request<T>(query: string, variables = {}): Promise<T> {
   return response.data;
 }
 
+/**
+ * Fetches the current GitHub GraphQL rate-limit snapshot.
+ *
+ * @returns The current GraphQL rate-limit information.
+ */
 async function fetchRateLimit(): Promise<RateLimit> {
   const query = `
     query {
@@ -160,6 +173,13 @@ async function fetchRateLimit(): Promise<RateLimit> {
   return request(query);
 }
 
+/**
+ * Fetches recent repository issues from the last 30 days using paginated GraphQL requests.
+ *
+ * @param owner The repository owner.
+ * @param repo The repository name.
+ * @returns The aggregated recent issue nodes.
+ */
 async function fetchRecentIssues(
   owner: string,
   repo: string,
@@ -223,6 +243,13 @@ async function fetchRecentIssues(
   return issues;
 }
 
+/**
+ * Fetches organization members and repository collaborators for maintainer filtering.
+ *
+ * @param owner The organization or repository owner.
+ * @param repo The repository name.
+ * @returns The organization membership and repository collaborator data.
+ */
 async function fetchOrgAndCollaborators(
   owner: string,
   repo: string,
@@ -248,6 +275,12 @@ async function fetchOrgAndCollaborators(
   return request(query, { owner, repo });
 }
 
+/**
+ * Fetches unanswered issues whose latest recent comment came from a non-maintainer.
+ *
+ * @param target The GitHub repository to inspect.
+ * @returns The filtered unanswered issue nodes for the dashboard.
+ */
 export async function fetchUnansweredIssues(target: GitHubRepoTarget) {
   const owner = target.owner;
   const repo = target.repo;

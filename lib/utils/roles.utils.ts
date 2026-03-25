@@ -1,11 +1,6 @@
-import { UserRole } from "../auth/auth.types";
+import type { UserRole } from "../auth/roles";
+import { isUserRole } from "../auth/roles";
 
 export function isValidUserRole(role: string): role is UserRole {
-  return [
-    "CONTRIBUTOR",
-    "TEAM_MEMBER",
-    "LEAD_TRAINEE",
-    "TEAM_LEAD",
-    "ADMIN",
-  ].includes(role);
+  return isUserRole(role) && role !== "SUPER_ADMIN";
 }

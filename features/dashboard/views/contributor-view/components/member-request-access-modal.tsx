@@ -23,7 +23,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { CONSTANTS } from "@/lib/constants";
+import { REQUESTABLE_USER_ROLES } from "@/lib/auth/roles";
+import { ROLE_LABELS } from "@/lib/presentation/role-labels";
+import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config/teams.constants";
 import { useState } from "react";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { formatDisplayValue } from "@/lib/utils/display.utils";
@@ -57,8 +59,7 @@ export default function MemberRequestAccessModal({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [duplicateRequest, setDuplicateRequest] =
     useState<DuplicateRequestDetails | null>(null);
-  const teams =
-    platform === "ANDROID" ? CONSTANTS.ANDROID_TEAMS : CONSTANTS.WEB_TEAMS;
+  const teams = platform === "ANDROID" ? ANDROID_TEAMS : WEB_TEAMS;
 
   const resetModalState = () => {
     setRequestState("FORM");
@@ -191,18 +192,11 @@ export default function MemberRequestAccessModal({
                     <SelectValue placeholder="Select your role" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(CONSTANTS.ROLES)
-                      .filter(
-                        ([key, label]) =>
-                          key !== "SUPER_ADMIN" &&
-                          key !== "LEAD_TRAINEE" &&
-                          label !== CONSTANTS.ROLES.CONTRIBUTOR,
-                      )
-                      .map(([key, label]) => (
-                        <SelectItem key={key} value={key}>
-                          {label}
-                        </SelectItem>
-                      ))}
+                    {REQUESTABLE_USER_ROLES.map((role) => (
+                      <SelectItem key={role} value={role}>
+                        {ROLE_LABELS[role]}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </Field>

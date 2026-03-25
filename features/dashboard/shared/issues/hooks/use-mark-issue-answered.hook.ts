@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { useProjectIssuesStore } from "../store/project-issues.store";
 import { CategorizedProjectIssues } from "../../../dashboard.types";
 import type { Issue } from "@/lib/domain/issues.types";
-import { CONSTANTS } from "@/lib/constants";
+import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config/teams.constants";
 
 export function useMarkIssueAsnwered() {
   const removeIssue = useProjectIssuesStore((state) => state.removeIssue);
@@ -16,21 +16,19 @@ export function useMarkIssueAsnwered() {
     let from: keyof CategorizedProjectIssues;
 
     if (platform === "ANDROID") {
-      if (issue.linkedProject === CONSTANTS.ANDROID_TEAMS.CLAM) {
+      if (issue.linkedProject === ANDROID_TEAMS.CLAM) {
         from = "team1";
-      } else if (
-        issue.linkedProject === CONSTANTS.ANDROID_TEAMS.DEV_WORKFLOW_INFRA
-      ) {
+      } else if (issue.linkedProject === ANDROID_TEAMS.DEV_WORKFLOW_INFRA) {
         from = "team2";
       } else {
         from = "others";
       }
     } else {
-      if (issue.linkedProject === CONSTANTS.WEB_TEAMS.LEAP) {
+      if (issue.linkedProject === WEB_TEAMS.LEAP) {
         from = "team1";
-      } else if (issue.linkedProject === CONSTANTS.WEB_TEAMS.CORE) {
+      } else if (issue.linkedProject === WEB_TEAMS.CORE) {
         from = "team2";
-      } else if (issue.linkedProject === CONSTANTS.WEB_TEAMS.DEV_WORKFLOW) {
+      } else if (issue.linkedProject === WEB_TEAMS.DEV_WORKFLOW) {
         from = "team3";
       } else {
         from = "others";

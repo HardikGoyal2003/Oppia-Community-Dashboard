@@ -1,7 +1,7 @@
 import { RawIssue } from "@/lib/github/github.types";
 import type { Issue } from "@/lib/domain/issues.types";
 import { CategorizedProjectIssues } from "../../../dashboard.types";
-import { CONSTANTS } from "@/lib/constants";
+import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config/teams.constants";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { unarchiveIssueForPlatform } from "./archived-issues-api.service";
 
@@ -54,10 +54,10 @@ export async function categorizeIssues(
 
       if (platform === "ANDROID") {
         switch (rawIssue.linkedProject) {
-          case CONSTANTS.ANDROID_TEAMS.CLAM:
+          case ANDROID_TEAMS.CLAM:
             result.team1.push(issue);
             break;
-          case CONSTANTS.ANDROID_TEAMS.DEV_WORKFLOW_INFRA:
+          case ANDROID_TEAMS.DEV_WORKFLOW_INFRA:
             result.team2.push(issue);
             break;
           default:
@@ -65,13 +65,13 @@ export async function categorizeIssues(
         }
       } else {
         switch (rawIssue.linkedProject) {
-          case CONSTANTS.WEB_TEAMS.LEAP:
+          case WEB_TEAMS.LEAP:
             result.team1.push(issue);
             break;
-          case CONSTANTS.WEB_TEAMS.CORE:
+          case WEB_TEAMS.CORE:
             result.team2.push(issue);
             break;
-          case CONSTANTS.WEB_TEAMS.DEV_WORKFLOW:
+          case WEB_TEAMS.DEV_WORKFLOW:
             result.team3.push(issue);
             break;
           default:

@@ -1,6 +1,6 @@
 "use client";
 
-import { CONSTANTS } from "@/lib/constants";
+import { CONTRIBUTING_DOCS } from "@/lib/config/github.constants";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import MemberRequestAccessModal from "./components/member-request-access-modal";
 
@@ -11,7 +11,7 @@ export default function ContributorView({
   message?: string;
   platform: ContributionPlatform;
 }) {
-  const docsUrl = CONSTANTS.CONTRIBUTING_DOCS[platform];
+  const docsUrl = CONTRIBUTING_DOCS[platform];
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4 py-12">

@@ -1,12 +1,7 @@
 import { DefaultSession } from "next-auth";
+import type { UserRole } from "./roles";
 
-export type UserRole =
-  | "SUPER_ADMIN"
-  | "ADMIN"
-  | "TEAM_LEAD"
-  | "LEAD_TRAINEE"
-  | "TEAM_MEMBER"
-  | "CONTRIBUTOR";
+export type { UserRole } from "./roles";
 
 export type ContributionPlatform = "WEB" | "ANDROID";
 
