@@ -177,11 +177,11 @@ async function fetchOrgAndCollaborators(
   return request(query, { owner, repo });
 }
 
-export async function main(target: GitHubRepoTarget) {
+export async function fetchUnansweredIssues(target: GitHubRepoTarget) {
   const owner = target.owner;
   const repo = target.repo;
 
-  console.log(`Fetching collaborators and org members...`);
+  console.log("Fetching collaborators and org members...");
 
   const orgData = await fetchOrgAndCollaborators(owner, repo);
 
@@ -196,7 +196,6 @@ export async function main(target: GitHubRepoTarget) {
       .filter((e) => ["ADMIN", "MAINTAIN", "WRITE"].includes(e.permission))
       .map((e) => e.node.login),
   );
-
   console.log(`Org members: ${orgMembers.size}`);
   console.log(`Collaborators: ${collabAll.size}`);
   console.log(`Maintainers: ${maintainers.size}`);
@@ -230,13 +229,13 @@ export async function main(target: GitHubRepoTarget) {
   });
 
   console.log(
-    "\n📌 Issues where last comment in past 30 days is from non-maintainer",
+    "\nIssues where last comment in past 30 days is from non-maintainer",
   );
-  console.log("--------------------------------------------------------------");
-  console.log(`\n✅ Total filtered issues: ${filtered.length}`);
+  console.log("----------------------------------------------------------");
+  console.log(`\nTotal filtered issues: ${filtered.length}`);
 
   const rate = await fetchRateLimit();
-  console.log("\n📊 Rate Limit:");
+  console.log("\nRate Limit:");
   console.log(rate.rateLimit);
 
   return filtered;

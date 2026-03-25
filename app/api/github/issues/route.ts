@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
-import { main } from "@/lib/github/github.fetcher";
+import { fetchUnansweredIssues } from "@/lib/github/github.fetcher";
 import { formatIssues } from "@/lib/utils/format-issues.utils";
 import { CONSTANTS } from "@/lib/constants";
 
@@ -18,7 +18,7 @@ export async function GET() {
       CONSTANTS.GITHUB_REPOS[platform as keyof typeof CONSTANTS.GITHUB_REPOS] ??
       CONSTANTS.GITHUB_REPOS.WEB;
 
-    const issuesData = await main(repoTarget);
+    const issuesData = await fetchUnansweredIssues(repoTarget);
     return NextResponse.json({
       issues: formatIssues(issuesData),
     });
