@@ -4,6 +4,7 @@ export type UserRole =
   | "SUPER_ADMIN"
   | "ADMIN"
   | "TEAM_LEAD"
+  | "LEAD_TRAINEE"
   | "TEAM_MEMBER"
   | "CONTRIBUTOR";
 

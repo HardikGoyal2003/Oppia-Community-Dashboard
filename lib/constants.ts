@@ -35,6 +35,7 @@ export const CONSTANTS = {
     SUPER_ADMIN: "Super Admin",
     CONTRIBUTOR: "Contributor",
     TEAM_MEMBER: "Team Member",
+    LEAD_TRAINEE: "Lead Trainee",
     TEAM_LEAD: "Team Lead",
     ADMIN: "Admin",
   },

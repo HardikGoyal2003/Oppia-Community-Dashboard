@@ -195,6 +195,7 @@ export default function MemberRequestAccessModal({
                       .filter(
                         ([key, label]) =>
                           key !== "SUPER_ADMIN" &&
+                          key !== "LEAD_TRAINEE" &&
                           label !== CONSTANTS.ROLES.CONTRIBUTOR,
                       )
                       .map(([key, label]) => (

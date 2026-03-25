@@ -24,7 +24,13 @@ type PendingUpdate = {
   team: string | null;
 };
 
-const ROLES: UserRole[] = ["CONTRIBUTOR", "TEAM_MEMBER", "TEAM_LEAD", "ADMIN"];
+const ROLES: UserRole[] = [
+  "CONTRIBUTOR",
+  "TEAM_MEMBER",
+  "LEAD_TRAINEE",
+  "TEAM_LEAD",
+  "ADMIN",
+];
 
 function getDisplayRole(role: UserRole): UserRole {
   return role === "SUPER_ADMIN" ? "ADMIN" : role;
