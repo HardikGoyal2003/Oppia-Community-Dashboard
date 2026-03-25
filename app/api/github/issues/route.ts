@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
-import { fetchUnansweredIssues } from "@/lib/github/github.fetcher";
-import { formatIssues } from "@/lib/utils/format-issues.utils";
+import {
+  fetchUnansweredIssues,
+  GitHubGraphQLError,
+} from "@/lib/github/github.fetcher";
+import { formatIssues } from "@/lib/github/github-issues.mapper";
 import { CONSTANTS } from "@/lib/constants";
 
 export async function GET() {
@@ -24,6 +27,14 @@ export async function GET() {
     });
   } catch (error) {
     console.error(error);
+
+    if (error instanceof GitHubGraphQLError) {
+      return NextResponse.json(
+        { error: error.message, details: error.details },
+        { status: 502 },
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to fetch GitHub issues" },
       { status: 500 },

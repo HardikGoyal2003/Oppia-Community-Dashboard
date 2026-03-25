@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { CONSTANTS } from "@/lib/constants";
 import { UserUpdateReasonModal } from "../components/user-update-reason-modal";
-import { formatDisplayValue } from "@/lib/utils/display-format.utils";
+import { formatDisplayValue } from "@/lib/utils/display.utils";
 
 type User = {
   id: string;

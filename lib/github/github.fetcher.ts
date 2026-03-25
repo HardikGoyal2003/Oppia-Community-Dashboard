@@ -58,6 +58,66 @@ interface CollaboratorEdge {
 
 type Permission = "READ" | "TRIAGE" | "WRITE" | "MAINTAIN" | "ADMIN";
 
+type GraphQLErrorPayload = {
+  message?: string;
+  type?: string;
+  path?: string[];
+};
+
+type GraphQLSuccessResponse<T> = {
+  data?: T;
+  errors?: GraphQLErrorPayload[];
+};
+
+/**
+ * Represents a GitHub GraphQL failure with actionable upstream details.
+ */
+export class GitHubGraphQLError extends Error {
+  details: string[];
+
+  constructor(message: string, details: string[]) {
+    super(message);
+    this.name = "GitHubGraphQLError";
+    this.details = details;
+  }
+}
+
+/**
+ * Validates that a GraphQL response contains a usable data payload.
+ *
+ * @param response The parsed GraphQL response body.
+ * @returns Nothing. Throws when the payload is missing or malformed.
+ */
+function assertGraphQLData<T>(
+  response: GraphQLSuccessResponse<T>,
+): asserts response is { data: T; errors?: GraphQLErrorPayload[] } {
+  if (!("data" in response) || response.data === undefined) {
+    throw new GitHubGraphQLError(
+      "GitHub GraphQL response did not contain a data payload.",
+      [],
+    );
+  }
+}
+
+/**
+ * Builds a typed GitHub GraphQL error from the upstream error payload.
+ *
+ * @param errors The GraphQL errors returned by GitHub.
+ * @returns The typed GitHub GraphQL error.
+ */
+function buildGraphQLError(errors: GraphQLErrorPayload[]): GitHubGraphQLError {
+  const details = errors.map((error) => {
+    const path = error.path?.join(".") ?? "unknown";
+    const type = error.type ? ` [${error.type}]` : "";
+    return `${error.message ?? "Unknown GraphQL error"}${type} at ${path}`;
+  });
+
+  return new GitHubGraphQLError(
+    details[0] ?? "GitHub GraphQL request failed.",
+    details,
+  );
+}
+
 async function request<T>(query: string, variables = {}): Promise<T> {
   const res = await fetch(API_URL, {
     method: "POST",
@@ -68,12 +128,22 @@ async function request<T>(query: string, variables = {}): Promise<T> {
     body: JSON.stringify({ query, variables }),
   });
 
-  const json = await res.json();
-  if (json.errors) {
-    console.error(json.errors);
-    throw new Error("GraphQL error");
+  if (!res.ok) {
+    throw new GitHubGraphQLError(
+      `GitHub GraphQL request failed with status ${res.status}.`,
+      [res.statusText],
+    );
   }
-  return json.data as T;
+
+  const response = (await res.json()) as GraphQLSuccessResponse<T>;
+
+  if (response.errors && response.errors.length > 0) {
+    throw buildGraphQLError(response.errors);
+  }
+
+  assertGraphQLData(response);
+
+  return response.data;
 }
 
 async function fetchRateLimit(): Promise<RateLimit> {

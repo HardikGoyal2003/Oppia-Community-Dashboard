@@ -4,7 +4,7 @@ import { LoadingIndicator } from "@/components/layout/loading-indicator";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { DeclineRequestModal } from "../components/decline-request-modal";
-import { formatDisplayValue } from "@/lib/utils/display-format.utils";
+import { formatDisplayValue } from "@/lib/utils/display.utils";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 
 type MemberAccessRequest = {

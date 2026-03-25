@@ -26,8 +26,8 @@ import {
 import { CONSTANTS } from "@/lib/constants";
 import { useState } from "react";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
-import { formatDisplayValue } from "@/lib/utils/display-format.utils";
-import { getOrdinalDay } from "@/lib/utils/date-day-format.utils";
+import { formatDisplayValue } from "@/lib/utils/display.utils";
+import { getOrdinalDay } from "@/lib/utils/date.utils";
 
 type RequestState = "FORM" | "SUBMITTED" | "DUPLICATE";
 type DuplicateRequestDetails = {
