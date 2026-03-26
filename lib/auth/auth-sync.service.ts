@@ -93,23 +93,42 @@ export async function syncSessionWithUser(
   token: JWT,
 ): Promise<Session> {
   if (token.invalidUser) {
-    return session;
+    return {
+      ...session,
+      invalidUser: true,
+      user: undefined,
+    };
   }
 
   const userId = token.userId ?? token.sub;
 
   if (!userId) {
-    return session;
+    return {
+      ...session,
+      invalidUser: true,
+      user: undefined,
+    };
   }
 
   const dbUser = await getUserById(userId);
 
-  if (dbUser) {
-    session.user.id = userId;
-    session.user.role = dbUser.role;
-    session.user.team = dbUser.team ?? null;
-    session.user.platform = dbUser.platform ?? null;
+  if (!dbUser) {
+    return {
+      ...session,
+      invalidUser: true,
+      user: undefined,
+    };
   }
 
-  return session;
+  return {
+    ...session,
+    invalidUser: false,
+    user: {
+      ...session.user,
+      id: userId,
+      role: dbUser.role,
+      team: dbUser.team ?? null,
+      platform: dbUser.platform ?? null,
+    },
+  };
 }

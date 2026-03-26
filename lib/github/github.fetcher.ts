@@ -120,6 +120,66 @@ function buildGraphQLError(errors: GraphQLErrorPayload[]): GitHubGraphQLError {
 }
 
 /**
+ * Validates that the GitHub issues response contains the nested structures required by the fetcher.
+ *
+ * @param response The parsed issues response payload.
+ * @returns Nothing. Throws when the response shape is incomplete.
+ */
+function assertIssuesResponse(response: IssuesResponse): void {
+  if (!response.repository) {
+    throw new GitHubGraphQLError(
+      "GitHub issues response is missing repository data.",
+      [],
+    );
+  }
+
+  if (!response.repository.issues) {
+    throw new GitHubGraphQLError(
+      "GitHub issues response is missing issues data.",
+      [],
+    );
+  }
+
+  if (!Array.isArray(response.repository.issues.nodes)) {
+    throw new GitHubGraphQLError(
+      "GitHub issues response contains invalid issue nodes.",
+      [],
+    );
+  }
+
+  if (!response.repository.issues.pageInfo) {
+    throw new GitHubGraphQLError(
+      "GitHub issues response is missing pagination data.",
+      [],
+    );
+  }
+}
+
+/**
+ * Validates that the organization/collaborator response contains the nested structures required by the fetcher.
+ *
+ * @param response The parsed organization/collaborator response payload.
+ * @returns Nothing. Throws when the response shape is incomplete.
+ */
+function assertOrgAndRepoAccessResponse(
+  response: OrgAndRepoAccessResult,
+): void {
+  if (!response.organization?.membersWithRole?.nodes) {
+    throw new GitHubGraphQLError(
+      "GitHub organization response is missing member data.",
+      [],
+    );
+  }
+
+  if (!response.repository?.collaborators?.edges) {
+    throw new GitHubGraphQLError(
+      "GitHub repository response is missing collaborator data.",
+      [],
+    );
+  }
+}
+
+/**
  * Executes a GitHub GraphQL request and returns the validated data payload.
  *
  * @param query The GraphQL query string to execute.
@@ -233,6 +293,7 @@ async function fetchRecentIssues(
       cursor,
       since: SINCE,
     });
+    assertIssuesResponse(data);
 
     const page = data.repository.issues;
     issues.push(...page.nodes);
@@ -273,7 +334,12 @@ async function fetchOrgAndCollaborators(
     }
   `;
 
-  return request(query, { owner, repo });
+  const response = await request<OrgAndRepoAccessResult>(query, {
+    owner,
+    repo,
+  });
+  assertOrgAndRepoAccessResponse(response);
+  return response;
 }
 
 /**

@@ -7,7 +7,6 @@ import {
 } from "@/lib/config/env";
 
 export type FirebaseRuntimeConfig = {
-  projectId: string;
   useFirestoreEmulator: boolean;
   firestoreEmulatorHost: string;
   firestoreEmulatorPort: number;
@@ -29,10 +28,6 @@ export type FirebaseClientConfig = {
  */
 export function getFirebaseRuntimeConfig(): FirebaseRuntimeConfig {
   return {
-    projectId: readEnvWithDefault(
-      "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
-      "demo-oppia-leads-dashboard",
-    ),
     useFirestoreEmulator:
       readBooleanEnv("FIREBASE_EMULATOR_ENABLED") ||
       readBooleanEnv("NEXT_PUBLIC_USE_FIREBASE_EMULATOR") ||
@@ -50,6 +45,30 @@ export function getFirebaseRuntimeConfig(): FirebaseRuntimeConfig {
 }
 
 /**
+ * Returns the Firebase project id for server-side admin initialization.
+ *
+ * @returns The server-side Firebase project id.
+ */
+export function getFirebaseAdminProjectId(): string {
+  return readEnvWithDefault(
+    "FIREBASE_PROJECT_ID",
+    readEnvWithDefault(
+      "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
+      "demo-oppia-leads-dashboard",
+    ),
+  );
+}
+
+/**
+ * Returns the Firebase project id for the client SDK.
+ *
+ * @returns The client-side Firebase project id.
+ */
+export function getFirebaseClientProjectId(): string {
+  return requireEnv("NEXT_PUBLIC_FIREBASE_PROJECT_ID");
+}
+
+/**
  * Returns the required Firebase client SDK configuration.
  *
  * @returns The validated Firebase client configuration.
@@ -58,7 +77,7 @@ export function getFirebaseClientConfig(): FirebaseClientConfig {
   return {
     apiKey: requireEnv("NEXT_PUBLIC_FIREBASE_API_KEY"),
     authDomain: requireEnv("NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN"),
-    projectId: requireEnv("NEXT_PUBLIC_FIREBASE_PROJECT_ID"),
+    projectId: getFirebaseClientProjectId(),
     storageBucket: requireEnv("NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET"),
     messagingSenderId: requireEnv("NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID"),
     appId: requireEnv("NEXT_PUBLIC_FIREBASE_APP_ID"),

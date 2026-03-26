@@ -11,7 +11,7 @@ export function useMarkIssueAsnwered() {
   const { data: session } = useSession();
 
   return (issue: Issue) => {
-    const platform = session?.user.platform;
+    const platform = session?.user?.platform;
 
     const from: keyof CategorizedProjectIssues = getIssueBucket(
       platform === "ANDROID" ? "ANDROID" : "WEB",

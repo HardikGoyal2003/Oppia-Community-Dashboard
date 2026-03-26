@@ -1,12 +1,11 @@
 import GitHubProvider from "next-auth/providers/github";
 import { requireEnv, readEnv } from "@/lib/config/env";
-import type { JWT } from "next-auth/jwt";
-import type { AuthOptions, Session } from "next-auth";
+import type { AuthOptions } from "next-auth";
 import {
-  syncJwtWithUser,
-  syncSessionWithUser,
-  syncUserOnSignIn,
-} from "./auth-sync.service";
+  handleAuthJwt,
+  handleAuthSession,
+  handleAuthSignIn,
+} from "./auth-callbacks";
 
 export const authOptions: AuthOptions = {
   secret: readEnv("NEXTAUTH_SECRET"),
@@ -22,13 +21,13 @@ export const authOptions: AuthOptions = {
   ],
 
   callbacks: {
-    signIn: syncUserOnSignIn,
-    async jwt({ token }: { token: JWT }) {
-      return syncJwtWithUser(token);
+    signIn: handleAuthSignIn,
+    async jwt({ token }) {
+      return handleAuthJwt(token);
     },
 
-    async session({ session, token }: { session: Session; token: JWT }) {
-      return syncSessionWithUser(session, token);
+    async session({ session, token }) {
+      return handleAuthSession(session, token);
     },
   },
 };

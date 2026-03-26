@@ -20,7 +20,7 @@ type TeamMemberSidebarTab = "OVERVIEW" | "UNANSWERED_ISSUES";
 export default function TeamMemberView() {
   const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState<TeamMemberSidebarTab>("OVERVIEW");
-  const isLeadTrainee = session?.user.role === "LEAD_TRAINEE";
+  const isLeadTrainee = session?.user?.role === "LEAD_TRAINEE";
   const sidebarItems = [
     {
       name: "Overview",

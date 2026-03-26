@@ -28,7 +28,7 @@ export default function UnansweredIssuesTab() {
   const [archivedIssues, setArchivedIssues] = useState<Issue[]>([]);
 
   const { data: session } = useSession();
-  const platform = session?.user.platform;
+  const platform = session?.user?.platform;
   const hasPlatform = platform !== null && platform !== undefined;
 
   const teamLabelMap: Record<string, string> =

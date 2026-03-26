@@ -1,7 +1,10 @@
 import { getApps, initializeApp, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { requireEnv } from "@/lib/config/env";
-import { getFirebaseRuntimeConfig } from "./firebase.config";
+import {
+  getFirebaseAdminProjectId,
+  getFirebaseRuntimeConfig,
+} from "./firebase.config";
 
 /**
  * Initializes the Firebase Admin SDK using either emulator or production credentials.
@@ -9,7 +12,8 @@ import { getFirebaseRuntimeConfig } from "./firebase.config";
  * @returns Nothing. Ensures the admin app is initialized once per process.
  */
 export function initFirebaseAdmin() {
-  const { projectId, useFirestoreEmulator } = getFirebaseRuntimeConfig();
+  const { useFirestoreEmulator } = getFirebaseRuntimeConfig();
+  const projectId = getFirebaseAdminProjectId();
 
   if (!getApps().length) {
     if (useFirestoreEmulator) {

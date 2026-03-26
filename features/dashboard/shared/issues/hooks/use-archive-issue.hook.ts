@@ -13,7 +13,7 @@ export function useArchiveIssue() {
   const { data: session } = useSession();
 
   return async (issue: Issue) => {
-    const platform = session?.user.platform;
+    const platform = session?.user?.platform;
 
     if (!platform) {
       console.error("User platform is undefined. Cannot archive issue.");

@@ -17,6 +17,7 @@ interface GitHubProjectConnection {
   nodes: GitHubProject[];
 }
 
+// Raw upstream GraphQL issue shape returned by the GitHub API.
 export interface GitHubIssueNode {
   number: number;
   title: string;
@@ -26,6 +27,7 @@ export interface GitHubIssueNode {
   projectsV2: GitHubProjectConnection;
 }
 
+// Normalized app-facing issue shape used by the dashboard after mapping.
 export interface GitHubIssue {
   issueNumber: number;
   issueUrl: string;

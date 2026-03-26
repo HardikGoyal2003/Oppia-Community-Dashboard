@@ -29,7 +29,8 @@ export interface UserModel {
  */
 declare module "next-auth" {
   interface Session {
-    user: {
+    invalidUser?: boolean;
+    user?: {
       id: string;
       role: UserRole;
       team: string | null;
