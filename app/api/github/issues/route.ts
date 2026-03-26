@@ -10,14 +10,28 @@ import {
 export async function GET() {
   const session = await getServerSession(authOptions);
 
-  if (!session || !session.user) {
+  if (!session || !session.user || session.invalidUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   try {
-    const platform = session.user.platform ?? "WEB";
-    const repoTarget =
-      GITHUB_REPOS[platform as keyof typeof GITHUB_REPOS] ?? GITHUB_REPOS.WEB;
+    const platform = session.user.platform;
+
+    if (!platform) {
+      return NextResponse.json(
+        { error: "No contribution platform found for the current user." },
+        { status: 400 },
+      );
+    }
+
+    const repoTarget = GITHUB_REPOS[platform];
+
+    if (!repoTarget) {
+      return NextResponse.json(
+        { error: `No GitHub repo configured for platform: ${platform}` },
+        { status: 500 },
+      );
+    }
 
     const issuesData = await fetchUnansweredIssues(repoTarget);
     return NextResponse.json({

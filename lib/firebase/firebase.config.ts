@@ -54,7 +54,7 @@ export function getFirebaseAdminProjectId(): string {
     "FIREBASE_PROJECT_ID",
     readEnvWithDefault(
       "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
-      "demo-oppia-leads-dashboard",
+      "demo-oppia-community-dashboard",
     ),
   );
 }

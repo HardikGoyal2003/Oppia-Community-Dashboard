@@ -14,10 +14,6 @@ function assertFormattableIssue(issue: GitHubIssueNode): void {
       `Issue ${issue.number} is missing the latest comment timestamp.`,
     );
   }
-
-  if (!issue.projectsV2.nodes[0]?.title) {
-    throw new Error(`Issue ${issue.number} is missing a linked project title.`);
-  }
 }
 
 /**
@@ -48,7 +44,7 @@ function assertNormalizedGitHubIssue(issue: GitHubIssue): void {
     throw new Error("Normalized GitHub issue is missing lastCommentCreatedAt.");
   }
 
-  if (typeof issue.linkedProject !== "string" || !issue.linkedProject) {
+  if (typeof issue.linkedProject !== "string") {
     throw new Error("Normalized GitHub issue is missing linkedProject.");
   }
 }
@@ -68,7 +64,7 @@ export function mapGitHubIssueNodes(rawData: GitHubIssueNode[]): GitHubIssue[] {
       issueUrl: issue.url,
       issueTitle: issue.title,
       lastCommentCreatedAt: issue.comments.nodes[0].createdAt,
-      linkedProject: issue.projectsV2.nodes[0].title,
+      linkedProject: issue.projectsV2.nodes[0]?.title || "",
     };
 
     assertNormalizedGitHubIssue(normalizedIssue);
