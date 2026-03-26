@@ -1,4 +1,4 @@
-import { RawIssue, RawIssueNode } from "../github/github.types";
+import { GitHubIssue, GitHubIssueNode } from "./github.types";
 
 /**
  * Validates that a GitHub issue node contains the fields required by the dashboard formatter.
@@ -6,7 +6,7 @@ import { RawIssue, RawIssueNode } from "../github/github.types";
  * @param issue The raw GitHub issue node to validate.
  * @returns Nothing. Throws when required issue fields are missing.
  */
-function assertFormattableIssue(issue: RawIssueNode): void {
+function assertFormattableIssue(issue: GitHubIssueNode): void {
   const latestComment = issue.comments.nodes[0];
 
   if (!latestComment?.createdAt) {
@@ -26,7 +26,7 @@ function assertFormattableIssue(issue: RawIssueNode): void {
  * @param rawData The raw GitHub issue nodes returned from the GitHub fetcher.
  * @returns The normalized issue list expected by the dashboard.
  */
-export function formatIssues(rawData: RawIssueNode[]): RawIssue[] {
+export function mapGitHubIssueNodes(rawData: GitHubIssueNode[]): GitHubIssue[] {
   return rawData.map((issue) => {
     assertFormattableIssue(issue);
 

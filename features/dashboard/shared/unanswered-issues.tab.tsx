@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { IssueCard } from "./issues/components/issue-card";
-import { RawIssue } from "@/lib/github/github.types";
+import { GitHubIssue } from "@/lib/github/github.types";
 import { LoadingIndicator } from "@/components/layout/loading-indicator";
 import { useLoading } from "@/components/providers/loader-context";
 import { TeamTabs } from "./team-tabs";
@@ -16,7 +16,7 @@ import { getArchivedIssuesForPlatform } from "./issues/services/archived-issues-
 
 export default function UnansweredIssuesTab() {
   const [responseData, setResponseData] = useState<{
-    issues: RawIssue[];
+    issues: GitHubIssue[];
   } | null>(null);
   const [activeTab, setActiveTab] =
     useState<keyof CategorizedProjectIssues>("team1");
@@ -60,7 +60,7 @@ export default function UnansweredIssuesTab() {
       }
 
       const issuesData = (await issuesResponse.json()) as {
-        issues: RawIssue[];
+        issues: GitHubIssue[];
       };
 
       const [archivedIssues, data] = await Promise.all([

@@ -6,7 +6,6 @@ import {
   fetchUnansweredIssues,
   GitHubGraphQLError,
 } from "@/lib/github/github.fetcher";
-import { formatIssues } from "@/lib/github/github-issues.mapper";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -22,7 +21,7 @@ export async function GET() {
 
     const issuesData = await fetchUnansweredIssues(repoTarget);
     return NextResponse.json({
-      issues: formatIssues(issuesData),
+      issues: issuesData,
     });
   } catch (error) {
     console.error(error);

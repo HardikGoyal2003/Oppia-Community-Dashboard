@@ -1,4 +1,4 @@
-import { RawIssue } from "@/lib/github/github.types";
+import { GitHubIssue } from "@/lib/github/github.types";
 import type { Issue } from "@/lib/domain/issues.types";
 import { getIssueBucket } from "@/lib/domain/issue-buckets";
 import { CategorizedProjectIssues } from "../../../dashboard.types";
@@ -6,7 +6,7 @@ import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { unarchiveIssueForPlatform } from "./archived-issues-api.service";
 
 export async function categorizeIssues(
-  rawIssues: RawIssue[],
+  rawIssues: GitHubIssue[],
   archivedIssues: Issue[],
   platform: ContributionPlatform,
 ): Promise<CategorizedProjectIssues> {

@@ -1,5 +1,6 @@
 import { requireEnv } from "@/lib/config/env";
-import { RawIssueNode, User } from "./github.types";
+import { mapGitHubIssueNodes } from "./github-issues.mapper";
+import { GitHubIssue, GitHubIssueNode, GitHubUser } from "./github.types";
 
 const TOKEN = requireEnv("GITHUB_TOKEN");
 
@@ -13,7 +14,7 @@ export type GitHubRepoTarget = {
 interface IssuesResponse {
   repository: {
     issues: {
-      nodes: RawIssueNode[];
+      nodes: GitHubIssueNode[];
       pageInfo: { hasNextPage: boolean; endCursor: string | null };
     };
   };
@@ -40,7 +41,7 @@ interface Organization {
 }
 
 interface MembersWithRole {
-  nodes: User[];
+  nodes: GitHubUser[];
 }
 
 interface Repository {
@@ -53,7 +54,7 @@ interface Collaborators {
 
 interface CollaboratorEdge {
   permission: Permission;
-  node: User;
+  node: GitHubUser;
 }
 
 type Permission = "READ" | "TRIAGE" | "WRITE" | "MAINTAIN" | "ADMIN";
@@ -183,8 +184,8 @@ async function fetchRateLimit(): Promise<RateLimit> {
 async function fetchRecentIssues(
   owner: string,
   repo: string,
-): Promise<RawIssueNode[]> {
-  const issues: RawIssueNode[] = [];
+): Promise<GitHubIssueNode[]> {
+  const issues: GitHubIssueNode[] = [];
   let cursor: string | null = null;
   let hasNextPage = true;
 
@@ -281,7 +282,9 @@ async function fetchOrgAndCollaborators(
  * @param target The GitHub repository to inspect.
  * @returns The filtered unanswered issue nodes for the dashboard.
  */
-export async function fetchUnansweredIssues(target: GitHubRepoTarget) {
+export async function fetchUnansweredIssues(
+  target: GitHubRepoTarget,
+): Promise<GitHubIssue[]> {
   const owner = target.owner;
   const repo = target.repo;
 
@@ -342,5 +345,5 @@ export async function fetchUnansweredIssues(target: GitHubRepoTarget) {
   console.log("\nRate Limit:");
   console.log(rate.rateLimit);
 
-  return filtered;
+  return mapGitHubIssueNodes(filtered);
 }

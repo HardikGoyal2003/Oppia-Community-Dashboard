@@ -1,32 +1,32 @@
-export interface User {
+export interface GitHubUser {
   login: string;
 }
 
-interface Project {
+interface GitHubProject {
   title: string;
 }
 
-interface CommentNode {
+interface GitHubCommentConnection {
   nodes: {
-    author: User;
+    author: GitHubUser;
     createdAt: string;
   }[];
 }
 
-interface ProjectNode {
-  nodes: Project[];
+interface GitHubProjectConnection {
+  nodes: GitHubProject[];
 }
 
-export interface RawIssueNode {
+export interface GitHubIssueNode {
   number: number;
   title: string;
   url: string;
   state: string;
-  comments: CommentNode;
-  projectsV2: ProjectNode;
+  comments: GitHubCommentConnection;
+  projectsV2: GitHubProjectConnection;
 }
 
-export interface RawIssue {
+export interface GitHubIssue {
   issueNumber: number;
   issueUrl: string;
   issueTitle: string;
