@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
+import { getKnownRoleDisplayLabel } from "@/lib/auth/role-display";
 import {
   getPendingMemberAccessRequestsByPlatform,
   PendingMemberAccessRequestError,
@@ -25,7 +26,7 @@ function canManageRequests(role: UserRole): boolean {
 }
 
 function getPromotionMessage(role: UserRole, team: string): string {
-  const roleLabel = role.replace("_", " ");
+  const roleLabel = getKnownRoleDisplayLabel(role);
 
   switch (role) {
     case "TEAM_MEMBER":

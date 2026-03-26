@@ -1,6 +1,7 @@
 "use client";
 
 import { LoadingIndicator } from "@/components/layout/loading-indicator";
+import { getRoleDisplayLabel } from "@/lib/auth/role-display";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { DeclineRequestModal } from "../components/decline-request-modal";
@@ -156,7 +157,7 @@ export function IncomingRequestTab() {
                 <tr key={request.id} className="border-b align-top">
                   <td className="p-3">{index + 1}</td>
                   <td className="p-3">{request.username}</td>
-                  <td className="p-3">{formatDisplayValue(request.role)}</td>
+                  <td className="p-3">{getRoleDisplayLabel(request.role)}</td>
                   <td className="p-3">{formatDisplayValue(request.team)}</td>
                   <td className="p-3 max-w-xs whitespace-pre-wrap">
                     {request.note || "-"}

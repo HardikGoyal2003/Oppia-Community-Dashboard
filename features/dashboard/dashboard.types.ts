@@ -1,9 +1,6 @@
 import type { Issue } from "@/lib/domain/issues.types";
+import type { IssueBucket } from "@/lib/domain/issue-buckets";
 
-export interface CategorizedProjectIssues {
-  team1: Issue[];
-  team2: Issue[];
-  team3: Issue[];
-  others: Issue[];
+export type CategorizedProjectIssues = Record<IssueBucket, Issue[]> & {
   archive: Issue[];
-}
+};

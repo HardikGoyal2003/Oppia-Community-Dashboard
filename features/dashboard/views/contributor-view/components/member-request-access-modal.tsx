@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { getRoleDisplayLabel } from "@/lib/auth/role-display";
 import { REQUESTABLE_USER_ROLES } from "@/lib/auth/roles";
 import { ROLE_LABELS } from "@/lib/auth/role-labels";
 import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config";
@@ -151,7 +152,7 @@ export default function MemberRequestAccessModal({
             </h2>
             <p className="text-gray-600">
               {duplicateRequest
-                ? `You already have a pending team access request for ${formatDisplayValue(duplicateRequest.role)} role in ${formatDisplayValue(duplicateRequest.team)}, created at ${formatDuplicateRequestDate(duplicateRequest.createdAt)}. Thanks for your patience. Admins will review it soon.`
+                ? `You already have a pending team access request for ${getRoleDisplayLabel(duplicateRequest.role)} role in ${formatDisplayValue(duplicateRequest.team)}, created at ${formatDuplicateRequestDate(duplicateRequest.createdAt)}. Thanks for your patience. Admins will review it soon.`
                 : "You already have a pending team access request. Thanks for your patience. Admins will review it soon."}
             </p>
             <DialogClose asChild>

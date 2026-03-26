@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
+import { getKnownRoleDisplayLabel } from "@/lib/auth/role-display";
 import { ASSIGNABLE_USER_ROLES } from "@/lib/auth/roles";
 import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config";
 import { UserUpdateReasonModal } from "../components/user-update-reason-modal";
@@ -215,7 +216,7 @@ export function UserRoleManagerTab() {
                   >
                     {ASSIGNABLE_USER_ROLES.map((role) => (
                       <option key={role} value={role}>
-                        {formatDisplayValue(role)}
+                        {getKnownRoleDisplayLabel(role)}
                       </option>
                     ))}
                   </select>
