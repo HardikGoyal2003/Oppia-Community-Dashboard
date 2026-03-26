@@ -5,7 +5,7 @@ import { useProjectIssuesStore } from "../store/project-issues.store";
 import { CategorizedProjectIssues } from "../../../dashboard.types";
 import type { Issue } from "@/lib/domain/issues.types";
 
-import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config/teams.constants";
+import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config";
 import { archiveIssueForPlatform } from "../services/archived-issues-api.service";
 
 export function useArchiveIssue() {

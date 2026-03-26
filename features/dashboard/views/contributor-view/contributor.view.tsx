@@ -1,6 +1,6 @@
 "use client";
 
-import { CONTRIBUTING_DOCS } from "@/lib/config/github.constants";
+import { CONTRIBUTING_DOCS } from "@/lib/config";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import MemberRequestAccessModal from "./components/member-request-access-modal";
 

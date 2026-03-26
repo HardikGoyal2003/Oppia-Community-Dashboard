@@ -2,7 +2,7 @@
 
 import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { ANNOUNCEMENT_BANNER } from "@/lib/config/announcement.constants";
+import { ANNOUNCEMENT_BANNER } from "@/lib/config";
 
 export function AnnouncementBanner() {
   const bannerRef = useRef<HTMLDivElement | null>(null);

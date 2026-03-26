@@ -25,7 +25,7 @@ import {
 
 import { REQUESTABLE_USER_ROLES } from "@/lib/auth/roles";
 import { ROLE_LABELS } from "@/lib/auth/role-labels";
-import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config/teams.constants";
+import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config";
 import { useState } from "react";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { formatDisplayValue } from "@/lib/utils/display.utils";

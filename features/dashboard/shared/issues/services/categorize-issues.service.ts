@@ -1,7 +1,7 @@
 import { RawIssue } from "@/lib/github/github.types";
 import type { Issue } from "@/lib/domain/issues.types";
 import { CategorizedProjectIssues } from "../../../dashboard.types";
-import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config/teams.constants";
+import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { unarchiveIssueForPlatform } from "./archived-issues-api.service";
 

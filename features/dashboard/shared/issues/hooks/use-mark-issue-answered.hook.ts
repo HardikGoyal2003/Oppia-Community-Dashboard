@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { useProjectIssuesStore } from "../store/project-issues.store";
 import { CategorizedProjectIssues } from "../../../dashboard.types";
 import type { Issue } from "@/lib/domain/issues.types";
-import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config/teams.constants";
+import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config";
 
 export function useMarkIssueAsnwered() {
   const removeIssue = useProjectIssuesStore((state) => state.removeIssue);

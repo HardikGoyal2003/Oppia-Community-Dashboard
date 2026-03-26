@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { ASSIGNABLE_USER_ROLES } from "@/lib/auth/roles";
-import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config/teams.constants";
+import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config";
 import { UserUpdateReasonModal } from "../components/user-update-reason-modal";
 import { formatDisplayValue } from "@/lib/utils/display.utils";
 

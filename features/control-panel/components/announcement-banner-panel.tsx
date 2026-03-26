@@ -1,6 +1,6 @@
 "use client";
 
-import { ANNOUNCEMENT_BANNER } from "@/lib/config/announcement.constants";
+import { ANNOUNCEMENT_BANNER } from "@/lib/config";
 
 export function AnnouncementBannerPanel() {
   const title = ANNOUNCEMENT_BANNER.TITLE;

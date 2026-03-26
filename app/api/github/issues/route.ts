@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
-import { GITHUB_REPOS } from "@/lib/config/github.constants";
+import { GITHUB_REPOS } from "@/lib/config";
 import {
   fetchUnansweredIssues,
   GitHubGraphQLError,
