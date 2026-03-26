@@ -1,3 +1,9 @@
+/**
+ * Formats a day of month with its English ordinal suffix.
+ *
+ * @param day The day of month to format.
+ * @returns The ordinal day string such as `1st` or `22nd`.
+ */
 export function getOrdinalDay(day: number): string {
   const remainder = day % 10;
   const teen = day % 100;

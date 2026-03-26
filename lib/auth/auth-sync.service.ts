@@ -19,7 +19,7 @@ type SignInParams = {
 /**
  * Creates or syncs the Firestore user record during GitHub sign-in.
  *
- * @param params The NextAuth sign-in callback parameters.
+ * @param object The NextAuth sign-in callback parameters.
  * @returns True when sign-in may proceed, or false when required identity data is missing.
  */
 export async function syncUserOnSignIn({
