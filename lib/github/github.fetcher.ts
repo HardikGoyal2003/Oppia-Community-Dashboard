@@ -1,6 +1,8 @@
-import { RawIssueNode, User } from "./github.types";
+import { requireEnv } from "@/lib/config/env";
+import { mapGitHubIssueNodes } from "./github-issues.mapper";
+import { GitHubIssue, GitHubIssueNode, GitHubUser } from "./github.types";
 
-const TOKEN = process.env.GITHUB_TOKEN!;
+const TOKEN = requireEnv("GITHUB_TOKEN");
 
 const API_URL = "https://api.github.com/graphql";
 
@@ -12,7 +14,7 @@ export type GitHubRepoTarget = {
 interface IssuesResponse {
   repository: {
     issues: {
-      nodes: RawIssueNode[];
+      nodes: GitHubIssueNode[];
       pageInfo: { hasNextPage: boolean; endCursor: string | null };
     };
   };
@@ -39,7 +41,7 @@ interface Organization {
 }
 
 interface MembersWithRole {
-  nodes: User[];
+  nodes: GitHubUser[];
 }
 
 interface Repository {
@@ -52,11 +54,139 @@ interface Collaborators {
 
 interface CollaboratorEdge {
   permission: Permission;
-  node: User;
+  node: GitHubUser;
 }
 
 type Permission = "READ" | "TRIAGE" | "WRITE" | "MAINTAIN" | "ADMIN";
 
+type GraphQLErrorPayload = {
+  message?: string;
+  type?: string;
+  path?: string[];
+};
+
+type GraphQLSuccessResponse<T> = {
+  data?: T;
+  errors?: GraphQLErrorPayload[];
+};
+
+/**
+ * Represents a GitHub GraphQL failure with actionable upstream details.
+ */
+export class GitHubGraphQLError extends Error {
+  details: string[];
+
+  constructor(message: string, details: string[]) {
+    super(message);
+    this.name = "GitHubGraphQLError";
+    this.details = details;
+  }
+}
+
+/**
+ * Validates that a GraphQL response contains a usable data payload.
+ *
+ * @param response The parsed GraphQL response body.
+ * @returns Nothing. Throws when the payload is missing or malformed.
+ */
+function assertGraphQLData<T>(
+  response: GraphQLSuccessResponse<T>,
+): asserts response is { data: T; errors?: GraphQLErrorPayload[] } {
+  if (!("data" in response) || response.data === undefined) {
+    throw new GitHubGraphQLError(
+      "GitHub GraphQL response did not contain a data payload.",
+      [],
+    );
+  }
+}
+
+/**
+ * Builds a typed GitHub GraphQL error from the upstream error payload.
+ *
+ * @param errors The GraphQL errors returned by GitHub.
+ * @returns The typed GitHub GraphQL error.
+ */
+function buildGraphQLError(errors: GraphQLErrorPayload[]): GitHubGraphQLError {
+  const details = errors.map((error) => {
+    const path = error.path?.join(".") ?? "unknown";
+    const type = error.type ? ` [${error.type}]` : "";
+    return `${error.message ?? "Unknown GraphQL error"}${type} at ${path}`;
+  });
+
+  return new GitHubGraphQLError(
+    details[0] ?? "GitHub GraphQL request failed.",
+    details,
+  );
+}
+
+/**
+ * Validates that the GitHub issues response contains the nested structures required by the fetcher.
+ *
+ * @param response The parsed issues response payload.
+ * @returns Nothing. Throws when the response shape is incomplete.
+ */
+function assertIssuesResponse(response: IssuesResponse): void {
+  if (!response.repository) {
+    throw new GitHubGraphQLError(
+      "GitHub issues response is missing repository data.",
+      [],
+    );
+  }
+
+  if (!response.repository.issues) {
+    throw new GitHubGraphQLError(
+      "GitHub issues response is missing issues data.",
+      [],
+    );
+  }
+
+  if (!Array.isArray(response.repository.issues.nodes)) {
+    throw new GitHubGraphQLError(
+      "GitHub issues response contains invalid issue nodes.",
+      [],
+    );
+  }
+
+  if (!response.repository.issues.pageInfo) {
+    throw new GitHubGraphQLError(
+      "GitHub issues response is missing pagination data.",
+      [],
+    );
+  }
+}
+
+/**
+ * Validates that the organization/collaborator response contains the nested structures required by the fetcher.
+ *
+ * @param response The parsed organization/collaborator response payload.
+ * @returns Nothing. Throws when the response shape is incomplete.
+ */
+function assertOrgAndRepoAccessResponse(
+  response: OrgAndRepoAccessResult,
+): void {
+  if (!response.organization?.membersWithRole?.nodes) {
+    throw new GitHubGraphQLError(
+      "GitHub organization response is missing member data.",
+      [],
+    );
+  }
+
+  if (!response.repository?.collaborators?.edges) {
+    throw new GitHubGraphQLError(
+      "GitHub repository response is missing collaborator data.",
+      [],
+    );
+  }
+}
+
+/**
+ * Executes a GitHub GraphQL request and returns the validated data payload.
+ *
+ * @param query The GraphQL query string to execute.
+ * @param variables The variables to send with the request.
+ * @returns The validated GraphQL data payload.
+ * @throws {GitHubGraphQLError} When GitHub returns an HTTP or GraphQL error, or the response is malformed.
+ */
 async function request<T>(query: string, variables = {}): Promise<T> {
   const res = await fetch(API_URL, {
     method: "POST",
@@ -67,14 +197,29 @@ async function request<T>(query: string, variables = {}): Promise<T> {
     body: JSON.stringify({ query, variables }),
   });
 
-  const json = await res.json();
-  if (json.errors) {
-    console.error(json.errors);
-    throw new Error("GraphQL error");
+  if (!res.ok) {
+    throw new GitHubGraphQLError(
+      `GitHub GraphQL request failed with status ${res.status}.`,
+      [res.statusText],
+    );
   }
-  return json.data as T;
+
+  const response = (await res.json()) as GraphQLSuccessResponse<T>;
+
+  if (response.errors && response.errors.length > 0) {
+    throw buildGraphQLError(response.errors);
+  }
+
+  assertGraphQLData(response);
+
+  return response.data;
 }
 
+/**
+ * Fetches the current GitHub GraphQL rate-limit snapshot.
+ *
+ * @returns The current GraphQL rate-limit information.
+ */
 async function fetchRateLimit(): Promise<RateLimit> {
   const query = `
     query {
@@ -89,11 +234,18 @@ async function fetchRateLimit(): Promise<RateLimit> {
   return request(query);
 }
 
+/**
+ * Fetches recent repository issues from the last 30 days using paginated GraphQL requests.
+ *
+ * @param owner The repository owner.
+ * @param repo The repository name.
+ * @returns The aggregated recent issue nodes.
+ */
 async function fetchRecentIssues(
   owner: string,
   repo: string,
-): Promise<RawIssueNode[]> {
-  const issues: RawIssueNode[] = [];
+): Promise<GitHubIssueNode[]> {
+  const issues: GitHubIssueNode[] = [];
   let cursor: string | null = null;
   let hasNextPage = true;
 
@@ -141,6 +293,7 @@ async function fetchRecentIssues(
       cursor,
       since: SINCE,
     });
+    assertIssuesResponse(data);
 
     const page = data.repository.issues;
     issues.push(...page.nodes);
@@ -152,6 +305,13 @@ async function fetchRecentIssues(
   return issues;
 }
 
+/**
+ * Fetches organization members and repository collaborators for maintainer filtering.
+ *
+ * @param owner The organization or repository owner.
+ * @param repo The repository name.
+ * @returns The organization membership and repository collaborator data.
+ */
 async function fetchOrgAndCollaborators(
   owner: string,
   repo: string,
@@ -174,14 +334,27 @@ async function fetchOrgAndCollaborators(
     }
   `;
 
-  return request(query, { owner, repo });
+  const response = await request<OrgAndRepoAccessResult>(query, {
+    owner,
+    repo,
+  });
+  assertOrgAndRepoAccessResponse(response);
+  return response;
 }
 
-export async function main(target: GitHubRepoTarget) {
+/**
+ * Fetches unanswered issues whose latest recent comment came from a non-maintainer.
+ *
+ * @param target The GitHub repository to inspect.
+ * @returns The filtered unanswered issue nodes for the dashboard.
+ */
+export async function fetchUnansweredIssues(
+  target: GitHubRepoTarget,
+): Promise<GitHubIssue[]> {
   const owner = target.owner;
   const repo = target.repo;
 
-  console.log(`Fetching collaborators and org members...`);
+  console.log("Fetching collaborators and org members...");
 
   const orgData = await fetchOrgAndCollaborators(owner, repo);
 
@@ -196,7 +369,6 @@ export async function main(target: GitHubRepoTarget) {
       .filter((e) => ["ADMIN", "MAINTAIN", "WRITE"].includes(e.permission))
       .map((e) => e.node.login),
   );
-
   console.log(`Org members: ${orgMembers.size}`);
   console.log(`Collaborators: ${collabAll.size}`);
   console.log(`Maintainers: ${maintainers.size}`);
@@ -230,14 +402,14 @@ export async function main(target: GitHubRepoTarget) {
   });
 
   console.log(
-    "\n📌 Issues where last comment in past 30 days is from non-maintainer",
+    "\nIssues where last comment in past 30 days is from non-maintainer",
   );
-  console.log("--------------------------------------------------------------");
-  console.log(`\n✅ Total filtered issues: ${filtered.length}`);
+  console.log("----------------------------------------------------------");
+  console.log(`\nTotal filtered issues: ${filtered.length}`);
 
   const rate = await fetchRateLimit();
-  console.log("\n📊 Rate Limit:");
+  console.log("\nRate Limit:");
   console.log(rate.rateLimit);
 
-  return filtered;
+  return mapGitHubIssueNodes(filtered);
 }

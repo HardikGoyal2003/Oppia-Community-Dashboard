@@ -36,6 +36,12 @@ type RegisteredDataJob = DataJobDefinition & {
   handler: DataJobHandler;
 };
 
+/**
+ * Audits users and reports accounts that do not yet have a selected platform.
+ *
+ * @param context The data-job execution context.
+ * @returns A summary of the audit findings.
+ */
 async function auditUsersMissingPlatform(
   context: DataJobHandlerContext,
 ): Promise<DataJobResult> {
@@ -54,6 +60,12 @@ async function auditUsersMissingPlatform(
   };
 }
 
+/**
+ * Audits non-contributor users and reports accounts that are missing a team assignment.
+ *
+ * @param context The data-job execution context.
+ * @returns A summary of the audit findings.
+ */
 async function auditPrivilegedUsersMissingTeam(
   context: DataJobHandlerContext,
 ): Promise<DataJobResult> {
@@ -74,6 +86,13 @@ async function auditPrivilegedUsersMissingTeam(
   };
 }
 
+/**
+ * Migrates legacy archived-issue documents to platform-scoped ids and timestamp fields.
+ *
+ * @param context The data-job execution context.
+ * @returns A summary of the migration outcome.
+ * @throws {DbInvalidStateError} When a real run finds conflicts or invalid timestamps.
+ */
 async function migrateArchivedIssuesToPlatformScopedIds(
   context: DataJobHandlerContext,
 ): Promise<DataJobResult> {

@@ -6,6 +6,7 @@ import {
 } from "@/db/users/users.db";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
+import { getKnownRoleDisplayLabel } from "@/lib/auth/role-display";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { isValidUserRole } from "@/lib/utils/roles.utils";
 import { DbNotFoundError, DbValidationError } from "@/db/db.errors";
@@ -20,7 +21,7 @@ function getUserAccessUpdatedMessage(
   reason: string,
   changedByGithubUsername?: string,
 ): string {
-  const roleLabel = role.replace("_", " ");
+  const roleLabel = getKnownRoleDisplayLabel(role);
   const teamLabel = team ?? "Unassigned";
   const actor = changedByGithubUsername ?? "Admin";
 

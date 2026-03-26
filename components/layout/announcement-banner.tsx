@@ -2,13 +2,13 @@
 
 import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { CONSTANTS } from "@/lib/constants";
+import { ANNOUNCEMENT_BANNER } from "@/lib/config";
 
 export function AnnouncementBanner() {
   const bannerRef = useRef<HTMLDivElement | null>(null);
-  const title = CONSTANTS.ANNOUNCEMENT_BANNER.TITLE;
-  const message = CONSTANTS.ANNOUNCEMENT_BANNER.MESSAGE;
-  const isEnabled = CONSTANTS.ANNOUNCEMENT_BANNER.IS_ENABLED;
+  const title = ANNOUNCEMENT_BANNER.TITLE;
+  const message = ANNOUNCEMENT_BANNER.MESSAGE;
+  const isEnabled = ANNOUNCEMENT_BANNER.IS_ENABLED;
   const [isDismissed, setIsDismissed] = useState(false);
 
   useEffect(() => {

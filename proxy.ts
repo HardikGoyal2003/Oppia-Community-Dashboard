@@ -1,7 +1,7 @@
 import { withAuth } from "next-auth/middleware";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { isMaintenanceModeEnabled } from "@/lib/maintenance";
+import { isMaintenanceModeEnabled } from "@/lib/config";
 
 export default withAuth(
   function middleware(req: NextRequest) {

@@ -1,32 +1,34 @@
-export interface User {
+export interface GitHubUser {
   login: string;
 }
 
-interface Project {
+interface GitHubProject {
   title: string;
 }
 
-interface CommentNode {
+interface GitHubCommentConnection {
   nodes: {
-    author: User;
+    author: GitHubUser;
     createdAt: string;
   }[];
 }
 
-interface ProjectNode {
-  nodes: Project[];
+interface GitHubProjectConnection {
+  nodes: GitHubProject[];
 }
 
-export interface RawIssueNode {
+// Raw upstream GraphQL issue shape returned by the GitHub API.
+export interface GitHubIssueNode {
   number: number;
   title: string;
   url: string;
   state: string;
-  comments: CommentNode;
-  projectsV2: ProjectNode;
+  comments: GitHubCommentConnection;
+  projectsV2: GitHubProjectConnection;
 }
 
-export interface RawIssue {
+// Normalized app-facing issue shape used by the dashboard after mapping.
+export interface GitHubIssue {
   issueNumber: number;
   issueUrl: string;
   issueTitle: string;

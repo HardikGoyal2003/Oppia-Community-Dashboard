@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
-import { CONSTANTS } from "@/lib/constants";
+import { getKnownRoleDisplayLabel } from "@/lib/auth/role-display";
+import { ASSIGNABLE_USER_ROLES } from "@/lib/auth/roles";
+import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config";
 import { UserUpdateReasonModal } from "../components/user-update-reason-modal";
-import { formatDisplayValue } from "@/lib/utils/display-format.utils";
+import { formatDisplayValue } from "@/lib/utils/display.utils";
 
 type User = {
   id: string;
@@ -24,14 +26,6 @@ type PendingUpdate = {
   team: string | null;
 };
 
-const ROLES: UserRole[] = [
-  "CONTRIBUTOR",
-  "TEAM_MEMBER",
-  "LEAD_TRAINEE",
-  "TEAM_LEAD",
-  "ADMIN",
-];
-
 function getDisplayRole(role: UserRole): UserRole {
   return role === "SUPER_ADMIN" ? "ADMIN" : role;
 }
@@ -42,10 +36,10 @@ function isManagedRole(role: UserRole): boolean {
 
 function getTeamsForPlatform(platform: ContributionPlatform | null): string[] {
   if (platform === "ANDROID") {
-    return Object.keys(CONSTANTS.ANDROID_TEAMS);
+    return Object.keys(ANDROID_TEAMS);
   }
 
-  return Object.keys(CONSTANTS.WEB_TEAMS);
+  return Object.keys(WEB_TEAMS);
 }
 
 export function UserRoleManagerTab() {
@@ -220,9 +214,9 @@ export function UserRoleManagerTab() {
                     }
                     className="border rounded px-2 py-1 disabled:opacity-50"
                   >
-                    {ROLES.map((role) => (
+                    {ASSIGNABLE_USER_ROLES.map((role) => (
                       <option key={role} value={role}>
-                        {formatDisplayValue(role)}
+                        {getKnownRoleDisplayLabel(role)}
                       </option>
                     ))}
                   </select>

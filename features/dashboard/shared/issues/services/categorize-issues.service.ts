@@ -1,12 +1,12 @@
-import { RawIssue } from "@/lib/github/github.types";
+import { GitHubIssue } from "@/lib/github/github.types";
 import type { Issue } from "@/lib/domain/issues.types";
+import { getIssueBucket } from "@/lib/domain/issue-buckets";
 import { CategorizedProjectIssues } from "../../../dashboard.types";
-import { CONSTANTS } from "@/lib/constants";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { unarchiveIssueForPlatform } from "./archived-issues-api.service";
 
 export async function categorizeIssues(
-  rawIssues: RawIssue[],
+  rawIssues: GitHubIssue[],
   archivedIssues: Issue[],
   platform: ContributionPlatform,
 ): Promise<CategorizedProjectIssues> {
@@ -51,33 +51,7 @@ export async function categorizeIssues(
 
     if (archiveIndex === -1 || isUpdated) {
       const issue = { ...rawIssue, isArchived: false };
-
-      if (platform === "ANDROID") {
-        switch (rawIssue.linkedProject) {
-          case CONSTANTS.ANDROID_TEAMS.CLAM:
-            result.team1.push(issue);
-            break;
-          case CONSTANTS.ANDROID_TEAMS.DEV_WORKFLOW_INFRA:
-            result.team2.push(issue);
-            break;
-          default:
-            result.others.push(issue);
-        }
-      } else {
-        switch (rawIssue.linkedProject) {
-          case CONSTANTS.WEB_TEAMS.LEAP:
-            result.team1.push(issue);
-            break;
-          case CONSTANTS.WEB_TEAMS.CORE:
-            result.team2.push(issue);
-            break;
-          case CONSTANTS.WEB_TEAMS.DEV_WORKFLOW:
-            result.team3.push(issue);
-            break;
-          default:
-            result.others.push(issue);
-        }
-      }
+      result[getIssueBucket(platform, rawIssue.linkedProject)].push(issue);
     }
   }
 

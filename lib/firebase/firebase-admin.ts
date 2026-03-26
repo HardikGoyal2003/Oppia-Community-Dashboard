@@ -1,13 +1,19 @@
 import { getApps, initializeApp, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
+import { requireEnv } from "@/lib/config/env";
+import {
+  getFirebaseAdminProjectId,
+  getFirebaseRuntimeConfig,
+} from "./firebase.config";
 
+/**
+ * Initializes the Firebase Admin SDK using either emulator or production credentials.
+ *
+ * @returns Nothing. Ensures the admin app is initialized once per process.
+ */
 export function initFirebaseAdmin() {
-  const useFirestoreEmulator =
-    process.env.FIREBASE_EMULATOR_ENABLED === "true" ||
-    Boolean(process.env.FIRESTORE_EMULATOR_HOST);
-
-  const projectId =
-    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "demo-oppia-leads-dashboard";
+  const { useFirestoreEmulator } = getFirebaseRuntimeConfig();
+  const projectId = getFirebaseAdminProjectId();
 
   if (!getApps().length) {
     if (useFirestoreEmulator) {
@@ -18,13 +24,18 @@ export function initFirebaseAdmin() {
     initializeApp({
       credential: cert({
         projectId,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+        clientEmail: requireEnv("FIREBASE_CLIENT_EMAIL"),
+        privateKey: requireEnv("FIREBASE_PRIVATE_KEY").replace(/\\n/g, "\n"),
       }),
     });
   }
 }
 
+/**
+ * Returns the shared admin Firestore instance for server-side DB access.
+ *
+ * @returns The initialized admin Firestore instance.
+ */
 export function getAdminFirestore() {
   initFirebaseAdmin();
   return getFirestore();

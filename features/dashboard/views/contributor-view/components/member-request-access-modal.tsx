@@ -23,11 +23,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { CONSTANTS } from "@/lib/constants";
+import { getRoleDisplayLabel, ROLE_LABELS } from "@/lib/auth/role-display";
+import { REQUESTABLE_USER_ROLES } from "@/lib/auth/roles";
+import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config";
 import { useState } from "react";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
-import { formatDisplayValue } from "@/lib/utils/display-format.utils";
-import { getOrdinalDay } from "@/lib/utils/date-day-format.utils";
+import { formatDisplayValue } from "@/lib/utils/display.utils";
+import { getOrdinalDay } from "@/lib/utils/date.utils";
 
 type RequestState = "FORM" | "SUBMITTED" | "DUPLICATE";
 type DuplicateRequestDetails = {
@@ -57,8 +59,7 @@ export default function MemberRequestAccessModal({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [duplicateRequest, setDuplicateRequest] =
     useState<DuplicateRequestDetails | null>(null);
-  const teams =
-    platform === "ANDROID" ? CONSTANTS.ANDROID_TEAMS : CONSTANTS.WEB_TEAMS;
+  const teams = platform === "ANDROID" ? ANDROID_TEAMS : WEB_TEAMS;
 
   const resetModalState = () => {
     setRequestState("FORM");
@@ -150,7 +151,7 @@ export default function MemberRequestAccessModal({
             </h2>
             <p className="text-gray-600">
               {duplicateRequest
-                ? `You already have a pending team access request for ${formatDisplayValue(duplicateRequest.role)} role in ${formatDisplayValue(duplicateRequest.team)}, created at ${formatDuplicateRequestDate(duplicateRequest.createdAt)}. Thanks for your patience. Admins will review it soon.`
+                ? `You already have a pending team access request for ${getRoleDisplayLabel(duplicateRequest.role)} role in ${formatDisplayValue(duplicateRequest.team)}, created at ${formatDuplicateRequestDate(duplicateRequest.createdAt)}. Thanks for your patience. Admins will review it soon.`
                 : "You already have a pending team access request. Thanks for your patience. Admins will review it soon."}
             </p>
             <DialogClose asChild>
@@ -191,18 +192,11 @@ export default function MemberRequestAccessModal({
                     <SelectValue placeholder="Select your role" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(CONSTANTS.ROLES)
-                      .filter(
-                        ([key, label]) =>
-                          key !== "SUPER_ADMIN" &&
-                          key !== "LEAD_TRAINEE" &&
-                          label !== CONSTANTS.ROLES.CONTRIBUTOR,
-                      )
-                      .map(([key, label]) => (
-                        <SelectItem key={key} value={key}>
-                          {label}
-                        </SelectItem>
-                      ))}
+                    {REQUESTABLE_USER_ROLES.map((role) => (
+                      <SelectItem key={role} value={role}>
+                        {ROLE_LABELS[role]}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </Field>

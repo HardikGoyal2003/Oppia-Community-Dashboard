@@ -4,16 +4,8 @@ import type {
   UserModel,
   UserRole,
 } from "@/lib/auth/auth.types";
+import { USER_ROLES } from "@/lib/auth/roles";
 import { normalizeTimestamp } from "../utils/timestamp.utils";
-
-const USER_ROLES: UserRole[] = [
-  "SUPER_ADMIN",
-  "ADMIN",
-  "TEAM_LEAD",
-  "LEAD_TRAINEE",
-  "TEAM_MEMBER",
-  "CONTRIBUTOR",
-];
 
 const CONTRIBUTION_PLATFORMS: ContributionPlatform[] = ["WEB", "ANDROID"];
 

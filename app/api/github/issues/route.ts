@@ -1,29 +1,52 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
-import { main } from "@/lib/github/github.fetcher";
-import { formatIssues } from "@/lib/utils/ format-issues.utils";
-import { CONSTANTS } from "@/lib/constants";
+import { GITHUB_REPOS } from "@/lib/config";
+import {
+  fetchUnansweredIssues,
+  GitHubGraphQLError,
+} from "@/lib/github/github.fetcher";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
 
-  if (!session || !session.user) {
+  if (!session || !session.user || session.invalidUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   try {
-    const platform = session.user.platform ?? "WEB";
-    const repoTarget =
-      CONSTANTS.GITHUB_REPOS[platform as keyof typeof CONSTANTS.GITHUB_REPOS] ??
-      CONSTANTS.GITHUB_REPOS.WEB;
+    const platform = session.user.platform;
 
-    const issuesData = await main(repoTarget);
+    if (!platform) {
+      return NextResponse.json(
+        { error: "No contribution platform found for the current user." },
+        { status: 400 },
+      );
+    }
+
+    const repoTarget = GITHUB_REPOS[platform];
+
+    if (!repoTarget) {
+      return NextResponse.json(
+        { error: `No GitHub repo configured for platform: ${platform}` },
+        { status: 500 },
+      );
+    }
+
+    const issuesData = await fetchUnansweredIssues(repoTarget);
     return NextResponse.json({
-      issues: formatIssues(issuesData),
+      issues: issuesData,
     });
   } catch (error) {
     console.error(error);
+
+    if (error instanceof GitHubGraphQLError) {
+      return NextResponse.json(
+        { error: error.message, details: error.details },
+        { status: 502 },
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to fetch GitHub issues" },
       { status: 500 },
