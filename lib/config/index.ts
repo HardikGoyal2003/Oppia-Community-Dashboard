@@ -1,5 +1,12 @@
 export { ANNOUNCEMENT_BANNER } from "./announcement.constants";
 export {
+  CONTRIBUTOR_JOURNEY_CONTENT,
+  type ContributorJourneyChecklistItem,
+  type ContributorJourneyContent,
+  type ContributorJourneyRichNote,
+  type ContributorJourneyTask,
+} from "./contributor-journey.constants";
+export {
   readBooleanEnv,
   readEnv,
   readEnvWithDefault,
