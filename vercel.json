@@ -1,7 +1,7 @@
 {
   "crons": [
     {
-      "path": "/api/cron/unanswered-issue-metrics",
+      "path": "/api/cron/capture-daily-team-metrics",
       "schedule": "30 22 * * *"
     }
   ]

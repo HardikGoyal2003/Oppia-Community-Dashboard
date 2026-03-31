@@ -49,7 +49,7 @@ export function CronJobsPanel() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/cron-jobs", {
+      const response = await fetch("/api/dev/cron-jobs", {
         cache: "no-store",
       });
 
@@ -87,7 +87,7 @@ export function CronJobsPanel() {
     setSuccessMessage(null);
 
     try {
-      const response = await fetch("/api/cron-jobs", {
+      const response = await fetch("/api/dev/cron-jobs", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
