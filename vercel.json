@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/unanswered-issue-metrics",
+      "schedule": "30 22 * * *"
+    }
+  ]
+}
