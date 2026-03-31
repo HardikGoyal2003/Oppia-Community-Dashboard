@@ -127,7 +127,7 @@ export default function MemberRequestAccessModal({
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button className="inline-flex h-10 text-base rounded-md border border-blue-600 bg-white px-5 py-2 text-blue-600 font-medium hover:bg-blue-50 transition">
+        <Button className="cursor-pointer inline-flex h-10 text-base rounded-md border border-blue-600 bg-white px-5 py-2 text-blue-600 font-medium hover:bg-blue-50 transition">
           Request Team Access
         </Button>
       </DialogTrigger>
