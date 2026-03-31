@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth/auth.options";
 import {
   listAvailableCronJobs,
   runCronJob,
-} from "@/lib/cron-jobs/cron-jobs.service";
+} from "@/lib/cron-jobs/manual-cron-jobs.service";
 
 type CronJobRunRequestBody = {
   jobKey?: string;

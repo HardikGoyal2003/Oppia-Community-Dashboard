@@ -197,7 +197,7 @@ async function capturePlatformTeamMetrics(
 }
 
 /**
- * Captures one daily unanswered-issue snapshot for every configured team.
+ * Captures daily unanswered-issue snapshot for every configured team.
  *
  * @returns A summary of the persisted daily team metrics.
  */
