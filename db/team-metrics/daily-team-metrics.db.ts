@@ -9,31 +9,31 @@ import {
 const db = getAdminFirestore();
 
 /**
- * Builds the daily team-metric document id.
+ * Builds a daily-team-metric snapshot document id.
  *
  * @param teamId The stable team id.
- * @param dateKey The YYYY-MM-DD date key.
+ * @param capturedAt The exact snapshot timestamp.
  * @returns The daily team metric document id.
  */
-export function getDailyTeamMetricDocId(
+export function getDailyTeamMetricSnapshotDocId(
   teamId: string,
-  dateKey: string,
+  capturedAt: Date,
 ): string {
-  return `${teamId}_${dateKey}`;
+  return `${teamId}_${capturedAt.getTime()}`;
 }
 
 /**
- * Upserts a daily unanswered-issues metric for a team.
+ * Creates a daily unanswered-issues snapshot for a team.
  *
  * @param metric The daily team metric to persist.
  * @returns A promise that resolves when the document has been written.
  */
-export async function upsertDailyTeamMetric(
+export async function createDailyTeamMetric(
   metric: DailyTeamMetric,
 ): Promise<void> {
   await db
     .collection(DB_PATHS.DAILY_TEAM_METRICS.COLLECTION)
-    .doc(getDailyTeamMetricDocId(metric.teamId, metric.dateKey))
+    .doc(getDailyTeamMetricSnapshotDocId(metric.teamId, metric.capturedAt))
     .set(serializeDailyTeamMetric(metric));
 }
 

@@ -2,7 +2,7 @@ import {
   unarchiveIssue,
   getArchivedIssues,
 } from "@/db/archived-issues/archived-issues.db";
-import { upsertDailyTeamMetric } from "@/db/team-metrics/daily-team-metrics.db";
+import { createDailyTeamMetric } from "@/db/team-metrics/daily-team-metrics.db";
 import { ANDROID_TEAMS, GITHUB_REPOS, WEB_TEAMS } from "@/lib/config";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { fetchUnansweredIssues } from "@/lib/github/github.fetcher";
@@ -182,7 +182,7 @@ async function capturePlatformTeamMetrics(
 
   await Promise.all(
     summaries.map((summary) =>
-      upsertDailyTeamMetric({
+      createDailyTeamMetric({
         capturedAt,
         dateKey,
         platform: summary.platform,
