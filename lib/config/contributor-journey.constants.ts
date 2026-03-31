@@ -26,13 +26,11 @@ export type ContributorJourneyTask = {
 };
 
 export type ContributorJourneyContent = {
-  focusTitle: string;
   intro: string;
-  subtitle: string;
   tasks: ContributorJourneyTask[];
 };
 
-const sharedTaskOneItems: ContributorJourneyChecklistItem[] = [
+const webPhaseOneItems: ContributorJourneyChecklistItem[] = [
   {
     href: "https://github.com/oppia/oppia/wiki/Oppia's-Mission",
     hrefLabel: "Docs Link",
@@ -180,7 +178,7 @@ const sharedTaskOneItems: ContributorJourneyChecklistItem[] = [
   },
 ];
 
-const phaseTwoPrepItems: ContributorJourneyChecklistItem[] = [
+const webPhaseTwoItems: ContributorJourneyChecklistItem[] = [
   {
     href: "https://github.com/oppia/oppia/wiki/Installing-Oppia",
     hrefLabel: "Installation Docs Link",
@@ -255,7 +253,7 @@ const phaseTwoPrepItems: ContributorJourneyChecklistItem[] = [
   },
 ];
 
-const phaseThreeItems: ContributorJourneyChecklistItem[] = [
+const webPhaseThreeItems: ContributorJourneyChecklistItem[] = [
   {
     href: "https://github.com/oppia/oppia/wiki/Overview-of-the-Oppia-codebase",
     hrefLabel: "Codebase Overview",
@@ -338,7 +336,7 @@ const phaseThreeItems: ContributorJourneyChecklistItem[] = [
   },
 ];
 
-const phaseFourGrowthItems: ContributorJourneyChecklistItem[] = [
+const webPhaseFourItems: ContributorJourneyChecklistItem[] = [
   {
     href: "https://github.com/oppia/oppia/wiki/Contributing-code-to-Oppia#contributor-roles",
     hrefLabel: "Contributor Roles",
@@ -379,25 +377,106 @@ const phaseFourGrowthItems: ContributorJourneyChecklistItem[] = [
   },
 ];
 
-const sharedJourneyTasks: ContributorJourneyTask[] = [
+const webJourneyTasks: ContributorJourneyTask[] = [
   {
     id: "phase-1-understanding-oppia-and-prerequisites",
-    items: sharedTaskOneItems,
+    items: webPhaseOneItems,
     title: "Phase 1: Build Your Contribution Foundations",
   },
   {
     id: "phase-2-picking-your-first-issue",
-    items: phaseTwoPrepItems,
+    items: webPhaseTwoItems,
     title: "Phase 2: Get Set Up for Oppia",
   },
   {
     id: "phase-3-making-your-first-contribution",
-    items: phaseThreeItems,
+    items: webPhaseThreeItems,
     title: "Phase 3: Making Your First Contribution",
   },
   {
     id: "phase-4-growing-in-the-project",
-    items: phaseFourGrowthItems,
+    items: webPhaseFourItems,
+    title: "Phase 4: Growing in the Project",
+  },
+];
+
+const androidPhaseOneItems: ContributorJourneyChecklistItem[] = [
+  {
+    importance: "high",
+    label:
+      "Read about Oppia's mission and understand how the Android app supports it.",
+    notes:
+      "Sample Android roadmap content. Replace with the actual Android onboarding steps later.",
+  },
+  {
+    importance: "medium",
+    label:
+      "Get familiar with the Android repo structure and contribution expectations.",
+    notes: "Sample Android roadmap content.",
+  },
+];
+
+const androidPhaseTwoItems: ContributorJourneyChecklistItem[] = [
+  {
+    importance: "high",
+    label:
+      "Set up the Android development environment and run the app locally.",
+    notes: "Sample Android roadmap content.",
+  },
+  {
+    importance: "medium",
+    label: "Brush up on Kotlin and Android Studio workflows.",
+    notes: "Sample Android roadmap content.",
+  },
+];
+
+const androidPhaseThreeItems: ContributorJourneyChecklistItem[] = [
+  {
+    importance: "high",
+    label: "Shortlist a beginner-friendly Android issue to investigate.",
+    notes: "Sample Android roadmap content.",
+  },
+  {
+    importance: "high",
+    label: "Claim and complete your first Android contribution.",
+    notes: "Sample Android roadmap content.",
+  },
+];
+
+const androidPhaseFourItems: ContributorJourneyChecklistItem[] = [
+  {
+    importance: "high",
+    label:
+      "Keep contributing to Android issues and grow into broader responsibilities.",
+    notes: "Sample Android roadmap content.",
+  },
+  {
+    importance: "medium",
+    label:
+      "Learn how the Android contributor path connects to collaborator growth.",
+    notes: "Sample Android roadmap content.",
+  },
+];
+
+const androidJourneyTasks: ContributorJourneyTask[] = [
+  {
+    id: "phase-1-understanding-oppia-and-prerequisites",
+    items: androidPhaseOneItems,
+    title: "Phase 1: Build Your Contribution Foundations",
+  },
+  {
+    id: "phase-2-picking-your-first-issue",
+    items: androidPhaseTwoItems,
+    title: "Phase 2: Get Set Up for Oppia",
+  },
+  {
+    id: "phase-3-making-your-first-contribution",
+    items: androidPhaseThreeItems,
+    title: "Phase 3: Making Your First Contribution",
+  },
+  {
+    id: "phase-4-growing-in-the-project",
+    items: androidPhaseFourItems,
     title: "Phase 4: Growing in the Project",
   },
 ];
@@ -407,19 +486,13 @@ export const CONTRIBUTOR_JOURNEY_CONTENT: Record<
   ContributorJourneyContent
 > = {
   ANDROID: {
-    focusTitle: "Phase 1: Understanding Oppia and Pre-requisites for Oppia",
     intro:
       "A task-by-task checklist to help you get from first login to first contribution without losing momentum.",
-    subtitle:
-      "Finish these setup tasks before you start sending contributions to Oppia Android.",
-    tasks: sharedJourneyTasks,
+    tasks: androidJourneyTasks,
   },
   WEB: {
-    focusTitle: "Phase 1: Understanding Oppia and Pre-requisites for Oppia",
     intro:
       "A task-by-task checklist to help you get from first login to first contribution without losing momentum.",
-    subtitle:
-      "Finish these setup tasks before you start sending contributions to Oppia Web.",
-    tasks: sharedJourneyTasks,
+    tasks: webJourneyTasks,
   },
 };
