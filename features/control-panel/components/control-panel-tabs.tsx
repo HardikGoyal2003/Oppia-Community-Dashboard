@@ -2,22 +2,33 @@
 
 import { useState } from "react";
 import { AnnouncementBannerPanel } from "./announcement-banner-panel";
+import { CronJobsPanel } from "./cron-jobs-panel";
 import { DataJobsPanel } from "./data-jobs-panel";
 
-type ControlPanelTab = "DATA_JOBS" | "PLATFORM_PARAMETERS";
+type ControlPanelTab = "CRON_JOBS" | "DATA_JOBS" | "PLATFORM_PARAMETERS";
 
 const TAB_LABELS: Record<ControlPanelTab, string> = {
+  CRON_JOBS: "Cron Jobs",
   DATA_JOBS: "Data Jobs",
   PLATFORM_PARAMETERS: "Platform Parameters",
 };
 
-export function ControlPanelTabs() {
-  const [activeTab, setActiveTab] = useState<ControlPanelTab>("DATA_JOBS");
+type ControlPanelTabsProps = {
+  showCronJobs: boolean;
+};
+
+export function ControlPanelTabs({ showCronJobs }: ControlPanelTabsProps) {
+  const [activeTab, setActiveTab] = useState<ControlPanelTab>(
+    showCronJobs ? "CRON_JOBS" : "DATA_JOBS",
+  );
+  const tabs = (Object.keys(TAB_LABELS) as ControlPanelTab[]).filter(
+    (tab) => showCronJobs || tab !== "CRON_JOBS",
+  );
 
   return (
     <div>
       <div className="mb-6 flex gap-2">
-        {(Object.keys(TAB_LABELS) as ControlPanelTab[]).map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab}
             className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
@@ -31,6 +42,8 @@ export function ControlPanelTabs() {
           </button>
         ))}
       </div>
+
+      {showCronJobs && activeTab === "CRON_JOBS" && <CronJobsPanel />}
 
       {activeTab === "DATA_JOBS" && <DataJobsPanel />}
 

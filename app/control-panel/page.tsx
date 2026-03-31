@@ -6,6 +6,7 @@ import { ControlPanelTabs } from "@/features/control-panel/components/control-pa
 
 export default async function ControlPanelPage() {
   const session = await getServerSession(authOptions);
+  const showCronJobs = process.env.NODE_ENV === "development";
 
   if (!session || !session.user) {
     redirect("/login");
@@ -33,7 +34,7 @@ export default async function ControlPanelPage() {
           </p>
         </div>
 
-        <ControlPanelTabs />
+        <ControlPanelTabs showCronJobs={showCronJobs} />
       </main>
     </div>
   );
