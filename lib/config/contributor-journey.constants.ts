@@ -8,7 +8,6 @@ export type ContributorJourneyRichNote = {
 };
 
 export type ContributorJourneyChecklistItem = {
-  description?: string;
   href?: string;
   hrefLabel?: string;
   importance: "high" | "low" | "medium";

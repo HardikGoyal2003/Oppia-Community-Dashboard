@@ -410,12 +410,6 @@ export default function MyContributionJourneyTab({
                                     </p>
                                   )}
 
-                                  {item.description && (
-                                    <p className="text-sm leading-6 text-slate-600">
-                                      {item.description}
-                                    </p>
-                                  )}
-
                                   {item.href && (
                                     <div
                                       className={cn(
