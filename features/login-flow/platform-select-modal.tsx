@@ -13,14 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 
-type PreferredLanguage =
-  | "JS"
-  | "PYTHON"
-  | "JAVA"
-  | "C"
-  | "C++"
-  | "OTHER"
-  | "NO_PREFERENCE";
+type PreferredLanguage = "JS" | "PYTHON" | "JAVA" | "OTHER";
 
 const LANGUAGE_OPTIONS: Array<{
   label: string;
@@ -29,16 +22,13 @@ const LANGUAGE_OPTIONS: Array<{
   { label: "JavaScript", value: "JS" },
   { label: "Python", value: "PYTHON" },
   { label: "Java", value: "JAVA" },
-  { label: "C", value: "C" },
-  { label: "C++", value: "C++" },
-  { label: "I am still figuring it out", value: "NO_PREFERENCE" },
-  { label: "Any other language", value: "OTHER" },
+  { label: "Not mentioned here", value: "OTHER" },
 ];
 
 function getRecommendedPlatform(
   selectedLanguage: PreferredLanguage | null,
 ): ContributionPlatform {
-  if (selectedLanguage === "JS") {
+  if (selectedLanguage === "JS" || selectedLanguage === "PYTHON") {
     return "WEB";
   }
 
@@ -50,6 +40,14 @@ function getRecommendationPoints(
   recommendedPlatform: ContributionPlatform,
 ): string[] {
   if (recommendedPlatform === "WEB") {
+    if (selectedLanguage === "PYTHON") {
+      return [
+        "A good choice if you already know Python, since Oppia's web contribution flow often touches Python as well.",
+        "It can be easier to grow into the web platform when one part of the stack already feels familiar.",
+        "You can build frontend knowledge gradually while still benefiting from your existing Python background.",
+      ];
+    }
+
     return [
       "Strong choice if you already know JavaScript.",
       "Your existing frontend knowledge transfers more directly to this codebase.",
@@ -170,11 +168,7 @@ export function PlatformSelectModal({
                   type="button"
                   disabled={saving}
                   variant="outline"
-                  className={
-                    option.value === "OTHER"
-                      ? "w-full justify-between sm:col-span-2"
-                      : "w-full justify-between"
-                  }
+                  className="w-full justify-between"
                   onClick={() => selectGuidedLanguage(option.value)}
                 >
                   <span>{option.label}</span>
