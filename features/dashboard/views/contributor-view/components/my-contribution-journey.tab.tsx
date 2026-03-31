@@ -5,7 +5,6 @@ import {
   CheckCheck,
   ChevronDown,
   ExternalLink,
-  Flag,
   Lock,
   ListTodo,
 } from "lucide-react";
@@ -15,42 +14,12 @@ import {
   type ContributorJourneyChecklistItem,
   type ContributorJourneyRichNote,
 } from "@/lib/config";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils/classnames.utils";
-
-type GfiDomain = "FRONTEND" | "BACKEND" | "FULLSTACK";
-
-const GFI_DOMAIN_LINKS: Record<
-  GfiDomain,
-  {
-    description: string;
-    href: string;
-    label: string;
-  }
-> = {
-  BACKEND: {
-    description:
-      "Browse unassigned backend good first issues so you can explore Python-oriented starter work.",
-    href: "https://github.com/oppia/oppia/issues?q=is%3Aissue%20state%3Aopen%20no%3Aassignee%20label%3A%22good%20first%20issue%22%20label%3Abackend",
-    label: "Open backend GFIs on GitHub",
-  },
-  FRONTEND: {
-    description:
-      "Browse unassigned frontend good first issues if you want UI, Angular, HTML, CSS, or TypeScript-heavy work.",
-    href: "https://github.com/oppia/oppia/issues?q=is%3Aissue%20state%3Aopen%20no%3Aassignee%20label%3A%22good%20first%20issue%22%20label%3Afrontend",
-    label: "Open frontend GFIs on GitHub",
-  },
-  FULLSTACK: {
-    description:
-      "Browse unassigned fullstack good first issues if you want work that spans both frontend and backend concerns.",
-    href: "https://github.com/oppia/oppia/issues?q=is%3Aissue%20state%3Aopen%20no%3Aassignee%20label%3A%22good%20first%20issue%22%20label%3Afull-stack",
-    label: "Open fullstack GFIs on GitHub",
-  },
-};
+import MyContributionJourneyBeforeYouStart from "./my-contribution-journey-before-you-start";
+import MyContributionJourneyIssueFinder, {
+  type GfiDomain,
+} from "./my-contribution-journey-issue-finder";
+import MyContributionJourneyProgressHero from "./my-contribution-journey-progress-hero";
 
 function getChecklistItemKey(
   taskId: string,
@@ -185,7 +154,7 @@ export default function MyContributionJourneyTab({
     const allMediumDone = mediumItems.every((item) =>
       completedItems.includes(getChecklistItemKey(task.id, item)),
     );
-    const status = allHighDone
+    const status: "complete" | "in_progress" | "recommended_left" = allHighDone
       ? allMediumDone
         ? "complete"
         : "recommended_left"
@@ -259,92 +228,16 @@ export default function MyContributionJourneyTab({
           </div>
         </div>
 
-        <div className="grid gap-4">
-          <div className="overflow-hidden rounded-[30px] border border-slate-200/80 bg-[linear-gradient(135deg,#0f172a_0%,#1e293b_58%,#0f766e_100%)] px-6 py-6 text-white shadow-[0_28px_65px_-40px_rgba(15,23,42,0.75)]">
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-3">
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-100/90">
-                  Active Phase
-                </div>
-                <div>
-                  <p className="text-2xl font-semibold tracking-tight">
-                    {activePhase.title}
-                  </p>
-                  <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-200">
-                    {journeyContent.tasks.length} phases are currently mapped
-                    out in your journey. Start here, then move phase by phase as
-                    you build momentum.
-                  </p>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-right backdrop-blur-sm">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-200">
-                  Progress
-                </p>
-                <p className="mt-1 text-3xl font-semibold">
-                  {progressPercentage}%
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 space-y-2">
-              <div className="flex items-center justify-between text-sm text-slate-200">
-                <span>
-                  {completedRequiredCount}/{requiredChecklistItems.length}{" "}
-                  required items completed
-                </span>
-                <span>Keep going</span>
-              </div>
-              <div className="relative pt-5">
-                <div className="h-3 overflow-hidden rounded-full bg-white/10">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-amber-300 via-cyan-300 to-emerald-300 transition-all"
-                    style={{ width: `${progressPercentage}%` }}
-                  />
-                </div>
-                {phaseCheckpoints.map((checkpoint) => (
-                  <Tooltip key={checkpoint.id}>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        className="absolute top-0 -translate-x-1/2"
-                        style={{ left: `${checkpoint.leftPercentage}%` }}
-                      >
-                        <Flag
-                          className={cn(
-                            "h-4 w-4",
-                            checkpoint.status === "complete"
-                              ? "text-emerald-300"
-                              : checkpoint.status === "recommended_left"
-                                ? "text-red-400"
-                                : "text-white/80",
-                          )}
-                        />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" sideOffset={8}>
-                      <p className="font-medium">{checkpoint.title}</p>
-                      {checkpoint.status === "recommended_left" && (
-                        <p>Medium tasks are strongly advised to complete.</p>
-                      )}
-                      {checkpoint.status === "complete" && (
-                        <p>All high and medium tasks in this phase are done.</p>
-                      )}
-                      {checkpoint.status === "in_progress" && (
-                        <p>Required tasks in this phase are still pending.</p>
-                      )}
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
-              </div>
-              <p className="text-xs text-slate-300">
-                Overall checklist completion: {completedCount}/
-                {allChecklistItems.length}
-              </p>
-            </div>
-          </div>
-        </div>
+        <MyContributionJourneyProgressHero
+          activePhaseTitle={activePhase.title}
+          completedCount={completedCount}
+          completedRequiredCount={completedRequiredCount}
+          phaseCheckpoints={phaseCheckpoints}
+          phaseCount={journeyContent.tasks.length}
+          progressPercentage={progressPercentage}
+          requiredChecklistItemCount={requiredChecklistItems.length}
+          totalChecklistItemCount={allChecklistItems.length}
+        />
 
         <div className="overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_28px_70px_-48px_rgba(15,23,42,0.55)]">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-6 py-5">
@@ -361,36 +254,7 @@ export default function MyContributionJourneyTab({
             </div>
           </div>
 
-          <div className="border-b border-slate-100 bg-slate-50/60 px-6 py-5">
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                Before You Start
-              </p>
-              <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-slate-700">
-                <li>
-                  You will need to read some long docs, and you will come across
-                  many new terms that may feel overwhelming at first. But
-                  remember: you decided to start open source. That already puts
-                  you ahead of many people, so keep going and do not stop early.
-                </li>
-                <li>
-                  The more time you invest in reading and understanding the
-                  docs, the less time you will usually need later to make code
-                  fixes with confidence.
-                </li>
-                <li>
-                  Be open to learning new things and brushing up on the
-                  technologies used in Oppia. Most contributors do not begin
-                  with every skill fully polished. The important part is being
-                  willing to learn as you go.
-                </li>
-                <li>
-                  Focus on one task at a time instead of trying to clear the
-                  whole phase at once.
-                </li>
-              </ul>
-            </div>
-          </div>
+          <MyContributionJourneyBeforeYouStart />
 
           <div className="divide-y divide-slate-100">
             {phasesWithState.map(({ task, isLocked, completedItemsInTask }) => {
@@ -631,214 +495,16 @@ export default function MyContributionJourneyTab({
                                         undefined;
 
                                       return (
-                                        <div
-                                          className={cn(
-                                            "mt-8 rounded-2xl border border-slate-200 bg-slate-50/90 p-5",
-                                            isActivityPanelLocked &&
-                                              "opacity-60",
-                                          )}
-                                        >
-                                          <div className="space-y-2">
-                                            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                                              Find Your First Issue
-                                            </p>
-                                            <p className="text-sm leading-6 text-slate-600">
-                                              Use this mini guide to narrow your
-                                              search, then jump to the real
-                                              GitHub issue filters by domain.
-                                            </p>
-                                            {isActivityPanelLocked && (
-                                              <p className="text-xs leading-5 text-slate-500">
-                                                Unlocks after:{" "}
-                                                <span className="font-medium text-slate-700">
-                                                  {
-                                                    blockingRequiredActivityItem?.label
-                                                  }
-                                                </span>
-                                              </p>
-                                            )}
-                                          </div>
-
-                                          <div className="mt-5 grid gap-4 xl:grid-cols-[1.1fr_1.4fr]">
-                                            <div className="rounded-xl border border-slate-200 bg-white px-4 py-4">
-                                              <div className="space-y-3">
-                                                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                                                  How to Choose
-                                                </p>
-                                                <ol className="space-y-2 text-sm leading-6 text-slate-700">
-                                                  <li className="flex gap-3">
-                                                    <span className="mt-0.5 text-xs font-semibold text-slate-400">
-                                                      1
-                                                    </span>
-                                                    <span>
-                                                      Pick an issue whose title
-                                                      genuinely interests you.
-                                                    </span>
-                                                  </li>
-                                                  <li className="flex gap-3">
-                                                    <span className="mt-0.5 text-xs font-semibold text-slate-400">
-                                                      2
-                                                    </span>
-                                                    <span>
-                                                      Read the issue description
-                                                      carefully two or three
-                                                      times until you have a
-                                                      reasonable understanding
-                                                      of the problem.
-                                                    </span>
-                                                  </li>
-                                                  <li className="flex gap-3">
-                                                    <span className="mt-0.5 text-xs font-semibold text-slate-400">
-                                                      3
-                                                    </span>
-                                                    <span>
-                                                      If anything feels unclear,
-                                                      ask a focused question in
-                                                      the issue thread instead
-                                                      of making assumptions.
-                                                    </span>
-                                                  </li>
-                                                  <li className="flex gap-3">
-                                                    <span className="mt-0.5 text-xs font-semibold text-slate-400">
-                                                      4
-                                                    </span>
-                                                    <span>
-                                                      Once you have a rough idea
-                                                      of the issue, read the
-                                                      full discussion thread to
-                                                      understand what has
-                                                      already been tried and
-                                                      whether there are hints
-                                                      that can help you get
-                                                      started.
-                                                    </span>
-                                                  </li>
-                                                  <li className="flex gap-3">
-                                                    <span className="mt-0.5 text-xs font-semibold text-slate-400">
-                                                      5
-                                                    </span>
-                                                    <span>
-                                                      Start the dev server with
-                                                      `python -m scripts.start`
-                                                      and try to reproduce the
-                                                      issue locally using the
-                                                      steps in the issue
-                                                      description.
-                                                    </span>
-                                                  </li>
-                                                  <li className="flex gap-3">
-                                                    <span className="mt-0.5 text-xs font-semibold text-slate-400">
-                                                      6
-                                                    </span>
-                                                    <span>
-                                                      If you are able to
-                                                      understand the issue,
-                                                      reproduce it, and make
-                                                      progress on a local fix,
-                                                      that is a strong sign that
-                                                      this is a good first issue
-                                                      for you to claim.
-                                                    </span>
-                                                  </li>
-                                                </ol>
-                                              </div>
-                                            </div>
-
-                                            <div className="space-y-4">
-                                              <div className="flex flex-wrap gap-2">
-                                                {(
-                                                  [
-                                                    "FRONTEND",
-                                                    "BACKEND",
-                                                    "FULLSTACK",
-                                                  ] as GfiDomain[]
-                                                ).map((domain) => (
-                                                  <button
-                                                    key={domain}
-                                                    type="button"
-                                                    disabled={
-                                                      isActivityPanelLocked
-                                                    }
-                                                    onClick={() =>
-                                                      setSelectedGfiDomain(
-                                                        domain,
-                                                      )
-                                                    }
-                                                    className={cn(
-                                                      "rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition",
-                                                      isActivityPanelLocked
-                                                        ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-500"
-                                                        : selectedGfiDomain ===
-                                                            domain
-                                                          ? "border-slate-900 bg-slate-900 text-white"
-                                                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100",
-                                                    )}
-                                                  >
-                                                    {domain === "FULLSTACK"
-                                                      ? "Fullstack"
-                                                      : domain === "FRONTEND"
-                                                        ? "Frontend"
-                                                        : "Backend"}
-                                                  </button>
-                                                ))}
-                                              </div>
-
-                                              <div className="rounded-xl border border-slate-200 bg-white px-4 py-4">
-                                                <div className="space-y-3">
-                                                  <div className="flex flex-wrap items-center gap-2">
-                                                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-700">
-                                                      {selectedGfiDomain ===
-                                                      "FULLSTACK"
-                                                        ? "Fullstack"
-                                                        : selectedGfiDomain ===
-                                                            "FRONTEND"
-                                                          ? "Frontend"
-                                                          : "Backend"}
-                                                    </span>
-                                                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-green-800">
-                                                      Real GitHub filter
-                                                    </span>
-                                                  </div>
-                                                  <p className="text-sm leading-6 text-slate-700">
-                                                    {
-                                                      GFI_DOMAIN_LINKS[
-                                                        selectedGfiDomain
-                                                      ].description
-                                                    }
-                                                  </p>
-                                                  {isActivityPanelLocked ? (
-                                                    <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
-                                                      {
-                                                        GFI_DOMAIN_LINKS[
-                                                          selectedGfiDomain
-                                                        ].label
-                                                      }
-                                                      <ExternalLink className="h-3.5 w-3.5" />
-                                                    </span>
-                                                  ) : (
-                                                    <a
-                                                      href={
-                                                        GFI_DOMAIN_LINKS[
-                                                          selectedGfiDomain
-                                                        ].href
-                                                      }
-                                                      target="_blank"
-                                                      rel="noreferrer"
-                                                      className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 transition hover:bg-blue-100"
-                                                    >
-                                                      {
-                                                        GFI_DOMAIN_LINKS[
-                                                          selectedGfiDomain
-                                                        ].label
-                                                      }
-                                                      <ExternalLink className="h-3.5 w-3.5" />
-                                                    </a>
-                                                  )}
-                                                </div>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        </div>
+                                        <MyContributionJourneyIssueFinder
+                                          blockingLabel={
+                                            blockingRequiredActivityItem?.label
+                                          }
+                                          isLocked={isActivityPanelLocked}
+                                          selectedDomain={selectedGfiDomain}
+                                          setSelectedDomain={
+                                            setSelectedGfiDomain
+                                          }
+                                        />
                                       );
                                     })()}
                                 </div>
