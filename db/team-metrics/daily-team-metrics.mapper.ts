@@ -1,10 +1,10 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { DbValidationError } from "@/db/db.errors";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
-import type { DailyTeamMetric } from "@/lib/domain/team-metrics.types";
+import type { DailyTeamMetric } from "@/lib/domain/daily-team-metrics.types";
 import { normalizeTimestamp } from "@/db/utils/timestamp.utils";
 
-export type FirestoreTeamMetricDaily = Omit<DailyTeamMetric, "capturedAt"> & {
+export type FirestoreDailyTeamMetric = Omit<DailyTeamMetric, "capturedAt"> & {
   capturedAt: Timestamp;
 };
 
@@ -14,9 +14,9 @@ export type FirestoreTeamMetricDaily = Omit<DailyTeamMetric, "capturedAt"> & {
  * @param metric The raw Firestore team metric data.
  * @returns Nothing. Throws when the stored shape is invalid.
  */
-function assertFirestoreTeamMetricDaily(
+function assertFirestoreDailyTeamMetric(
   metric: FirebaseFirestore.DocumentData,
-): asserts metric is FirestoreTeamMetricDaily {
+): asserts metric is FirestoreDailyTeamMetric {
   if (typeof metric.teamId !== "string" || !metric.teamId.trim()) {
     throw new DbValidationError(
       "teamId",
@@ -66,10 +66,10 @@ function assertFirestoreTeamMetricDaily(
  * @param metric The raw Firestore team metric data.
  * @returns The normalized team metric.
  */
-export function normalizeTeamMetricDailyDocument(
+export function normalizeDailyTeamMetricDocument(
   metric: FirebaseFirestore.DocumentData,
 ): DailyTeamMetric {
-  assertFirestoreTeamMetricDaily(metric);
+  assertFirestoreDailyTeamMetric(metric);
 
   return {
     capturedAt: normalizeTimestamp(metric.capturedAt),
@@ -87,9 +87,9 @@ export function normalizeTeamMetricDailyDocument(
  * @param metric The normalized team metric.
  * @returns The Firestore-ready team metric document.
  */
-export function serializeTeamMetricDaily(
+export function serializeDailyTeamMetric(
   metric: DailyTeamMetric,
-): FirestoreTeamMetricDaily {
+): FirestoreDailyTeamMetric {
   return {
     capturedAt: Timestamp.fromDate(metric.capturedAt),
     dateKey: metric.dateKey,

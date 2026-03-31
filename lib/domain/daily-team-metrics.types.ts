@@ -1,6 +1,6 @@
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 
-export type TeamMetricDaily = {
+export type DailyTeamMetric = {
   capturedAt: Date;
   dateKey: string;
   platform: ContributionPlatform;
@@ -8,5 +8,3 @@ export type TeamMetricDaily = {
   teamName: string;
   unansweredIssuesCount: number;
 };
-
-export type DailyTeamMetric = TeamMetricDaily;

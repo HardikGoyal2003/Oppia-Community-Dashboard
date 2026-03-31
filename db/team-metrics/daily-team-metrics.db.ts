@@ -1,10 +1,10 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DB_PATHS } from "@/db/db-paths";
-import type { DailyTeamMetric } from "@/lib/domain/team-metrics.types";
+import type { DailyTeamMetric } from "@/lib/domain/daily-team-metrics.types";
 import {
-  normalizeTeamMetricDailyDocument,
-  serializeTeamMetricDaily,
-} from "./team-metrics.mapper";
+  normalizeDailyTeamMetricDocument,
+  serializeDailyTeamMetric,
+} from "./daily-team-metrics.mapper";
 
 const db = getAdminFirestore();
 
@@ -15,7 +15,7 @@ const db = getAdminFirestore();
  * @param dateKey The YYYY-MM-DD date key.
  * @returns The daily team metric document id.
  */
-export function getTeamMetricDailyDocId(
+export function getDailyTeamMetricDocId(
   teamId: string,
   dateKey: string,
 ): string {
@@ -28,13 +28,13 @@ export function getTeamMetricDailyDocId(
  * @param metric The daily team metric to persist.
  * @returns A promise that resolves when the document has been written.
  */
-export async function upsertTeamMetricDaily(
+export async function upsertDailyTeamMetric(
   metric: DailyTeamMetric,
 ): Promise<void> {
   await db
     .collection(DB_PATHS.DAILY_TEAM_METRICS.COLLECTION)
-    .doc(getTeamMetricDailyDocId(metric.teamId, metric.dateKey))
-    .set(serializeTeamMetricDaily(metric));
+    .doc(getDailyTeamMetricDocId(metric.teamId, metric.dateKey))
+    .set(serializeDailyTeamMetric(metric));
 }
 
 /**
@@ -43,7 +43,7 @@ export async function upsertTeamMetricDaily(
  * @param dateKey The YYYY-MM-DD date key to fetch.
  * @returns The normalized metrics captured for that date.
  */
-export async function getTeamMetricsDailyByDateKey(
+export async function getDailyTeamMetricsByDateKey(
   dateKey: string,
 ): Promise<DailyTeamMetric[]> {
   const snapshot = await db
@@ -52,6 +52,6 @@ export async function getTeamMetricsDailyByDateKey(
     .get();
 
   return snapshot.docs.map((doc) =>
-    normalizeTeamMetricDailyDocument(doc.data()),
+    normalizeDailyTeamMetricDocument(doc.data()),
   );
 }
