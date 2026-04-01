@@ -1,6 +1,13 @@
 import { requireEnv } from "@/lib/config/env";
+import { mapGitHubGoodFirstIssueNodes } from "./github-gfis.mapper";
 import { mapGitHubIssueNodes } from "./github-issues.mapper";
-import { GitHubIssue, GitHubIssueNode, GitHubUser } from "./github.types";
+import {
+  GitHubGoodFirstIssue,
+  GitHubGoodFirstIssueNode,
+  GitHubIssue,
+  GitHubIssueNode,
+  GitHubUser,
+} from "./github.types";
 
 const TOKEN = requireEnv("GITHUB_TOKEN");
 
@@ -17,6 +24,13 @@ interface IssuesResponse {
       nodes: GitHubIssueNode[];
       pageInfo: { hasNextPage: boolean; endCursor: string | null };
     };
+  };
+}
+
+interface GoodFirstIssuesSearchResponse {
+  search: {
+    nodes: GitHubGoodFirstIssueNode[];
+    pageInfo: { hasNextPage: boolean; endCursor: string | null };
   };
 }
 
@@ -150,6 +164,37 @@ function assertIssuesResponse(response: IssuesResponse): void {
   if (!response.repository.issues.pageInfo) {
     throw new GitHubGraphQLError(
       "GitHub issues response is missing pagination data.",
+      [],
+    );
+  }
+}
+
+/**
+ * Validates that the GitHub good-first-issues search response contains the nested structures required by the fetcher.
+ *
+ * @param response The parsed good-first-issues response payload.
+ * @returns Nothing. Throws when the response shape is incomplete.
+ */
+function assertGoodFirstIssuesResponse(
+  response: GoodFirstIssuesSearchResponse,
+): void {
+  if (!response.search) {
+    throw new GitHubGraphQLError(
+      "GitHub GFI response is missing search data.",
+      [],
+    );
+  }
+
+  if (!Array.isArray(response.search.nodes)) {
+    throw new GitHubGraphQLError(
+      "GitHub GFI response contains invalid issue nodes.",
+      [],
+    );
+  }
+
+  if (!response.search.pageInfo) {
+    throw new GitHubGraphQLError(
+      "GitHub GFI response is missing pagination data.",
       [],
     );
   }
@@ -303,6 +348,77 @@ async function fetchRecentIssues(
   }
 
   return issues;
+}
+
+/**
+ * Fetches all open, unassigned good first issues for a repository.
+ *
+ * @param target The GitHub repository to inspect.
+ * @returns The normalized good first issue list.
+ */
+export async function fetchGoodFirstIssues(
+  target: GitHubRepoTarget,
+): Promise<GitHubGoodFirstIssue[]> {
+  console.log(
+    `Fetching open unassigned good first issues for ${target.owner}/${target.repo}...`,
+  );
+
+  const query = `
+    query($searchQuery: String!, $cursor: String) {
+      search(query: $searchQuery, type: ISSUE, first: 100, after: $cursor) {
+        nodes {
+          ... on Issue {
+            number
+            title
+            url
+            labels(first: 20) {
+              nodes {
+                name
+              }
+            }
+            projectsV2(first: 5) {
+              nodes {
+                title
+              }
+            }
+          }
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  `;
+
+  const searchQuery = `repo:${target.owner}/${target.repo} is:issue is:open no:assignee label:"good first issue"`;
+
+  const issues: GitHubGoodFirstIssueNode[] = [];
+  let cursor: string | null = null;
+  let hasNextPage = true;
+
+  while (hasNextPage) {
+    const data: GoodFirstIssuesSearchResponse =
+      await request<GoodFirstIssuesSearchResponse>(query, {
+        cursor,
+        searchQuery,
+      });
+    assertGoodFirstIssuesResponse(data);
+
+    issues.push(...data.search.nodes);
+    hasNextPage = data.search.pageInfo.hasNextPage;
+    cursor = data.search.pageInfo.endCursor;
+  }
+
+  console.log(
+    `Fetched ${issues.length} good first issues from ${target.owner}/${target.repo}.`,
+  );
+
+  const rate = await fetchRateLimit();
+  console.log("\nRate Limit:");
+  console.log(rate.rateLimit);
+
+  return mapGitHubGoodFirstIssueNodes(issues);
 }
 
 /**
