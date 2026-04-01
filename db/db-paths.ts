@@ -8,6 +8,9 @@ export const DB_PATHS = {
   MEMBER_ACCESS_REQUESTS: {
     COLLECTION: "memberAccessRequests",
   },
+  TEAMS: {
+    COLLECTION: "teams",
+  },
   DAILY_TEAM_METRICS: {
     COLLECTION: "dailyTeamMetrics",
   },

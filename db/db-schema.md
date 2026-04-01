@@ -73,6 +73,23 @@ Fields:
 - `status: "PENDING" | "ACCEPTED" | "REJECTED"`
 - `createdAt: Timestamp`
 
+### `teams`
+
+Document id:
+
+- stable team id like `WEB_CORE` or `ANDROID_CLAM`
+
+Fields:
+
+- `platform: "WEB" | "ANDROID"`
+- `teamName: string`
+- `leads: Array<{ uid: string, username: string }>`
+- `gfiCounts.frontend: number`
+- `gfiCounts.backend: number`
+- `gfiCounts.fullstack: number`
+- `gfiCounts.uncategorized: number`
+- `lastUpdated: Timestamp`
+
 ### `dataJobRuns`
 
 Document id:
@@ -100,5 +117,6 @@ Normalized app-layer models convert Firestore timestamps as follows:
 - `users.createdAt -> Date`
 - `users/{uid}/notifications.createdAt -> Date`
 - `memberAccessRequests.createdAt -> Date`
+- `teams.lastUpdated -> Date`
 - `dataJobRuns.startedAt -> Date`
 - `dataJobRuns.finishedAt -> Date | null`

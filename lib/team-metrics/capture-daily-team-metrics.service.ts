@@ -3,17 +3,11 @@ import {
   getArchivedIssues,
 } from "@/db/archived-issues/archived-issues.db";
 import { createDailyTeamMetric } from "@/db/team-metrics/daily-team-metrics.db";
-import { ANDROID_TEAMS, GITHUB_REPOS, WEB_TEAMS } from "@/lib/config";
+import { GITHUB_REPOS } from "@/lib/config";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import { TEAM_DEFINITIONS } from "@/lib/domain/team-definitions";
 import { fetchUnansweredIssues } from "@/lib/github/github.fetcher";
 import type { GitHubIssue } from "@/lib/github/github.types";
-
-type TeamDefinition = {
-  linkedProject: string;
-  platform: ContributionPlatform;
-  teamId: string;
-  teamName: string;
-};
 
 type TeamMetricCaptureSummary = {
   capturedAt: Date;
@@ -26,39 +20,6 @@ type TeamMetricCaptureSummary = {
     unansweredIssuesCount: number;
   }>;
 };
-
-const TEAM_DEFINITIONS: TeamDefinition[] = [
-  {
-    linkedProject: WEB_TEAMS.LEAP,
-    platform: "WEB",
-    teamId: "WEB_LEAP",
-    teamName: WEB_TEAMS.LEAP,
-  },
-  {
-    linkedProject: WEB_TEAMS.CORE,
-    platform: "WEB",
-    teamId: "WEB_CORE",
-    teamName: WEB_TEAMS.CORE,
-  },
-  {
-    linkedProject: WEB_TEAMS.DEV_WORKFLOW,
-    platform: "WEB",
-    teamId: "WEB_DEV_WORKFLOW",
-    teamName: WEB_TEAMS.DEV_WORKFLOW,
-  },
-  {
-    linkedProject: ANDROID_TEAMS.CLAM,
-    platform: "ANDROID",
-    teamId: "ANDROID_CLAM",
-    teamName: ANDROID_TEAMS.CLAM,
-  },
-  {
-    linkedProject: ANDROID_TEAMS.DEV_WORKFLOW_INFRA,
-    platform: "ANDROID",
-    teamId: "ANDROID_DEV_WORKFLOW_INFRA",
-    teamName: ANDROID_TEAMS.DEV_WORKFLOW_INFRA,
-  },
-];
 
 /**
  * Builds the YYYY-MM-DD date key using the Asia/Kolkata timezone.
