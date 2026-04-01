@@ -90,6 +90,21 @@ Fields:
 - `gfiCounts.uncategorized: number`
 - `lastUpdated: Timestamp`
 
+### `dailyTeamMetrics`
+
+Document id:
+
+- `${teamId}_${capturedAtMillis}`
+
+Fields:
+
+- `teamId: string`
+- `teamName: string`
+- `platform: "WEB" | "ANDROID"`
+- `dateKey: string` **(IST-normalized YYYY-MM-DD reporting day bucket)**
+- `capturedAt: Timestamp`
+- `unansweredIssuesCount: number`
+
 ### `dataJobRuns`
 
 Document id:
@@ -118,5 +133,6 @@ Normalized app-layer models convert Firestore timestamps as follows:
 - `users/{uid}/notifications.createdAt -> Date`
 - `memberAccessRequests.createdAt -> Date`
 - `teams.lastUpdated -> Date`
+- `dailyTeamMetrics.capturedAt -> Date`
 - `dataJobRuns.startedAt -> Date`
 - `dataJobRuns.finishedAt -> Date | null`

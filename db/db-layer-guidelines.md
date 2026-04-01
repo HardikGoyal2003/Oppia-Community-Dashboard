@@ -4,6 +4,7 @@
 - Keep write operations atomic when they represent one logical action. If one succeeds and the other fails, state becomes
   inconsistent.
 - Standardize DB folder/file layout across domains.
+- Keep db-schema.md upto date with the collection models.
 
 ### Don'ts
 
