@@ -9,6 +9,7 @@ const eslintConfig = defineConfig([
   {
     files: ["**/*.ts", "**/*.tsx", "**/*.mts"],
     rules: {
+      "no-unused-vars": "off",
       "no-restricted-syntax": [
         "error",
         {
@@ -18,6 +19,14 @@ const eslintConfig = defineConfig([
         {
           selector: "TSUnknownKeyword",
           message: "Avoid `unknown`. Use a specific type instead.",
+        },
+      ],
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
         },
       ],
     },
