@@ -7,7 +7,10 @@ import type {
   TeamLeadRole,
   TeamModel,
 } from "@/lib/domain/teams.types";
-import { normalizeTimestamp } from "@/db/utils/timestamp.utils";
+import {
+  assertTimestamp,
+  normalizeTimestamp,
+} from "@/db/utils/timestamp.utils";
 
 export type FirestoreTeam = Omit<TeamModel, "lastUpdated"> & {
   lastUpdated: Timestamp;
@@ -119,12 +122,7 @@ function assertFirestoreTeam(
   assertFirestoreTeamLeads(team.leads);
   assertFirestoreGfiCounts(team.gfiCounts);
 
-  if (!(team.lastUpdated instanceof Timestamp)) {
-    throw new DbValidationError(
-      "lastUpdated",
-      "Team lastUpdated must be a Timestamp.",
-    );
-  }
+  assertTimestamp("lastUpdated", team.lastUpdated);
 }
 
 /**

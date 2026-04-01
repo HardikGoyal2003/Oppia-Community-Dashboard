@@ -7,7 +7,7 @@ import type {
 import { USER_ROLES } from "@/lib/auth/roles";
 import { TEAM_KEYS } from "@/lib/domain/team-definitions";
 import { DbValidationError } from "../db.errors";
-import { normalizeTimestamp } from "../utils/timestamp.utils";
+import { assertTimestamp, normalizeTimestamp } from "../utils/timestamp.utils";
 
 const CONTRIBUTION_PLATFORMS: ContributionPlatform[] = ["WEB", "ANDROID"];
 
@@ -75,12 +75,7 @@ function assertFirestoreUser(
     );
   }
 
-  if (!(user.createdAt instanceof Timestamp)) {
-    throw new DbValidationError(
-      "createdAt",
-      "User createdAt must be a Timestamp.",
-    );
-  }
+  assertTimestamp("createdAt", user.createdAt);
 }
 
 /**

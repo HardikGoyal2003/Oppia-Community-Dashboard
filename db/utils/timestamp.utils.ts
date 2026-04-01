@@ -2,6 +2,54 @@ import { Timestamp } from "firebase-admin/firestore";
 import { DbValidationError } from "@/db/db.errors";
 
 /**
+ * Asserts that a raw DB value is a Firestore Timestamp.
+ *
+ * @param field The field name being validated.
+ * @param value The raw DB value.
+ * @returns Nothing. Throws when the value is not a Timestamp.
+ */
+export function assertTimestamp(
+  field: string,
+  value:
+    | Timestamp
+    | Date
+    | object
+    | string
+    | number
+    | boolean
+    | null
+    | undefined,
+): asserts value is Timestamp {
+  if (!(value instanceof Timestamp)) {
+    throw new DbValidationError(field, `${field} must be a Timestamp.`);
+  }
+}
+
+/**
+ * Asserts that a raw DB value is either null or a Firestore Timestamp.
+ *
+ * @param field The field name being validated.
+ * @param value The raw DB value.
+ * @returns Nothing. Throws when the value is neither null nor a Timestamp.
+ */
+export function assertOptionalTimestamp(
+  field: string,
+  value:
+    | Timestamp
+    | Date
+    | object
+    | string
+    | number
+    | boolean
+    | null
+    | undefined,
+): asserts value is Timestamp | null {
+  if (value !== null && !(value instanceof Timestamp)) {
+    throw new DbValidationError(field, `${field} must be a Timestamp or null.`);
+  }
+}
+
+/**
  * Normalizes a required Firestore timestamp-like value into a Date instance.
  *
  * @param value The timestamp-like value to normalize.

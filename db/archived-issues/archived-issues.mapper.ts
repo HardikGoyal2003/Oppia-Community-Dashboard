@@ -2,7 +2,10 @@ import { Timestamp } from "firebase-admin/firestore";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type { Issue } from "@/lib/domain/issues.types";
 import { DbValidationError } from "@/db/db.errors";
-import { normalizeTimestamp } from "@/db/utils/timestamp.utils";
+import {
+  assertTimestamp,
+  normalizeTimestamp,
+} from "@/db/utils/timestamp.utils";
 
 export type FirestoreArchivedIssue = Omit<Issue, "lastCommentCreatedAt"> & {
   lastCommentCreatedAt: Timestamp;
@@ -48,12 +51,7 @@ function assertFirestoreArchivedIssue(
     );
   }
 
-  if (!(issue.lastCommentCreatedAt instanceof Timestamp)) {
-    throw new DbValidationError(
-      "lastCommentCreatedAt",
-      "Archived issue lastCommentCreatedAt must be a Timestamp.",
-    );
-  }
+  assertTimestamp("lastCommentCreatedAt", issue.lastCommentCreatedAt);
 
   if (typeof issue.linkedProject !== "string") {
     throw new DbValidationError(

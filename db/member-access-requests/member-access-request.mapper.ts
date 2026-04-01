@@ -4,7 +4,10 @@ import type {
   MemberAccessRequestRecord,
 } from "@/db/member-access-requests/member-access-request.types";
 import { DbValidationError } from "@/db/db.errors";
-import { normalizeTimestamp } from "@/db/utils/timestamp.utils";
+import {
+  assertTimestamp,
+  normalizeTimestamp,
+} from "@/db/utils/timestamp.utils";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type { MemberAccessRequestStatus } from "@/db/member-access-requests/member-access-request.types";
 
@@ -80,12 +83,7 @@ function assertFirestoreMemberAccessRequest(
     );
   }
 
-  if (!(request.createdAt instanceof Timestamp)) {
-    throw new DbValidationError(
-      "createdAt",
-      "Member access request createdAt must be a Timestamp.",
-    );
-  }
+  assertTimestamp("createdAt", request.createdAt);
 }
 
 /**

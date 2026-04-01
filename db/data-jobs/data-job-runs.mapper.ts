@@ -5,7 +5,11 @@ import type {
   DataJobRunStatus,
 } from "@/lib/domain/data-jobs.types";
 import { DbValidationError } from "@/db/db.errors";
-import { normalizeTimestamp } from "@/db/utils/timestamp.utils";
+import {
+  assertOptionalTimestamp,
+  assertTimestamp,
+  normalizeTimestamp,
+} from "@/db/utils/timestamp.utils";
 
 const DATA_JOB_KINDS: DataJobKind[] = [
   "AUDIT",
@@ -100,19 +104,8 @@ function assertFirestoreDataJobRun(
     );
   }
 
-  if (!(run.startedAt instanceof Timestamp)) {
-    throw new DbValidationError(
-      "startedAt",
-      "Data job run startedAt must be a Timestamp.",
-    );
-  }
-
-  if (run.finishedAt !== null && !(run.finishedAt instanceof Timestamp)) {
-    throw new DbValidationError(
-      "finishedAt",
-      "Data job run finishedAt must be a Timestamp or null.",
-    );
-  }
+  assertTimestamp("startedAt", run.startedAt);
+  assertOptionalTimestamp("finishedAt", run.finishedAt);
 }
 
 /**
