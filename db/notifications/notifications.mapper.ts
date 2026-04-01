@@ -1,5 +1,6 @@
 import { Notification } from "@/lib/auth/auth.types";
 import { Timestamp } from "firebase-admin/firestore";
+import { DbValidationError } from "@/db/db.errors";
 import { normalizeTimestamp } from "@/db/utils/timestamp.utils";
 
 export type FirestoreNotification = {
@@ -18,15 +19,21 @@ function assertFirestoreNotification(
   notification: FirebaseFirestore.DocumentData,
 ): asserts notification is FirestoreNotification {
   if (typeof notification.message !== "string") {
-    throw new Error("Notification message must be a string.");
+    throw new DbValidationError(
+      "message",
+      "Notification message must be a string.",
+    );
   }
 
   if (typeof notification.read !== "boolean") {
-    throw new Error("Notification read must be a boolean.");
+    throw new DbValidationError("read", "Notification read must be a boolean.");
   }
 
   if (!(notification.createdAt instanceof Timestamp)) {
-    throw new Error("Notification createdAt must be a Timestamp.");
+    throw new DbValidationError(
+      "createdAt",
+      "Notification createdAt must be a Timestamp.",
+    );
   }
 }
 

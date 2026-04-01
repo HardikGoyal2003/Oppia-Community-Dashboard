@@ -5,6 +5,7 @@ import type {
   UserRole,
 } from "@/lib/auth/auth.types";
 import { USER_ROLES } from "@/lib/auth/roles";
+import { DbValidationError } from "../db.errors";
 import { normalizeTimestamp } from "../utils/timestamp.utils";
 
 const CONTRIBUTION_PLATFORMS: ContributionPlatform[] = ["WEB", "ANDROID"];
@@ -30,38 +31,47 @@ function assertFirestoreUser(
   user: FirebaseFirestore.DocumentData,
 ): asserts user is FirestoreUser {
   if (typeof user.email !== "string") {
-    throw new Error("User email must be a string.");
+    throw new DbValidationError("email", "User email must be a string.");
   }
 
   if (typeof user.fullName !== "string") {
-    throw new Error("User fullName must be a string.");
+    throw new DbValidationError("fullName", "User fullName must be a string.");
   }
 
   if (typeof user.photoURL !== "string") {
-    throw new Error("User photoURL must be a string.");
+    throw new DbValidationError("photoURL", "User photoURL must be a string.");
   }
 
   if (typeof user.githubUsername !== "string") {
-    throw new Error("User githubUsername must be a string.");
+    throw new DbValidationError(
+      "githubUsername",
+      "User githubUsername must be a string.",
+    );
   }
 
   if (!USER_ROLES.includes(user.role)) {
-    throw new Error("User role must be a valid UserRole.");
+    throw new DbValidationError("role", "User role must be a valid UserRole.");
   }
 
   if (user.team !== null && typeof user.team !== "string") {
-    throw new Error("User team must be a string or null.");
+    throw new DbValidationError("team", "User team must be a string or null.");
   }
 
   if (
     user.platform !== null &&
     !CONTRIBUTION_PLATFORMS.includes(user.platform)
   ) {
-    throw new Error("User platform must be WEB, ANDROID, or null.");
+    throw new DbValidationError(
+      "platform",
+      "User platform must be WEB, ANDROID, or null.",
+    );
   }
 
   if (!(user.createdAt instanceof Timestamp)) {
-    throw new Error("User createdAt must be a Timestamp.");
+    throw new DbValidationError(
+      "createdAt",
+      "User createdAt must be a Timestamp.",
+    );
   }
 }
 

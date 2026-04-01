@@ -1,4 +1,5 @@
 import { Timestamp } from "firebase-admin/firestore";
+import { DbValidationError } from "@/db/db.errors";
 
 /**
  * Normalizes a required Firestore timestamp-like value into a Date instance.
@@ -15,5 +16,8 @@ export function normalizeTimestamp(value: Date | Timestamp): Date {
     return value;
   }
 
-  throw new Error("Expected Firestore timestamp value.");
+  throw new DbValidationError(
+    "timestamp",
+    "Expected Firestore timestamp value.",
+  );
 }

@@ -5,6 +5,7 @@
   inconsistent.
 - Standardize DB folder/file layout across domains.
 - Keep db-schema.md upto date with the collection models.
+- Use `DbValidationError` consistently for DB document shape and mapper validation failures.
 
 ### Don'ts
 

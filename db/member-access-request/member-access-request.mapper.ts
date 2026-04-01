@@ -3,6 +3,7 @@ import type {
   MemberAccessRequestModel,
   MemberAccessRequestRecord,
 } from "@/db/member-access-request/member-access-request.types";
+import { DbValidationError } from "@/db/db.errors";
 import { normalizeTimestamp } from "@/db/utils/timestamp.utils";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type { MemberAccessRequestStatus } from "@/db/member-access-request/member-access-request.types";
@@ -31,37 +32,59 @@ function assertFirestoreMemberAccessRequest(
   request: FirebaseFirestore.DocumentData,
 ): asserts request is FirestoreMemberAccessRequest {
   if (typeof request.userId !== "string") {
-    throw new Error("Member access request userId must be a string.");
+    throw new DbValidationError(
+      "userId",
+      "Member access request userId must be a string.",
+    );
   }
 
   if (typeof request.team !== "string") {
-    throw new Error("Member access request team must be a string.");
+    throw new DbValidationError(
+      "team",
+      "Member access request team must be a string.",
+    );
   }
 
   if (typeof request.role !== "string") {
-    throw new Error("Member access request role must be a string.");
+    throw new DbValidationError(
+      "role",
+      "Member access request role must be a string.",
+    );
   }
 
   if (typeof request.note !== "string") {
-    throw new Error("Member access request note must be a string.");
+    throw new DbValidationError(
+      "note",
+      "Member access request note must be a string.",
+    );
   }
 
   if (typeof request.username !== "string") {
-    throw new Error("Member access request username must be a string.");
+    throw new DbValidationError(
+      "username",
+      "Member access request username must be a string.",
+    );
   }
 
   if (!CONTRIBUTION_PLATFORMS.includes(request.platform)) {
-    throw new Error("Member access request platform must be WEB or ANDROID.");
+    throw new DbValidationError(
+      "platform",
+      "Member access request platform must be WEB or ANDROID.",
+    );
   }
 
   if (!MEMBER_ACCESS_REQUEST_STATUSES.includes(request.status)) {
-    throw new Error(
+    throw new DbValidationError(
+      "status",
       "Member access request status must be PENDING, ACCEPTED, or REJECTED.",
     );
   }
 
   if (!(request.createdAt instanceof Timestamp)) {
-    throw new Error("Member access request createdAt must be a Timestamp.");
+    throw new DbValidationError(
+      "createdAt",
+      "Member access request createdAt must be a Timestamp.",
+    );
   }
 }
 
