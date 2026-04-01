@@ -105,6 +105,21 @@ Fields:
 - `capturedAt: Timestamp`
 - `unansweredIssuesCount: number`
 
+Reporting query patterns:
+
+- current read pattern:
+  - `where("dateKey", ">=", sinceDateKey).orderBy("dateKey", "asc")`
+- current point-in-time read pattern:
+  - `where("dateKey", "==", dateKey)`
+- likely reporting read patterns as team reports grow:
+  - `where("teamId", "==", teamId).orderBy("capturedAt", "desc")`
+  - `where("platform", "==", platform).where("dateKey", ">=", sinceDateKey).orderBy("dateKey", "asc")`
+
+Index expectations:
+
+- the current `dateKey` range query can use Firestore's single-field indexing
+- if team-scoped or platform-scoped trend queries are added, corresponding composite indexes should be added in [`firestore.indexes.json`](/home/hardik/oppia-leads-dashboard/firestore.indexes.json)
+
 ### `dataJobRuns`
 
 Document id:

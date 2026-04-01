@@ -6,6 +6,7 @@
 - Standardize DB folder/file layout across domains.
 - Keep DB folder names aligned with collection/domain naming, and prefer pluralized folder names for collection-backed domains.
 - Keep db-schema.md upto date with the collection models.
+- Document expected query patterns for reporting-heavy collections in `db-schema.md`, and keep `firestore.indexes.json` aligned with those query shapes.
 - Use `DbValidationError` consistently for DB document shape and mapper validation failures.
 
 ### Don'ts
