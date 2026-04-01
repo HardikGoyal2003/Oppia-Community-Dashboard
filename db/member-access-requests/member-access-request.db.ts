@@ -5,7 +5,7 @@ import {
   normalizeMemberAccessRequestDocument,
   normalizeMemberAccessRequestRecord,
   serializeMemberAccessRequest,
-} from "@/db/member-access-request/member-access-request.mapper";
+} from "@/db/member-access-requests/member-access-request.mapper";
 import {
   MemberAccessDecision,
   MemberAccessRequestModel,

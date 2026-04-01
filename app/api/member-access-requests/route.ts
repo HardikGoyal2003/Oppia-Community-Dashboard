@@ -7,7 +7,7 @@ import {
   PendingMemberAccessRequestError,
   resolveMemberAccessRequest,
   submitMemberAccessRequest,
-} from "@/db/member-access-request/member-access-request.db";
+} from "@/db/member-access-requests/member-access-request.db";
 import {
   appendUserNotificationByUid,
   getUserById,
