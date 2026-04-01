@@ -46,3 +46,5 @@ export const TEAM_DEFINITIONS: TeamDefinition[] = [
     teamName: ANDROID_TEAMS.DEV_WORKFLOW_INFRA,
   },
 ];
+
+export const TEAM_KEYS = TEAM_DEFINITIONS.map((team) => team.teamKey);

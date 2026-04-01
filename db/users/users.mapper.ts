@@ -5,6 +5,7 @@ import type {
   UserRole,
 } from "@/lib/auth/auth.types";
 import { USER_ROLES } from "@/lib/auth/roles";
+import { TEAM_KEYS } from "@/lib/domain/team-definitions";
 import { DbValidationError } from "../db.errors";
 import { normalizeTimestamp } from "../utils/timestamp.utils";
 
@@ -55,6 +56,13 @@ function assertFirestoreUser(
 
   if (user.team !== null && typeof user.team !== "string") {
     throw new DbValidationError("team", "User team must be a string or null.");
+  }
+
+  if (user.team !== null && !TEAM_KEYS.includes(user.team)) {
+    throw new DbValidationError(
+      "team",
+      "User team must be one of the supported team keys or null.",
+    );
   }
 
   if (
