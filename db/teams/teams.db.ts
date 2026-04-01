@@ -2,9 +2,16 @@ import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type { TeamModel } from "@/lib/domain/teams.types";
 import { DB_PATHS } from "@/db/db-paths";
-import { normalizeTeamDocument, serializeTeam } from "./teams.mapper";
+import {
+  type FirestoreTeam,
+  normalizeTeamDocument,
+  serializeTeam,
+} from "./teams.mapper";
 
 const db = getAdminFirestore();
+const teamsCollection = db.collection(
+  DB_PATHS.TEAMS.COLLECTION,
+) as FirebaseFirestore.CollectionReference<FirestoreTeam>;
 
 /**
  * Retrieves a team by document id.
@@ -13,10 +20,7 @@ const db = getAdminFirestore();
  * @returns The normalized team model, or null when the team does not exist.
  */
 export async function getTeamById(teamId: string): Promise<TeamModel | null> {
-  const snapshot = await db
-    .collection(DB_PATHS.TEAMS.COLLECTION)
-    .doc(teamId)
-    .get();
+  const snapshot = await teamsCollection.doc(teamId).get();
 
   if (!snapshot.exists) {
     return null;
@@ -40,7 +44,7 @@ export async function getTeamById(teamId: string): Promise<TeamModel | null> {
 export async function getTeams(
   platform?: ContributionPlatform,
 ): Promise<(TeamModel & { id: string })[]> {
-  let query: FirebaseFirestore.Query = db.collection(DB_PATHS.TEAMS.COLLECTION);
+  let query: FirebaseFirestore.Query<FirestoreTeam> = teamsCollection;
 
   if (platform) {
     query = query.where("platform", "==", platform);
@@ -65,8 +69,5 @@ export async function upsertTeam(
   teamId: string,
   team: TeamModel,
 ): Promise<void> {
-  await db
-    .collection(DB_PATHS.TEAMS.COLLECTION)
-    .doc(teamId)
-    .set(serializeTeam(team));
+  await teamsCollection.doc(teamId).set(serializeTeam(team));
 }

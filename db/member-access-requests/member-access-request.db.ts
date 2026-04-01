@@ -2,6 +2,7 @@ import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DB_PATHS } from "@/db/db-paths";
 import { DbInvalidStateError, DbNotFoundError } from "@/db/db.errors";
 import {
+  type FirestoreMemberAccessRequest,
   normalizeMemberAccessRequestDocument,
   normalizeMemberAccessRequestRecord,
   serializeMemberAccessRequest,
@@ -14,6 +15,9 @@ import {
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 
 const db = getAdminFirestore();
+const memberAccessRequestsCollection = db.collection(
+  DB_PATHS.MEMBER_ACCESS_REQUESTS.COLLECTION,
+) as FirebaseFirestore.CollectionReference<FirestoreMemberAccessRequest>;
 
 /**
  * Error raised when a duplicate pending member-access request already exists.
@@ -48,9 +52,8 @@ export async function getPendingMemberAccessRequests(): Promise<
 export async function getPendingMemberAccessRequestsByPlatform(
   platform?: ContributionPlatform,
 ): Promise<MemberAccessRequestRecord[]> {
-  let query: FirebaseFirestore.Query = db
-    .collection(DB_PATHS.MEMBER_ACCESS_REQUESTS.COLLECTION)
-    .where("status", "==", "PENDING");
+  let query: FirebaseFirestore.Query<FirestoreMemberAccessRequest> =
+    memberAccessRequestsCollection.where("status", "==", "PENDING");
 
   if (platform) {
     query = query.where("platform", "==", platform);
@@ -72,9 +75,7 @@ export async function getPendingMemberAccessRequestsByPlatform(
 export async function submitMemberAccessRequest(
   request: Omit<MemberAccessRequestModel, "createdAt" | "status">,
 ): Promise<void> {
-  const collectionRef = db.collection(
-    DB_PATHS.MEMBER_ACCESS_REQUESTS.COLLECTION,
-  );
+  const collectionRef = memberAccessRequestsCollection;
   const pendingQuery = collectionRef
     .where("userId", "==", request.userId)
     .where("status", "==", "PENDING");
@@ -113,9 +114,7 @@ export async function resolveMemberAccessRequest(
   requestId: string,
   decision: MemberAccessDecision,
 ): Promise<MemberAccessRequestRecord> {
-  const requestRef = db
-    .collection(DB_PATHS.MEMBER_ACCESS_REQUESTS.COLLECTION)
-    .doc(requestId);
+  const requestRef = memberAccessRequestsCollection.doc(requestId);
 
   return db.runTransaction(async (tx) => {
     const snapshot = await tx.get(requestRef);

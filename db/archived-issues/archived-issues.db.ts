@@ -4,12 +4,16 @@ import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { DB_PATHS } from "../db-paths";
 import { DbInvalidStateError, DbNotFoundError } from "../db.errors";
 import {
+  type FirestoreArchivedIssue,
   assertLegacyFirestoreArchivedIssue,
   normalizeArchivedIssueDocument,
   serializeArchivedIssue,
 } from "./archived-issues.mapper";
 
 const db = getAdminFirestore();
+const archivedIssuesCollection = db.collection(
+  DB_PATHS.ARCHIVED_ISSUES.COLLECTION,
+) as FirebaseFirestore.CollectionReference<FirestoreArchivedIssue>;
 
 export type LegacyArchivedIssueRecord = Issue & {
   id: string;
@@ -38,8 +42,7 @@ export function getArchivedIssueDocId(
 export async function getArchivedIssues(
   platform: ContributionPlatform,
 ): Promise<(Issue & { platform: ContributionPlatform })[]> {
-  const snapshot = await db
-    .collection(DB_PATHS.ARCHIVED_ISSUES.COLLECTION)
+  const snapshot = await archivedIssuesCollection
     .where("platform", "==", platform)
     .get();
 
@@ -59,8 +62,7 @@ export async function archiveIssue(
   issue: Issue,
   platform: ContributionPlatform,
 ): Promise<void> {
-  await db
-    .collection(DB_PATHS.ARCHIVED_ISSUES.COLLECTION)
+  await archivedIssuesCollection
     .doc(getArchivedIssueDocId(platform, issue.issueNumber))
     .set(serializeArchivedIssue({ ...issue, isArchived: true }, platform));
 }
@@ -76,8 +78,7 @@ export async function unarchiveIssue(
   issueNumber: number,
   platform: ContributionPlatform,
 ): Promise<void> {
-  await db
-    .collection(DB_PATHS.ARCHIVED_ISSUES.COLLECTION)
+  await archivedIssuesCollection
     .doc(getArchivedIssueDocId(platform, issueNumber))
     .delete();
 }
@@ -90,9 +91,7 @@ export async function unarchiveIssue(
 export async function listLegacyArchivedIssues(): Promise<
   LegacyArchivedIssueRecord[]
 > {
-  const snapshot = await db
-    .collection(DB_PATHS.ARCHIVED_ISSUES.COLLECTION)
-    .get();
+  const snapshot = await archivedIssuesCollection.get();
 
   return snapshot.docs
     .filter((doc) => !doc.id.includes("_"))
@@ -118,9 +117,7 @@ export async function listLegacyArchivedIssues(): Promise<
  * @returns The archived issue document ids.
  */
 export async function listArchivedIssueDocumentIds(): Promise<string[]> {
-  const snapshot = await db
-    .collection(DB_PATHS.ARCHIVED_ISSUES.COLLECTION)
-    .get();
+  const snapshot = await archivedIssuesCollection.get();
   return snapshot.docs.map((doc) => doc.id);
 }
 
@@ -135,12 +132,10 @@ export async function migrateLegacyArchivedIssue(
   legacyRecord: LegacyArchivedIssueRecord,
   platform: ContributionPlatform,
 ): Promise<void> {
-  const oldDocRef = db
-    .collection(DB_PATHS.ARCHIVED_ISSUES.COLLECTION)
-    .doc(legacyRecord.id);
-  const newDocRef = db
-    .collection(DB_PATHS.ARCHIVED_ISSUES.COLLECTION)
-    .doc(getArchivedIssueDocId(platform, legacyRecord.issueNumber));
+  const oldDocRef = archivedIssuesCollection.doc(legacyRecord.id);
+  const newDocRef = archivedIssuesCollection.doc(
+    getArchivedIssueDocId(platform, legacyRecord.issueNumber),
+  );
 
   await db.runTransaction(async (tx) => {
     const [oldSnapshot, newSnapshot] = await Promise.all([
