@@ -1,5 +1,6 @@
 import { getAllUsers } from "@/db/users/users.db";
 import { getTeamById, upsertTeam } from "@/db/teams/teams.db";
+import { GITHUB_REPOS } from "@/lib/config";
 import { TEAM_DEFINITIONS } from "@/lib/domain/team-definitions";
 import type { TeamGfiCounts, TeamLead } from "@/lib/domain/teams.types";
 import { fetchGoodFirstIssues } from "@/lib/github/github.fetcher";
@@ -53,7 +54,8 @@ async function getLeadsByTeamId(): Promise<Map<string, TeamLead[]>> {
           (user) =>
             user.role === "TEAM_LEAD" &&
             user.platform === team.platform &&
-            user.team === team.teamKey,
+            user.team === team.teamKey &&
+            Boolean(user.githubUsername.trim()),
         )
         .map((user) => ({
           uid: user.id,
@@ -69,10 +71,12 @@ async function getLeadsByTeamId(): Promise<Map<string, TeamLead[]>> {
  * @returns A summary of the sync outcome.
  */
 export async function syncTeamGfiCounts(): Promise<GfiSyncSummary> {
-  const [issues, leadsByTeamId] = await Promise.all([
-    fetchGoodFirstIssues(),
+  const [webIssues, androidIssues, leadsByTeamId] = await Promise.all([
+    fetchGoodFirstIssues(GITHUB_REPOS.WEB),
+    fetchGoodFirstIssues(GITHUB_REPOS.ANDROID),
     getLeadsByTeamId(),
   ]);
+  const issues = [...webIssues, ...androidIssues];
   const countsByTeam = new Map<string, TeamGfiCounts>(
     TEAM_DEFINITIONS.map((team) => [
       team.teamId,

@@ -351,12 +351,17 @@ async function fetchRecentIssues(
 }
 
 /**
- * Fetches all open, unassigned good first issues for the Oppia web repository.
+ * Fetches all open, unassigned good first issues for a repository.
  *
+ * @param target The GitHub repository to inspect.
  * @returns The normalized good first issue list.
  */
-export async function fetchGoodFirstIssues(): Promise<GitHubGoodFirstIssue[]> {
-  console.log("Fetching open unassigned good first issues...");
+export async function fetchGoodFirstIssues(
+  target: GitHubRepoTarget,
+): Promise<GitHubGoodFirstIssue[]> {
+  console.log(
+    `Fetching open unassigned good first issues for ${target.owner}/${target.repo}...`,
+  );
 
   const query = `
     query($searchQuery: String!, $cursor: String) {
@@ -386,8 +391,7 @@ export async function fetchGoodFirstIssues(): Promise<GitHubGoodFirstIssue[]> {
     }
   `;
 
-  const searchQuery =
-    'repo:oppia/oppia is:issue is:open no:assignee label:"good first issue"';
+  const searchQuery = `repo:${target.owner}/${target.repo} is:issue is:open no:assignee label:"good first issue"`;
 
   const issues: GitHubGoodFirstIssueNode[] = [];
   let cursor: string | null = null;
@@ -406,7 +410,9 @@ export async function fetchGoodFirstIssues(): Promise<GitHubGoodFirstIssue[]> {
     cursor = data.search.pageInfo.endCursor;
   }
 
-  console.log(`Fetched ${issues.length} good first issues.`);
+  console.log(
+    `Fetched ${issues.length} good first issues from ${target.owner}/${target.repo}.`,
+  );
 
   const rate = await fetchRateLimit();
   console.log("\nRate Limit:");
