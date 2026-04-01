@@ -55,3 +55,23 @@ export async function getDailyTeamMetricsByDateKey(
     normalizeDailyTeamMetricDocument(doc.data()),
   );
 }
+
+/**
+ * Lists daily team metrics captured on or after the given date key.
+ *
+ * @param dateKey The inclusive YYYY-MM-DD lower-bound date key.
+ * @returns The normalized metrics captured since that date key.
+ */
+export async function getDailyTeamMetricsSinceDateKey(
+  dateKey: string,
+): Promise<DailyTeamMetric[]> {
+  const snapshot = await db
+    .collection(DB_PATHS.DAILY_TEAM_METRICS.COLLECTION)
+    .where("dateKey", ">=", dateKey)
+    .orderBy("dateKey", "asc")
+    .get();
+
+  return snapshot.docs.map((doc) =>
+    normalizeDailyTeamMetricDocument(doc.data()),
+  );
+}

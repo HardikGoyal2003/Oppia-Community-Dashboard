@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 type SidebarTab =
   | "INCOMING_REQUEST_TAB"
+  | "TEAM_REPORTS_TAB"
   | "USER_ROLE_MANAGER_TAB"
   | "UNANSWERED_ISSUES_TAB";
 
@@ -23,6 +24,9 @@ export const useActiveSidebarTab = create<ActiveSidebarTabState>((set) => ({
           break;
         case "User Role Manager":
           mappedTab = "USER_ROLE_MANAGER_TAB";
+          break;
+        case "Team Reports":
+          mappedTab = "TEAM_REPORTS_TAB";
           break;
         case "Unanswered Issue":
           mappedTab = "UNANSWERED_ISSUES_TAB";
