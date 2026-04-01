@@ -4,25 +4,31 @@ import { useState } from "react";
 import { AnnouncementBannerPanel } from "./announcement-banner-panel";
 import { CronJobsPanel } from "./cron-jobs-panel";
 import { DataJobsPanel } from "./data-jobs-panel";
+import { DummyDataPanel } from "./dummy-data-panel";
 
-type ControlPanelTab = "CRON_JOBS" | "DATA_JOBS" | "PLATFORM_PARAMETERS";
+type ControlPanelTab =
+  | "CRON_JOBS"
+  | "DATA_JOBS"
+  | "DUMMY_DATA"
+  | "PLATFORM_PARAMETERS";
 
 const TAB_LABELS: Record<ControlPanelTab, string> = {
   CRON_JOBS: "Cron Jobs",
   DATA_JOBS: "Data Jobs",
+  DUMMY_DATA: "Dummy Data",
   PLATFORM_PARAMETERS: "Platform Parameters",
 };
 
 type ControlPanelTabsProps = {
-  showCronJobs: boolean;
+  showDevTools: boolean;
 };
 
-export function ControlPanelTabs({ showCronJobs }: ControlPanelTabsProps) {
+export function ControlPanelTabs({ showDevTools }: ControlPanelTabsProps) {
   const [activeTab, setActiveTab] = useState<ControlPanelTab>(
-    showCronJobs ? "CRON_JOBS" : "DATA_JOBS",
+    showDevTools ? "CRON_JOBS" : "DATA_JOBS",
   );
   const tabs = (Object.keys(TAB_LABELS) as ControlPanelTab[]).filter(
-    (tab) => showCronJobs || tab !== "CRON_JOBS",
+    (tab) => showDevTools || (tab !== "CRON_JOBS" && tab !== "DUMMY_DATA"),
   );
 
   return (
@@ -43,9 +49,11 @@ export function ControlPanelTabs({ showCronJobs }: ControlPanelTabsProps) {
         ))}
       </div>
 
-      {showCronJobs && activeTab === "CRON_JOBS" && <CronJobsPanel />}
+      {showDevTools && activeTab === "CRON_JOBS" && <CronJobsPanel />}
 
       {activeTab === "DATA_JOBS" && <DataJobsPanel />}
+
+      {showDevTools && activeTab === "DUMMY_DATA" && <DummyDataPanel />}
 
       {activeTab === "PLATFORM_PARAMETERS" && (
         <div className="grid gap-6 md:grid-cols-2">

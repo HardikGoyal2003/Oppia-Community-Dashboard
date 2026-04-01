@@ -2,7 +2,11 @@ import { getAllUsers } from "@/db/users/users.db";
 import { getTeamById, upsertTeam } from "@/db/teams/teams.db";
 import { GITHUB_REPOS } from "@/lib/config";
 import { TEAM_DEFINITIONS } from "@/lib/domain/team-definitions";
-import type { TeamGfiCounts, TeamLead } from "@/lib/domain/teams.types";
+import type {
+  TeamGfiCounts,
+  TeamLead,
+  TeamLeadRole,
+} from "@/lib/domain/teams.types";
 import { fetchGoodFirstIssues } from "@/lib/github/github.fetcher";
 import type { GitHubGoodFirstIssue } from "@/lib/github/github.types";
 
@@ -39,7 +43,7 @@ function getGfiDomain(issue: GitHubGoodFirstIssue): GfiDomain | null {
 }
 
 /**
- * Builds a lookup of team ids to the current TEAM_LEAD users assigned in the users collection.
+ * Builds a lookup of team ids to the current team lead and lead trainee users assigned in the users collection.
  *
  * @returns The derived leads keyed by stable team id.
  */
@@ -52,12 +56,13 @@ async function getLeadsByTeamId(): Promise<Map<string, TeamLead[]>> {
       users
         .filter(
           (user) =>
-            user.role === "TEAM_LEAD" &&
+            (user.role === "TEAM_LEAD" || user.role === "LEAD_TRAINEE") &&
             user.platform === team.platform &&
             user.team === team.teamKey &&
             Boolean(user.githubUsername.trim()),
         )
         .map((user) => ({
+          role: user.role as TeamLeadRole,
           uid: user.id,
           username: user.githubUsername,
         })),
