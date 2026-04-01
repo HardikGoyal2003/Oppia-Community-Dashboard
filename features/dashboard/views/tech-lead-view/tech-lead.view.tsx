@@ -1,6 +1,6 @@
 "use client";
 
-import { Bug, Inbox, Users } from "lucide-react";
+import { BarChart3, Bug, Inbox, Users } from "lucide-react";
 import {
   SidebarInset,
   SidebarProvider,
@@ -9,6 +9,7 @@ import {
 import { AppSidebar } from "@/components/layout/sidebar/app-sidebar";
 import { Navbar } from "@/components/layout/navbar";
 import { IncomingRequestTab } from "./tabs/incoming-request.tab";
+import { TeamReportsTab } from "./tabs/team-reports.tab";
 import { UserRoleManagerTab } from "./tabs/user-role-manager.tab";
 import { useActiveSidebarTab } from "../../../../components/layout/sidebar/sidebar.store";
 import UnansweredIssuesTab from "../../shared/unanswered-issues.tab";
@@ -30,6 +31,10 @@ export default function TechLeadView() {
       icon: Users,
     },
     {
+      name: "Team Reports",
+      icon: BarChart3,
+    },
+    {
       name: "Unanswered Issue",
       icon: Bug,
     },
@@ -37,9 +42,11 @@ export default function TechLeadView() {
   const activeItemName =
     activeSidebarTab === "USER_ROLE_MANAGER_TAB"
       ? "User Role Manager"
-      : activeSidebarTab === "UNANSWERED_ISSUES_TAB"
-        ? "Unanswered Issue"
-        : "Incoming Requests";
+      : activeSidebarTab === "TEAM_REPORTS_TAB"
+        ? "Team Reports"
+        : activeSidebarTab === "UNANSWERED_ISSUES_TAB"
+          ? "Unanswered Issue"
+          : "Incoming Requests";
 
   return (
     <SidebarProvider>
@@ -59,6 +66,8 @@ export default function TechLeadView() {
           {activeSidebarTab === "USER_ROLE_MANAGER_TAB" && (
             <UserRoleManagerTab />
           )}
+
+          {activeSidebarTab === "TEAM_REPORTS_TAB" && <TeamReportsTab />}
 
           {activeSidebarTab === "UNANSWERED_ISSUES_TAB" && (
             <UnansweredIssuesTab />

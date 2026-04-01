@@ -1,6 +1,9 @@
-import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import type { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
+
+export type TeamLeadRole = Extract<UserRole, "TEAM_LEAD" | "LEAD_TRAINEE">;
 
 export type TeamLead = {
+  role: TeamLeadRole;
   uid: string;
   username: string;
 };

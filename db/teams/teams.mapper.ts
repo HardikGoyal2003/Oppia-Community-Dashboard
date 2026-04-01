@@ -4,6 +4,7 @@ import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type {
   TeamGfiCounts,
   TeamLead,
+  TeamLeadRole,
   TeamModel,
 } from "@/lib/domain/teams.types";
 import { normalizeTimestamp } from "@/db/utils/timestamp.utils";
@@ -82,6 +83,13 @@ function assertFirestoreTeamLeads(
         "Each team lead username must be a non-empty string.",
       );
     }
+
+    if (lead.role !== "TEAM_LEAD" && lead.role !== "LEAD_TRAINEE") {
+      throw new DbValidationError(
+        "leads.role",
+        "Each team lead role must be TEAM_LEAD or LEAD_TRAINEE.",
+      );
+    }
   }
 }
 
@@ -139,6 +147,7 @@ export function normalizeTeamDocument(
     },
     lastUpdated: normalizeTimestamp(team.lastUpdated),
     leads: team.leads.map((lead) => ({
+      role: lead.role as TeamLeadRole,
       uid: lead.uid,
       username: lead.username,
     })),
@@ -164,6 +173,7 @@ export function serializeTeam(
       uncategorized: team.gfiCounts.uncategorized,
     },
     leads: team.leads.map((lead) => ({
+      role: lead.role,
       uid: lead.uid,
       username: lead.username,
     })),
