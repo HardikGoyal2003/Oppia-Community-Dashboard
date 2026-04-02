@@ -2,22 +2,16 @@ import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import type { Issue } from "@/lib/domain/issues.types";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { DB_PATHS } from "../db-paths";
-import { DbInvalidStateError, DbNotFoundError } from "../db.errors";
 import {
+  type ArchivedIssueRecord,
   type FirestoreArchivedIssue,
-  assertLegacyFirestoreArchivedIssue,
   normalizeArchivedIssueDocument,
   serializeArchivedIssue,
 } from "./archived-issues.mapper";
 
-const db = getAdminFirestore();
-const archivedIssuesCollection = db.collection(
+const archivedIssuesCollection = getAdminFirestore().collection(
   DB_PATHS.ARCHIVED_ISSUES.COLLECTION,
 ) as FirebaseFirestore.CollectionReference<FirestoreArchivedIssue>;
-
-export type LegacyArchivedIssueRecord = Issue & {
-  id: string;
-};
 
 /**
  * Builds the archived issue document id for a platform-specific issue record.
@@ -41,7 +35,7 @@ export function getArchivedIssueDocId(
  */
 export async function getArchivedIssues(
   platform: ContributionPlatform,
-): Promise<(Issue & { platform: ContributionPlatform })[]> {
+): Promise<ArchivedIssueRecord[]> {
   const snapshot = await archivedIssuesCollection
     .where("platform", "==", platform)
     .get();
@@ -81,93 +75,4 @@ export async function unarchiveIssue(
   await archivedIssuesCollection
     .doc(getArchivedIssueDocId(platform, issueNumber))
     .delete();
-}
-
-/**
- * Lists legacy archived issues that still use the old `${issueNumber}` document id scheme.
- *
- * @returns The legacy archived issue records with their current document ids.
- */
-export async function listLegacyArchivedIssues(): Promise<
-  LegacyArchivedIssueRecord[]
-> {
-  const snapshot = await archivedIssuesCollection.get();
-
-  return snapshot.docs
-    .filter((doc) => !doc.id.includes("_"))
-    .map((doc) => {
-      const data = doc.data();
-      assertLegacyFirestoreArchivedIssue(data);
-
-      return {
-        id: doc.id,
-        issueNumber: data.issueNumber,
-        issueUrl: data.issueUrl,
-        issueTitle: data.issueTitle,
-        isArchived: data.isArchived,
-        lastCommentCreatedAt: data.lastCommentCreatedAt,
-        linkedProject: data.linkedProject,
-      };
-    });
-}
-
-/**
- * Lists all archived issue document ids in the collection.
- *
- * @returns The archived issue document ids.
- */
-export async function listArchivedIssueDocumentIds(): Promise<string[]> {
-  const snapshot = await archivedIssuesCollection.get();
-  return snapshot.docs.map((doc) => doc.id);
-}
-
-/**
- * Migrates one legacy archived-issue document into the platform-scoped schema.
- *
- * @param legacyRecord The legacy archived issue record to migrate.
- * @param platform The platform to persist on the migrated record.
- * @returns A promise that resolves when the migration has been committed.
- */
-export async function migrateLegacyArchivedIssue(
-  legacyRecord: LegacyArchivedIssueRecord,
-  platform: ContributionPlatform,
-): Promise<void> {
-  const oldDocRef = archivedIssuesCollection.doc(legacyRecord.id);
-  const newDocRef = archivedIssuesCollection.doc(
-    getArchivedIssueDocId(platform, legacyRecord.issueNumber),
-  );
-
-  await db.runTransaction(async (tx) => {
-    const [oldSnapshot, newSnapshot] = await Promise.all([
-      tx.get(oldDocRef),
-      tx.get(newDocRef),
-    ]);
-
-    if (!oldSnapshot.exists) {
-      throw new DbNotFoundError("Legacy archived issue");
-    }
-
-    if (newSnapshot.exists) {
-      throw new DbInvalidStateError(
-        "Archived issue migration",
-        `Archived issue ${newDocRef.id} already exists.`,
-      );
-    }
-
-    tx.set(
-      newDocRef,
-      serializeArchivedIssue(
-        {
-          issueNumber: legacyRecord.issueNumber,
-          issueUrl: legacyRecord.issueUrl,
-          issueTitle: legacyRecord.issueTitle,
-          isArchived: legacyRecord.isArchived,
-          lastCommentCreatedAt: legacyRecord.lastCommentCreatedAt,
-          linkedProject: legacyRecord.linkedProject,
-        },
-        platform,
-      ),
-    );
-    tx.delete(oldDocRef);
-  });
 }

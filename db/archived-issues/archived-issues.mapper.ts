@@ -12,7 +12,9 @@ export type FirestoreArchivedIssue = Omit<Issue, "lastCommentCreatedAt"> & {
   platform: ContributionPlatform;
 };
 
-export type LegacyFirestoreArchivedIssue = Issue;
+export type ArchivedIssueRecord = Issue & {
+  platform: ContributionPlatform;
+};
 
 /**
  * Validates the raw Firestore archived-issue document shape.
@@ -69,74 +71,22 @@ function assertFirestoreArchivedIssue(
 }
 
 /**
- * Validates the raw Firestore legacy archived-issue document shape.
+ * Converts a validated Firestore archived-issue document into the app model.
  *
- * @param issue The raw Firestore legacy archived-issue document data.
- * @returns Nothing. Throws when the legacy archived-issue document shape is invalid.
+ * @param issue The validated Firestore archived-issue document.
+ * @returns The normalized archived-issue record.
  */
-export function assertLegacyFirestoreArchivedIssue(
-  issue: FirebaseFirestore.DocumentData,
-): asserts issue is LegacyFirestoreArchivedIssue {
-  if (typeof issue.issueNumber !== "number") {
-    throw new DbValidationError(
-      "issueNumber",
-      "Legacy archived issue issueNumber must be a number.",
-    );
-  }
-
-  if (typeof issue.issueUrl !== "string") {
-    throw new DbValidationError(
-      "issueUrl",
-      "Legacy archived issue issueUrl must be a string.",
-    );
-  }
-
-  if (typeof issue.issueTitle !== "string") {
-    throw new DbValidationError(
-      "issueTitle",
-      "Legacy archived issue issueTitle must be a string.",
-    );
-  }
-
-  if (typeof issue.isArchived !== "boolean") {
-    throw new DbValidationError(
-      "isArchived",
-      "Legacy archived issue isArchived must be a boolean.",
-    );
-  }
-
-  if (typeof issue.lastCommentCreatedAt !== "string") {
-    throw new DbValidationError(
-      "lastCommentCreatedAt",
-      "Legacy archived issue lastCommentCreatedAt must be a string.",
-    );
-  }
-
-  if (typeof issue.linkedProject !== "string") {
-    throw new DbValidationError(
-      "linkedProject",
-      "Legacy archived issue linkedProject must be a string.",
-    );
-  }
-}
-
-/**
- * Normalizes a Firestore archived-issue document into the app model.
- *
- * @param issue The raw Firestore archived-issue document.
- * @returns The normalized archived-issue model.
- */
-export function normalizeArchivedIssue(
+function normalizeArchivedIssue(
   issue: FirestoreArchivedIssue,
-): FirestoreArchivedIssue {
+): ArchivedIssueRecord {
   return {
     issueNumber: issue.issueNumber,
     issueUrl: issue.issueUrl,
     issueTitle: issue.issueTitle,
     isArchived: issue.isArchived,
-    lastCommentCreatedAt: Timestamp.fromDate(
-      normalizeTimestamp(issue.lastCommentCreatedAt),
-    ),
+    lastCommentCreatedAt: normalizeTimestamp(
+      issue.lastCommentCreatedAt,
+    ).toISOString(),
     linkedProject: issue.linkedProject,
     platform: issue.platform,
   };
@@ -150,21 +100,9 @@ export function normalizeArchivedIssue(
  */
 export function normalizeArchivedIssueDocument(
   issue: FirebaseFirestore.DocumentData,
-): Issue & { platform: ContributionPlatform } {
+): ArchivedIssueRecord {
   assertFirestoreArchivedIssue(issue);
-  const normalized = normalizeArchivedIssue(issue);
-
-  return {
-    issueNumber: normalized.issueNumber,
-    issueUrl: normalized.issueUrl,
-    issueTitle: normalized.issueTitle,
-    isArchived: normalized.isArchived,
-    lastCommentCreatedAt: normalizeTimestamp(
-      normalized.lastCommentCreatedAt,
-    ).toISOString(),
-    linkedProject: normalized.linkedProject,
-    platform: normalized.platform,
-  };
+  return normalizeArchivedIssue(issue);
 }
 
 /**
