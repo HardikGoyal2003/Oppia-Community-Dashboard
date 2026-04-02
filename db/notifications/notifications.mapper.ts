@@ -68,3 +68,19 @@ export function normalizeNotificationDocument(
 
   return normalizeNotifications([{ id, ...rawNotification }])[0];
 }
+
+/**
+ * Serializes a normalized notification for Firestore storage.
+ *
+ * @param notification The normalized notification payload without its id.
+ * @returns The Firestore-ready notification document.
+ */
+export function serializeNotification(
+  notification: Omit<Notification, "id">,
+): FirestoreNotification {
+  return {
+    message: notification.message,
+    read: notification.read,
+    createdAt: Timestamp.fromDate(notification.createdAt),
+  };
+}

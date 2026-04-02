@@ -9,10 +9,10 @@ import {
   submitMemberAccessRequest,
 } from "@/db/member-access-requests/member-access-request.db";
 import {
-  appendUserNotificationByUid,
   getUserById,
   updateUserRoleAndTeamWithNotificationByUid,
 } from "@/db/users/users.db";
+import { appendUserNotificationByUid } from "@/db/users/notifications.db";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { isValidUserRole } from "@/lib/utils/roles.utils";
 import {
