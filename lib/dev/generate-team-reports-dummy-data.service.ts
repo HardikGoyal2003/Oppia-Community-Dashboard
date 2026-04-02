@@ -2,6 +2,7 @@ import { createDailyTeamMetric } from "@/db/team-metrics/daily-team-metrics.db";
 import { upsertTeam } from "@/db/teams/teams.db";
 import { TEAM_DEFINITIONS } from "@/lib/domain/team-definitions";
 import type { TeamGfiCounts, TeamLead } from "@/lib/domain/teams.types";
+import { getIstDateKey } from "@/lib/utils/date.utils";
 
 type DummyDataGenerationSummary = {
   metricsWritten: number;
@@ -124,23 +125,6 @@ function getFixedIstCaptureDate(daysAgo: number): Date {
       0,
     ),
   );
-}
-
-/**
- * Formats a date into the IST day bucket used by daily team metrics.
- *
- * @param date The timestamp to bucket.
- * @returns The IST-normalized YYYY-MM-DD date key.
- */
-function getIstDateKey(date: Date): string {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    day: "2-digit",
-    month: "2-digit",
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-  });
-
-  return formatter.format(date);
 }
 
 /**

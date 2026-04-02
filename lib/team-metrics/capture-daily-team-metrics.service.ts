@@ -8,6 +8,7 @@ import { GITHUB_REPOS } from "@/lib/config/github.constants";
 import { TEAM_DEFINITIONS } from "@/lib/domain/team-definitions";
 import { fetchUnansweredIssues } from "@/lib/github/github.fetcher";
 import type { GitHubIssue } from "@/lib/github/github.types";
+import { getIstDateKey } from "@/lib/utils/date.utils";
 
 type TeamMetricCaptureSummary = {
   capturedAt: Date;
@@ -20,23 +21,6 @@ type TeamMetricCaptureSummary = {
     unansweredIssuesCount: number;
   }>;
 };
-
-/**
- * Builds the YYYY-MM-DD date key using the Asia/Kolkata timezone.
- *
- * @param date The capture timestamp to format.
- * @returns The IST-normalized date key.
- */
-function getDateKeyForIst(date: Date): string {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    day: "2-digit",
-    month: "2-digit",
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-  });
-
-  return formatter.format(date);
-}
 
 /**
  * Filters live unanswered issues against archived records and identifies archive rows that should be removed.
@@ -164,7 +148,7 @@ async function capturePlatformTeamMetrics(
  */
 export async function captureDailyUnansweredIssueMetrics(): Promise<TeamMetricCaptureSummary> {
   const capturedAt = new Date();
-  const dateKey = getDateKeyForIst(capturedAt);
+  const dateKey = getIstDateKey(capturedAt);
 
   const [webTeams, androidTeams] = await Promise.all([
     capturePlatformTeamMetrics("WEB", capturedAt, dateKey),
