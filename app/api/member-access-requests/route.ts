@@ -12,7 +12,7 @@ import {
   getUserById,
   updateUserRoleAndTeamWithNotificationByUid,
 } from "@/db/users/users.db";
-import { appendUserNotificationByUid } from "@/db/users/notifications.db";
+import { appendUserNotificationByUid } from "@/db/users/notifications/notifications.db";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { isValidUserRole } from "@/lib/utils/roles.utils";
 import {

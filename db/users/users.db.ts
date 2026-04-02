@@ -7,8 +7,8 @@ import {
 import { Timestamp } from "firebase-admin/firestore";
 import { DB_PATHS } from "../db-paths";
 import { DbNotFoundError, DbValidationError } from "../db.errors";
-import { getUserNotificationsCollection } from "./notifications.db";
-import { serializeNotification } from "../notifications/notifications.mapper";
+import { getUserNotificationsCollection } from "./notifications/notifications.db";
+import { serializeNotification } from "./notifications/notifications.mapper";
 import { normalizeUserDocument, serializeUser } from "./users.mapper";
 
 const db = getAdminFirestore();

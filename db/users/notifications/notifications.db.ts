@@ -6,7 +6,7 @@ import {
   type FirestoreNotification,
   normalizeNotificationDocument,
   serializeNotification,
-} from "@/db/notifications/notifications.mapper";
+} from "@/db/users/notifications/notifications.mapper";
 
 export type NotificationStatusFilter = "READ" | "UNREAD" | "ALL";
 
