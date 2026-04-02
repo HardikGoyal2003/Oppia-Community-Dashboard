@@ -1,6 +1,6 @@
 import { requireEnv } from "@/lib/config/env";
+import { LibInvalidStateError } from "@/lib/lib.errors";
 
-const TOKEN = requireEnv("GITHUB_TOKEN");
 const API_URL = "https://api.github.com/graphql";
 
 type GraphQLErrorPayload = {
@@ -15,13 +15,22 @@ type GraphQLSuccessResponse<T> = {
 };
 
 /**
+ * Resolves the GitHub token at request time so optional imports do not fail eagerly.
+ *
+ * @returns The configured GitHub token.
+ */
+function getGitHubToken(): string {
+  return requireEnv("GITHUB_TOKEN");
+}
+
+/**
  * Represents a GitHub GraphQL failure with actionable upstream details.
  */
-export class GitHubGraphQLError extends Error {
+export class GitHubGraphQLError extends LibInvalidStateError {
   details: string[];
 
   constructor(message: string, details: string[]) {
-    super(message);
+    super("GitHubGraphQL", message);
     this.name = "GitHubGraphQLError";
     this.details = details;
   }
@@ -78,7 +87,7 @@ export async function requestGitHubGraphQL<T>(
   const res = await fetch(API_URL, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${TOKEN}`,
+      Authorization: `Bearer ${getGitHubToken()}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ query, variables }),

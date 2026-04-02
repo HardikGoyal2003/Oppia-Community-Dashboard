@@ -1,3 +1,5 @@
+import { LibConfigError } from "@/lib/lib.errors";
+
 /**
  * Returns an environment variable when present.
  *
@@ -65,7 +67,10 @@ export function requireEnv(name: string): string {
   const value = readEnv(name);
 
   if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
+    throw new LibConfigError(
+      name,
+      `Missing required environment variable: ${name}`,
+    );
   }
 
   return value;

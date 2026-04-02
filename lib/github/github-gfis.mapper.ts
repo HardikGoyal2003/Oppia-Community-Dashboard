@@ -1,3 +1,4 @@
+import { LibMappingError } from "@/lib/lib.errors";
 import { GitHubGoodFirstIssue, GitHubGoodFirstIssueNode } from "./github.types";
 
 /**
@@ -10,23 +11,36 @@ function assertFormattableGoodFirstIssue(
   issue: GitHubGoodFirstIssueNode,
 ): void {
   if (typeof issue.number !== "number") {
-    throw new Error("GitHub GFI node is missing a numeric issue number.");
+    throw new LibMappingError(
+      "GitHubGoodFirstIssue",
+      "GitHub GFI node is missing a numeric issue number.",
+    );
   }
 
   if (typeof issue.title !== "string" || !issue.title) {
-    throw new Error(`GitHub GFI ${issue.number} is missing a title.`);
+    throw new LibMappingError(
+      "GitHubGoodFirstIssue",
+      `GitHub GFI ${issue.number} is missing a title.`,
+    );
   }
 
   if (typeof issue.url !== "string" || !issue.url) {
-    throw new Error(`GitHub GFI ${issue.number} is missing a URL.`);
+    throw new LibMappingError(
+      "GitHubGoodFirstIssue",
+      `GitHub GFI ${issue.number} is missing a URL.`,
+    );
   }
 
   if (!Array.isArray(issue.labels?.nodes)) {
-    throw new Error(`GitHub GFI ${issue.number} is missing label data.`);
+    throw new LibMappingError(
+      "GitHubGoodFirstIssue",
+      `GitHub GFI ${issue.number} is missing label data.`,
+    );
   }
 
   if (!Array.isArray(issue.projectsV2?.nodes)) {
-    throw new Error(
+    throw new LibMappingError(
+      "GitHubGoodFirstIssue",
       `GitHub GFI ${issue.number} is missing linked project data.`,
     );
   }

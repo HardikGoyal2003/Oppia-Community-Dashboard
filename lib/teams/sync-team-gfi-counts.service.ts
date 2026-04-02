@@ -1,6 +1,6 @@
 import { getAllUsers } from "@/db/users/users.db";
 import { getTeamById, upsertTeam } from "@/db/teams/teams.db";
-import { GITHUB_REPOS } from "@/lib/config";
+import { GITHUB_REPOS } from "@/lib/config/github.constants";
 import { TEAM_DEFINITIONS } from "@/lib/domain/team-definitions";
 import type {
   TeamGfiCounts,

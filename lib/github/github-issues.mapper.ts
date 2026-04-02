@@ -1,3 +1,4 @@
+import { LibMappingError } from "@/lib/lib.errors";
 import { GitHubIssue, GitHubIssueNode } from "./github.types";
 
 /**
@@ -10,7 +11,8 @@ function assertFormattableIssue(issue: GitHubIssueNode): void {
   const latestComment = issue.comments.nodes[0];
 
   if (!latestComment?.createdAt) {
-    throw new Error(
+    throw new LibMappingError(
+      "GitHubIssue",
       `Issue ${issue.number} is missing the latest comment timestamp.`,
     );
   }
@@ -24,28 +26,41 @@ function assertFormattableIssue(issue: GitHubIssueNode): void {
  */
 function assertNormalizedGitHubIssue(issue: GitHubIssue): void {
   if (typeof issue.issueNumber !== "number") {
-    throw new Error(
+    throw new LibMappingError(
+      "GitHubIssue",
       "Normalized GitHub issue is missing a numeric issueNumber.",
     );
   }
 
   if (typeof issue.issueUrl !== "string" || !issue.issueUrl) {
-    throw new Error("Normalized GitHub issue is missing issueUrl.");
+    throw new LibMappingError(
+      "GitHubIssue",
+      "Normalized GitHub issue is missing issueUrl.",
+    );
   }
 
   if (typeof issue.issueTitle !== "string" || !issue.issueTitle) {
-    throw new Error("Normalized GitHub issue is missing issueTitle.");
+    throw new LibMappingError(
+      "GitHubIssue",
+      "Normalized GitHub issue is missing issueTitle.",
+    );
   }
 
   if (
     typeof issue.lastCommentCreatedAt !== "string" ||
     !issue.lastCommentCreatedAt
   ) {
-    throw new Error("Normalized GitHub issue is missing lastCommentCreatedAt.");
+    throw new LibMappingError(
+      "GitHubIssue",
+      "Normalized GitHub issue is missing lastCommentCreatedAt.",
+    );
   }
 
   if (typeof issue.linkedProject !== "string") {
-    throw new Error("Normalized GitHub issue is missing linkedProject.");
+    throw new LibMappingError(
+      "GitHubIssue",
+      "Normalized GitHub issue is missing linkedProject.",
+    );
   }
 }
 
