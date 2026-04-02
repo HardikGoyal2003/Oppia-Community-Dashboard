@@ -83,7 +83,7 @@ function assertFirestoreMemberAccessRequest(
     );
   }
 
-  assertTimestamp("createdAt", request.createdAt);
+  assertTimestamp("Member access request", "createdAt", request.createdAt);
 }
 
 /**

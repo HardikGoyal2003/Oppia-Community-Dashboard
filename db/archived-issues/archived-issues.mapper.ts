@@ -53,7 +53,11 @@ function assertFirestoreArchivedIssue(
     );
   }
 
-  assertTimestamp("lastCommentCreatedAt", issue.lastCommentCreatedAt);
+  assertTimestamp(
+    "Archived issue",
+    "lastCommentCreatedAt",
+    issue.lastCommentCreatedAt,
+  );
 
   if (typeof issue.linkedProject !== "string") {
     throw new DbValidationError(

@@ -55,7 +55,7 @@ function assertFirestoreDailyTeamMetric(
     );
   }
 
-  assertTimestamp("capturedAt", metric.capturedAt);
+  assertTimestamp("Team metric", "capturedAt", metric.capturedAt);
 }
 
 /**

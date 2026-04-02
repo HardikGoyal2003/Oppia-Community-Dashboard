@@ -122,7 +122,7 @@ function assertFirestoreTeam(
   assertFirestoreTeamLeads(team.leads);
   assertFirestoreGfiCounts(team.gfiCounts);
 
-  assertTimestamp("lastUpdated", team.lastUpdated);
+  assertTimestamp("Team", "lastUpdated", team.lastUpdated);
 }
 
 /**

@@ -104,8 +104,8 @@ function assertFirestoreDataJobRun(
     );
   }
 
-  assertTimestamp("startedAt", run.startedAt);
-  assertOptionalTimestamp("finishedAt", run.finishedAt);
+  assertTimestamp("Data job run", "startedAt", run.startedAt);
+  assertOptionalTimestamp("Data job run", "finishedAt", run.finishedAt);
 }
 
 /**

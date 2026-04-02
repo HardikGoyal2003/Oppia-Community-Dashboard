@@ -75,7 +75,7 @@ function assertFirestoreUser(
     );
   }
 
-  assertTimestamp("createdAt", user.createdAt);
+  assertTimestamp("User", "createdAt", user.createdAt);
 }
 
 /**

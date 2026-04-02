@@ -32,7 +32,7 @@ function assertFirestoreNotification(
     throw new DbValidationError("read", "Notification read must be a boolean.");
   }
 
-  assertTimestamp("createdAt", notification.createdAt);
+  assertTimestamp("Notification", "createdAt", notification.createdAt);
 }
 
 /**
