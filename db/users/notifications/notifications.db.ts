@@ -1,7 +1,7 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { Notification } from "@/lib/auth/auth.types";
 import { DB_PATHS } from "@/db/db-paths";
-import { DbNotFoundError } from "@/db/db.errors";
+import { getRequiredDocumentSnapshot } from "@/db/utils/document.utils";
 import {
   type FirestoreNotification,
   normalizeNotificationDocument,
@@ -93,11 +93,7 @@ export async function markNotificationAsReadByUid(
 ): Promise<void> {
   const notificationRef =
     getUserNotificationsCollection(uid).doc(notificationId);
-  const notificationSnap = await notificationRef.get();
-
-  if (!notificationSnap.exists) {
-    throw new DbNotFoundError("Notification");
-  }
+  await getRequiredDocumentSnapshot("Notification", notificationRef);
 
   await notificationRef.update({
     read: true,

@@ -1,11 +1,10 @@
 import { mapGitHubIssueNodes } from "./github-issues.mapper";
-import { fetchGitHubRateLimit } from "./github.rate-limit";
 import {
   fetchOrgAndCollaboratorAccess,
   fetchRecentIssueNodes,
-} from "./github.shared";
-import type { GitHubRepoTarget } from "./github.fetcher";
-import type { GitHubIssue } from "./github.types";
+} from "./github.query-helpers";
+import { fetchGitHubRateLimit } from "./github.rate-limit";
+import type { GitHubIssue, GitHubRepoTarget } from "./github.types";
 
 /**
  * Fetches unanswered issues whose latest recent comment came from a non-maintainer.

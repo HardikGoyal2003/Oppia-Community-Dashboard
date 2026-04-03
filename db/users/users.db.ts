@@ -6,7 +6,8 @@ import {
 } from "@/lib/auth/auth.types";
 import { Timestamp } from "firebase-admin/firestore";
 import { DB_PATHS } from "../db-paths";
-import { DbNotFoundError, DbValidationError } from "../db.errors";
+import { DbValidationError } from "../db.errors";
+import { getRequiredDocumentRef } from "../utils/document.utils";
 import { getUserNotificationsCollection } from "./notifications/notifications.db";
 import { serializeNotification } from "./notifications/notifications.mapper";
 import { normalizeUserDocument, serializeUser } from "./users.mapper";
@@ -57,13 +58,7 @@ async function getRequiredUserDocRefByUid(
   uid: string,
 ): Promise<FirebaseFirestore.DocumentReference> {
   const userDocRef = db.collection(DB_PATHS.USERS.COLLECTION).doc(uid);
-  const userDocSnap = await userDocRef.get();
-
-  if (!userDocSnap.exists) {
-    throw new DbNotFoundError("User");
-  }
-
-  return userDocRef;
+  return getRequiredDocumentRef("User", userDocRef);
 }
 
 /**

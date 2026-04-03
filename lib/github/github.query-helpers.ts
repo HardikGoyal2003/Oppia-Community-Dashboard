@@ -1,9 +1,9 @@
-import type { GitHubRepoTarget } from "./github.fetcher";
 import { GitHubGraphQLError } from "./github.request";
 import { requestGitHubGraphQL } from "./github.request";
 import type {
   GitHubGoodFirstIssueNode,
   GitHubIssueNode,
+  GitHubRepoTarget,
   GitHubUser,
 } from "./github.types";
 

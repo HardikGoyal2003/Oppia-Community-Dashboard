@@ -1,8 +1,7 @@
 import { mapGitHubGoodFirstIssueNodes } from "./github-gfis.mapper";
+import { fetchGoodFirstIssueNodes } from "./github.query-helpers";
 import { fetchGitHubRateLimit } from "./github.rate-limit";
-import { fetchGoodFirstIssueNodes } from "./github.shared";
-import type { GitHubRepoTarget } from "./github.fetcher";
-import type { GitHubGoodFirstIssue } from "./github.types";
+import type { GitHubGoodFirstIssue, GitHubRepoTarget } from "./github.types";
 
 /**
  * Fetches all open, unassigned good first issues for a repository.

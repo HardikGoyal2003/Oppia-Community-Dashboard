@@ -1,6 +1,7 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DB_PATHS } from "@/db/db-paths";
-import { DbInvalidStateError, DbNotFoundError } from "@/db/db.errors";
+import { DbInvalidStateError } from "@/db/db.errors";
+import { getRequiredTransactionDocumentSnapshot } from "@/db/utils/document.utils";
 import {
   type FirestoreMemberAccessRequest,
   normalizeMemberAccessRequestDocument,
@@ -117,11 +118,11 @@ export async function resolveMemberAccessRequest(
   const requestRef = memberAccessRequestsCollection.doc(requestId);
 
   return db.runTransaction(async (tx) => {
-    const snapshot = await tx.get(requestRef);
-
-    if (!snapshot.exists) {
-      throw new DbNotFoundError("Member access request");
-    }
+    const snapshot = await getRequiredTransactionDocumentSnapshot(
+      tx,
+      "Member access request",
+      requestRef,
+    );
 
     const request = normalizeMemberAccessRequestRecord(
       snapshot.id,

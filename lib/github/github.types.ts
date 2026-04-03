@@ -2,6 +2,11 @@ export interface GitHubUser {
   login: string;
 }
 
+export type GitHubRepoTarget = {
+  owner: string;
+  repo: string;
+};
+
 interface GitHubProject {
   title: string;
 }

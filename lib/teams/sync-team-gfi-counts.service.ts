@@ -7,7 +7,7 @@ import type {
   TeamLead,
   TeamLeadRole,
 } from "@/lib/domain/teams.types";
-import { fetchGoodFirstIssues } from "@/lib/github/github.fetcher";
+import { fetchGoodFirstIssues } from "@/lib/github/github-gfis.fetcher";
 import type { GitHubGoodFirstIssue } from "@/lib/github/github.types";
 
 type GfiDomain = keyof TeamGfiCounts;

@@ -1,7 +1,7 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import type { DataJobRun } from "@/lib/domain/data-jobs.types";
 import { DB_PATHS } from "@/db/db-paths";
-import { DbNotFoundError } from "@/db/db.errors";
+import { getRequiredDocumentSnapshot } from "@/db/utils/document.utils";
 import {
   type FirestoreDataJobRun,
   normalizeDataJobRunDocument,
@@ -36,11 +36,10 @@ export async function createDataJobRun(
  * @returns The normalized data-job run.
  */
 export async function getDataJobRunById(runId: string): Promise<DataJobRun> {
-  const snapshot = await dataJobRunsCollection.doc(runId).get();
-
-  if (!snapshot.exists) {
-    throw new DbNotFoundError("Data job run");
-  }
+  const snapshot = await getRequiredDocumentSnapshot(
+    "Data job run",
+    dataJobRunsCollection.doc(runId),
+  );
 
   return normalizeDataJobRunDocument(snapshot.id, snapshot.data()!);
 }
@@ -74,11 +73,7 @@ export async function markDataJobRunSucceeded(
   summary: string,
 ): Promise<void> {
   const runRef = dataJobRunsCollection.doc(runId);
-  const snapshot = await runRef.get();
-
-  if (!snapshot.exists) {
-    throw new DbNotFoundError("Data job run");
-  }
+  await getRequiredDocumentSnapshot("Data job run", runRef);
 
   await runRef.update({
     status: "SUCCEEDED",
@@ -100,11 +95,7 @@ export async function markDataJobRunFailed(
   errorMessage: string,
 ): Promise<void> {
   const runRef = dataJobRunsCollection.doc(runId);
-  const snapshot = await runRef.get();
-
-  if (!snapshot.exists) {
-    throw new DbNotFoundError("Data job run");
-  }
+  await getRequiredDocumentSnapshot("Data job run", runRef);
 
   await runRef.update({
     status: "FAILED",
