@@ -21,7 +21,7 @@ const LANGUAGE_OPTIONS: Array<{
 }> = [
   { label: "JavaScript", value: "JS" },
   { label: "Python", value: "PYTHON" },
-  { label: "Java", value: "JAVA" },
+  { label: "Java/Kotlin", value: "JAVA" },
   { label: "Not mentioned here", value: "OTHER" },
 ];
 
