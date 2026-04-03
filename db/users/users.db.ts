@@ -14,6 +14,10 @@ import { normalizeUserDocument, serializeUser } from "./users.mapper";
 
 const db = getAdminFirestore();
 
+export type UserRecord = UserModel & {
+  id: string;
+};
+
 /**
  * Validates the GitHub username requirement for non-contributor roles.
  *
@@ -118,7 +122,7 @@ export async function getUserById(uid: string): Promise<UserModel | null> {
  *
  * @returns The normalized user models with document ids attached.
  */
-export async function getAllUsers(): Promise<(UserModel & { id: string })[]> {
+export async function getAllUsers(): Promise<UserRecord[]> {
   return getUsersByPlatform();
 }
 
@@ -130,7 +134,7 @@ export async function getAllUsers(): Promise<(UserModel & { id: string })[]> {
  */
 export async function getUsersByPlatform(
   platform?: ContributionPlatform,
-): Promise<(UserModel & { id: string })[]> {
+): Promise<UserRecord[]> {
   let query: FirebaseFirestore.Query = db.collection(DB_PATHS.USERS.COLLECTION);
 
   if (platform) {
@@ -227,7 +231,7 @@ export async function updateUserRoleAndTeamWithNotificationByUid(
   assertGithubUsernameForRole(githubUsername);
 
   const userDocRef = await getRequiredUserDocRefByUid(uid);
-  const notificationRef = getUserNotificationsCollection(uid).doc();
+  const notificationRef = getUserNotificationsCollection(userDocRef).doc();
   const batch = db.batch();
 
   batch.update(userDocRef, {

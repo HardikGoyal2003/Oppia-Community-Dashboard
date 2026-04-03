@@ -13,6 +13,10 @@ const teamsCollection = db.collection(
   DB_PATHS.TEAMS.COLLECTION,
 ) as FirebaseFirestore.CollectionReference<FirestoreTeam>;
 
+export type TeamRecord = TeamModel & {
+  id: string;
+};
+
 /**
  * Retrieves a team by document id.
  *
@@ -43,7 +47,7 @@ export async function getTeamById(teamId: string): Promise<TeamModel | null> {
  */
 export async function getTeams(
   platform?: ContributionPlatform,
-): Promise<(TeamModel & { id: string })[]> {
+): Promise<TeamRecord[]> {
   let query: FirebaseFirestore.Query<FirestoreTeam> = teamsCollection;
 
   if (platform) {

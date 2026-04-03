@@ -1,7 +1,10 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { Notification } from "@/lib/auth/auth.types";
 import { DB_PATHS } from "@/db/db-paths";
-import { getRequiredDocumentSnapshot } from "@/db/utils/document.utils";
+import {
+  getRequiredDocumentRef,
+  getRequiredDocumentSnapshot,
+} from "@/db/utils/document.utils";
 import {
   type FirestoreNotification,
   normalizeNotificationDocument,
@@ -13,20 +16,30 @@ export type NotificationStatusFilter = "READ" | "UNREAD" | "ALL";
 const db = getAdminFirestore();
 
 /**
- * Resolves the notifications subcollection for a user uid.
+ * Resolves a user document reference by uid and guarantees that the document exists.
  *
  * @param uid The user id that owns the notifications.
+ * @returns The existing Firestore user document reference.
+ */
+async function getRequiredUserDocRefByUid(
+  uid: string,
+): Promise<FirebaseFirestore.DocumentReference> {
+  const userDocRef = db.collection(DB_PATHS.USERS.COLLECTION).doc(uid);
+  return getRequiredDocumentRef("User", userDocRef);
+}
+
+/**
+ * Resolves the notifications subcollection for a user uid.
+ *
+ * @param userDocRef The existing user document reference.
  * @returns The typed notifications subcollection reference.
  */
 export function getUserNotificationsCollection(
-  uid: string,
+  userDocRef: FirebaseFirestore.DocumentReference,
 ): FirebaseFirestore.CollectionReference<FirestoreNotification> {
-  return db
-    .collection(DB_PATHS.USERS.COLLECTION)
-    .doc(uid)
-    .collection(
-      DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION,
-    ) as FirebaseFirestore.CollectionReference<FirestoreNotification>;
+  return userDocRef.collection(
+    DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION,
+  ) as FirebaseFirestore.CollectionReference<FirestoreNotification>;
 }
 
 /**
@@ -40,7 +53,9 @@ export async function appendUserNotificationByUid(
   uid: string,
   message: string,
 ): Promise<void> {
-  await getUserNotificationsCollection(uid)
+  const userDocRef = await getRequiredUserDocRefByUid(uid);
+
+  await getUserNotificationsCollection(userDocRef)
     .doc()
     .set(
       serializeNotification({
@@ -62,7 +77,9 @@ export async function getNotificationsByUid(
   uid: string,
   status: NotificationStatusFilter = "ALL",
 ): Promise<Notification[]> {
-  let query: FirebaseFirestore.Query = getUserNotificationsCollection(uid);
+  const userDocRef = await getRequiredUserDocRefByUid(uid);
+  let query: FirebaseFirestore.Query =
+    getUserNotificationsCollection(userDocRef);
 
   if (status === "READ") {
     query = query.where("read", "==", true);
@@ -91,8 +108,9 @@ export async function markNotificationAsReadByUid(
   uid: string,
   notificationId: string,
 ): Promise<void> {
+  const userDocRef = await getRequiredUserDocRefByUid(uid);
   const notificationRef =
-    getUserNotificationsCollection(uid).doc(notificationId);
+    getUserNotificationsCollection(userDocRef).doc(notificationId);
   await getRequiredDocumentSnapshot("Notification", notificationRef);
 
   await notificationRef.update({
