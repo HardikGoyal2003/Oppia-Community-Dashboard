@@ -1,35 +1,37 @@
 "use client";
 
 import { ExternalLink } from "lucide-react";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import { GITHUB_REPOS } from "@/lib/config/github.constants";
 import { cn } from "@/lib/utils/classnames.utils";
 
 export type GfiDomain = "FRONTEND" | "BACKEND" | "FULLSTACK";
 
-const GFI_DOMAIN_LINKS: Record<
+const GFI_DOMAIN_METADATA: Record<
   GfiDomain,
   {
     description: string;
-    href: string;
     label: string;
+    queryLabel: string;
   }
 > = {
   BACKEND: {
     description:
-      "Browse unassigned backend good first issues so you can explore Python-oriented starter work.",
-    href: "https://github.com/oppia/oppia/issues?q=is%3Aissue%20state%3Aopen%20no%3Aassignee%20label%3A%22good%20first%20issue%22%20label%3Abackend",
+      "Browse unassigned backend good first issues so you can explore starter work aligned with backend-focused tasks.",
     label: "Open backend GFIs on GitHub",
+    queryLabel: "backend",
   },
   FRONTEND: {
     description:
-      "Browse unassigned frontend good first issues if you want UI, Angular, HTML, CSS, or TypeScript-heavy work.",
-    href: "https://github.com/oppia/oppia/issues?q=is%3Aissue%20state%3Aopen%20no%3Aassignee%20label%3A%22good%20first%20issue%22%20label%3Afrontend",
+      "Browse unassigned frontend good first issues if you want UI, HTML, CSS, or TypeScript-heavy work.",
     label: "Open frontend GFIs on GitHub",
+    queryLabel: "frontend",
   },
   FULLSTACK: {
     description:
       "Browse unassigned fullstack good first issues if you want work that spans both frontend and backend concerns.",
-    href: "https://github.com/oppia/oppia/issues?q=is%3Aissue%20state%3Aopen%20no%3Aassignee%20label%3A%22good%20first%20issue%22%20label%3Afull-stack",
     label: "Open fullstack GFIs on GitHub",
+    queryLabel: "full-stack",
   },
 };
 
@@ -54,14 +56,34 @@ function getDomainLabel(domain: GfiDomain): string {
   return "Backend";
 }
 
+/**
+ * Builds the live GitHub issue-filter URL for a platform/domain pair.
+ *
+ * @param platform The selected contribution platform.
+ * @param domain The selected good-first-issue domain.
+ * @returns The GitHub issues URL with the matching filters.
+ */
+function getGfiDomainLink(
+  platform: ContributionPlatform,
+  domain: GfiDomain,
+): string {
+  const repoTarget = GITHUB_REPOS[platform];
+  const metadata = GFI_DOMAIN_METADATA[domain];
+  const searchQuery = `is:issue state:open no:assignee label:"good first issue" label:${metadata.queryLabel}`;
+
+  return `https://github.com/${repoTarget.owner}/${repoTarget.repo}/issues?q=${encodeURIComponent(searchQuery)}`;
+}
+
 export default function MyContributionJourneyIssueFinder({
   blockingLabel,
   isLocked,
+  platform,
   selectedDomain,
   setSelectedDomain,
 }: {
   blockingLabel?: string;
   isLocked: boolean;
+  platform: ContributionPlatform;
   selectedDomain: GfiDomain;
   setSelectedDomain: (domain: GfiDomain) => void;
 }) {
@@ -104,6 +126,15 @@ export default function MyContributionJourneyIssueFinder({
                 </li>
               ))}
             </ol>
+            <div className="rounded-lg border-l-4 border-blue-300 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700">
+              <span className="font-semibold text-slate-900">Note:</span> At the
+              beginning, try to pick only{" "}
+              <span className="font-semibold text-slate-900">
+                good first issues
+              </span>
+              . They are intentionally more beginner-friendly and are usually
+              much more approachable than non-GFI issues.
+            </div>
           </div>
         </div>
 
@@ -142,21 +173,21 @@ export default function MyContributionJourneyIssueFinder({
                 </span>
               </div>
               <p className="text-sm leading-6 text-slate-700">
-                {GFI_DOMAIN_LINKS[selectedDomain].description}
+                {GFI_DOMAIN_METADATA[selectedDomain].description}
               </p>
               {isLocked ? (
                 <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
-                  {GFI_DOMAIN_LINKS[selectedDomain].label}
+                  {GFI_DOMAIN_METADATA[selectedDomain].label}
                   <ExternalLink className="h-3.5 w-3.5" />
                 </span>
               ) : (
                 <a
-                  href={GFI_DOMAIN_LINKS[selectedDomain].href}
+                  href={getGfiDomainLink(platform, selectedDomain)}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 transition hover:bg-blue-100"
                 >
-                  {GFI_DOMAIN_LINKS[selectedDomain].label}
+                  {GFI_DOMAIN_METADATA[selectedDomain].label}
                   <ExternalLink className="h-3.5 w-3.5" />
                 </a>
               )}

@@ -467,7 +467,8 @@ export default function MyContributionJourneyTab({
 
                                   {task.id ===
                                     "phase-3-making-your-first-contribution" &&
-                                    itemIndex === 2 &&
+                                    item.label ===
+                                      "Shortlist Your First Issue" &&
                                     (() => {
                                       const previousRequiredActivityItem =
                                         task.items
@@ -494,6 +495,7 @@ export default function MyContributionJourneyTab({
                                             blockingRequiredActivityItem?.label
                                           }
                                           isLocked={isActivityPanelLocked}
+                                          platform={platform}
                                           selectedDomain={selectedGfiDomain}
                                           setSelectedDomain={
                                             setSelectedGfiDomain
