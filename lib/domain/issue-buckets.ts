@@ -1,5 +1,5 @@
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
-import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config";
+import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config/teams.constants";
 
 export type IssueBucket = "team1" | "team2" | "team3" | "others";
 

@@ -1,13 +1,13 @@
 import { getAllUsers } from "@/db/users/users.db";
 import { getTeamById, upsertTeam } from "@/db/teams/teams.db";
-import { GITHUB_REPOS } from "@/lib/config";
+import { GITHUB_REPOS } from "@/lib/config/github.constants";
 import { TEAM_DEFINITIONS } from "@/lib/domain/team-definitions";
 import type {
   TeamGfiCounts,
   TeamLead,
   TeamLeadRole,
 } from "@/lib/domain/teams.types";
-import { fetchGoodFirstIssues } from "@/lib/github/github.fetcher";
+import { fetchGoodFirstIssues } from "@/lib/github/github-gfis.fetcher";
 import type { GitHubGoodFirstIssue } from "@/lib/github/github.types";
 
 type GfiDomain = keyof TeamGfiCounts;

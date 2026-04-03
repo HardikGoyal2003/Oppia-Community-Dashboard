@@ -2,7 +2,10 @@ import { Timestamp } from "firebase-admin/firestore";
 import { DbValidationError } from "@/db/db.errors";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type { DailyTeamMetric } from "@/lib/domain/daily-team-metrics.types";
-import { normalizeTimestamp } from "@/db/utils/timestamp.utils";
+import {
+  assertTimestamp,
+  normalizeTimestamp,
+} from "@/db/utils/timestamp.utils";
 
 export type FirestoreDailyTeamMetric = Omit<DailyTeamMetric, "capturedAt"> & {
   capturedAt: Timestamp;
@@ -52,12 +55,7 @@ function assertFirestoreDailyTeamMetric(
     );
   }
 
-  if (!(metric.capturedAt instanceof Timestamp)) {
-    throw new DbValidationError(
-      "capturedAt",
-      "Team metric capturedAt must be a Timestamp.",
-    );
-  }
+  assertTimestamp("Team metric", "capturedAt", metric.capturedAt);
 }
 
 /**

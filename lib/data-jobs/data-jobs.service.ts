@@ -1,10 +1,4 @@
-import { DbInvalidStateError, DbNotFoundError } from "@/db/db.errors";
-import {
-  getArchivedIssueDocId,
-  listArchivedIssueDocumentIds,
-  listLegacyArchivedIssues,
-  migrateLegacyArchivedIssue,
-} from "@/db/archived-issues/archived-issues.db";
+import { DbNotFoundError } from "@/db/db.errors";
 import {
   createDataJobRun,
   getDataJobRunById,
@@ -86,96 +80,6 @@ async function auditPrivilegedUsersMissingTeam(
   };
 }
 
-/**
- * Migrates legacy archived-issue documents to platform-scoped ids and timestamp fields.
- *
- * @param context The data-job execution context.
- * @returns A summary of the migration outcome.
- * @throws {DbInvalidStateError} When a real run finds conflicts or invalid timestamps.
- */
-async function migrateArchivedIssuesToPlatformScopedIds(
-  context: DataJobHandlerContext,
-): Promise<DataJobResult> {
-  const legacyIssues = await listLegacyArchivedIssues();
-
-  if (legacyIssues.length === 0) {
-    return {
-      summary: "Migration completed. No legacy archived issue documents found.",
-    };
-  }
-
-  const existingDocIds = new Set(await listArchivedIssueDocumentIds());
-  const conflicts: string[] = [];
-  const invalidDates: string[] = [];
-  const migratableIssues = legacyIssues.filter((issue) => {
-    const targetId = getArchivedIssueDocId("WEB", issue.issueNumber);
-    const parsedDate = new Date(issue.lastCommentCreatedAt);
-
-    if (Number.isNaN(parsedDate.getTime())) {
-      invalidDates.push(
-        `${issue.id} -> invalid lastCommentCreatedAt: ${issue.lastCommentCreatedAt}`,
-      );
-      return false;
-    }
-
-    if (existingDocIds.has(targetId)) {
-      conflicts.push(`old ${issue.id} -> new ${targetId}`);
-      return false;
-    }
-
-    return true;
-  });
-
-  const summaryLines = [
-    context.dryRun ? "Dry run completed." : "Migration completed.",
-    `Scanned ${legacyIssues.length} legacy archived issue documents.`,
-    context.dryRun
-      ? `Would migrate ${migratableIssues.length} documents to WEB-scoped ids.`
-      : `Migrated ${migratableIssues.length} documents to WEB-scoped ids.`,
-    `Conflicts: ${conflicts.length}.`,
-    `Invalid timestamps: ${invalidDates.length}.`,
-  ];
-
-  if (migratableIssues.length > 0) {
-    summaryLines.push(
-      `Sample mappings: ${migratableIssues
-        .slice(0, 5)
-        .map(
-          (issue) =>
-            `old ${issue.id} -> new ${getArchivedIssueDocId("WEB", issue.issueNumber)}`,
-        )
-        .join(", ")}.`,
-    );
-  }
-
-  if (conflicts.length > 0) {
-    summaryLines.push(`Conflict samples: ${conflicts.slice(0, 5).join(", ")}.`);
-  }
-
-  if (invalidDates.length > 0) {
-    summaryLines.push(
-      `Invalid timestamp samples: ${invalidDates.slice(0, 5).join(", ")}.`,
-    );
-  }
-
-  if (!context.dryRun && (conflicts.length > 0 || invalidDates.length > 0)) {
-    throw new DbInvalidStateError(
-      "Archived issue migration",
-      summaryLines.join("\n"),
-    );
-  }
-
-  if (!context.dryRun) {
-    for (const issue of migratableIssues) {
-      await migrateLegacyArchivedIssue(issue, "WEB");
-    }
-  }
-
-  return {
-    summary: summaryLines.join("\n"),
-  };
-}
-
 const DATA_JOB_REGISTRY: RegisteredDataJob[] = [
   {
     key: "audit_users_missing_platform",
@@ -194,15 +98,6 @@ const DATA_JOB_REGISTRY: RegisteredDataJob[] = [
     kind: "AUDIT",
     supportsDryRun: true,
     handler: auditPrivilegedUsersMissingTeam,
-  },
-  {
-    key: "migrate_archived_issues_to_platform_scoped_ids",
-    name: "Migrate Archived Issues To Platform-Scoped Ids",
-    description:
-      "Migrates legacy archived issue documents from `${issueNumber}` ids to `WEB_${issueNumber}`, adds platform=WEB, and converts lastCommentCreatedAt to Timestamp.",
-    kind: "MIGRATION",
-    supportsDryRun: true,
-    handler: migrateArchivedIssuesToPlatformScopedIds,
   },
 ];
 

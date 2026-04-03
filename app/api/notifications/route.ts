@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth/auth.options";
 import {
   getNotificationsByUid,
   markNotificationAsReadByUid,
-} from "@/db/users/users.db";
+} from "@/db/users/notifications/notifications.db";
 import { DbNotFoundError } from "@/db/db.errors";
 
 export async function GET(req: Request) {

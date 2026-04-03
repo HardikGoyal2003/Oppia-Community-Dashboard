@@ -1,13 +1,17 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import type { DataJobRun } from "@/lib/domain/data-jobs.types";
 import { DB_PATHS } from "@/db/db-paths";
-import { DbNotFoundError } from "@/db/db.errors";
+import { getRequiredDocumentSnapshot } from "@/db/utils/document.utils";
 import {
+  type FirestoreDataJobRun,
   normalizeDataJobRunDocument,
   serializeDataJobRun,
 } from "./data-job-runs.mapper";
 
 const db = getAdminFirestore();
+const dataJobRunsCollection = db.collection(
+  DB_PATHS.DATA_JOB_RUNS.COLLECTION,
+) as FirebaseFirestore.CollectionReference<FirestoreDataJobRun>;
 
 /**
  * Persists a new data-job run record.
@@ -18,7 +22,7 @@ const db = getAdminFirestore();
 export async function createDataJobRun(
   run: Omit<DataJobRun, "id">,
 ): Promise<string> {
-  const runRef = db.collection(DB_PATHS.DATA_JOB_RUNS.COLLECTION).doc();
+  const runRef = dataJobRunsCollection.doc();
 
   await runRef.set(serializeDataJobRun(run));
 
@@ -32,14 +36,10 @@ export async function createDataJobRun(
  * @returns The normalized data-job run.
  */
 export async function getDataJobRunById(runId: string): Promise<DataJobRun> {
-  const snapshot = await db
-    .collection(DB_PATHS.DATA_JOB_RUNS.COLLECTION)
-    .doc(runId)
-    .get();
-
-  if (!snapshot.exists) {
-    throw new DbNotFoundError("Data job run");
-  }
+  const snapshot = await getRequiredDocumentSnapshot(
+    "Data job run",
+    dataJobRunsCollection.doc(runId),
+  );
 
   return normalizeDataJobRunDocument(snapshot.id, snapshot.data()!);
 }
@@ -51,8 +51,7 @@ export async function getDataJobRunById(runId: string): Promise<DataJobRun> {
  * @returns The normalized data-job runs.
  */
 export async function listDataJobRuns(limit = 20): Promise<DataJobRun[]> {
-  const snapshot = await db
-    .collection(DB_PATHS.DATA_JOB_RUNS.COLLECTION)
+  const snapshot = await dataJobRunsCollection
     .orderBy("startedAt", "desc")
     .limit(limit)
     .get();
@@ -73,12 +72,8 @@ export async function markDataJobRunSucceeded(
   runId: string,
   summary: string,
 ): Promise<void> {
-  const runRef = db.collection(DB_PATHS.DATA_JOB_RUNS.COLLECTION).doc(runId);
-  const snapshot = await runRef.get();
-
-  if (!snapshot.exists) {
-    throw new DbNotFoundError("Data job run");
-  }
+  const runRef = dataJobRunsCollection.doc(runId);
+  await getRequiredDocumentSnapshot("Data job run", runRef);
 
   await runRef.update({
     status: "SUCCEEDED",
@@ -99,12 +94,8 @@ export async function markDataJobRunFailed(
   runId: string,
   errorMessage: string,
 ): Promise<void> {
-  const runRef = db.collection(DB_PATHS.DATA_JOB_RUNS.COLLECTION).doc(runId);
-  const snapshot = await runRef.get();
-
-  if (!snapshot.exists) {
-    throw new DbNotFoundError("Data job run");
-  }
+  const runRef = dataJobRunsCollection.doc(runId);
+  await getRequiredDocumentSnapshot("Data job run", runRef);
 
   await runRef.update({
     status: "FAILED",

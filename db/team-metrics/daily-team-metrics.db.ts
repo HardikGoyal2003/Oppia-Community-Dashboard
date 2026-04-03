@@ -2,11 +2,15 @@ import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DB_PATHS } from "@/db/db-paths";
 import type { DailyTeamMetric } from "@/lib/domain/daily-team-metrics.types";
 import {
+  type FirestoreDailyTeamMetric,
   normalizeDailyTeamMetricDocument,
   serializeDailyTeamMetric,
 } from "./daily-team-metrics.mapper";
 
 const db = getAdminFirestore();
+const dailyTeamMetricsCollection = db.collection(
+  DB_PATHS.DAILY_TEAM_METRICS.COLLECTION,
+) as FirebaseFirestore.CollectionReference<FirestoreDailyTeamMetric>;
 
 /**
  * Builds a daily-team-metric snapshot document id.
@@ -31,8 +35,7 @@ export function getDailyTeamMetricSnapshotDocId(
 export async function createDailyTeamMetric(
   metric: DailyTeamMetric,
 ): Promise<void> {
-  await db
-    .collection(DB_PATHS.DAILY_TEAM_METRICS.COLLECTION)
+  await dailyTeamMetricsCollection
     .doc(getDailyTeamMetricSnapshotDocId(metric.teamId, metric.capturedAt))
     .set(serializeDailyTeamMetric(metric));
 }
@@ -46,8 +49,7 @@ export async function createDailyTeamMetric(
 export async function getDailyTeamMetricsByDateKey(
   dateKey: string,
 ): Promise<DailyTeamMetric[]> {
-  const snapshot = await db
-    .collection(DB_PATHS.DAILY_TEAM_METRICS.COLLECTION)
+  const snapshot = await dailyTeamMetricsCollection
     .where("dateKey", "==", dateKey)
     .get();
 
@@ -65,8 +67,7 @@ export async function getDailyTeamMetricsByDateKey(
 export async function getDailyTeamMetricsSinceDateKey(
   dateKey: string,
 ): Promise<DailyTeamMetric[]> {
-  const snapshot = await db
-    .collection(DB_PATHS.DAILY_TEAM_METRICS.COLLECTION)
+  const snapshot = await dailyTeamMetricsCollection
     .where("dateKey", ">=", dateKey)
     .orderBy("dateKey", "asc")
     .get();

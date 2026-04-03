@@ -1,6 +1,10 @@
 import { Notification } from "@/lib/auth/auth.types";
 import { Timestamp } from "firebase-admin/firestore";
-import { normalizeTimestamp } from "@/db/utils/timestamp.utils";
+import { DbValidationError } from "@/db/db.errors";
+import {
+  assertTimestamp,
+  normalizeTimestamp,
+} from "@/db/utils/timestamp.utils";
 
 export type FirestoreNotification = {
   message: string;
@@ -18,16 +22,17 @@ function assertFirestoreNotification(
   notification: FirebaseFirestore.DocumentData,
 ): asserts notification is FirestoreNotification {
   if (typeof notification.message !== "string") {
-    throw new Error("Notification message must be a string.");
+    throw new DbValidationError(
+      "message",
+      "Notification message must be a string.",
+    );
   }
 
   if (typeof notification.read !== "boolean") {
-    throw new Error("Notification read must be a boolean.");
+    throw new DbValidationError("read", "Notification read must be a boolean.");
   }
 
-  if (!(notification.createdAt instanceof Timestamp)) {
-    throw new Error("Notification createdAt must be a Timestamp.");
-  }
+  assertTimestamp("Notification", "createdAt", notification.createdAt);
 }
 
 /**
@@ -62,4 +67,20 @@ export function normalizeNotificationDocument(
   assertFirestoreNotification(rawNotification);
 
   return normalizeNotifications([{ id, ...rawNotification }])[0];
+}
+
+/**
+ * Serializes a normalized notification for Firestore storage.
+ *
+ * @param notification The normalized notification payload without its id.
+ * @returns The Firestore-ready notification document.
+ */
+export function serializeNotification(
+  notification: Omit<Notification, "id">,
+): FirestoreNotification {
+  return {
+    message: notification.message,
+    read: notification.read,
+    createdAt: Timestamp.fromDate(notification.createdAt),
+  };
 }

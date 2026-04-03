@@ -1,19 +1,22 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import {
-  Notification,
   ContributionPlatform,
   UserRole,
   UserModel,
 } from "@/lib/auth/auth.types";
 import { Timestamp } from "firebase-admin/firestore";
 import { DB_PATHS } from "../db-paths";
-import { DbNotFoundError, DbValidationError } from "../db.errors";
-import { normalizeNotificationDocument } from "../notifications/notifications.mapper";
+import { DbValidationError } from "../db.errors";
+import { getRequiredDocumentRef } from "../utils/document.utils";
+import { getUserNotificationsCollection } from "./notifications/notifications.db";
+import { serializeNotification } from "./notifications/notifications.mapper";
 import { normalizeUserDocument, serializeUser } from "./users.mapper";
 
 const db = getAdminFirestore();
 
-type NotificationStatusFilter = "READ" | "UNREAD" | "ALL";
+export type UserRecord = UserModel & {
+  id: string;
+};
 
 /**
  * Validates the GitHub username requirement for non-contributor roles.
@@ -59,13 +62,7 @@ async function getRequiredUserDocRefByUid(
   uid: string,
 ): Promise<FirebaseFirestore.DocumentReference> {
   const userDocRef = db.collection(DB_PATHS.USERS.COLLECTION).doc(uid);
-  const userDocSnap = await userDocRef.get();
-
-  if (!userDocSnap.exists) {
-    throw new DbNotFoundError("User");
-  }
-
-  return userDocRef;
+  return getRequiredDocumentRef("User", userDocRef);
 }
 
 /**
@@ -125,7 +122,7 @@ export async function getUserById(uid: string): Promise<UserModel | null> {
  *
  * @returns The normalized user models with document ids attached.
  */
-export async function getAllUsers(): Promise<(UserModel & { id: string })[]> {
+export async function getAllUsers(): Promise<UserRecord[]> {
   return getUsersByPlatform();
 }
 
@@ -137,7 +134,7 @@ export async function getAllUsers(): Promise<(UserModel & { id: string })[]> {
  */
 export async function getUsersByPlatform(
   platform?: ContributionPlatform,
-): Promise<(UserModel & { id: string })[]> {
+): Promise<UserRecord[]> {
   let query: FirebaseFirestore.Query = db.collection(DB_PATHS.USERS.COLLECTION);
 
   if (platform) {
@@ -234,10 +231,7 @@ export async function updateUserRoleAndTeamWithNotificationByUid(
   assertGithubUsernameForRole(githubUsername);
 
   const userDocRef = await getRequiredUserDocRefByUid(uid);
-
-  const notificationRef = userDocRef
-    .collection(DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION)
-    .doc();
+  const notificationRef = getUserNotificationsCollection(userDocRef).doc();
   const batch = db.batch();
 
   batch.update(userDocRef, {
@@ -246,112 +240,12 @@ export async function updateUserRoleAndTeamWithNotificationByUid(
     githubUsername,
   });
   batch.set(notificationRef, {
-    message,
-    read: false,
-    createdAt: Timestamp.now(),
+    ...serializeNotification({
+      message,
+      read: false,
+      createdAt: new Date(),
+    }),
   });
 
   await batch.commit();
-}
-
-/**
- * Appends a notification to a user located by uid.
- *
- * @param uid The user id to update.
- * @param message The notification message to append.
- * @returns A promise that resolves when the notification has been written.
- */
-export async function appendUserNotificationByUid(
-  uid: string,
-  message: string,
-): Promise<void> {
-  const userDocRef = await getRequiredUserDocRefByUid(uid);
-
-  await appendNotificationByUserDocRef(userDocRef, {
-    message,
-    createdAt: new Date(),
-    read: false,
-  });
-}
-
-/**
- * Retrieves notifications for a user id, optionally filtered by read status.
- *
- * @param uid The user id to query by.
- * @param status The optional notification status filter.
- * @returns The normalized notifications sorted by creation time descending.
- */
-export async function getNotificationsByUid(
-  uid: string,
-  status: NotificationStatusFilter = "ALL",
-): Promise<Notification[]> {
-  const userDocRef = await getRequiredUserDocRefByUid(uid);
-
-  let query: FirebaseFirestore.Query = userDocRef.collection(
-    DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION,
-  );
-
-  if (status === "READ") {
-    query = query.where("read", "==", true);
-  } else if (status === "UNREAD") {
-    query = query.where("read", "==", false);
-  }
-
-  const snapshot = await query.orderBy("createdAt", "desc").get();
-
-  return snapshot.docs.map((doc) =>
-    normalizeNotificationDocument({
-      id: doc.id,
-      ...doc.data(),
-    }),
-  );
-}
-
-/**
- * Marks a notification as read for the user identified by uid.
- *
- * @param uid The user id to query by.
- * @param notificationId The notification document id to update.
- * @returns A promise that resolves when the notification has been marked as read.
- */
-export async function markNotificationAsReadByUid(
-  uid: string,
-  notificationId: string,
-): Promise<void> {
-  const userDocRef = await getRequiredUserDocRefByUid(uid);
-
-  const notificationRef = userDocRef
-    .collection(DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION)
-    .doc(notificationId);
-  const notificationSnap = await notificationRef.get();
-
-  if (!notificationSnap.exists) {
-    throw new DbNotFoundError("Notification");
-  }
-
-  await notificationRef.update({
-    read: true,
-  });
-}
-
-/**
- * Appends a notification document under an already-resolved user document reference.
- *
- * @param userDocRef The Firestore user document reference.
- * @param notification The notification payload to persist.
- * @returns A promise that resolves when the notification has been written.
- */
-async function appendNotificationByUserDocRef(
-  userDocRef: FirebaseFirestore.DocumentReference,
-  notification: Omit<Notification, "id">,
-): Promise<void> {
-  const notificationRef = userDocRef
-    .collection(DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION)
-    .doc();
-
-  await notificationRef.set({
-    message: notification.message,
-    read: notification.read,
-    createdAt: Timestamp.fromDate(notification.createdAt),
-  });
 }

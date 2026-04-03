@@ -2,6 +2,7 @@ import type {
   CronJobDefinition,
   CronJobRunResult,
 } from "@/lib/domain/cron-jobs.types";
+import { LibInvalidStateError } from "@/lib/lib.errors";
 import { captureDailyUnansweredIssueMetrics } from "@/lib/team-metrics/capture-daily-team-metrics.service";
 import { syncTeamGfiCounts } from "@/lib/teams/sync-team-gfi-counts.service";
 
@@ -39,7 +40,7 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
   const job = CRON_JOBS.find((item) => item.key === jobKey);
 
   if (!job) {
-    throw new Error(`Unknown cron job: ${jobKey}`);
+    throw new LibInvalidStateError("CronJob", `Unknown cron job: ${jobKey}`);
   }
 
   const startedAt = new Date();
@@ -85,6 +86,9 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
       };
     }
     default:
-      throw new Error(`No cron runner registered for job: ${jobKey}`);
+      throw new LibInvalidStateError(
+        "CronJob",
+        `No cron runner registered for job: ${jobKey}`,
+      );
   }
 }

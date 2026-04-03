@@ -26,3 +26,34 @@ export function getOrdinalDay(day: number): string {
 
   return `${day}th`;
 }
+
+/**
+ * Formats a date into the IST-normalized YYYY-MM-DD reporting bucket.
+ *
+ * @param date The timestamp to format.
+ * @returns The Asia/Kolkata date key.
+ */
+export function getIstDateKey(date: Date): string {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+  });
+
+  return formatter.format(date);
+}
+
+/**
+ * Builds an IST-normalized YYYY-MM-DD date key for a relative day offset from now.
+ *
+ * @param days The number of days to subtract from the current date.
+ * @returns The Asia/Kolkata date key for the requested day.
+ */
+export function getIstDateKeyDaysAgo(days: number): string {
+  const now = new Date();
+  const target = new Date(now);
+  target.setDate(target.getDate() - days);
+
+  return getIstDateKey(target);
+}

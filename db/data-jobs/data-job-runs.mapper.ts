@@ -4,7 +4,12 @@ import type {
   DataJobRun,
   DataJobRunStatus,
 } from "@/lib/domain/data-jobs.types";
-import { normalizeTimestamp } from "@/db/utils/timestamp.utils";
+import { DbValidationError } from "@/db/db.errors";
+import {
+  assertOptionalTimestamp,
+  assertTimestamp,
+  normalizeTimestamp,
+} from "@/db/utils/timestamp.utils";
 
 const DATA_JOB_KINDS: DataJobKind[] = [
   "AUDIT",
@@ -37,48 +42,70 @@ function assertFirestoreDataJobRun(
   run: FirebaseFirestore.DocumentData,
 ): asserts run is FirestoreDataJobRun {
   if (typeof run.jobKey !== "string") {
-    throw new Error("Data job run jobKey must be a string.");
+    throw new DbValidationError(
+      "jobKey",
+      "Data job run jobKey must be a string.",
+    );
   }
 
   if (typeof run.jobName !== "string") {
-    throw new Error("Data job run jobName must be a string.");
+    throw new DbValidationError(
+      "jobName",
+      "Data job run jobName must be a string.",
+    );
   }
 
   if (!DATA_JOB_KINDS.includes(run.kind)) {
-    throw new Error("Data job run kind must be a valid DataJobKind.");
+    throw new DbValidationError(
+      "kind",
+      "Data job run kind must be a valid DataJobKind.",
+    );
   }
 
   if (!DATA_JOB_RUN_STATUSES.includes(run.status)) {
-    throw new Error("Data job run status must be a valid DataJobRunStatus.");
+    throw new DbValidationError(
+      "status",
+      "Data job run status must be a valid DataJobRunStatus.",
+    );
   }
 
   if (typeof run.dryRun !== "boolean") {
-    throw new Error("Data job run dryRun must be a boolean.");
+    throw new DbValidationError(
+      "dryRun",
+      "Data job run dryRun must be a boolean.",
+    );
   }
 
   if (typeof run.triggeredByUserId !== "string") {
-    throw new Error("Data job run triggeredByUserId must be a string.");
+    throw new DbValidationError(
+      "triggeredByUserId",
+      "Data job run triggeredByUserId must be a string.",
+    );
   }
 
   if (typeof run.triggeredByGithubUsername !== "string") {
-    throw new Error("Data job run triggeredByGithubUsername must be a string.");
+    throw new DbValidationError(
+      "triggeredByGithubUsername",
+      "Data job run triggeredByGithubUsername must be a string.",
+    );
   }
 
   if (typeof run.summary !== "string") {
-    throw new Error("Data job run summary must be a string.");
+    throw new DbValidationError(
+      "summary",
+      "Data job run summary must be a string.",
+    );
   }
 
   if (run.errorMessage !== null && typeof run.errorMessage !== "string") {
-    throw new Error("Data job run errorMessage must be a string or null.");
+    throw new DbValidationError(
+      "errorMessage",
+      "Data job run errorMessage must be a string or null.",
+    );
   }
 
-  if (!(run.startedAt instanceof Timestamp)) {
-    throw new Error("Data job run startedAt must be a Timestamp.");
-  }
-
-  if (run.finishedAt !== null && !(run.finishedAt instanceof Timestamp)) {
-    throw new Error("Data job run finishedAt must be a Timestamp or null.");
-  }
+  assertTimestamp("Data job run", "startedAt", run.startedAt);
+  assertOptionalTimestamp("Data job run", "finishedAt", run.finishedAt);
 }
 
 /**

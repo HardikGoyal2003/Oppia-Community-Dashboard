@@ -1,5 +1,5 @@
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
-import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config";
+import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config/teams.constants";
 
 export type TeamDefinition = {
   linkedProject: string;
@@ -46,3 +46,5 @@ export const TEAM_DEFINITIONS: TeamDefinition[] = [
     teamName: ANDROID_TEAMS.DEV_WORKFLOW_INFRA,
   },
 ];
+
+export const TEAM_KEYS = TEAM_DEFINITIONS.map((team) => team.teamKey);
