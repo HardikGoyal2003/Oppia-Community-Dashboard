@@ -446,11 +446,11 @@ const androidPhaseOneItems: ContributorJourneyChecklistItem[] = [
     importance: "high",
     label: "Strengthen your Kotlin foundations.",
     notes: [
-      "Most Oppia-Android code is written in Kotlin, so solid Kotlin fundamentals will help you read and modify the code confidently.",
+      "Most Oppia Android code is written in Kotlin, so solid Kotlin fundamentals will help you read and modify the code confidently.",
       {
         href: "https://www.udacity.com/course/kotlin-bootcamp-for-programmers--ud9011",
         hrefLabel: "Kotlin bootcamp for programmers",
-        prefix: "You can learn the basics of kotlin from Udacity --",
+        prefix: "You can learn the basics of Kotlin from Udacity --",
         suffix: "by Google.",
       },
       {
@@ -463,19 +463,14 @@ const androidPhaseOneItems: ContributorJourneyChecklistItem[] = [
   },
   {
     importance: "high",
-    label: "Learn core Android fundamentals and tools.",
+    label: "Install Android Studio",
     notes: [
       {
-        href: "https://developer.android.com/studio",
-        hrefLabel: "Android Studio",
-        prefix: "Install and get comfortable with",
-        suffix: "— it's the primary IDE for Android development.",
-      },
-      {
-        href: "https://developer.android.com/courses/android-basics-kotlin/course",
-        hrefLabel: "Android Basics in Kotlin",
-        prefix: "For a guided intro to Android app development, try",
-        suffix: ".",
+        href: "https://developer.android.com/studio/archive",
+        hrefLabel: "Android Studio Giraffe",
+        prefix: "Install",
+        suffix:
+          "from the Android Studio archive, as that is the version we use for development.",
       },
     ],
   },
@@ -494,7 +489,7 @@ const androidPhaseOneItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
-    importance: "high",
+    importance: "medium",
     label: "Explore advanced Android topics to deepen your understanding.",
     notes: [
       {
@@ -525,24 +520,18 @@ const androidPhaseOneItems: ContributorJourneyChecklistItem[] = [
     importance: "high",
     label: "Build working understanding of Bazel.",
     notes: [
-      "Bazel is the build system used for Oppia-Android, so understanding how to build and test the app with Bazel is crucial for making contributions.",
+      "Bazel is the build system used for Oppia Android, so understanding how to build and test the app with Bazel is crucial for making contributions.",
       {
-        href: "https://bazel.build/start/cpp",
-        hrefLabel: "Bazel docs",
-        prefix: "Start with the official",
-        suffix: "to learn how to build and test the app.",
+        href: "https://bazel.build/about/intro",
+        hrefLabel: "Bazel Introduction",
+        prefix: "Start with the official guide",
+        suffix: "to understand Bazel’s core concepts.",
       },
       {
-        href: "https://bazel.io/learn/getting-started",
-        hrefLabel: "Bazel Getting Started",
-        prefix: "For a more hands-on introduction, try",
-        suffix: "with interactive exercises.",
-      },
-      {
-        href: "https://bazel.io/learn/tutorials",
-        hrefLabel: "Bazel Tutorials",
-        prefix: "Once you have the basics down, explore",
-        suffix: "to deepen your Bazel knowledge with practical examples.",
+        href: "https://bazel.build/start/android-app",
+        hrefLabel: "Bazel for Android",
+        prefix: "Then dive into Android-specific docs",
+        suffix: "to learn how to build and test apps with Bazel.",
       },
     ],
   },
@@ -634,7 +623,7 @@ const androidPhaseThreeItems: ContributorJourneyChecklistItem[] = [
     importance: "high",
     label: "Claim Your First Issue",
     notes: [
-      "Show a video of the fix working on your local machine. For user-facing changes, the video should show a URL starting with localhost:8181.",
+      "Show a video of the fix working on your local Android environment. For learner-facing changes, the video should demonstrate the app running on an emulator or device.",
       "Follow the same reproduction steps the issue author used, so your fix can be compared properly.",
       "If it is a bug, explain the root cause clearly and point to the relevant line of code.",
       "Explain which files you changed and what you changed.",
@@ -709,7 +698,7 @@ const androidPhaseFourItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
-    href: "https://docs.google.com/forms/d/e/1FAIpQLSdJzMdkZ7gtWQxaQ16kV4_iJh_8P3-zZwoM6jwJ6SxG6T8Xkw/viewform",
+    href: "https://docs.google.com/forms/d/e/1FAIpQLSes4wj7oKtiN0iyUwd-Xt_DAOr1b-MHG9_YYIavWBF4G6g8uA/viewform",
     hrefLabel: "Collaborator Interest Form",
     importance: "high",
     label: "Apply to become an Oppia collaborator after your second merged PR.",
@@ -729,7 +718,6 @@ const androidPhaseFourItems: ContributorJourneyChecklistItem[] = [
       "Keep contributing while you wait to hear back about the collaborator form.",
     notes: [
       "While you are waiting for a response, read the contributor guide carefully and keep making quality contributions.",
-      "The roadmap does not end at the form. Consistent contributions during this waiting period still matter.",
     ],
   },
 ];
