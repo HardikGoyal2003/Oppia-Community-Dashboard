@@ -8,6 +8,7 @@ export type ContributorJourneyRichNote = {
 };
 
 export type ContributorJourneyChecklistItem = {
+  completionType?: "manual" | "verification";
   href?: string;
   hrefLabel?: string;
   importance: "high" | "low" | "medium";
@@ -306,6 +307,7 @@ const webPhaseThreeItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    completionType: "verification",
     importance: "high",
     label: "Merge Your First PR",
     notes: [
@@ -653,6 +655,7 @@ const androidPhaseThreeItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    completionType: "verification",
     importance: "high",
     label: "Merge Your First PR",
     notes: [
