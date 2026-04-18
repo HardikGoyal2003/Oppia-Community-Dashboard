@@ -274,6 +274,7 @@ const webPhaseThreeItems: ContributorJourneyChecklistItem[] = [
     label: "Shortlist Your First Issue",
   },
   {
+    completionType: "verification",
     importance: "high",
     label: "Claim Your First Issue",
     notes: [
@@ -622,6 +623,7 @@ const androidPhaseThreeItems: ContributorJourneyChecklistItem[] = [
     label: "Shortlist Your First Issue",
   },
   {
+    completionType: "verification",
     importance: "high",
     label: "Claim Your First Issue",
     notes: [

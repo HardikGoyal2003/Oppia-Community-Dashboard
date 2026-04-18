@@ -114,14 +114,24 @@ function isFirstPrMergeItem(item: ContributorJourneyChecklistItem): boolean {
   );
 }
 
+function isFirstIssueClaimItem(item: ContributorJourneyChecklistItem): boolean {
+  return (
+    item.completionType === "verification" &&
+    item.label === "Claim Your First Issue"
+  );
+}
+
 export default function MyContributionJourneyTab({
   platform,
 }: {
   platform: ContributionPlatform;
 }) {
   const [completedItems, setCompletedItems] = useState<string[]>([]);
+  const [firstIssueLink, setFirstIssueLink] = useState("");
   const [firstPrLink, setFirstPrLink] = useState("");
-  const [isFirstPrDialogOpen, setIsFirstPrDialogOpen] = useState(false);
+  const [activeVerificationDialog, setActiveVerificationDialog] = useState<
+    "first_issue_claim" | "first_pr_merge" | null
+  >(null);
   const [selectedGfiDomain, setSelectedGfiDomain] =
     useState<GfiDomain>("FRONTEND");
   const journeyContent = CONTRIBUTOR_JOURNEY_CONTENT[platform];
@@ -231,7 +241,11 @@ export default function MyContributionJourneyTab({
   }
 
   function openFirstPrDialog() {
-    setIsFirstPrDialogOpen(true);
+    setActiveVerificationDialog("first_pr_merge");
+  }
+
+  function openFirstIssueDialog() {
+    setActiveVerificationDialog("first_issue_claim");
   }
 
   const completedCount = completedItems.length;
@@ -260,7 +274,14 @@ export default function MyContributionJourneyTab({
     journeyContent.tasks[0];
 
   return (
-    <Dialog open={isFirstPrDialogOpen} onOpenChange={setIsFirstPrDialogOpen}>
+    <Dialog
+      open={activeVerificationDialog !== null}
+      onOpenChange={(open) => {
+        if (!open) {
+          setActiveVerificationDialog(null);
+        }
+      }}
+    >
       <div className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#f4f6fb_55%,#eef2f7_100%)] px-4 py-8 md:px-6">
         <div className="mx-auto max-w-6xl space-y-8">
           <div className="space-y-4">
@@ -562,6 +583,77 @@ export default function MyContributionJourneyTab({
                                         </div>
                                       )}
 
+                                      {isFirstIssueClaimItem(item) &&
+                                        !isItemLocked && (
+                                          <div className="mt-10 overflow-hidden rounded-3xl border border-amber-100 bg-[linear-gradient(135deg,#fffaf0_0%,#fff4db_52%,#fffaf2_100%)] shadow-[0_22px_48px_-36px_rgba(180,83,9,0.45)]">
+                                            <div className="border-b border-amber-100/80 bg-white/70 px-4 py-3">
+                                              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">
+                                                <ShieldCheck className="h-3.5 w-3.5" />
+                                                First Issue Claim Verification
+                                              </div>
+                                            </div>
+                                            <div className="flex flex-col gap-4 p-4 sm:p-5">
+                                              <div className="min-w-0 flex-1 space-y-4">
+                                                <div className="space-y-1">
+                                                  <p className="text-base font-semibold text-slate-950">
+                                                    Verify Your First Claimed
+                                                    Issue
+                                                  </p>
+                                                  <p className="text-sm leading-6 text-slate-600">
+                                                    Paste the link to the issue
+                                                    or claim thread you used for
+                                                    your first assignment. This
+                                                    will later confirm that the
+                                                    issue was actually claimed
+                                                    by you.
+                                                  </p>
+                                                </div>
+                                                <div className="space-y-2">
+                                                  <label
+                                                    htmlFor="first-issue-link"
+                                                    className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500"
+                                                  >
+                                                    First Issue Claim Link
+                                                  </label>
+                                                  <div className="relative">
+                                                    <Link2 className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                                    <Input
+                                                      id="first-issue-link"
+                                                      type="url"
+                                                      value={firstIssueLink}
+                                                      placeholder="https://github.com/oppia/oppia/issues/12345"
+                                                      className="h-11 border-amber-200 bg-white pl-10"
+                                                      onChange={(event) =>
+                                                        setFirstIssueLink(
+                                                          event.target.value,
+                                                        )
+                                                      }
+                                                    />
+                                                  </div>
+                                                  <p className="text-xs leading-5 text-slate-500">
+                                                    Use the full issue URL or
+                                                    the exact thread where you
+                                                    claimed the issue.
+                                                  </p>
+                                                </div>
+                                              </div>
+                                              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                                                <Button
+                                                  type="button"
+                                                  className="bg-amber-700 text-white hover:bg-amber-800"
+                                                  disabled={
+                                                    !firstIssueLink.trim()
+                                                  }
+                                                  onClick={openFirstIssueDialog}
+                                                >
+                                                  <ShieldCheck className="mr-2 h-4 w-4" />
+                                                  Verify Claimed Issue
+                                                </Button>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        )}
+
                                       {isFirstPrMergeItem(item) &&
                                         !isItemLocked && (
                                           <div className="overflow-hidden mt-10 rounded-3xl border border-sky-100 bg-[linear-gradient(135deg,#f8fbff_0%,#eef7ff_52%,#f7fbff_100%)] shadow-[0_22px_48px_-36px_rgba(14,116,144,0.5)]">
@@ -713,25 +805,43 @@ export default function MyContributionJourneyTab({
         <DialogContent className="border-slate-200 bg-white sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-slate-950">
-              Merge Verification UI Ready
+              {activeVerificationDialog === "first_issue_claim" &&
+                "Issue Claim Verification UI Ready"}
+              {activeVerificationDialog === "first_pr_merge" &&
+                "Merge Verification UI Ready"}
             </DialogTitle>
             <DialogDescription className="leading-6 text-slate-600">
-              Verify whether your first PR has been merged.
+              {activeVerificationDialog === "first_issue_claim" &&
+                "Verify whether your first issue was actually claimed by you."}
+              {activeVerificationDialog === "first_pr_merge" &&
+                "Verify whether your first PR has been merged."}
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700">
-            This is only the UI for now. The next step will be wiring this
-            button to a PR-merge verification flow using the link you provide.
+            {activeVerificationDialog === "first_issue_claim" &&
+              "This is only the UI for now. The next step will be wiring this button to an issue-claim verification flow using the link you provide."}
+            {activeVerificationDialog === "first_pr_merge" &&
+              "This is only the UI for now. The next step will be wiring this button to a PR-merge verification flow using the link you provide."}
           </div>
           <DialogFooter showCloseButton>
-            {firstPrLink.trim() && (
-              <Button asChild>
-                <a href={firstPrLink} target="_blank" rel="noreferrer">
-                  Open PR Link
-                  <ExternalLink className="ml-2 h-4 w-4" />
-                </a>
-              </Button>
-            )}
+            {activeVerificationDialog === "first_issue_claim" &&
+              firstIssueLink.trim() && (
+                <Button asChild>
+                  <a href={firstIssueLink} target="_blank" rel="noreferrer">
+                    Open Issue Link
+                    <ExternalLink className="ml-2 h-4 w-4" />
+                  </a>
+                </Button>
+              )}
+            {activeVerificationDialog === "first_pr_merge" &&
+              firstPrLink.trim() && (
+                <Button asChild>
+                  <a href={firstPrLink} target="_blank" rel="noreferrer">
+                    Open PR Link
+                    <ExternalLink className="ml-2 h-4 w-4" />
+                  </a>
+                </Button>
+              )}
           </DialogFooter>
         </DialogContent>
       </div>
