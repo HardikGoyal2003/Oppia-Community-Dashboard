@@ -41,6 +41,30 @@ function getInitialGfiDomain(platform: ContributionPlatform): GfiDomain {
   return "FRONTEND";
 }
 
+function sanitizeGithubUrl(url: string): string | null {
+  const trimmedUrl = url.trim();
+
+  if (!trimmedUrl) {
+    return null;
+  }
+
+  try {
+    const parsedUrl = new URL(trimmedUrl);
+    const isHttps = parsedUrl.protocol === "https:";
+    const isGithubHost =
+      parsedUrl.hostname === "github.com" ||
+      parsedUrl.hostname === "www.github.com";
+
+    if (!isHttps || !isGithubHost) {
+      return null;
+    }
+
+    return parsedUrl.toString();
+  } catch {
+    return null;
+  }
+}
+
 function getChecklistItemKey(
   taskId: string,
   item: ContributorJourneyChecklistItem,
@@ -151,6 +175,9 @@ export default function MyContributionJourneyTab({
   const [selectedGfiDomain, setSelectedGfiDomain] = useState<GfiDomain>(() =>
     getInitialGfiDomain(platform),
   );
+  const sanitizedFirstIssueLink = sanitizeGithubUrl(firstIssueLink);
+  const sanitizedFirstPrLink = sanitizeGithubUrl(firstPrLink);
+  const sanitizedSecondPrLink = sanitizeGithubUrl(secondPrLink);
   const journeyContent = CONTRIBUTOR_JOURNEY_CONTENT[platform];
   const [expandedPhaseIds, setExpandedPhaseIds] = useState<string[]>([
     journeyContent.tasks[0]?.id ?? "",
@@ -922,27 +949,35 @@ export default function MyContributionJourneyTab({
           </div>
           <DialogFooter showCloseButton>
             {activeVerificationDialog === "first_issue_claim" &&
-              firstIssueLink.trim() && (
+              sanitizedFirstIssueLink && (
                 <Button asChild>
-                  <a href={firstIssueLink} target="_blank" rel="noreferrer">
+                  <a
+                    href={sanitizedFirstIssueLink}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     Open Issue Link
                     <ExternalLink className="ml-2 h-4 w-4" />
                   </a>
                 </Button>
               )}
             {activeVerificationDialog === "first_pr_merge" &&
-              firstPrLink.trim() && (
+              sanitizedFirstPrLink && (
                 <Button asChild>
-                  <a href={firstPrLink} target="_blank" rel="noreferrer">
+                  <a href={sanitizedFirstPrLink} target="_blank" rel="noreferrer">
                     Open PR Link
                     <ExternalLink className="ml-2 h-4 w-4" />
                   </a>
                 </Button>
               )}
             {activeVerificationDialog === "second_pr_merge" &&
-              secondPrLink.trim() && (
+              sanitizedSecondPrLink && (
                 <Button asChild>
-                  <a href={secondPrLink} target="_blank" rel="noreferrer">
+                  <a
+                    href={sanitizedSecondPrLink}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     Open Second PR Link
                     <ExternalLink className="ml-2 h-4 w-4" />
                   </a>
