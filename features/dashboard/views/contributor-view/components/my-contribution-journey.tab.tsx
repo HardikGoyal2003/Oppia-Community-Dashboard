@@ -114,6 +114,13 @@ function isFirstPrMergeItem(item: ContributorJourneyChecklistItem): boolean {
   );
 }
 
+function isSecondPrMergeItem(item: ContributorJourneyChecklistItem): boolean {
+  return (
+    item.completionType === "verification" &&
+    item.label === "Repeat the Process and Merge Your Second PR"
+  );
+}
+
 function isFirstIssueClaimItem(item: ContributorJourneyChecklistItem): boolean {
   return (
     item.completionType === "verification" &&
@@ -129,8 +136,9 @@ export default function MyContributionJourneyTab({
   const [completedItems, setCompletedItems] = useState<string[]>([]);
   const [firstIssueLink, setFirstIssueLink] = useState("");
   const [firstPrLink, setFirstPrLink] = useState("");
+  const [secondPrLink, setSecondPrLink] = useState("");
   const [activeVerificationDialog, setActiveVerificationDialog] = useState<
-    "first_issue_claim" | "first_pr_merge" | null
+    "first_issue_claim" | "first_pr_merge" | "second_pr_merge" | null
   >(null);
   const [selectedGfiDomain, setSelectedGfiDomain] =
     useState<GfiDomain>("FRONTEND");
@@ -246,6 +254,10 @@ export default function MyContributionJourneyTab({
 
   function openFirstIssueDialog() {
     setActiveVerificationDialog("first_issue_claim");
+  }
+
+  function openSecondPrDialog() {
+    setActiveVerificationDialog("second_pr_merge");
   }
 
   const completedCount = completedItems.length;
@@ -722,6 +734,76 @@ export default function MyContributionJourneyTab({
                                           </div>
                                         )}
 
+                                      {isSecondPrMergeItem(item) &&
+                                        !isItemLocked && (
+                                          <div className="mt-10 overflow-hidden rounded-3xl border border-emerald-100 bg-[linear-gradient(135deg,#f4fdf7_0%,#e9fbef_52%,#f7fdf9_100%)] shadow-[0_22px_48px_-36px_rgba(5,150,105,0.45)]">
+                                            <div className="border-b border-emerald-100/80 bg-white/70 px-4 py-3">
+                                              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">
+                                                <ShieldCheck className="h-3.5 w-3.5" />
+                                                Second PR Verification
+                                              </div>
+                                            </div>
+                                            <div className="flex flex-col gap-4 p-4 sm:p-5">
+                                              <div className="min-w-0 flex-1 space-y-4">
+                                                <div className="space-y-1">
+                                                  <p className="text-base font-semibold text-slate-950">
+                                                    Verify Your Second Merged PR
+                                                  </p>
+                                                  <p className="text-sm leading-6 text-slate-600">
+                                                    Paste the link to your
+                                                    second merged pull request.
+                                                    This will later confirm the
+                                                    second milestone from real
+                                                    GitHub activity rather than
+                                                    using a manual checkbox.
+                                                  </p>
+                                                </div>
+                                                <div className="space-y-2">
+                                                  <label
+                                                    htmlFor="second-pr-link"
+                                                    className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500"
+                                                  >
+                                                    Second PR Link
+                                                  </label>
+                                                  <div className="relative">
+                                                    <Link2 className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                                    <Input
+                                                      id="second-pr-link"
+                                                      type="url"
+                                                      value={secondPrLink}
+                                                      placeholder="https://github.com/oppia/oppia/pull/23456"
+                                                      className="h-11 border-emerald-200 bg-white pl-10"
+                                                      onChange={(event) =>
+                                                        setSecondPrLink(
+                                                          event.target.value,
+                                                        )
+                                                      }
+                                                    />
+                                                  </div>
+                                                  <p className="text-xs leading-5 text-slate-500">
+                                                    Use the full GitHub pull
+                                                    request URL for your second
+                                                    merged PR.
+                                                  </p>
+                                                </div>
+                                              </div>
+                                              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                                                <Button
+                                                  type="button"
+                                                  className="bg-emerald-700 text-white hover:bg-emerald-800"
+                                                  disabled={
+                                                    !secondPrLink.trim()
+                                                  }
+                                                  onClick={openSecondPrDialog}
+                                                >
+                                                  <ShieldCheck className="mr-2 h-4 w-4" />
+                                                  Verify Second PR
+                                                </Button>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        )}
+
                                       {task.id ===
                                         "phase-3-making-your-first-contribution" &&
                                         item.label ===
@@ -809,12 +891,16 @@ export default function MyContributionJourneyTab({
                 "Issue Claim Verification UI Ready"}
               {activeVerificationDialog === "first_pr_merge" &&
                 "Merge Verification UI Ready"}
+              {activeVerificationDialog === "second_pr_merge" &&
+                "Second PR Verification UI Ready"}
             </DialogTitle>
             <DialogDescription className="leading-6 text-slate-600">
               {activeVerificationDialog === "first_issue_claim" &&
                 "Verify whether your first issue was actually claimed by you."}
               {activeVerificationDialog === "first_pr_merge" &&
                 "Verify whether your first PR has been merged."}
+              {activeVerificationDialog === "second_pr_merge" &&
+                "Verify whether your second PR has been merged."}
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700">
@@ -822,6 +908,8 @@ export default function MyContributionJourneyTab({
               "This is only the UI for now. The next step will be wiring this button to an issue-claim verification flow using the link you provide."}
             {activeVerificationDialog === "first_pr_merge" &&
               "This is only the UI for now. The next step will be wiring this button to a PR-merge verification flow using the link you provide."}
+            {activeVerificationDialog === "second_pr_merge" &&
+              "This is only the UI for now. The next step will be wiring this button to a second-PR merge verification flow using the link you provide."}
           </div>
           <DialogFooter showCloseButton>
             {activeVerificationDialog === "first_issue_claim" &&
@@ -838,6 +926,15 @@ export default function MyContributionJourneyTab({
                 <Button asChild>
                   <a href={firstPrLink} target="_blank" rel="noreferrer">
                     Open PR Link
+                    <ExternalLink className="ml-2 h-4 w-4" />
+                  </a>
+                </Button>
+              )}
+            {activeVerificationDialog === "second_pr_merge" &&
+              secondPrLink.trim() && (
+                <Button asChild>
+                  <a href={secondPrLink} target="_blank" rel="noreferrer">
+                    Open Second PR Link
                     <ExternalLink className="ml-2 h-4 w-4" />
                   </a>
                 </Button>

@@ -329,6 +329,7 @@ const webPhaseThreeItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    completionType: "verification",
     importance: "high",
     label: "Repeat the Process and Merge Your Second PR",
     notes: [
@@ -678,6 +679,7 @@ const androidPhaseThreeItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    completionType: "verification",
     importance: "high",
     label: "Repeat the Process and Merge Your Second PR",
     notes: [
