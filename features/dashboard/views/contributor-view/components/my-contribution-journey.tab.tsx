@@ -33,6 +33,14 @@ import MyContributionJourneyIssueFinder, {
 } from "./my-contribution-journey-issue-finder";
 import MyContributionJourneyProgressHero from "./my-contribution-journey-progress-hero";
 
+function getInitialGfiDomain(platform: ContributionPlatform): GfiDomain {
+  if (platform === "ANDROID") {
+    return "LEARNER_FACING";
+  }
+
+  return "FRONTEND";
+}
+
 function getChecklistItemKey(
   taskId: string,
   item: ContributorJourneyChecklistItem,
@@ -140,8 +148,9 @@ export default function MyContributionJourneyTab({
   const [activeVerificationDialog, setActiveVerificationDialog] = useState<
     "first_issue_claim" | "first_pr_merge" | "second_pr_merge" | null
   >(null);
-  const [selectedGfiDomain, setSelectedGfiDomain] =
-    useState<GfiDomain>("FRONTEND");
+  const [selectedGfiDomain, setSelectedGfiDomain] = useState<GfiDomain>(() =>
+    getInitialGfiDomain(platform),
+  );
   const journeyContent = CONTRIBUTOR_JOURNEY_CONTENT[platform];
   const [expandedPhaseIds, setExpandedPhaseIds] = useState<string[]>([
     journeyContent.tasks[0]?.id ?? "",
