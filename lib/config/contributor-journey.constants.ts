@@ -8,6 +8,7 @@ export type ContributorJourneyRichNote = {
 };
 
 export type ContributorJourneyChecklistItem = {
+  completionType?: "manual" | "verification";
   href?: string;
   hrefLabel?: string;
   importance: "high" | "low" | "medium";
@@ -273,6 +274,7 @@ const webPhaseThreeItems: ContributorJourneyChecklistItem[] = [
     label: "Shortlist Your First Issue",
   },
   {
+    completionType: "verification",
     importance: "high",
     label: "Claim Your First Issue",
     notes: [
@@ -306,6 +308,7 @@ const webPhaseThreeItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    completionType: "verification",
     importance: "high",
     label: "Merge Your First PR",
     notes: [
@@ -326,6 +329,7 @@ const webPhaseThreeItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    completionType: "verification",
     importance: "high",
     label: "Repeat the Process and Merge Your Second PR",
     notes: [
@@ -620,6 +624,7 @@ const androidPhaseThreeItems: ContributorJourneyChecklistItem[] = [
     label: "Shortlist Your First Issue",
   },
   {
+    completionType: "verification",
     importance: "high",
     label: "Claim Your First Issue",
     notes: [
@@ -653,6 +658,7 @@ const androidPhaseThreeItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    completionType: "verification",
     importance: "high",
     label: "Merge Your First PR",
     notes: [
@@ -673,6 +679,7 @@ const androidPhaseThreeItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    completionType: "verification",
     importance: "high",
     label: "Repeat the Process and Merge Your Second PR",
     notes: [
