@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import type { Session } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import {
   getContributorJourneySnapshotByUid,
   markContributorJourneyManualItemCompletedByUid,
@@ -16,29 +17,43 @@ type ContributorJourneyPatchBody = {
   itemId?: string;
 };
 
-function getAuthorizedPlatform(session: Session | null) {
+type AuthorizedJourneyContext =
+  | {
+      platform: ContributionPlatform;
+      response: null;
+      userId: string;
+    }
+  | {
+      platform: null;
+      response: NextResponse<{ error: string }>;
+      userId: null;
+    };
+
+function getAuthorizedPlatform(
+  session: Session | null,
+): AuthorizedJourneyContext {
   if (!session?.user?.id || session.invalidUser) {
     return {
-      error: NextResponse.json({ error: "Unauthorized" }, { status: 403 }),
       platform: null,
+      response: NextResponse.json({ error: "Unauthorized" }, { status: 403 }),
       userId: null,
     };
   }
 
   if (!session.user.platform) {
     return {
-      error: NextResponse.json(
+      platform: null,
+      response: NextResponse.json(
         { error: "No contribution platform found for the current user." },
         { status: 400 },
       ),
-      platform: null,
       userId: null,
     };
   }
 
   return {
-    error: null,
     platform: session.user.platform,
+    response: null,
     userId: session.user.id,
   };
 }
@@ -50,10 +65,10 @@ function getAuthorizedPlatform(session: Session | null) {
  */
 export async function GET() {
   const session = await getServerSession(authOptions);
-  const { error, platform, userId } = getAuthorizedPlatform(session);
+  const { response, platform, userId } = getAuthorizedPlatform(session);
 
-  if (error || !platform || !userId) {
-    return error;
+  if (response) {
+    return response;
   }
 
   const snapshot = await getContributorJourneySnapshotByUid(userId, platform);
@@ -68,10 +83,10 @@ export async function GET() {
  */
 export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions);
-  const { error, platform, userId } = getAuthorizedPlatform(session);
+  const { response, platform, userId } = getAuthorizedPlatform(session);
 
-  if (error || !platform || !userId) {
-    return error;
+  if (response) {
+    return response;
   }
 
   const body = (await req

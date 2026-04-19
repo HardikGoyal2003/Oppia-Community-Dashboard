@@ -11,11 +11,13 @@ import {
 } from "@/components/ui/dialog";
 
 export default function JourneyManualCompletionDialog({
+  isSubmitting,
   itemLabel,
   onConfirm,
   onOpenChange,
   open,
 }: {
+  isSubmitting: boolean;
   itemLabel: string | null;
   onConfirm: () => void;
   onOpenChange: (open: boolean) => void;
@@ -37,14 +39,19 @@ export default function JourneyManualCompletionDialog({
           Only confirm once you are sure you have actually finished it.
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            disabled={isSubmitting}
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
           <Button
+            disabled={isSubmitting}
             className="bg-slate-900 text-white hover:bg-slate-800"
             onClick={onConfirm}
           >
-            Mark As Completed
+            {isSubmitting ? "Saving..." : "Mark As Completed"}
           </Button>
         </DialogFooter>
       </DialogContent>
