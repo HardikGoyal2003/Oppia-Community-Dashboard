@@ -5,6 +5,9 @@ export const DB_PATHS = {
   DATA_JOB_RUNS: {
     COLLECTION: "dataJobRuns",
   },
+  USER_JOURNEY_PROGRESS: {
+    COLLECTION: "userJourneyProgress",
+  },
   MEMBER_ACCESS_REQUESTS: {
     COLLECTION: "memberAccessRequests",
   },
