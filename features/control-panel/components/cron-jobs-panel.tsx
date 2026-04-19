@@ -22,10 +22,6 @@ import type {
   CronJobRunResult,
 } from "@/lib/domain/cron-jobs.types";
 
-type CronJobsResponse = {
-  jobs: CronJobDefinition[];
-};
-
 function formatTimestamp(value: string | Date): string {
   return new Date(value).toLocaleString("en-IN");
 }
@@ -40,41 +36,49 @@ export function CronJobsPanel() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  /**
-   * Loads the dev-only cron jobs exposed by the API.
-   *
-   * @returns The loaded cron jobs response when successful.
-   */
-  const loadData = async (): Promise<CronJobsResponse | null> => {
-    setLoading(true);
-
-    try {
-      const response = await fetch("/api/dev/cron-jobs", {
-        cache: "no-store",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to load cron jobs.");
-      }
-
-      const data = (await response.json()) as CronJobsResponse;
-      setJobs(data.jobs);
-      setSelectedJobKey(
-        (currentValue) => currentValue || data.jobs[0]?.key || "",
-      );
-      return data;
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Failed to load cron jobs.",
-      );
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    void loadData();
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/dev/cron-jobs", {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to load cron jobs.");
+        }
+
+        const data = (await response.json()) as {
+          jobs: CronJobDefinition[];
+        };
+
+        if (cancelled) {
+          return;
+        }
+
+        setJobs(data.jobs);
+        setSelectedJobKey(
+          (currentValue) => currentValue || data.jobs[0]?.key || "",
+        );
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : "Failed to load cron jobs.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleRunJob = async () => {
