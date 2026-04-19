@@ -166,6 +166,10 @@ export default function MyContributionJourneyTab({
   platform: ContributionPlatform;
 }) {
   const [completedItems, setCompletedItems] = useState<string[]>([]);
+  const [pendingCompletionItem, setPendingCompletionItem] = useState<{
+    itemKey: string;
+    label: string;
+  } | null>(null);
   const [firstIssueLink, setFirstIssueLink] = useState("");
   const [firstPrLink, setFirstPrLink] = useState("");
   const [secondPrLink, setSecondPrLink] = useState("");
@@ -268,12 +272,21 @@ export default function MyContributionJourneyTab({
     };
   });
 
-  function toggleCompletedItem(itemLabel: string) {
+  function requestManualCompletion(itemKey: string, label: string) {
+    setPendingCompletionItem({ itemKey, label });
+  }
+
+  function confirmManualCompletion() {
+    if (!pendingCompletionItem) {
+      return;
+    }
+
     setCompletedItems((currentItems) =>
-      currentItems.includes(itemLabel)
-        ? currentItems.filter((currentItem) => currentItem !== itemLabel)
-        : currentItems.concat(itemLabel),
+      currentItems.includes(pendingCompletionItem.itemKey)
+        ? currentItems
+        : currentItems.concat(pendingCompletionItem.itemKey),
     );
+    setPendingCompletionItem(null);
   }
 
   function toggleExpandedPhase(taskId: string) {
@@ -322,670 +335,737 @@ export default function MyContributionJourneyTab({
     journeyContent.tasks[0];
 
   return (
-    <Dialog
-      open={activeVerificationDialog !== null}
-      onOpenChange={(open) => {
-        if (!open) {
-          setActiveVerificationDialog(null);
-        }
-      }}
-    >
-      <div className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#f4f6fb_55%,#eef2f7_100%)] px-4 py-8 md:px-6">
-        <div className="mx-auto max-w-6xl space-y-8">
-          <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-slate-500 shadow-sm">
-              <ListTodo className="h-3.5 w-3.5" />
-              Contributor Onboarding
-            </div>
+    <>
+      <Dialog
+        open={activeVerificationDialog !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setActiveVerificationDialog(null);
+          }
+        }}
+      >
+        <div className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#f4f6fb_55%,#eef2f7_100%)] px-4 py-8 md:px-6">
+          <div className="mx-auto max-w-6xl space-y-8">
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-slate-500 shadow-sm">
+                <ListTodo className="h-3.5 w-3.5" />
+                Contributor Onboarding
+              </div>
 
-            <div className="space-y-3">
-              <h1 className="text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl">
-                Welcome to Oppia Community Dashboard 👋
-              </h1>
-              <p className="max-w-3xl text-sm leading-7 text-slate-600 md:text-[15px]">
-                {journeyContent.intro}
-              </p>
-            </div>
-          </div>
-
-          <MyContributionJourneyProgressHero
-            activePhaseTitle={activePhase.title}
-            completedCount={completedCount}
-            completedRequiredCount={completedRequiredCount}
-            phaseCheckpoints={phaseCheckpoints}
-            phaseCount={journeyContent.tasks.length}
-            progressPercentage={progressPercentage}
-            requiredChecklistItemCount={requiredChecklistItems.length}
-            totalChecklistItemCount={allChecklistItems.length}
-          />
-
-          <div className="overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_28px_70px_-48px_rgba(15,23,42,0.55)]">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-6 py-5">
-              <div className="space-y-1">
-                <h2 className="text-xl font-semibold text-slate-950">
-                  My Contribution Journey
-                </h2>
-                <p className="text-sm text-slate-600">
-                  Finish these setup tasks before you start sending
-                  contributions.
+              <div className="space-y-3">
+                <h1 className="text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl">
+                  Welcome to Oppia Community Dashboard 👋
+                </h1>
+                <p className="max-w-3xl text-sm leading-7 text-slate-600 md:text-[15px]">
+                  {journeyContent.intro}
                 </p>
               </div>
-              <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm text-slate-600 shadow-sm">
-                {completedCount} done
-              </div>
             </div>
 
-            <MyContributionJourneyBeforeYouStart />
+            <MyContributionJourneyProgressHero
+              activePhaseTitle={activePhase.title}
+              completedCount={completedCount}
+              completedRequiredCount={completedRequiredCount}
+              phaseCheckpoints={phaseCheckpoints}
+              phaseCount={journeyContent.tasks.length}
+              progressPercentage={progressPercentage}
+              requiredChecklistItemCount={requiredChecklistItems.length}
+              totalChecklistItemCount={allChecklistItems.length}
+            />
 
-            <div className="divide-y divide-slate-100">
-              {phasesWithState.map(
-                ({
-                  task,
-                  isLocked,
-                  completedItemsInTask,
-                  trackableItemsInTask,
-                }) => {
-                  return (
-                    <div key={task.id}>
-                      <button
-                        type="button"
-                        disabled={isLocked}
-                        className={cn(
-                          "flex w-full items-center justify-between gap-4 border-b border-slate-100 bg-slate-50/70 px-6 py-4 text-left transition-colors",
-                          isLocked
-                            ? "cursor-not-allowed opacity-70"
-                            : "hover:bg-slate-100/90",
-                        )}
-                        onClick={() => {
-                          if (!isLocked) {
-                            toggleExpandedPhase(task.id);
-                          }
-                        }}
-                      >
-                        <div className="flex items-center gap-3">
-                          {isLocked ? (
-                            <Lock className="h-4 w-4 text-slate-400" />
-                          ) : (
-                            <ChevronDown
-                              className={cn(
-                                "h-4 w-4 text-slate-500 transition-transform",
-                                expandedPhaseIds.includes(task.id) &&
-                                  "rotate-180",
-                              )}
-                            />
-                          )}
-                          <div className="space-y-1">
-                            <h3 className="text-sm font-semibold text-slate-900">
-                              {task.title}
-                            </h3>
-                            {isLocked && (
-                              <p className="text-xs text-slate-500">
-                                Complete all required items in earlier phases to
-                                unlock this phase.
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <span className="text-xs uppercase tracking-[0.14em] text-slate-500">
-                          {completedItemsInTask}/{trackableItemsInTask}
-                        </span>
-                      </button>
-
-                      {!isLocked && expandedPhaseIds.includes(task.id) && (
-                        <div className="divide-y divide-slate-100">
-                          {task.items.map((item, itemIndex) => {
-                            const itemKey = getChecklistItemKey(task.id, item);
-                            const checked = completedItems.includes(itemKey);
-                            const isVerificationStep = isVerificationItem(item);
-                            const ItemWrapper = isVerificationStep
-                              ? "div"
-                              : "label";
-                            const previousRequiredItemsInPhase = task.items
-                              .slice(0, itemIndex)
-                              .filter(
-                                (previousItem) =>
-                                  isRequiredChecklistItem(previousItem) &&
-                                  !isVerificationItem(previousItem),
-                              );
-                            const previousRequiredItem =
-                              previousRequiredItemsInPhase.at(-1);
-                            const blockingRequiredItem =
-                              previousRequiredItem &&
-                              !completedItems.includes(
-                                getChecklistItemKey(
-                                  task.id,
-                                  previousRequiredItem,
-                                ),
-                              )
-                                ? previousRequiredItem
-                                : undefined;
-                            const isItemLocked =
-                              blockingRequiredItem !== undefined;
-                            return (
-                              <div key={itemKey}>
-                                <div
-                                  className={cn(
-                                    "px-6 py-5 transition-colors",
-                                    isItemLocked
-                                      ? "bg-slate-100/70"
-                                      : "hover:bg-blue-50/40",
-                                  )}
-                                >
-                                  <ItemWrapper
-                                    className={cn(
-                                      "flex items-start gap-4",
-                                      isVerificationStep
-                                        ? "cursor-default"
-                                        : isItemLocked
-                                          ? "cursor-not-allowed"
-                                          : "cursor-pointer",
-                                    )}
-                                  >
-                                    <span className="relative mt-0.5">
-                                      {isVerificationStep ? (
-                                        <span className="flex h-5 w-5 items-center justify-center rounded-sm border border-sky-200 bg-sky-50 text-sky-700 shadow-sm">
-                                          <ShieldCheck className="h-3 w-3" />
-                                        </span>
-                                      ) : (
-                                        <>
-                                          <input
-                                            type="checkbox"
-                                            checked={checked}
-                                            disabled={isItemLocked}
-                                            onChange={() =>
-                                              toggleCompletedItem(itemKey)
-                                            }
-                                            className="peer sr-only"
-                                          />
-                                          <span
-                                            className={cn(
-                                              "flex h-5 w-5 items-center justify-center rounded-sm border bg-white text-white shadow-sm transition",
-                                              isItemLocked
-                                                ? "border-slate-300 bg-slate-100 text-slate-300"
-                                                : getImportanceCheckboxClassName(
-                                                    item.importance,
-                                                  ),
-                                            )}
-                                          >
-                                            <CheckCheck className="h-3 w-3 opacity-0 transition-opacity peer-checked:opacity-100" />
-                                          </span>
-                                        </>
-                                      )}
-                                    </span>
-
-                                    <div
-                                      className={cn(
-                                        "min-w-0 flex-1 space-y-2",
-                                        isItemLocked && "opacity-60",
-                                      )}
-                                    >
-                                      <div className="flex flex-wrap items-center gap-2">
-                                        <span className="text-sm font-semibold tabular-nums text-slate-400">
-                                          {itemIndex + 1}.
-                                        </span>
-                                        <p
-                                          className={`text-sm leading-6 ${
-                                            checked
-                                              ? "text-slate-400 line-through"
-                                              : "font-medium text-slate-900"
-                                          }`}
-                                        >
-                                          {item.label}
-                                        </p>
-                                        <span
-                                          className={cn(
-                                            "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]",
-                                            item.importance === "high"
-                                              ? "bg-red-100 text-red-800"
-                                              : item.importance === "medium"
-                                                ? "bg-yellow-100 text-yellow-800"
-                                                : "bg-blue-100 text-blue-800",
-                                          )}
-                                        >
-                                          {getImportanceLabel(item.importance)}
-                                        </span>
-                                        {isVerificationStep && (
-                                          <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-sky-700">
-                                            Verification
-                                          </span>
-                                        )}
-                                        {isItemLocked && (
-                                          <span className="rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-600">
-                                            Waiting
-                                          </span>
-                                        )}
-                                      </div>
-
-                                      {isItemLocked && (
-                                        <p className="text-xs leading-5 text-slate-500">
-                                          Unlocks after:{" "}
-                                          <span className="font-medium text-slate-700">
-                                            {blockingRequiredItem.label}
-                                          </span>
-                                        </p>
-                                      )}
-
-                                      {isVerificationStep && (
-                                        <p className="text-xs leading-5 text-slate-500">
-                                          This milestone is verified separately
-                                          and cannot be completed by ticking the
-                                          checklist yourself.
-                                        </p>
-                                      )}
-
-                                      {item.href && (
-                                        <div
-                                          className={cn(
-                                            "flex flex-wrap items-center gap-3",
-                                            item.notes && "mb-8",
-                                          )}
-                                        >
-                                          {isItemLocked ? (
-                                            <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
-                                              {item.hrefLabel ??
-                                                "Open resource"}
-                                              <ExternalLink className="h-3.5 w-3.5" />
-                                            </span>
-                                          ) : (
-                                            <a
-                                              href={item.href}
-                                              target="_blank"
-                                              rel="noreferrer"
-                                              className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 transition hover:bg-blue-100"
-                                            >
-                                              {item.hrefLabel ??
-                                                "Open resource"}
-                                              <ExternalLink className="h-3.5 w-3.5" />
-                                            </a>
-                                          )}
-                                        </div>
-                                      )}
-
-                                      {item.notes && (
-                                        <div className="border-l-2 border-slate-300 pl-3 text-sm leading-6 text-slate-600">
-                                          <span className="font-medium text-slate-800">
-                                            Note:
-                                          </span>
-                                          {Array.isArray(item.notes) ? (
-                                            <ul className="mt-1 list-disc space-y-1 pl-5">
-                                              {item.notes.map((notePoint) => (
-                                                <li
-                                                  key={
-                                                    typeof notePoint ===
-                                                    "string"
-                                                      ? notePoint
-                                                      : `${notePoint.hrefLabel}-${notePoint.href}`
-                                                  }
-                                                >
-                                                  {isRichNote(notePoint)
-                                                    ? renderRichNote(notePoint)
-                                                    : notePoint}
-                                                </li>
-                                              ))}
-                                            </ul>
-                                          ) : isRichNote(item.notes) ? (
-                                            renderRichNote(item.notes)
-                                          ) : (
-                                            <span> {item.notes}</span>
-                                          )}
-                                        </div>
-                                      )}
-
-                                      {isFirstIssueClaimItem(item) &&
-                                        !isItemLocked && (
-                                          <div className="mt-10 overflow-hidden rounded-3xl border border-amber-100 bg-[linear-gradient(135deg,#fffaf0_0%,#fff4db_52%,#fffaf2_100%)] shadow-[0_22px_48px_-36px_rgba(180,83,9,0.45)]">
-                                            <div className="border-b border-amber-100/80 bg-white/70 px-4 py-3">
-                                              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">
-                                                <ShieldCheck className="h-3.5 w-3.5" />
-                                                First Issue Claim Verification
-                                              </div>
-                                            </div>
-                                            <div className="flex flex-col gap-4 p-4 sm:p-5">
-                                              <div className="min-w-0 flex-1 space-y-4">
-                                                <div className="space-y-1">
-                                                  <p className="text-base font-semibold text-slate-950">
-                                                    Verify Your First Claimed
-                                                    Issue
-                                                  </p>
-                                                  <p className="text-sm leading-6 text-slate-600">
-                                                    Paste the link to the issue
-                                                    or claim thread you used for
-                                                    your first assignment. This
-                                                    will later confirm that the
-                                                    issue was actually claimed
-                                                    by you.
-                                                  </p>
-                                                </div>
-                                                <div className="space-y-2">
-                                                  <label
-                                                    htmlFor="first-issue-link"
-                                                    className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500"
-                                                  >
-                                                    First Issue Claim Link
-                                                  </label>
-                                                  <div className="relative">
-                                                    <Link2 className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                                                    <Input
-                                                      id="first-issue-link"
-                                                      type="url"
-                                                      value={firstIssueLink}
-                                                      placeholder="https://github.com/oppia/oppia/issues/12345"
-                                                      className="h-11 border-amber-200 bg-white pl-10"
-                                                      onChange={(event) =>
-                                                        setFirstIssueLink(
-                                                          event.target.value,
-                                                        )
-                                                      }
-                                                    />
-                                                  </div>
-                                                  <p className="text-xs leading-5 text-slate-500">
-                                                    Use the full issue URL or
-                                                    the exact thread where you
-                                                    claimed the issue.
-                                                  </p>
-                                                </div>
-                                              </div>
-                                              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                                                <Button
-                                                  type="button"
-                                                  className="bg-amber-700 text-white hover:bg-amber-800"
-                                                  disabled={
-                                                    !firstIssueLink.trim()
-                                                  }
-                                                  onClick={openFirstIssueDialog}
-                                                >
-                                                  <ShieldCheck className="mr-2 h-4 w-4" />
-                                                  Verify Claimed Issue
-                                                </Button>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        )}
-
-                                      {isFirstPrMergeItem(item) &&
-                                        !isItemLocked && (
-                                          <div className="overflow-hidden mt-10 rounded-3xl border border-sky-100 bg-[linear-gradient(135deg,#f8fbff_0%,#eef7ff_52%,#f7fbff_100%)] shadow-[0_22px_48px_-36px_rgba(14,116,144,0.5)]">
-                                            <div className="border-b border-sky-100/80 bg-white/70 px-4 py-3">
-                                              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-sky-700">
-                                                <ShieldCheck className="h-3.5 w-3.5" />
-                                                First PR Verification
-                                              </div>
-                                            </div>
-                                            <div className="flex flex-col gap-4 p-4 sm:p-5">
-                                              <div className="min-w-0 flex-1 space-y-4">
-                                                <div className="space-y-1">
-                                                  <p className="text-base font-semibold text-slate-950">
-                                                    Verify Your First Merged PR
-                                                  </p>
-                                                  <p className="text-sm leading-6 text-slate-600">
-                                                    Paste the link to your first
-                                                    pull request. This will
-                                                    later confirm whether the PR
-                                                    was actually merged, rather
-                                                    than relying on a manual
-                                                    checkbox.
-                                                  </p>
-                                                </div>
-                                                <div className="space-y-2">
-                                                  <label
-                                                    htmlFor="first-pr-link"
-                                                    className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500"
-                                                  >
-                                                    First PR Link
-                                                  </label>
-                                                  <div className="relative">
-                                                    <Link2 className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                                                    <Input
-                                                      id="first-pr-link"
-                                                      type="url"
-                                                      value={firstPrLink}
-                                                      placeholder="https://github.com/oppia/oppia/pull/12345"
-                                                      className="h-11 border-sky-200 bg-white pl-10"
-                                                      onChange={(event) =>
-                                                        setFirstPrLink(
-                                                          event.target.value,
-                                                        )
-                                                      }
-                                                    />
-                                                  </div>
-                                                  <p className="text-xs leading-5 text-slate-500">
-                                                    Use the full GitHub pull
-                                                    request URL for your first
-                                                    merged PR.
-                                                  </p>
-                                                </div>
-                                              </div>
-                                              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                                                <Button
-                                                  type="button"
-                                                  className="bg-sky-700 text-white hover:bg-sky-800"
-                                                  disabled={!firstPrLink.trim()}
-                                                  onClick={openFirstPrDialog}
-                                                >
-                                                  <ShieldCheck className="mr-2 h-4 w-4" />
-                                                  Verify Merge PR
-                                                </Button>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        )}
-
-                                      {isSecondPrMergeItem(item) &&
-                                        !isItemLocked && (
-                                          <div className="mt-10 overflow-hidden rounded-3xl border border-emerald-100 bg-[linear-gradient(135deg,#f4fdf7_0%,#e9fbef_52%,#f7fdf9_100%)] shadow-[0_22px_48px_-36px_rgba(5,150,105,0.45)]">
-                                            <div className="border-b border-emerald-100/80 bg-white/70 px-4 py-3">
-                                              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">
-                                                <ShieldCheck className="h-3.5 w-3.5" />
-                                                Second PR Verification
-                                              </div>
-                                            </div>
-                                            <div className="flex flex-col gap-4 p-4 sm:p-5">
-                                              <div className="min-w-0 flex-1 space-y-4">
-                                                <div className="space-y-1">
-                                                  <p className="text-base font-semibold text-slate-950">
-                                                    Verify Your Second Merged PR
-                                                  </p>
-                                                  <p className="text-sm leading-6 text-slate-600">
-                                                    Paste the link to your
-                                                    second merged pull request.
-                                                    This will later confirm the
-                                                    second milestone from real
-                                                    GitHub activity rather than
-                                                    using a manual checkbox.
-                                                  </p>
-                                                </div>
-                                                <div className="space-y-2">
-                                                  <label
-                                                    htmlFor="second-pr-link"
-                                                    className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500"
-                                                  >
-                                                    Second PR Link
-                                                  </label>
-                                                  <div className="relative">
-                                                    <Link2 className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                                                    <Input
-                                                      id="second-pr-link"
-                                                      type="url"
-                                                      value={secondPrLink}
-                                                      placeholder="https://github.com/oppia/oppia/pull/23456"
-                                                      className="h-11 border-emerald-200 bg-white pl-10"
-                                                      onChange={(event) =>
-                                                        setSecondPrLink(
-                                                          event.target.value,
-                                                        )
-                                                      }
-                                                    />
-                                                  </div>
-                                                  <p className="text-xs leading-5 text-slate-500">
-                                                    Use the full GitHub pull
-                                                    request URL for your second
-                                                    merged PR.
-                                                  </p>
-                                                </div>
-                                              </div>
-                                              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                                                <Button
-                                                  type="button"
-                                                  className="bg-emerald-700 text-white hover:bg-emerald-800"
-                                                  disabled={
-                                                    !secondPrLink.trim()
-                                                  }
-                                                  onClick={openSecondPrDialog}
-                                                >
-                                                  <ShieldCheck className="mr-2 h-4 w-4" />
-                                                  Verify Second PR
-                                                </Button>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        )}
-
-                                      {task.id ===
-                                        "phase-3-making-your-first-contribution" &&
-                                        item.label ===
-                                          "Shortlist Your First Issue" &&
-                                        (() => {
-                                          const previousRequiredActivityItem =
-                                            task.items
-                                              .slice(0, itemIndex)
-                                              .filter(
-                                                (previousItem) =>
-                                                  isRequiredChecklistItem(
-                                                    previousItem,
-                                                  ) &&
-                                                  !isVerificationItem(
-                                                    previousItem,
-                                                  ),
-                                              )
-                                              .at(-1);
-                                          const blockingRequiredActivityItem =
-                                            previousRequiredActivityItem &&
-                                            !completedItems.includes(
-                                              getChecklistItemKey(
-                                                task.id,
-                                                previousRequiredActivityItem,
-                                              ),
-                                            )
-                                              ? previousRequiredActivityItem
-                                              : undefined;
-                                          const isActivityPanelLocked =
-                                            blockingRequiredActivityItem !==
-                                            undefined;
-
-                                          return (
-                                            <MyContributionJourneyIssueFinder
-                                              blockingLabel={
-                                                blockingRequiredActivityItem?.label
-                                              }
-                                              isLocked={isActivityPanelLocked}
-                                              platform={platform}
-                                              selectedDomain={selectedGfiDomain}
-                                              setSelectedDomain={
-                                                setSelectedGfiDomain
-                                              }
-                                            />
-                                          );
-                                        })()}
-                                    </div>
-                                  </ItemWrapper>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                },
-              )}
-            </div>
-
-            {isJourneyCompleted && (
-              <div className="border-t border-slate-100 bg-[linear-gradient(180deg,#f8fafc_0%,#eef6ff_100%)] px-6 py-6">
-                <div className="rounded-2xl border border-blue-200 bg-white px-5 py-5 shadow-sm">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-700">
-                    Roadmap Completed
-                  </p>
-                  <h3 className="mt-2 text-xl font-semibold text-slate-950">
-                    Hats off to your zeal.
-                  </h3>
-                  <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-700">
-                    You have completed the contributor roadmap. A new chapter
-                    now begins at Oppia, where you move beyond the starter
-                    journey and step closer to becoming a collaborator and part
-                    of the internal tech team.
+            <div className="overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_28px_70px_-48px_rgba(15,23,42,0.55)]">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-6 py-5">
+                <div className="space-y-1">
+                  <h2 className="text-xl font-semibold text-slate-950">
+                    My Contribution Journey
+                  </h2>
+                  <p className="text-sm text-slate-600">
+                    Finish these setup tasks before you start sending
+                    contributions.
                   </p>
                 </div>
+                <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm text-slate-600 shadow-sm">
+                  {completedCount} done
+                </div>
               </div>
-            )}
+
+              <MyContributionJourneyBeforeYouStart />
+
+              <div className="divide-y divide-slate-100">
+                {phasesWithState.map(
+                  ({
+                    task,
+                    isLocked,
+                    completedItemsInTask,
+                    trackableItemsInTask,
+                  }) => {
+                    return (
+                      <div key={task.id}>
+                        <button
+                          type="button"
+                          disabled={isLocked}
+                          className={cn(
+                            "flex w-full items-center justify-between gap-4 border-b border-slate-100 bg-slate-50/70 px-6 py-4 text-left transition-colors",
+                            isLocked
+                              ? "cursor-not-allowed opacity-70"
+                              : "hover:bg-slate-100/90",
+                          )}
+                          onClick={() => {
+                            if (!isLocked) {
+                              toggleExpandedPhase(task.id);
+                            }
+                          }}
+                        >
+                          <div className="flex items-center gap-3">
+                            {isLocked ? (
+                              <Lock className="h-4 w-4 text-slate-400" />
+                            ) : (
+                              <ChevronDown
+                                className={cn(
+                                  "h-4 w-4 text-slate-500 transition-transform",
+                                  expandedPhaseIds.includes(task.id) &&
+                                    "rotate-180",
+                                )}
+                              />
+                            )}
+                            <div className="space-y-1">
+                              <h3 className="text-sm font-semibold text-slate-900">
+                                {task.title}
+                              </h3>
+                              {isLocked && (
+                                <p className="text-xs text-slate-500">
+                                  Complete all required items in earlier phases
+                                  to unlock this phase.
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <span className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                            {completedItemsInTask}/{trackableItemsInTask}
+                          </span>
+                        </button>
+
+                        {!isLocked && expandedPhaseIds.includes(task.id) && (
+                          <div className="divide-y divide-slate-100">
+                            {task.items.map((item, itemIndex) => {
+                              const itemKey = getChecklistItemKey(
+                                task.id,
+                                item,
+                              );
+                              const checked = completedItems.includes(itemKey);
+                              const isVerificationStep =
+                                isVerificationItem(item);
+                              const ItemWrapper = isVerificationStep
+                                ? "div"
+                                : "label";
+                              const previousRequiredItemsInPhase = task.items
+                                .slice(0, itemIndex)
+                                .filter(
+                                  (previousItem) =>
+                                    isRequiredChecklistItem(previousItem) &&
+                                    !isVerificationItem(previousItem),
+                                );
+                              const previousRequiredItem =
+                                previousRequiredItemsInPhase.at(-1);
+                              const blockingRequiredItem =
+                                previousRequiredItem &&
+                                !completedItems.includes(
+                                  getChecklistItemKey(
+                                    task.id,
+                                    previousRequiredItem,
+                                  ),
+                                )
+                                  ? previousRequiredItem
+                                  : undefined;
+                              const isItemLocked =
+                                blockingRequiredItem !== undefined;
+                              return (
+                                <div key={itemKey}>
+                                  <div
+                                    className={cn(
+                                      "px-6 py-5 transition-colors",
+                                      isItemLocked
+                                        ? "bg-slate-100/70"
+                                        : "hover:bg-blue-50/40",
+                                    )}
+                                  >
+                                    <ItemWrapper
+                                      className={cn(
+                                        "flex items-start gap-4",
+                                        isVerificationStep
+                                          ? "cursor-default"
+                                          : isItemLocked
+                                            ? "cursor-not-allowed"
+                                            : "cursor-pointer",
+                                      )}
+                                    >
+                                      <span className="relative mt-0.5">
+                                        {isVerificationStep ? (
+                                          <span className="flex h-5 w-5 items-center justify-center rounded-sm border border-sky-200 bg-sky-50 text-sky-700 shadow-sm">
+                                            <ShieldCheck className="h-3 w-3" />
+                                          </span>
+                                        ) : (
+                                          <>
+                                            <input
+                                              type="checkbox"
+                                              checked={checked}
+                                              disabled={isItemLocked || checked}
+                                              onChange={() =>
+                                                requestManualCompletion(
+                                                  itemKey,
+                                                  item.label,
+                                                )
+                                              }
+                                              className="peer sr-only"
+                                            />
+                                            <span
+                                              className={cn(
+                                                "flex h-5 w-5 items-center justify-center rounded-sm border bg-white text-white shadow-sm transition",
+                                                isItemLocked
+                                                  ? "border-slate-300 bg-slate-100 text-slate-300"
+                                                  : getImportanceCheckboxClassName(
+                                                      item.importance,
+                                                    ),
+                                              )}
+                                            >
+                                              <CheckCheck className="h-3 w-3 opacity-0 transition-opacity peer-checked:opacity-100" />
+                                            </span>
+                                          </>
+                                        )}
+                                      </span>
+
+                                      <div
+                                        className={cn(
+                                          "min-w-0 flex-1 space-y-2",
+                                          isItemLocked && "opacity-60",
+                                        )}
+                                      >
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <span className="text-sm font-semibold tabular-nums text-slate-400">
+                                            {itemIndex + 1}.
+                                          </span>
+                                          <p
+                                            className={`text-sm leading-6 ${
+                                              checked
+                                                ? "text-slate-400 line-through"
+                                                : "font-medium text-slate-900"
+                                            }`}
+                                          >
+                                            {item.label}
+                                          </p>
+                                          <span
+                                            className={cn(
+                                              "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]",
+                                              item.importance === "high"
+                                                ? "bg-red-100 text-red-800"
+                                                : item.importance === "medium"
+                                                  ? "bg-yellow-100 text-yellow-800"
+                                                  : "bg-blue-100 text-blue-800",
+                                            )}
+                                          >
+                                            {getImportanceLabel(
+                                              item.importance,
+                                            )}
+                                          </span>
+                                          {isVerificationStep && (
+                                            <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-sky-700">
+                                              Verification
+                                            </span>
+                                          )}
+                                          {isItemLocked && (
+                                            <span className="rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-600">
+                                              Waiting
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        {isItemLocked && (
+                                          <p className="text-xs leading-5 text-slate-500">
+                                            Unlocks after:{" "}
+                                            <span className="font-medium text-slate-700">
+                                              {blockingRequiredItem.label}
+                                            </span>
+                                          </p>
+                                        )}
+
+                                        {isVerificationStep && (
+                                          <p className="text-xs leading-5 text-slate-500">
+                                            This milestone is verified
+                                            separately and cannot be completed
+                                            by ticking the checklist yourself.
+                                          </p>
+                                        )}
+
+                                        {item.href && (
+                                          <div
+                                            className={cn(
+                                              "flex flex-wrap items-center gap-3",
+                                              item.notes && "mb-8",
+                                            )}
+                                          >
+                                            {isItemLocked ? (
+                                              <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
+                                                {item.hrefLabel ??
+                                                  "Open resource"}
+                                                <ExternalLink className="h-3.5 w-3.5" />
+                                              </span>
+                                            ) : (
+                                              <a
+                                                href={item.href}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 transition hover:bg-blue-100"
+                                              >
+                                                {item.hrefLabel ??
+                                                  "Open resource"}
+                                                <ExternalLink className="h-3.5 w-3.5" />
+                                              </a>
+                                            )}
+                                          </div>
+                                        )}
+
+                                        {item.notes && (
+                                          <div className="border-l-2 border-slate-300 pl-3 text-sm leading-6 text-slate-600">
+                                            <span className="font-medium text-slate-800">
+                                              Note:
+                                            </span>
+                                            {Array.isArray(item.notes) ? (
+                                              <ul className="mt-1 list-disc space-y-1 pl-5">
+                                                {item.notes.map((notePoint) => (
+                                                  <li
+                                                    key={
+                                                      typeof notePoint ===
+                                                      "string"
+                                                        ? notePoint
+                                                        : `${notePoint.hrefLabel}-${notePoint.href}`
+                                                    }
+                                                  >
+                                                    {isRichNote(notePoint)
+                                                      ? renderRichNote(
+                                                          notePoint,
+                                                        )
+                                                      : notePoint}
+                                                  </li>
+                                                ))}
+                                              </ul>
+                                            ) : isRichNote(item.notes) ? (
+                                              renderRichNote(item.notes)
+                                            ) : (
+                                              <span> {item.notes}</span>
+                                            )}
+                                          </div>
+                                        )}
+
+                                        {isFirstIssueClaimItem(item) &&
+                                          !isItemLocked && (
+                                            <div className="mt-10 overflow-hidden rounded-3xl border border-amber-100 bg-[linear-gradient(135deg,#fffaf0_0%,#fff4db_52%,#fffaf2_100%)] shadow-[0_22px_48px_-36px_rgba(180,83,9,0.45)]">
+                                              <div className="border-b border-amber-100/80 bg-white/70 px-4 py-3">
+                                                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">
+                                                  <ShieldCheck className="h-3.5 w-3.5" />
+                                                  First Issue Claim Verification
+                                                </div>
+                                              </div>
+                                              <div className="flex flex-col gap-4 p-4 sm:p-5">
+                                                <div className="min-w-0 flex-1 space-y-4">
+                                                  <div className="space-y-1">
+                                                    <p className="text-base font-semibold text-slate-950">
+                                                      Verify Your First Claimed
+                                                      Issue
+                                                    </p>
+                                                    <p className="text-sm leading-6 text-slate-600">
+                                                      Paste the link to the
+                                                      issue or claim thread you
+                                                      used for your first
+                                                      assignment. This will
+                                                      later confirm that the
+                                                      issue was actually claimed
+                                                      by you.
+                                                    </p>
+                                                  </div>
+                                                  <div className="space-y-2">
+                                                    <label
+                                                      htmlFor="first-issue-link"
+                                                      className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500"
+                                                    >
+                                                      First Issue Claim Link
+                                                    </label>
+                                                    <div className="relative">
+                                                      <Link2 className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                                      <Input
+                                                        id="first-issue-link"
+                                                        type="url"
+                                                        value={firstIssueLink}
+                                                        placeholder="https://github.com/oppia/oppia/issues/12345"
+                                                        className="h-11 border-amber-200 bg-white pl-10"
+                                                        onChange={(event) =>
+                                                          setFirstIssueLink(
+                                                            event.target.value,
+                                                          )
+                                                        }
+                                                      />
+                                                    </div>
+                                                    <p className="text-xs leading-5 text-slate-500">
+                                                      Use the full issue URL or
+                                                      the exact thread where you
+                                                      claimed the issue.
+                                                    </p>
+                                                  </div>
+                                                </div>
+                                                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                                                  <Button
+                                                    type="button"
+                                                    className="bg-amber-700 text-white hover:bg-amber-800"
+                                                    disabled={
+                                                      !firstIssueLink.trim()
+                                                    }
+                                                    onClick={
+                                                      openFirstIssueDialog
+                                                    }
+                                                  >
+                                                    <ShieldCheck className="mr-2 h-4 w-4" />
+                                                    Verify Claimed Issue
+                                                  </Button>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          )}
+
+                                        {isFirstPrMergeItem(item) &&
+                                          !isItemLocked && (
+                                            <div className="overflow-hidden mt-10 rounded-3xl border border-sky-100 bg-[linear-gradient(135deg,#f8fbff_0%,#eef7ff_52%,#f7fbff_100%)] shadow-[0_22px_48px_-36px_rgba(14,116,144,0.5)]">
+                                              <div className="border-b border-sky-100/80 bg-white/70 px-4 py-3">
+                                                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-sky-700">
+                                                  <ShieldCheck className="h-3.5 w-3.5" />
+                                                  First PR Verification
+                                                </div>
+                                              </div>
+                                              <div className="flex flex-col gap-4 p-4 sm:p-5">
+                                                <div className="min-w-0 flex-1 space-y-4">
+                                                  <div className="space-y-1">
+                                                    <p className="text-base font-semibold text-slate-950">
+                                                      Verify Your First Merged
+                                                      PR
+                                                    </p>
+                                                    <p className="text-sm leading-6 text-slate-600">
+                                                      Paste the link to your
+                                                      first pull request. This
+                                                      will later confirm whether
+                                                      the PR was actually
+                                                      merged, rather than
+                                                      relying on a manual
+                                                      checkbox.
+                                                    </p>
+                                                  </div>
+                                                  <div className="space-y-2">
+                                                    <label
+                                                      htmlFor="first-pr-link"
+                                                      className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500"
+                                                    >
+                                                      First PR Link
+                                                    </label>
+                                                    <div className="relative">
+                                                      <Link2 className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                                      <Input
+                                                        id="first-pr-link"
+                                                        type="url"
+                                                        value={firstPrLink}
+                                                        placeholder="https://github.com/oppia/oppia/pull/12345"
+                                                        className="h-11 border-sky-200 bg-white pl-10"
+                                                        onChange={(event) =>
+                                                          setFirstPrLink(
+                                                            event.target.value,
+                                                          )
+                                                        }
+                                                      />
+                                                    </div>
+                                                    <p className="text-xs leading-5 text-slate-500">
+                                                      Use the full GitHub pull
+                                                      request URL for your first
+                                                      merged PR.
+                                                    </p>
+                                                  </div>
+                                                </div>
+                                                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                                                  <Button
+                                                    type="button"
+                                                    className="bg-sky-700 text-white hover:bg-sky-800"
+                                                    disabled={
+                                                      !firstPrLink.trim()
+                                                    }
+                                                    onClick={openFirstPrDialog}
+                                                  >
+                                                    <ShieldCheck className="mr-2 h-4 w-4" />
+                                                    Verify Merge PR
+                                                  </Button>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          )}
+
+                                        {isSecondPrMergeItem(item) &&
+                                          !isItemLocked && (
+                                            <div className="mt-10 overflow-hidden rounded-3xl border border-emerald-100 bg-[linear-gradient(135deg,#f4fdf7_0%,#e9fbef_52%,#f7fdf9_100%)] shadow-[0_22px_48px_-36px_rgba(5,150,105,0.45)]">
+                                              <div className="border-b border-emerald-100/80 bg-white/70 px-4 py-3">
+                                                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">
+                                                  <ShieldCheck className="h-3.5 w-3.5" />
+                                                  Second PR Verification
+                                                </div>
+                                              </div>
+                                              <div className="flex flex-col gap-4 p-4 sm:p-5">
+                                                <div className="min-w-0 flex-1 space-y-4">
+                                                  <div className="space-y-1">
+                                                    <p className="text-base font-semibold text-slate-950">
+                                                      Verify Your Second Merged
+                                                      PR
+                                                    </p>
+                                                    <p className="text-sm leading-6 text-slate-600">
+                                                      Paste the link to your
+                                                      second merged pull
+                                                      request. This will later
+                                                      confirm the second
+                                                      milestone from real GitHub
+                                                      activity rather than using
+                                                      a manual checkbox.
+                                                    </p>
+                                                  </div>
+                                                  <div className="space-y-2">
+                                                    <label
+                                                      htmlFor="second-pr-link"
+                                                      className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500"
+                                                    >
+                                                      Second PR Link
+                                                    </label>
+                                                    <div className="relative">
+                                                      <Link2 className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                                      <Input
+                                                        id="second-pr-link"
+                                                        type="url"
+                                                        value={secondPrLink}
+                                                        placeholder="https://github.com/oppia/oppia/pull/23456"
+                                                        className="h-11 border-emerald-200 bg-white pl-10"
+                                                        onChange={(event) =>
+                                                          setSecondPrLink(
+                                                            event.target.value,
+                                                          )
+                                                        }
+                                                      />
+                                                    </div>
+                                                    <p className="text-xs leading-5 text-slate-500">
+                                                      Use the full GitHub pull
+                                                      request URL for your
+                                                      second merged PR.
+                                                    </p>
+                                                  </div>
+                                                </div>
+                                                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                                                  <Button
+                                                    type="button"
+                                                    className="bg-emerald-700 text-white hover:bg-emerald-800"
+                                                    disabled={
+                                                      !secondPrLink.trim()
+                                                    }
+                                                    onClick={openSecondPrDialog}
+                                                  >
+                                                    <ShieldCheck className="mr-2 h-4 w-4" />
+                                                    Verify Second PR
+                                                  </Button>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          )}
+
+                                        {task.id ===
+                                          "phase-3-making-your-first-contribution" &&
+                                          item.label ===
+                                            "Shortlist Your First Issue" &&
+                                          (() => {
+                                            const previousRequiredActivityItem =
+                                              task.items
+                                                .slice(0, itemIndex)
+                                                .filter(
+                                                  (previousItem) =>
+                                                    isRequiredChecklistItem(
+                                                      previousItem,
+                                                    ) &&
+                                                    !isVerificationItem(
+                                                      previousItem,
+                                                    ),
+                                                )
+                                                .at(-1);
+                                            const blockingRequiredActivityItem =
+                                              previousRequiredActivityItem &&
+                                              !completedItems.includes(
+                                                getChecklistItemKey(
+                                                  task.id,
+                                                  previousRequiredActivityItem,
+                                                ),
+                                              )
+                                                ? previousRequiredActivityItem
+                                                : undefined;
+                                            const isActivityPanelLocked =
+                                              blockingRequiredActivityItem !==
+                                              undefined;
+
+                                            return (
+                                              <MyContributionJourneyIssueFinder
+                                                blockingLabel={
+                                                  blockingRequiredActivityItem?.label
+                                                }
+                                                isLocked={isActivityPanelLocked}
+                                                platform={platform}
+                                                selectedDomain={
+                                                  selectedGfiDomain
+                                                }
+                                                setSelectedDomain={
+                                                  setSelectedGfiDomain
+                                                }
+                                              />
+                                            );
+                                          })()}
+                                      </div>
+                                    </ItemWrapper>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  },
+                )}
+              </div>
+
+              {isJourneyCompleted && (
+                <div className="border-t border-slate-100 bg-[linear-gradient(180deg,#f8fafc_0%,#eef6ff_100%)] px-6 py-6">
+                  <div className="rounded-2xl border border-blue-200 bg-white px-5 py-5 shadow-sm">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-700">
+                      Roadmap Completed
+                    </p>
+                    <h3 className="mt-2 text-xl font-semibold text-slate-950">
+                      Hats off to your zeal.
+                    </h3>
+                    <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-700">
+                      You have completed the contributor roadmap. A new chapter
+                      now begins at Oppia, where you move beyond the starter
+                      journey and step closer to becoming a collaborator and
+                      part of the internal tech team.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
+          <DialogContent className="border-slate-200 bg-white sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-slate-950">
+                {activeVerificationDialog === "first_issue_claim" &&
+                  "Issue Claim Verification UI Ready"}
+                {activeVerificationDialog === "first_pr_merge" &&
+                  "Merge Verification UI Ready"}
+                {activeVerificationDialog === "second_pr_merge" &&
+                  "Second PR Verification UI Ready"}
+              </DialogTitle>
+              <DialogDescription className="leading-6 text-slate-600">
+                {activeVerificationDialog === "first_issue_claim" &&
+                  "Verify whether your first issue was actually claimed by you."}
+                {activeVerificationDialog === "first_pr_merge" &&
+                  "Verify whether your first PR has been merged."}
+                {activeVerificationDialog === "second_pr_merge" &&
+                  "Verify whether your second PR has been merged."}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700">
+              {activeVerificationDialog === "first_issue_claim" &&
+                "This is only the UI for now. The next step will be wiring this button to an issue-claim verification flow using the link you provide."}
+              {activeVerificationDialog === "first_pr_merge" &&
+                "This is only the UI for now. The next step will be wiring this button to a PR-merge verification flow using the link you provide."}
+              {activeVerificationDialog === "second_pr_merge" &&
+                "This is only the UI for now. The next step will be wiring this button to a second-PR merge verification flow using the link you provide."}
+            </div>
+            <DialogFooter showCloseButton>
+              {activeVerificationDialog === "first_issue_claim" &&
+                sanitizedFirstIssueLink && (
+                  <Button asChild>
+                    <a
+                      href={sanitizedFirstIssueLink}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Open Issue Link
+                      <ExternalLink className="ml-2 h-4 w-4" />
+                    </a>
+                  </Button>
+                )}
+              {activeVerificationDialog === "first_pr_merge" &&
+                sanitizedFirstPrLink && (
+                  <Button asChild>
+                    <a
+                      href={sanitizedFirstPrLink}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Open PR Link
+                      <ExternalLink className="ml-2 h-4 w-4" />
+                    </a>
+                  </Button>
+                )}
+              {activeVerificationDialog === "second_pr_merge" &&
+                sanitizedSecondPrLink && (
+                  <Button asChild>
+                    <a
+                      href={sanitizedSecondPrLink}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Open Second PR Link
+                      <ExternalLink className="ml-2 h-4 w-4" />
+                    </a>
+                  </Button>
+                )}
+            </DialogFooter>
+          </DialogContent>
         </div>
+      </Dialog>
+      <Dialog
+        open={pendingCompletionItem !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingCompletionItem(null);
+          }
+        }}
+      >
         <DialogContent className="border-slate-200 bg-white sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-slate-950">
-              {activeVerificationDialog === "first_issue_claim" &&
-                "Issue Claim Verification UI Ready"}
-              {activeVerificationDialog === "first_pr_merge" &&
-                "Merge Verification UI Ready"}
-              {activeVerificationDialog === "second_pr_merge" &&
-                "Second PR Verification UI Ready"}
+              Confirm Step Completion
             </DialogTitle>
             <DialogDescription className="leading-6 text-slate-600">
-              {activeVerificationDialog === "first_issue_claim" &&
-                "Verify whether your first issue was actually claimed by you."}
-              {activeVerificationDialog === "first_pr_merge" &&
-                "Verify whether your first PR has been merged."}
-              {activeVerificationDialog === "second_pr_merge" &&
-                "Verify whether your second PR has been merged."}
+              {pendingCompletionItem?.label ??
+                "This step will be marked as completed."}
             </DialogDescription>
           </DialogHeader>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700">
-            {activeVerificationDialog === "first_issue_claim" &&
-              "This is only the UI for now. The next step will be wiring this button to an issue-claim verification flow using the link you provide."}
-            {activeVerificationDialog === "first_pr_merge" &&
-              "This is only the UI for now. The next step will be wiring this button to a PR-merge verification flow using the link you provide."}
-            {activeVerificationDialog === "second_pr_merge" &&
-              "This is only the UI for now. The next step will be wiring this button to a second-PR merge verification flow using the link you provide."}
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
+            This step will be marked as completed and this action is
+            irreversible. Only confirm once you are sure you have actually
+            finished it.
           </div>
-          <DialogFooter showCloseButton>
-            {activeVerificationDialog === "first_issue_claim" &&
-              sanitizedFirstIssueLink && (
-                <Button asChild>
-                  <a
-                    href={sanitizedFirstIssueLink}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Open Issue Link
-                    <ExternalLink className="ml-2 h-4 w-4" />
-                  </a>
-                </Button>
-              )}
-            {activeVerificationDialog === "first_pr_merge" &&
-              sanitizedFirstPrLink && (
-                <Button asChild>
-                  <a href={sanitizedFirstPrLink} target="_blank" rel="noreferrer">
-                    Open PR Link
-                    <ExternalLink className="ml-2 h-4 w-4" />
-                  </a>
-                </Button>
-              )}
-            {activeVerificationDialog === "second_pr_merge" &&
-              sanitizedSecondPrLink && (
-                <Button asChild>
-                  <a
-                    href={sanitizedSecondPrLink}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Open Second PR Link
-                    <ExternalLink className="ml-2 h-4 w-4" />
-                  </a>
-                </Button>
-              )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPendingCompletionItem(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-slate-900 text-white hover:bg-slate-800"
+              onClick={confirmManualCompletion}
+            >
+              Mark As Completed
+            </Button>
           </DialogFooter>
         </DialogContent>
-      </div>
-    </Dialog>
+      </Dialog>
+    </>
   );
 }
