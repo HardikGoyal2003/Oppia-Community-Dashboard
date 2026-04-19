@@ -234,10 +234,7 @@ function buildJourneyTaskSnapshots(
       const completedAt = isVerification
         ? (derivedState?.completedAt ?? null)
         : (manualState?.completedAt ?? null);
-      const locked =
-        item.importance === "high" && !isVerification
-          ? !previousBlockingManualCompleted
-          : false;
+      const locked = !previousBlockingManualCompleted;
 
       if (item.importance === "high" && !isVerification) {
         previousBlockingManualCompleted =
@@ -334,16 +331,14 @@ export async function getContributorJourneySnapshotByUid(
   uid: string,
   platform: ContributionPlatform,
 ): Promise<ContributorJourneySnapshot> {
-  const currentProgress = await getUserJourneyProgressByUid(uid);
-  const ensured = ensureJourneyProgressShape(currentProgress, platform);
+  const ensuredProgress = await getContributorJourneyStoredProgressByUid(
+    uid,
+    platform,
+  );
 
-  if (ensured.changed) {
-    await saveUserJourneyProgressByUid(uid, ensured.progress);
-  }
-
-  const totalManualCount = Object.keys(ensured.progress.manualProgress).length;
+  const totalManualCount = Object.keys(ensuredProgress.manualProgress).length;
   const completedManualCount = Object.values(
-    ensured.progress.manualProgress,
+    ensuredProgress.manualProgress,
   ).filter((state) => state.completed).length;
   const requiredManualItems = CONTRIBUTOR_JOURNEY_CONTENT[platform].tasks
     .flatMap((task) => task.items)
@@ -352,7 +347,7 @@ export async function getContributorJourneySnapshotByUid(
         getCompletionType(item) === "manual" && item.importance === "high",
     );
   const completedRequiredCount = requiredManualItems.filter(
-    (item) => ensured.progress.manualProgress[item.id]?.completed,
+    (item) => ensuredProgress.manualProgress[item.id]?.completed,
   ).length;
 
   return {
@@ -362,9 +357,30 @@ export async function getContributorJourneySnapshotByUid(
       totalManualCount,
       totalRequiredCount: requiredManualItems.length,
     },
-    rawProgress: toJourneyProgressSnapshot(ensured.progress),
-    tasks: buildJourneyTaskSnapshots(platform, ensured.progress),
+    rawProgress: toJourneyProgressSnapshot(ensuredProgress),
+    tasks: buildJourneyTaskSnapshots(platform, ensuredProgress),
   };
+}
+
+/**
+ * Returns ensured stored contributor journey progress for a user and platform.
+ *
+ * @param uid The user id whose roadmap progress is being loaded.
+ * @param platform The selected contribution platform.
+ * @returns The ensured stored journey progress model.
+ */
+export async function getContributorJourneyStoredProgressByUid(
+  uid: string,
+  platform: ContributionPlatform,
+): Promise<UserJourneyProgressModel> {
+  const currentProgress = await getUserJourneyProgressByUid(uid);
+  const ensured = ensureJourneyProgressShape(currentProgress, platform);
+
+  if (ensured.changed) {
+    await saveUserJourneyProgressByUid(uid, ensured.progress);
+  }
+
+  return ensured.progress;
 }
 
 /**

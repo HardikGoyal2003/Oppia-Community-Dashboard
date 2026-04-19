@@ -51,6 +51,21 @@ type ApiErrorResponse = {
   error?: string;
 };
 
+type VerificationDialogKind =
+  | "first_issue_claim"
+  | "first_pr_merge"
+  | "second_pr_merge";
+
+type ContributorJourneyVerificationResponse = {
+  result: {
+    derivedKey: string;
+    message: string;
+    sourceUrl: string;
+    verified: boolean;
+  };
+  snapshot: ContributorJourneyResponse;
+};
+
 function getInitialGfiDomain(platform: ContributionPlatform): GfiDomain {
   if (platform === "ANDROID") {
     return "LEARNER_FACING";
@@ -84,7 +99,11 @@ function sanitizeGithubUrl(url: string): string | null {
 }
 
 function getApiErrorMessage(
-  body: ContributorJourneyResponse | ApiErrorResponse | null,
+  body:
+    | ApiErrorResponse
+    | ContributorJourneyResponse
+    | ContributorJourneyVerificationResponse
+    | null,
   fallbackMessage: string,
 ): string {
   if (
@@ -199,9 +218,14 @@ export default function MyContributionJourneyTab({
   const [firstIssueLink, setFirstIssueLink] = useState("");
   const [firstPrLink, setFirstPrLink] = useState("");
   const [secondPrLink, setSecondPrLink] = useState("");
-  const [activeVerificationDialog, setActiveVerificationDialog] = useState<
-    "first_issue_claim" | "first_pr_merge" | "second_pr_merge" | null
+  const [activeVerificationDialog, setActiveVerificationDialog] =
+    useState<VerificationDialogKind | null>(null);
+  const [verificationStatus, setVerificationStatus] = useState<
+    "error" | "loading" | "not_verified" | "verified" | null
   >(null);
+  const [verificationMessage, setVerificationMessage] = useState<string | null>(
+    null,
+  );
   const [selectedGfiDomain, setSelectedGfiDomain] = useState<GfiDomain>(() =>
     getInitialGfiDomain(platform),
   );
@@ -390,16 +414,63 @@ export default function MyContributionJourneyTab({
     );
   }
 
-  function openFirstPrDialog() {
-    setActiveVerificationDialog("first_pr_merge");
-  }
+  async function runVerification(
+    kind: VerificationDialogKind,
+    url: string | null,
+  ) {
+    if (!url) {
+      return;
+    }
 
-  function openFirstIssueDialog() {
-    setActiveVerificationDialog("first_issue_claim");
-  }
+    const endpoint =
+      kind === "first_issue_claim"
+        ? "/api/contributor-journey/verify/first-issue-claim"
+        : kind === "first_pr_merge"
+          ? "/api/contributor-journey/verify/first-pr-merge"
+          : "/api/contributor-journey/verify/second-pr-merge";
 
-  function openSecondPrDialog() {
-    setActiveVerificationDialog("second_pr_merge");
+    setActiveVerificationDialog(kind);
+    setVerificationMessage(null);
+    setVerificationStatus("loading");
+    setJourneyError(null);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ url }),
+      });
+
+      const body = (await response.json().catch(() => null)) as
+        | ApiErrorResponse
+        | ContributorJourneyVerificationResponse
+        | null;
+
+      if (!response.ok) {
+        throw new Error(
+          getApiErrorMessage(
+            body,
+            "Failed to verify contributor journey milestone.",
+          ),
+        );
+      }
+
+      const verification = body as ContributorJourneyVerificationResponse;
+      setJourneyData(verification.snapshot);
+      setVerificationMessage(verification.result.message);
+      setVerificationStatus(
+        verification.result.verified ? "verified" : "not_verified",
+      );
+    } catch (error) {
+      setVerificationMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to verify contributor journey milestone.",
+      );
+      setVerificationStatus("error");
+    }
   }
 
   const completedCount = journeyData?.progress.completedManualCount ?? 0;
@@ -758,8 +829,16 @@ export default function MyContributionJourneyTab({
                                               inputLabel="First Issue Claim Link"
                                               inputPlaceholder="https://github.com/oppia/oppia/issues/12345"
                                               inputValue={firstIssueLink}
-                                              onButtonClick={
-                                                openFirstIssueDialog
+                                              isSubmitting={
+                                                activeVerificationDialog ===
+                                                  "first_issue_claim" &&
+                                                verificationStatus === "loading"
+                                              }
+                                              onButtonClick={() =>
+                                                runVerification(
+                                                  "first_issue_claim",
+                                                  sanitizedFirstIssueLink,
+                                                )
                                               }
                                               onInputChange={setFirstIssueLink}
                                               sectionLabel="First Issue Claim Verification"
@@ -781,7 +860,17 @@ export default function MyContributionJourneyTab({
                                               inputLabel="First PR Link"
                                               inputPlaceholder="https://github.com/oppia/oppia/pull/12345"
                                               inputValue={firstPrLink}
-                                              onButtonClick={openFirstPrDialog}
+                                              isSubmitting={
+                                                activeVerificationDialog ===
+                                                  "first_pr_merge" &&
+                                                verificationStatus === "loading"
+                                              }
+                                              onButtonClick={() =>
+                                                runVerification(
+                                                  "first_pr_merge",
+                                                  sanitizedFirstPrLink,
+                                                )
+                                              }
                                               onInputChange={setFirstPrLink}
                                               sectionLabel="First PR Verification"
                                               title="Verify Your First Merged PR"
@@ -802,7 +891,17 @@ export default function MyContributionJourneyTab({
                                               inputLabel="Second PR Link"
                                               inputPlaceholder="https://github.com/oppia/oppia/pull/23456"
                                               inputValue={secondPrLink}
-                                              onButtonClick={openSecondPrDialog}
+                                              isSubmitting={
+                                                activeVerificationDialog ===
+                                                  "second_pr_merge" &&
+                                                verificationStatus === "loading"
+                                              }
+                                              onButtonClick={() =>
+                                                runVerification(
+                                                  "second_pr_merge",
+                                                  sanitizedSecondPrLink,
+                                                )
+                                              }
                                               onInputChange={setSecondPrLink}
                                               sectionLabel="Second PR Verification"
                                               title="Verify Your Second Merged PR"
@@ -890,12 +989,16 @@ export default function MyContributionJourneyTab({
         activeVerificationDialog={activeVerificationDialog}
         firstIssueLink={sanitizedFirstIssueLink}
         firstPrLink={sanitizedFirstPrLink}
+        message={verificationMessage}
         onOpenChange={(open) => {
           if (!open) {
             setActiveVerificationDialog(null);
+            setVerificationMessage(null);
+            setVerificationStatus(null);
           }
         }}
         secondPrLink={sanitizedSecondPrLink}
+        status={verificationStatus}
       />
       <JourneyManualCompletionDialog
         isSubmitting={isSavingCompletion}

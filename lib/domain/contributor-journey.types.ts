@@ -10,6 +10,15 @@ export type DerivedJourneyKey = (typeof DERIVED_JOURNEY_KEYS)[number];
 
 export type JourneyCompletionType = "manual" | "verification";
 
+export const JOURNEY_VERIFICATION_KINDS = [
+  "first-issue-claim",
+  "first-pr-merge",
+  "second-pr-merge",
+] as const;
+
+export type JourneyVerificationKind =
+  (typeof JOURNEY_VERIFICATION_KINDS)[number];
+
 export type ManualProgressState = {
   completed: boolean;
   completedAt: Date | null;
@@ -48,4 +57,11 @@ export type JourneyProgressSnapshot = {
   >;
   platform: ContributionPlatform | null;
   updatedAt: string;
+};
+
+export type JourneyVerificationResult = {
+  derivedKey: DerivedJourneyKey;
+  message: string;
+  sourceUrl: string;
+  verified: boolean;
 };
