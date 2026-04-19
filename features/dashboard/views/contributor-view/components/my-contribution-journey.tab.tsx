@@ -254,8 +254,7 @@ export default function MyContributionJourneyTab({
         .slice(0, taskIndex)
         .flatMap((previousTask) =>
           previousTask.items.filter(
-            (item) =>
-              isRequiredChecklistItem(item) && !isVerificationItem(item),
+            (item) => isRequiredChecklistItem(item) || isVerificationItem(item),
           ),
         )
         .some((item) => !item.completed);
@@ -621,18 +620,21 @@ export default function MyContributionJourneyTab({
                               const ItemWrapper = isVerificationStep
                                 ? "div"
                                 : "label";
-                              const previousRequiredItemsInPhase = task.items
-                                .slice(0, itemIndex)
-                                .filter(
-                                  (previousItem) =>
-                                    isRequiredChecklistItem(previousItem) &&
-                                    !isVerificationItem(previousItem),
-                                );
+                              const previousRequiredAndVerifiedItemsInPhase =
+                                task.items
+                                  .slice(0, itemIndex)
+                                  .filter(
+                                    (previousItem) =>
+                                      isRequiredChecklistItem(previousItem) ||
+                                      isVerificationItem(previousItem),
+                                  );
                               const blockingRequiredItem =
-                                previousRequiredItemsInPhase.findLast(
+                                previousRequiredAndVerifiedItemsInPhase.findLast(
                                   (previousItem) => !previousItem.completed,
                                 );
-                              const isItemLocked = item.locked;
+                              const isItemLocked =
+                                item.locked ||
+                                blockingRequiredItem !== undefined;
                               return (
                                 <div key={item.id}>
                                   <div
@@ -912,32 +914,32 @@ export default function MyContributionJourneyTab({
                                           "phase-3-making-your-first-contribution" &&
                                           item.id === "shortlist_first_issue" &&
                                           (() => {
-                                            const previousRequiredActivityItem =
+                                            const previousRequiredOrVerifiedItem =
                                               task.items
                                                 .slice(0, itemIndex)
                                                 .filter(
                                                   (previousItem) =>
                                                     isRequiredChecklistItem(
                                                       previousItem,
-                                                    ) &&
-                                                    !isVerificationItem(
+                                                    ) ||
+                                                    isVerificationItem(
                                                       previousItem,
                                                     ),
                                                 )
                                                 .at(-1);
-                                            const blockingRequiredActivityItem =
-                                              previousRequiredActivityItem &&
-                                              !previousRequiredActivityItem.completed
-                                                ? previousRequiredActivityItem
+                                            const blockingActivityItem =
+                                              previousRequiredOrVerifiedItem &&
+                                              !previousRequiredOrVerifiedItem.completed
+                                                ? previousRequiredOrVerifiedItem
                                                 : undefined;
                                             const isActivityPanelLocked =
-                                              blockingRequiredActivityItem !==
+                                              blockingActivityItem !==
                                               undefined;
 
                                             return (
                                               <MyContributionJourneyIssueFinder
                                                 blockingLabel={
-                                                  blockingRequiredActivityItem?.label
+                                                  blockingActivityItem?.label
                                                 }
                                                 isLocked={isActivityPanelLocked}
                                                 platform={platform}
