@@ -9,7 +9,8 @@ import {
   serializeArchivedIssue,
 } from "./archived-issues.mapper";
 
-const archivedIssuesCollection = getAdminFirestore().collection(
+const db = getAdminFirestore();
+const archivedIssuesCollection = db.collection(
   DB_PATHS.ARCHIVED_ISSUES.COLLECTION,
 ) as FirebaseFirestore.CollectionReference<FirestoreArchivedIssue>;
 

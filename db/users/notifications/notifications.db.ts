@@ -1,10 +1,10 @@
-import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { Notification } from "@/lib/auth/auth.types";
 import { DB_PATHS } from "@/db/db-paths";
 import {
   getRequiredDocumentRef,
   getRequiredDocumentSnapshot,
 } from "@/db/utils/document.utils";
+import { usersCollection } from "@/db/users/users.db";
 import {
   type FirestoreNotification,
   normalizeNotificationDocument,
@@ -12,8 +12,6 @@ import {
 } from "@/db/users/notifications/notifications.mapper";
 
 export type NotificationStatusFilter = "READ" | "UNREAD" | "ALL";
-
-const db = getAdminFirestore();
 
 /**
  * Resolves a user document reference by uid and guarantees that the document exists.
@@ -24,7 +22,7 @@ const db = getAdminFirestore();
 async function getRequiredUserDocRefByUid(
   uid: string,
 ): Promise<FirebaseFirestore.DocumentReference> {
-  const userDocRef = db.collection(DB_PATHS.USERS.COLLECTION).doc(uid);
+  const userDocRef = usersCollection.doc(uid);
   return getRequiredDocumentRef("User", userDocRef);
 }
 

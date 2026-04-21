@@ -15,17 +15,9 @@ import {
 } from "./user-journey-progress.mapper";
 
 const db = getAdminFirestore();
-
-/**
- * Returns the typed user journey progress collection reference.
- *
- * @returns The typed Firestore collection for user journey progress documents.
- */
-function getUserJourneyProgressCollection(): FirebaseFirestore.CollectionReference<FirestoreUserJourneyProgress> {
-  return db.collection(
-    DB_PATHS.USER_JOURNEY_PROGRESS.COLLECTION,
-  ) as FirebaseFirestore.CollectionReference<FirestoreUserJourneyProgress>;
-}
+const userJourneyProgressCollection = db.collection(
+  DB_PATHS.USER_JOURNEY_PROGRESS.COLLECTION,
+) as FirebaseFirestore.CollectionReference<FirestoreUserJourneyProgress>;
 
 /**
  * Resolves a user journey progress document reference and guarantees it exists.
@@ -38,7 +30,7 @@ async function getRequiredJourneyProgressDocRefByUid(
 ): Promise<FirebaseFirestore.DocumentReference<FirestoreUserJourneyProgress>> {
   return getRequiredDocumentRef(
     "User journey progress",
-    getUserJourneyProgressCollection().doc(uid),
+    userJourneyProgressCollection.doc(uid),
   );
 }
 
@@ -51,7 +43,7 @@ async function getRequiredJourneyProgressDocRefByUid(
 export async function getUserJourneyProgressByUid(
   uid: string,
 ): Promise<UserJourneyProgressModel | null> {
-  const snap = await getUserJourneyProgressCollection().doc(uid).get();
+  const snap = await userJourneyProgressCollection.doc(uid).get();
 
   if (!snap.exists) {
     return null;
@@ -71,7 +63,7 @@ export async function saveUserJourneyProgressByUid(
   uid: string,
   progress: UserJourneyProgressModel,
 ): Promise<void> {
-  await getUserJourneyProgressCollection()
+  await userJourneyProgressCollection
     .doc(uid)
     .set(serializeUserJourneyProgress(progress));
 }
@@ -108,23 +100,25 @@ export async function markManualJourneyItemCompletedByUid(
 ): Promise<void> {
   const docRef = await getRequiredJourneyProgressDocRefByUid(uid);
 
-  await db.runTransaction(async (transaction) => {
-    const snap = await transaction.get(docRef);
-    const progress = normalizeUserJourneyProgressDocument(snap.data()!);
-    const currentState = progress.manualProgress[itemId];
+  await userJourneyProgressCollection.firestore.runTransaction(
+    async (transaction) => {
+      const snap = await transaction.get(docRef);
+      const progress = normalizeUserJourneyProgressDocument(snap.data()!);
+      const currentState = progress.manualProgress[itemId];
 
-    if (currentState?.completed) {
-      return;
-    }
+      if (currentState?.completed) {
+        return;
+      }
 
-    progress.manualProgress[itemId] = {
-      completed: true,
-      completedAt: new Date(),
-    };
-    progress.updatedAt = new Date();
+      progress.manualProgress[itemId] = {
+        completed: true,
+        completedAt: new Date(),
+      };
+      progress.updatedAt = new Date();
 
-    transaction.set(docRef, serializeUserJourneyProgress(progress));
-  });
+      transaction.set(docRef, serializeUserJourneyProgress(progress));
+    },
+  );
 }
 
 /**
