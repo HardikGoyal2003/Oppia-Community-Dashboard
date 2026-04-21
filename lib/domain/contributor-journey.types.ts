@@ -34,7 +34,7 @@ export type UserJourneyProgressModel = {
   createdAt: Date;
   derivedState: Record<DerivedJourneyKey, DerivedProgressState>;
   manualProgress: Record<string, ManualProgressState>;
-  platform: ContributionPlatform | null;
+  platform: ContributionPlatform;
   updatedAt: Date;
 };
 
@@ -55,7 +55,7 @@ export type JourneyProgressSnapshot = {
       completedAt: string | null;
     }
   >;
-  platform: ContributionPlatform | null;
+  platform: ContributionPlatform;
   updatedAt: string;
 };
 

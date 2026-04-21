@@ -85,7 +85,7 @@ export async function saveUserJourneyProgressByUid(
  */
 export async function updateUserJourneyPlatformByUid(
   uid: string,
-  platform: ContributionPlatform | null,
+  platform: ContributionPlatform,
 ): Promise<void> {
   const docRef = await getRequiredJourneyProgressDocRefByUid(uid);
 

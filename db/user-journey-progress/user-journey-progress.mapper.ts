@@ -27,7 +27,7 @@ export type FirestoreUserJourneyProgress = {
   createdAt: Timestamp;
   derivedState: Record<string, FirestoreDerivedProgressState>;
   manualProgress: Record<string, FirestoreManualProgressState>;
-  platform: ContributionPlatform | null;
+  platform: ContributionPlatform;
   updatedAt: Timestamp;
 };
 
@@ -150,13 +150,10 @@ function assertDerivedProgressState(
 function assertFirestoreUserJourneyProgress(
   progress: FirebaseFirestore.DocumentData,
 ): asserts progress is FirestoreUserJourneyProgress {
-  if (
-    progress.platform !== null &&
-    !CONTRIBUTION_PLATFORMS.includes(progress.platform)
-  ) {
+  if (!CONTRIBUTION_PLATFORMS.includes(progress.platform)) {
     throw new DbValidationError(
       "platform",
-      "Journey progress platform must be WEB, ANDROID, or null.",
+      "Journey progress platform must be WEB or ANDROID.",
     );
   }
 
