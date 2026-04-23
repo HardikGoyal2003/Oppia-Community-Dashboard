@@ -1,6 +1,5 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
-import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type {
   DerivedJourneyKey,
   DerivedProgressState,
@@ -66,25 +65,6 @@ export async function saveUserJourneyProgressByUid(
   await userJourneyProgressCollection
     .doc(uid)
     .set(serializeUserJourneyProgress(progress));
-}
-
-/**
- * Updates the tracked platform value for a user's journey progress document.
- *
- * @param uid The user id to update.
- * @param platform The platform to persist.
- * @returns A promise that resolves when the write finishes.
- */
-export async function updateUserJourneyPlatformByUid(
-  uid: string,
-  platform: ContributionPlatform,
-): Promise<void> {
-  const docRef = await getRequiredJourneyProgressDocRefByUid(uid);
-
-  await docRef.update({
-    platform,
-    updatedAt: Timestamp.now(),
-  });
 }
 
 /**
