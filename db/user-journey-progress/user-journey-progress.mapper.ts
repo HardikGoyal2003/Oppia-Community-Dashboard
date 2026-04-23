@@ -65,14 +65,7 @@ function assertManualProgressState(
     );
   }
 
-  const completedAt = value.completedAt as
-    | Timestamp
-    | null
-    | string
-    | number
-    | boolean
-    | object
-    | undefined;
+  const completedAt = value.completedAt as Timestamp | null;
   if (completedAt !== null) {
     assertTimestamp(
       "Journey manual progress",
@@ -114,14 +107,7 @@ function assertDerivedProgressState(
     );
   }
 
-  const completedAt = value.completedAt as
-    | Timestamp
-    | null
-    | string
-    | number
-    | boolean
-    | object
-    | undefined;
+  const completedAt = value.completedAt as Timestamp | null;
   if (completedAt !== null) {
     assertTimestamp(
       "Journey derived progress",

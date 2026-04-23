@@ -12,15 +12,7 @@ import { DbValidationError } from "@/db/db.errors";
 export function assertTimestamp(
   entity: string,
   field: string,
-  value:
-    | Timestamp
-    | Date
-    | object
-    | string
-    | number
-    | boolean
-    | null
-    | undefined,
+  value: Timestamp | null,
 ): asserts value is Timestamp {
   if (!(value instanceof Timestamp)) {
     throw new DbValidationError(
