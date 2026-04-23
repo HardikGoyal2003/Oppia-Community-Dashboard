@@ -288,7 +288,7 @@ function serializeManualProgressState(
  * @param state The normalized derived progress state.
  * @returns The Firestore-ready derived progress entry.
  */
-function serializeDerivedProgressState(
+export function serializeDerivedProgressState(
   state: DerivedProgressState,
 ): FirestoreDerivedProgressState {
   return {

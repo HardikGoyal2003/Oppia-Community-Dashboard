@@ -10,6 +10,7 @@ import { getRequiredDocumentRef } from "@/db/utils/document.utils";
 import {
   FirestoreUserJourneyProgress,
   normalizeUserJourneyProgressDocument,
+  serializeDerivedProgressState,
   serializeUserJourneyProgress,
 } from "./user-journey-progress.mapper";
 
@@ -117,13 +118,7 @@ export async function setDerivedJourneyStateByUid(
   const docRef = await getRequiredJourneyProgressDocRefByUid(uid);
 
   await docRef.update({
-    [`derivedState.${key}`]: {
-      completed: state.completed,
-      completedAt: state.completed
-        ? Timestamp.fromDate(state.completedAt ?? new Date())
-        : null,
-      sourceUrl: state.sourceUrl,
-    },
+    [`derivedState.${key}`]: serializeDerivedProgressState(state),
     updatedAt: Timestamp.now(),
   });
 }
