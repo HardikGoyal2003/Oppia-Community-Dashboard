@@ -99,8 +99,6 @@ export function DataJobsPanel() {
   };
 
   useEffect(() => {
-    let cancelled = false;
-
     void (async () => {
       try {
         const response = await fetch("/api/data-jobs", {
@@ -113,33 +111,19 @@ export function DataJobsPanel() {
 
         const data = (await response.json()) as DataJobsResponse;
 
-        if (cancelled) {
-          return;
-        }
-
         setJobs(data.jobs);
         setRuns(data.runs);
         setSelectedJobKey(
           (currentValue) => currentValue || data.jobs[0]?.key || "",
         );
       } catch (error) {
-        if (!cancelled) {
-          setErrorMessage(
-            error instanceof Error
-              ? error.message
-              : "Failed to load data jobs.",
-          );
-        }
+        setErrorMessage(
+          error instanceof Error ? error.message : "Failed to load data jobs.",
+        );
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   const handleRunJob = async () => {
