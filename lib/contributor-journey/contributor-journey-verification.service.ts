@@ -8,6 +8,7 @@ import type {
   JourneyVerificationResult,
 } from "@/lib/domain/contributor-journey.types";
 import {
+  ContributorJourneySnapshot,
   getContributorJourneySnapshotByUid,
   getContributorJourneyStoredProgressByUid,
 } from "./contributor-journey.service";
@@ -271,7 +272,7 @@ export async function verifyContributorJourneyMilestoneByUid(
   githubUsername?: string,
 ): Promise<{
   result: JourneyVerificationResult;
-  snapshot: Awaited<ReturnType<typeof getContributorJourneySnapshotByUid>>;
+  snapshot: ContributorJourneySnapshot;
 }> {
   if (!githubUsername?.trim()) {
     throw new DbInvalidStateError(
@@ -287,62 +288,35 @@ export async function verifyContributorJourneyMilestoneByUid(
   let result: JourneyVerificationResult;
 
   if (kind === "first-issue-claim") {
-    if (progress.derivedState.FIRST_ISSUE_CLAIMED.completed) {
-      result = {
-        derivedKey: "FIRST_ISSUE_CLAIMED",
-        message: "Your first issue claim has already been verified.",
-        sourceUrl: progress.derivedState.FIRST_ISSUE_CLAIMED.sourceUrl ?? url,
-        verified: true,
-      };
-    } else {
-      result = await verifyFirstIssueClaim(platform, githubUsername, url);
-    }
+    result = await verifyFirstIssueClaim(platform, githubUsername, url);
   } else if (kind === "first-pr-merge") {
-    if (progress.derivedState.FIRST_PR_MERGED.completed) {
-      result = {
-        derivedKey: "FIRST_PR_MERGED",
-        message: "Your first merged PR has already been verified.",
-        sourceUrl: progress.derivedState.FIRST_PR_MERGED.sourceUrl ?? url,
-        verified: true,
-      };
-    } else {
-      result = await verifyMergedPullRequest(
-        platform,
-        githubUsername,
-        url,
-        "FIRST_PR_MERGED",
-      );
-    }
+    result = await verifyMergedPullRequest(
+      platform,
+      githubUsername,
+      url,
+      "FIRST_PR_MERGED",
+    );
   } else {
-    if (progress.derivedState.SECOND_PR_MERGED.completed) {
+    result = await verifyMergedPullRequest(
+      platform,
+      githubUsername,
+      url,
+      "SECOND_PR_MERGED",
+    );
+
+    const firstPrSourceUrl = progress.derivedState.FIRST_PR_MERGED.sourceUrl;
+
+    if (
+      result.verified &&
+      firstPrSourceUrl &&
+      firstPrSourceUrl === result.sourceUrl
+    ) {
       result = {
-        derivedKey: "SECOND_PR_MERGED",
-        message: "Your second merged PR has already been verified.",
-        sourceUrl: progress.derivedState.SECOND_PR_MERGED.sourceUrl ?? url,
-        verified: true,
+        ...result,
+        message:
+          "Second PR verification requires a different pull request from the first merged PR milestone.",
+        verified: false,
       };
-    } else {
-      result = await verifyMergedPullRequest(
-        platform,
-        githubUsername,
-        url,
-        "SECOND_PR_MERGED",
-      );
-
-      const firstPrSourceUrl = progress.derivedState.FIRST_PR_MERGED.sourceUrl;
-
-      if (
-        result.verified &&
-        firstPrSourceUrl &&
-        firstPrSourceUrl === result.sourceUrl
-      ) {
-        result = {
-          ...result,
-          message:
-            "Second PR verification requires a different pull request from the first merged PR milestone.",
-          verified: false,
-        };
-      }
     }
   }
 
@@ -352,10 +326,16 @@ export async function verifyContributorJourneyMilestoneByUid(
       completedAt: result.verified ? new Date() : null,
       sourceUrl: result.sourceUrl,
     });
+
+    progress.derivedState[result.derivedKey] = {
+      completed: result.verified,
+      completedAt: result.verified ? new Date() : null,
+      sourceUrl: result.sourceUrl,
+    };
   }
 
   return {
     result,
-    snapshot: await getContributorJourneySnapshotByUid(uid, platform),
+    snapshot: await getContributorJourneySnapshotByUid(uid, platform, progress),
   };
 }
