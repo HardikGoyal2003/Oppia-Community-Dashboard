@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import type { Session } from "next-auth";
-import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { authOptions } from "@/lib/auth/auth.options";
-import {
-  JOURNEY_VERIFICATION_KINDS,
-  type JourneyVerificationKind,
-} from "@/lib/domain/contributor-journey.types";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import { JOURNEY_VERIFICATION_KINDS } from "@/lib/domain/contributor-journey.types";
+import type { JourneyVerificationKind } from "@/lib/domain/contributor-journey.types";
 import { verifyContributorJourneyMilestoneByUid } from "@/lib/contributor-journey/contributor-journey-verification.service";
 import { GitHubRestError } from "@/lib/github/github.rest";
 import {
@@ -16,7 +14,7 @@ import {
 } from "@/db/db.errors";
 
 type VerificationRequestBody = {
-  url?: string;
+  url: string;
 };
 
 type AuthorizedJourneyContext =
@@ -69,13 +67,13 @@ function parseVerificationKind(value: string): JourneyVerificationKind | null {
 /**
  * Verifies and persists one contributor journey milestone proof URL.
  *
- * @param req The incoming verification request carrying the GitHub URL.
- * @param context The dynamic route params with the verification kind.
- * @returns The verification result plus the updated roadmap snapshot.
+ * @param kind The stable verification kind (first-issue-claim, first-pr-merge, or second-pr-merge).
+ * @param req The incoming request with proof URL.
+ * @returns The verification result.
  */
 export async function POST(
   req: Request,
-  context: { params: Promise<{ kind: string }> },
+  { params }: { params: Promise<{ kind: string }> },
 ) {
   const session = await getServerSession(authOptions);
   const { response, platform, userId } = getAuthorizedPlatform(session);
@@ -84,12 +82,12 @@ export async function POST(
     return response;
   }
 
-  const { kind: rawKind } = await context.params;
-  const kind = parseVerificationKind(rawKind);
+  const { kind } = await params;
+  const parsedKind = parseVerificationKind(kind);
 
-  if (!kind) {
+  if (!parsedKind) {
     return NextResponse.json(
-      { error: "Invalid contributor journey verification kind." },
+      { error: "Invalid verification kind." },
       { status: 400 },
     );
   }
@@ -97,20 +95,21 @@ export async function POST(
   const body = (await req
     .json()
     .catch(() => null)) as VerificationRequestBody | null;
-  const url = typeof body?.url === "string" ? body.url.trim() : "";
 
-  if (!url) {
+  if (!body?.url) {
     return NextResponse.json(
       { error: "Verification URL is required." },
       { status: 400 },
     );
   }
 
+  const url = body.url.trim();
+
   try {
     const verification = await verifyContributorJourneyMilestoneByUid(
       userId,
       platform,
-      kind,
+      parsedKind,
       url,
     );
 
