@@ -22,6 +22,10 @@ import type {
   CronJobRunResult,
 } from "@/lib/domain/cron-jobs.types";
 
+type CronJobsResponse = {
+  jobs: CronJobDefinition[];
+};
+
 function formatTimestamp(value: string | Date): string {
   return new Date(value).toLocaleString("en-IN");
 }
@@ -37,8 +41,6 @@ export function CronJobsPanel() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-
     void (async () => {
       try {
         const response = await fetch("/api/dev/cron-jobs", {
@@ -49,36 +51,20 @@ export function CronJobsPanel() {
           throw new Error("Failed to load cron jobs.");
         }
 
-        const data = (await response.json()) as {
-          jobs: CronJobDefinition[];
-        };
-
-        if (cancelled) {
-          return;
-        }
+        const data = (await response.json()) as CronJobsResponse;
 
         setJobs(data.jobs);
         setSelectedJobKey(
           (currentValue) => currentValue || data.jobs[0]?.key || "",
         );
       } catch (error) {
-        if (!cancelled) {
-          setErrorMessage(
-            error instanceof Error
-              ? error.message
-              : "Failed to load cron jobs.",
-          );
-        }
+        setErrorMessage(
+          error instanceof Error ? error.message : "Failed to load cron jobs.",
+        );
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   const handleRunJob = async () => {
