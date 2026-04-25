@@ -60,7 +60,7 @@ export function DataJobsPanel() {
   /**
    * Loads data jobs and recent runs from the API.
    *
-   * @param showLoading Whether the loading indicator should be enabled for this fetch.
+   * @param showLoading Whether to update the panel loading state for this fetch.
    * @returns The loaded jobs and runs when successful.
    */
   const loadData = async (
@@ -99,6 +99,8 @@ export function DataJobsPanel() {
   };
 
   useEffect(() => {
+    let cancelled = false;
+
     void (async () => {
       try {
         const response = await fetch("/api/data-jobs", {
@@ -111,19 +113,33 @@ export function DataJobsPanel() {
 
         const data = (await response.json()) as DataJobsResponse;
 
+        if (cancelled) {
+          return;
+        }
+
         setJobs(data.jobs);
         setRuns(data.runs);
         setSelectedJobKey(
           (currentValue) => currentValue || data.jobs[0]?.key || "",
         );
       } catch (error) {
-        setErrorMessage(
-          error instanceof Error ? error.message : "Failed to load data jobs.",
-        );
+        if (!cancelled) {
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : "Failed to load data jobs.",
+          );
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleRunJob = async () => {
