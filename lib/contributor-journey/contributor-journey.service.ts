@@ -423,5 +423,10 @@ export async function markContributorJourneyManualItemCompletedByUid(
 
   await markManualJourneyItemCompletedByUid(uid, itemId);
 
+  ensured.progress.manualProgress[itemId] = {
+    completed: true,
+    completedAt: new Date(),
+  };
+
   return ensured.progress;
 }
