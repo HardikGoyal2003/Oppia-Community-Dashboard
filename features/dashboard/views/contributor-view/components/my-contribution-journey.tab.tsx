@@ -818,7 +818,8 @@ export default function MyContributionJourneyTab({
                                         )}
 
                                         {isFirstIssueClaimItem(item) &&
-                                          !isItemLocked && (
+                                          !isItemLocked &&
+                                          !item.completed && (
                                             <JourneyVerificationCard
                                               accentBorderClassName="border-amber-100"
                                               accentButtonClassName="bg-amber-700 text-white hover:bg-amber-800"
@@ -849,7 +850,8 @@ export default function MyContributionJourneyTab({
                                           )}
 
                                         {isFirstPrMergeItem(item) &&
-                                          !isItemLocked && (
+                                          !isItemLocked &&
+                                          !item.completed && (
                                             <JourneyVerificationCard
                                               accentBorderClassName="border-sky-100"
                                               accentButtonClassName="bg-sky-700 text-white hover:bg-sky-800"
@@ -880,7 +882,8 @@ export default function MyContributionJourneyTab({
                                           )}
 
                                         {isSecondPrMergeItem(item) &&
-                                          !isItemLocked && (
+                                          !isItemLocked &&
+                                          !item.completed && (
                                             <JourneyVerificationCard
                                               accentBorderClassName="border-emerald-100"
                                               accentButtonClassName="bg-emerald-700 text-white hover:bg-emerald-800"
