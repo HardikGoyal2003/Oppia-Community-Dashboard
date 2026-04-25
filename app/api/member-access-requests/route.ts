@@ -8,10 +8,7 @@ import {
   resolveMemberAccessRequest,
   submitMemberAccessRequest,
 } from "@/db/member-access-requests/member-access-request.db";
-import {
-  getUserById,
-  updateUserRoleAndTeamWithNotificationByUid,
-} from "@/db/users/users.db";
+import { updateUserRoleAndTeamWithNotificationByUid } from "@/db/users/users.db";
 import { appendUserNotificationByUid } from "@/db/users/notifications/notifications.db";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { isValidUserRole } from "@/lib/utils/roles.utils";
@@ -92,9 +89,8 @@ export async function POST(req: Request) {
     );
   }
 
-  const dbUser = await getUserById(session.user.id);
-  const username = dbUser?.githubUsername;
-  const platform = dbUser?.platform;
+  const username = session.user?.githubUsername;
+  const platform = session.user?.platform;
 
   if (!username) {
     return NextResponse.json(
@@ -182,7 +178,6 @@ export async function PATCH(req: Request) {
 
   try {
     const request = await resolveMemberAccessRequest(requestId, decision);
-    const adminUser = await getUserById(session.user.id);
 
     if (decision === "ACCEPT") {
       if (!isValidUserRole(request.role)) {
@@ -202,7 +197,7 @@ export async function PATCH(req: Request) {
     } else {
       await appendUserNotificationByUid(
         request.userId,
-        getDeclineMessage(reason, adminUser?.githubUsername),
+        getDeclineMessage(reason, session.user?.githubUsername),
       );
     }
   } catch (error) {

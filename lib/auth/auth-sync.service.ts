@@ -77,6 +77,7 @@ export async function syncJwtWithUser(token: JWT): Promise<JWT> {
 
   token.invalidUser = false;
   token.role = dbUser.role;
+  token.githubUsername = dbUser.githubUsername;
 
   return token;
 }
@@ -129,6 +130,7 @@ export async function syncSessionWithUser(
       role: dbUser.role,
       team: dbUser.team ?? null,
       platform: dbUser.platform ?? null,
+      githubUsername: dbUser.githubUsername,
     },
   };
 }

@@ -22,11 +22,13 @@ type AuthorizedJourneyContext =
       platform: ContributionPlatform;
       response: null;
       userId: string;
+      githubUsername: string;
     }
   | {
       platform: null;
       response: NextResponse<{ error: string }>;
       userId: null;
+      githubUsername?: never;
     };
 
 function getAuthorizedPlatform(
@@ -55,6 +57,7 @@ function getAuthorizedPlatform(
     platform: session.user.platform,
     response: null,
     userId: session.user.id,
+    githubUsername: session.user.githubUsername,
   };
 }
 
@@ -76,7 +79,8 @@ export async function POST(
   { params }: { params: Promise<{ kind: string }> },
 ) {
   const session = await getServerSession(authOptions);
-  const { response, platform, userId } = getAuthorizedPlatform(session);
+  const { response, platform, userId, githubUsername } =
+    getAuthorizedPlatform(session);
 
   if (response) {
     return response;
@@ -111,6 +115,7 @@ export async function POST(
       platform,
       parsedKind,
       url,
+      githubUsername,
     );
 
     return NextResponse.json(verification);

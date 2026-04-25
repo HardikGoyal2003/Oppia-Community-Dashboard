@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import { DbNotFoundError } from "@/db/db.errors";
-import { getUserById } from "@/db/users/users.db";
 import {
   listAvailableDataJobs,
   listRecentDataJobRuns,
@@ -48,9 +47,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "jobKey is required." }, { status: 400 });
   }
 
-  const actor = await getUserById(session.user.id);
+  const actor = session.user?.githubUsername;
 
-  if (!actor?.githubUsername) {
+  if (!actor) {
     return NextResponse.json(
       { error: "Unable to resolve the triggering super admin." },
       { status: 400 },
@@ -62,7 +61,7 @@ export async function POST(req: Request) {
       jobKey,
       {
         userId: session.user.id,
-        githubUsername: actor.githubUsername,
+        githubUsername: actor,
       },
       dryRun,
     );

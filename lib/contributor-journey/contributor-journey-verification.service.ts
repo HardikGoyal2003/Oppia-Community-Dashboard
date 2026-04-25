@@ -1,10 +1,5 @@
-import { getUserById } from "@/db/users/users.db";
 import { setDerivedJourneyStateByUid } from "@/db/user-journey-progress/user-journey-progress.db";
-import {
-  DbInvalidStateError,
-  DbNotFoundError,
-  DbValidationError,
-} from "@/db/db.errors";
+import { DbInvalidStateError, DbValidationError } from "@/db/db.errors";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { GITHUB_REPOS } from "@/lib/config/github.constants";
 import { requestGitHubRest } from "@/lib/github/github.rest";
@@ -265,6 +260,7 @@ async function verifyMergedPullRequest(
  * @param platform The selected contribution platform.
  * @param kind The verification kind route being executed.
  * @param url The submitted GitHub URL to verify.
+ * @param githubUsername The contributor's GitHub username.
  * @returns The verification result plus the updated roadmap snapshot.
  */
 export async function verifyContributorJourneyMilestoneByUid(
@@ -272,17 +268,12 @@ export async function verifyContributorJourneyMilestoneByUid(
   platform: ContributionPlatform,
   kind: JourneyVerificationKind,
   url: string,
+  githubUsername?: string,
 ): Promise<{
   result: JourneyVerificationResult;
   snapshot: Awaited<ReturnType<typeof getContributorJourneySnapshotByUid>>;
 }> {
-  const user = await getUserById(uid);
-
-  if (!user) {
-    throw new DbNotFoundError("User");
-  }
-
-  if (!user.githubUsername.trim()) {
+  if (!githubUsername?.trim()) {
     throw new DbInvalidStateError(
       "Contributor journey",
       "GitHub username is required before roadmap verification can run.",
@@ -304,7 +295,7 @@ export async function verifyContributorJourneyMilestoneByUid(
         verified: true,
       };
     } else {
-      result = await verifyFirstIssueClaim(platform, user.githubUsername, url);
+      result = await verifyFirstIssueClaim(platform, githubUsername, url);
     }
   } else if (kind === "first-pr-merge") {
     if (progress.derivedState.FIRST_PR_MERGED.completed) {
@@ -317,7 +308,7 @@ export async function verifyContributorJourneyMilestoneByUid(
     } else {
       result = await verifyMergedPullRequest(
         platform,
-        user.githubUsername,
+        githubUsername,
         url,
         "FIRST_PR_MERGED",
       );
@@ -333,7 +324,7 @@ export async function verifyContributorJourneyMilestoneByUid(
     } else {
       result = await verifyMergedPullRequest(
         platform,
-        user.githubUsername,
+        githubUsername,
         url,
         "SECOND_PR_MERGED",
       );
