@@ -325,16 +325,16 @@ function isManualItemLocked(
  *
  * @param uid The user id whose roadmap progress is being loaded.
  * @param platform The selected contribution platform.
+ * @param progress Optional pre-fetched progress to avoid duplicate read.
  * @returns The merged roadmap snapshot for API consumers.
  */
 export async function getContributorJourneySnapshotByUid(
   uid: string,
   platform: ContributionPlatform,
+  progress?: UserJourneyProgressModel,
 ): Promise<ContributorJourneySnapshot> {
-  const ensuredProgress = await getContributorJourneyStoredProgressByUid(
-    uid,
-    platform,
-  );
+  const ensuredProgress =
+    progress ?? (await getContributorJourneyStoredProgressByUid(uid, platform));
 
   const totalManualCount = Object.keys(ensuredProgress.manualProgress).length;
   const completedManualCount = Object.values(
@@ -395,7 +395,7 @@ export async function markContributorJourneyManualItemCompletedByUid(
   uid: string,
   platform: ContributionPlatform,
   itemId: string,
-): Promise<void> {
+): Promise<UserJourneyProgressModel> {
   const ensured = ensureJourneyProgressShape(
     await getUserJourneyProgressByUid(uid),
     platform,
@@ -422,4 +422,6 @@ export async function markContributorJourneyManualItemCompletedByUid(
   }
 
   await markManualJourneyItemCompletedByUid(uid, itemId);
+
+  return ensured.progress;
 }

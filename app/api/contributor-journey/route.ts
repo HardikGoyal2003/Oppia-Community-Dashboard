@@ -14,7 +14,7 @@ import {
 } from "@/db/db.errors";
 
 type ContributorJourneyPatchBody = {
-  itemId?: string;
+  itemId: string;
 };
 
 type AuthorizedJourneyContext =
@@ -92,18 +92,25 @@ export async function PATCH(req: Request) {
   const body = (await req
     .json()
     .catch(() => null)) as ContributorJourneyPatchBody | null;
-  const itemId = typeof body?.itemId === "string" ? body.itemId.trim() : "";
 
-  if (!itemId) {
+  if (!body?.itemId) {
     return NextResponse.json({ error: "Invalid itemId." }, { status: 400 });
   }
 
+  const itemId = body.itemId.trim();
+
   try {
-    await markContributorJourneyManualItemCompletedByUid(
+    const progress = await markContributorJourneyManualItemCompletedByUid(
       userId,
       platform,
       itemId,
     );
+    const snapshot = await getContributorJourneySnapshotByUid(
+      userId,
+      platform,
+      progress,
+    );
+    return NextResponse.json(snapshot);
   } catch (err) {
     if (err instanceof DbValidationError) {
       return NextResponse.json({ error: err.message }, { status: 400 });
@@ -119,7 +126,4 @@ export async function PATCH(req: Request) {
 
     throw err;
   }
-
-  const snapshot = await getContributorJourneySnapshotByUid(userId, platform);
-  return NextResponse.json(snapshot);
 }
