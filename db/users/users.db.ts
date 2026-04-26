@@ -5,6 +5,7 @@ import {
   UserModel,
 } from "@/lib/auth/auth.types";
 import { FieldPath, Timestamp } from "firebase-admin/firestore";
+import { TEAM_KEYS } from "@/lib/domain/team-definitions";
 import { DB_PATHS } from "../db-paths";
 import { DbValidationError } from "../db.errors";
 import { getRequiredDocumentRef } from "../utils/document.utils";
@@ -22,6 +23,12 @@ export type UserRecord = UserModel & {
   id: string;
 };
 
+export type UserFilters = {
+  role?: UserRole;
+  team?: string;
+  name?: string;
+};
+
 export type PaginatedUserRecords = {
   users: UserRecord[];
   nextCursor: string | null;
@@ -29,44 +36,105 @@ export type PaginatedUserRecords = {
 
 const DEFAULT_USER_PAGE_SIZE = 10;
 
+type UserPageCursor = {
+  createdAtMillis: number;
+  fullName: string;
+  id: string;
+};
+
 /**
  * Encodes the final document of a page into a cursor token.
  *
- * @param createdAt The createdAt timestamp of the final document in the page.
- * @param id The Firestore document id of the final document in the page.
+ * @param user The Firestore user document of the final item in the page.
+ * @param id The Firestore document id of the final item in the page.
  * @returns The encoded cursor token.
  */
-function encodeUserPageCursor(createdAt: Timestamp, id: string): string {
-  return `${createdAt.toMillis()}:${id}`;
+function encodeUserPageCursor(user: FirestoreUser, id: string): string {
+  const payload: UserPageCursor = {
+    createdAtMillis: user.createdAt.toMillis(),
+    fullName: user.fullName,
+    id,
+  };
+
+  return Buffer.from(JSON.stringify(payload)).toString("base64url");
 }
 
 /**
  * Decodes a cursor token into Firestore paging values.
  *
  * @param cursor The encoded cursor token from a previous page response.
- * @returns The decoded timestamp and document id for `startAfter`.
+ * @returns The decoded page cursor values for `startAfter`.
  */
-function decodeUserPageCursor(cursor: string): {
-  createdAt: Timestamp;
-  id: string;
-} {
-  const separatorIndex = cursor.indexOf(":");
+function decodeUserPageCursor(cursor: string): UserPageCursor {
+  let parsedCursor: Partial<UserPageCursor>;
 
-  if (separatorIndex <= 0 || separatorIndex === cursor.length - 1) {
+  try {
+    parsedCursor = JSON.parse(
+      Buffer.from(cursor, "base64url").toString("utf8"),
+    ) as Partial<UserPageCursor>;
+  } catch {
     throw new DbValidationError("cursor", "Cursor is invalid.");
   }
 
-  const createdAtMillis = Number(cursor.slice(0, separatorIndex));
-  const id = cursor.slice(separatorIndex + 1);
-
-  if (!Number.isFinite(createdAtMillis) || !id.trim()) {
+  if (
+    !parsedCursor ||
+    typeof parsedCursor !== "object" ||
+    !("createdAtMillis" in parsedCursor) ||
+    !("fullName" in parsedCursor) ||
+    !("id" in parsedCursor)
+  ) {
     throw new DbValidationError("cursor", "Cursor is invalid.");
   }
 
-  return {
-    createdAt: Timestamp.fromMillis(createdAtMillis),
-    id,
-  };
+  const { createdAtMillis, fullName, id } = parsedCursor;
+
+  if (
+    typeof createdAtMillis !== "number" ||
+    !Number.isFinite(createdAtMillis) ||
+    typeof fullName !== "string" ||
+    typeof id !== "string" ||
+    !id.trim()
+  ) {
+    throw new DbValidationError("cursor", "Cursor is invalid.");
+  }
+
+  return parsedCursor as UserPageCursor;
+}
+
+/**
+ * Validates and normalizes the optional user query filters.
+ *
+ * @param filters The raw user query filters.
+ * @returns The normalized query filters safe to apply to Firestore.
+ */
+function normalizeUserFilters(filters?: UserFilters): UserFilters {
+  if (!filters) {
+    return {};
+  }
+
+  const normalizedFilters: UserFilters = {};
+
+  if (filters.role) {
+    normalizedFilters.role = filters.role;
+  }
+
+  if (filters.team) {
+    if (!TEAM_KEYS.includes(filters.team)) {
+      throw new DbValidationError("team", "Team filter is invalid.");
+    }
+
+    normalizedFilters.team = filters.team;
+  }
+
+  if (filters.name) {
+    const trimmedName = filters.name.trim();
+
+    if (trimmedName) {
+      normalizedFilters.name = trimmedName;
+    }
+  }
+
+  return normalizedFilters;
 }
 
 /**
@@ -180,6 +248,7 @@ export async function getAllUsers(): Promise<UserRecord[]> {
   do {
     const page = await getUsersByPlatform(
       undefined,
+      undefined,
       cursor,
       DEFAULT_USER_PAGE_SIZE,
     );
@@ -194,28 +263,52 @@ export async function getAllUsers(): Promise<UserRecord[]> {
  * Retrieves users, optionally scoped to a contribution platform.
  *
  * @param platform The optional contribution platform filter.
+ * @param filters The optional server-side filters for narrowing users.
  * @param cursor The optional cursor token for continuing from a previous page.
  * @param limit The requested page size, capped to the default maximum.
  * @returns The normalized user models with document ids attached.
  */
 export async function getUsersByPlatform(
   platform?: ContributionPlatform,
+  filters?: UserFilters,
   cursor?: string | null,
   limit = DEFAULT_USER_PAGE_SIZE,
 ): Promise<PaginatedUserRecords> {
-  let query: FirebaseFirestore.Query = usersCollection;
+  const normalizedFilters = normalizeUserFilters(filters);
+  let query: FirebaseFirestore.Query<FirestoreUser> = usersCollection;
 
   if (platform) {
     query = query.where("platform", "==", platform);
   }
 
-  query = query
-    .orderBy("createdAt", "desc")
-    .orderBy(FieldPath.documentId(), "desc");
+  if (normalizedFilters.role) {
+    query = query.where("role", "==", normalizedFilters.role);
+  }
+
+  if (normalizedFilters.team) {
+    query = query.where("team", "==", normalizedFilters.team);
+  }
+
+  if (normalizedFilters.name) {
+    query = query
+      .where("fullName", ">=", normalizedFilters.name)
+      .where("fullName", "<=", `${normalizedFilters.name}\uf8ff`)
+      .orderBy("fullName", "asc")
+      .orderBy(FieldPath.documentId(), "asc");
+  } else {
+    query = query
+      .orderBy("createdAt", "desc")
+      .orderBy(FieldPath.documentId(), "desc");
+  }
 
   if (cursor) {
     const decodedCursor = decodeUserPageCursor(cursor);
-    query = query.startAfter(decodedCursor.createdAt, decodedCursor.id);
+    query = normalizedFilters.name
+      ? query.startAfter(decodedCursor.fullName, decodedCursor.id)
+      : query.startAfter(
+          Timestamp.fromMillis(decodedCursor.createdAtMillis),
+          decodedCursor.id,
+        );
   }
 
   const safeLimit = Math.max(1, Math.min(limit, DEFAULT_USER_PAGE_SIZE));
@@ -234,10 +327,7 @@ export async function getUsersByPlatform(
     }),
     nextCursor:
       hasNextPage && lastVisibleDoc
-        ? encodeUserPageCursor(
-            lastVisibleDoc.data().createdAt,
-            lastVisibleDoc.id,
-          )
+        ? encodeUserPageCursor(lastVisibleDoc.data(), lastVisibleDoc.id)
         : null,
   };
 }

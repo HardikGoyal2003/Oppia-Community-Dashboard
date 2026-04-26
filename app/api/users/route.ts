@@ -7,6 +7,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import { getKnownRoleDisplayLabel } from "@/lib/auth/role-display";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
+import { isUserRole } from "@/lib/auth/roles";
 import { isValidUserRole } from "@/lib/utils/roles.utils";
 import { DbNotFoundError, DbValidationError } from "@/db/db.errors";
 
@@ -48,9 +49,30 @@ export async function GET(req: Request) {
   const cursorParam = searchParams.get("cursor");
   const limitParam = Number(searchParams.get("limit"));
   const limit = Number.isFinite(limitParam) ? limitParam : undefined;
+  const roleParam = searchParams.get("role");
+  const teamParam = searchParams.get("team");
+  const nameParam = searchParams.get("name");
+  const filters = {
+    role:
+      roleParam && isUserRole(roleParam) ? (roleParam as UserRole) : undefined,
+    team: teamParam?.trim() || undefined,
+    name: nameParam?.trim() || undefined,
+  };
+
+  if (roleParam && !filters.role) {
+    return NextResponse.json(
+      { error: "Invalid role filter." },
+      { status: 400 },
+    );
+  }
 
   try {
-    const usersPage = await getUsersByPlatform(platform, cursorParam, limit);
+    const usersPage = await getUsersByPlatform(
+      platform,
+      filters,
+      cursorParam,
+      limit,
+    );
     return NextResponse.json(usersPage);
   } catch (error) {
     if (error instanceof DbValidationError) {
