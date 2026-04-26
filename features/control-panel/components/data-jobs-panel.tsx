@@ -57,8 +57,18 @@ export function DataJobsPanel() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const loadData = async (): Promise<DataJobsResponse | null> => {
-    setLoading(true);
+  /**
+   * Loads data jobs and recent runs from the API.
+   *
+   * @param showLoading Whether to update the panel loading state for this fetch.
+   * @returns The loaded jobs and runs when successful.
+   */
+  const loadData = async (
+    showLoading = true,
+  ): Promise<DataJobsResponse | null> => {
+    if (showLoading) {
+      setLoading(true);
+    }
 
     try {
       const response = await fetch("/api/data-jobs", {
@@ -82,12 +92,54 @@ export function DataJobsPanel() {
       );
       return null;
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    void loadData();
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/data-jobs", {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to load data jobs.");
+        }
+
+        const data = (await response.json()) as DataJobsResponse;
+
+        if (cancelled) {
+          return;
+        }
+
+        setJobs(data.jobs);
+        setRuns(data.runs);
+        setSelectedJobKey(
+          (currentValue) => currentValue || data.jobs[0]?.key || "",
+        );
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : "Failed to load data jobs.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleRunJob = async () => {

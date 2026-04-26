@@ -35,6 +35,7 @@ declare module "next-auth" {
       role: UserRole;
       team: string | null;
       platform: ContributionPlatform | null;
+      githubUsername: string;
     } & DefaultSession["user"];
   }
 }
@@ -44,5 +45,6 @@ declare module "next-auth/jwt" {
     invalidUser?: boolean;
     userId?: string;
     role?: UserRole;
+    githubUsername?: string;
   }
 }

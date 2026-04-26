@@ -1,4 +1,8 @@
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import type {
+  DerivedJourneyKey,
+  JourneyCompletionType,
+} from "@/lib/domain/contributor-journey.types";
 
 export type ContributorJourneyRichNote = {
   href: string;
@@ -8,9 +12,11 @@ export type ContributorJourneyRichNote = {
 };
 
 export type ContributorJourneyChecklistItem = {
-  completionType?: "manual" | "verification";
+  completionType?: JourneyCompletionType;
+  derivedKey?: DerivedJourneyKey;
   href?: string;
   hrefLabel?: string;
+  id: string;
   importance: "high" | "low" | "medium";
   label: string;
   notes?:
@@ -32,12 +38,14 @@ export type ContributorJourneyContent = {
 
 const webPhaseOneItems: ContributorJourneyChecklistItem[] = [
   {
+    id: "read_mission",
     href: "https://github.com/oppia/oppia/wiki/Oppia's-Mission",
     hrefLabel: "Docs Link",
     importance: "high",
     label: "Read about Oppia's Mission.",
   },
   {
+    id: "star_repo",
     href: "https://github.com/oppia/oppia/",
     hrefLabel: "Repo Link",
     importance: "medium",
@@ -47,6 +55,7 @@ const webPhaseOneItems: ContributorJourneyChecklistItem[] = [
       "Open the repository on GitHub and click the Star button in the top-right corner of the page.",
   },
   {
+    id: "build_git_github_confidence",
     importance: "high",
     label: "Build basic confidence with Git and GitHub.",
     notes: [
@@ -68,12 +77,14 @@ const webPhaseOneItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "introduce_yourself_in_discussions",
     href: "https://github.com/oppia/oppia/discussions/16715",
     hrefLabel: "Discussion Link",
     importance: "medium",
     label: "Say hi and introduce yourself on GitHub Discussions.",
   },
   {
+    id: "refresh_html_foundations",
     importance: "high",
     label: "Refresh your HTML foundations.",
     notes: [
@@ -92,6 +103,7 @@ const webPhaseOneItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "practice_css_fundamentals",
     importance: "high",
     label:
       "Practice CSS fundamentals so frontend issues feel less intimidating.",
@@ -111,6 +123,7 @@ const webPhaseOneItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "strengthen_js_ts_foundations",
     importance: "high",
     label: "Strengthen your JavaScript and TypeScript foundations.",
     notes: [
@@ -130,6 +143,7 @@ const webPhaseOneItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "sign_cla",
     href: "https://goo.gl/forms/AttNH80OV0",
     hrefLabel: "CLA Form Link",
     importance: "high",
@@ -138,6 +152,7 @@ const webPhaseOneItems: ContributorJourneyChecklistItem[] = [
     notes: "If you do not sign the CLA, any PRs you open will be closed.",
   },
   {
+    id: "fill_contributor_survey",
     href: "https://goo.gl/forms/otv30JV3Ihv0dT3C3",
     hrefLabel: "Survey Form Link",
     importance: "medium",
@@ -145,6 +160,7 @@ const webPhaseOneItems: ContributorJourneyChecklistItem[] = [
       "Fill in the Oppia contributor survey to let us know what your interests are.",
   },
   {
+    id: "learn_angular",
     importance: "high",
     label: "Build a working understanding of Angular.",
     notes: [
@@ -163,6 +179,7 @@ const webPhaseOneItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "learn_python_basics",
     importance: "high",
     label:
       "If you are new to Python, build enough backend familiarity to read and understand Oppia's backend code.",
@@ -180,6 +197,7 @@ const webPhaseOneItems: ContributorJourneyChecklistItem[] = [
 
 const webPhaseTwoItems: ContributorJourneyChecklistItem[] = [
   {
+    id: "install_oppia",
     href: "https://github.com/oppia/oppia/wiki/Installing-Oppia",
     hrefLabel: "Installation Docs Link",
     importance: "high",
@@ -204,6 +222,7 @@ const webPhaseTwoItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "setup_ide",
     href: "https://github.com/oppia/oppia/wiki/Tips-for-common-IDEs",
     hrefLabel: "Docs Link",
     importance: "low",
@@ -211,6 +230,7 @@ const webPhaseTwoItems: ContributorJourneyChecklistItem[] = [
       "If you want help setting up a code editor, also check out the guide to common IDEs.",
   },
   {
+    id: "set_up_2fa",
     href: "https://help.github.com/articles/securing-your-account-with-two-factor-authentication-2fa/",
     hrefLabel: "Docs Link",
     importance: "high",
@@ -233,6 +253,7 @@ const webPhaseTwoItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "set_github_notification_preferences",
     href: "https://github.com/oppia/oppia/subscription",
     hrefLabel: "Setting Link",
     label: "Set your GitHub notification preferences.",
@@ -241,6 +262,7 @@ const webPhaseTwoItems: ContributorJourneyChecklistItem[] = [
     importance: "medium",
   },
   {
+    id: "set_up_git_auth",
     href: "https://help.github.com/articles/caching-your-github-password-in-git/",
     hrefLabel: "Docs Link",
     label:
@@ -255,6 +277,7 @@ const webPhaseTwoItems: ContributorJourneyChecklistItem[] = [
 
 const webPhaseThreeItems: ContributorJourneyChecklistItem[] = [
   {
+    id: "familiarize_with_codebase",
     href: "https://github.com/oppia/oppia/wiki/Overview-of-the-Oppia-codebase",
     hrefLabel: "Codebase Overview",
     importance: "high",
@@ -264,17 +287,21 @@ const webPhaseThreeItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "find_right_code_to_change",
     href: "https://github.com/oppia/oppia/wiki/Find-the-right-code-to-change",
     hrefLabel: "Docs Link",
     importance: "medium",
     label: "Find the right code to change",
   },
   {
+    id: "shortlist_first_issue",
     importance: "high",
     label: "Shortlist Your First Issue",
   },
   {
+    id: "claim_first_issue",
     completionType: "verification",
+    derivedKey: "FIRST_ISSUE_CLAIMED",
     importance: "high",
     label: "Claim Your First Issue",
     notes: [
@@ -294,6 +321,7 @@ const webPhaseThreeItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "create_first_pr",
     importance: "high",
     label: "Create Your First PR",
     notes: [
@@ -308,7 +336,9 @@ const webPhaseThreeItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "merge_first_pr",
     completionType: "verification",
+    derivedKey: "FIRST_PR_MERGED",
     importance: "high",
     label: "Merge Your First PR",
     notes: [
@@ -329,7 +359,9 @@ const webPhaseThreeItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "merge_second_pr",
     completionType: "verification",
+    derivedKey: "SECOND_PR_MERGED",
     importance: "high",
     label: "Repeat the Process and Merge Your Second PR",
     notes: [
@@ -341,6 +373,7 @@ const webPhaseThreeItems: ContributorJourneyChecklistItem[] = [
 
 const webPhaseFourItems: ContributorJourneyChecklistItem[] = [
   {
+    id: "understand_contributor_roles",
     href: "https://github.com/oppia/oppia/wiki/Contributing-code-to-Oppia#contributor-roles",
     hrefLabel: "Contributor Roles",
     importance: "high",
@@ -355,6 +388,7 @@ const webPhaseFourItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "apply_for_collaborator",
     href: "https://docs.google.com/forms/d/e/1FAIpQLSdJzMdkZ7gtWQxaQ16kV4_iJh_8P3-zZwoM6jwJ6SxG6T8Xkw/viewform",
     hrefLabel: "Collaborator Interest Form",
     importance: "high",
@@ -368,6 +402,7 @@ const webPhaseFourItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "keep_contributing_while_waiting",
     href: "https://github.com/oppia/oppia/wiki/Contributing-code-to-Oppia",
     hrefLabel: "Contributing Code to Oppia",
     importance: "medium",
@@ -405,12 +440,14 @@ const webJourneyTasks: ContributorJourneyTask[] = [
 
 const androidPhaseOneItems: ContributorJourneyChecklistItem[] = [
   {
+    id: "read_mission",
     href: "https://github.com/oppia/oppia-android/wiki/Our-Mission",
     hrefLabel: "Docs Link",
     importance: "high",
     label: "Read about Oppia's Mission.",
   },
   {
+    id: "star_repo",
     href: "https://github.com/oppia/oppia-android",
     hrefLabel: "Repo Link",
     importance: "medium",
@@ -420,6 +457,7 @@ const androidPhaseOneItems: ContributorJourneyChecklistItem[] = [
       "Open the repository on GitHub and click the Star button in the top-right corner of the page.",
   },
   {
+    id: "build_git_github_confidence",
     importance: "high",
     label: "Build basic confidence with Git and GitHub.",
     notes: [
@@ -441,12 +479,14 @@ const androidPhaseOneItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "introduce_yourself_in_discussions",
     href: "https://github.com/oppia/oppia-android/discussions/4788",
     hrefLabel: "Discussion Link",
     importance: "medium",
     label: "Say hi and introduce yourself on GitHub Discussions.",
   },
   {
+    id: "strengthen_kotlin_foundations",
     importance: "high",
     label: "Strengthen your Kotlin foundations.",
     notes: [
@@ -466,6 +506,7 @@ const androidPhaseOneItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "install_android_studio",
     importance: "high",
     label: "Install Android Studio",
     notes: [
@@ -479,6 +520,7 @@ const androidPhaseOneItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "learn_android_libraries_and_architecture",
     importance: "high",
     label:
       "Familiarize yourself with common Android libraries and architecture patterns.",
@@ -493,6 +535,7 @@ const androidPhaseOneItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "explore_advanced_android_topics",
     importance: "medium",
     label: "Explore advanced Android topics to deepen your understanding.",
     notes: [
@@ -506,6 +549,7 @@ const androidPhaseOneItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "sign_cla",
     href: "https://goo.gl/forms/AttNH80OV0",
     hrefLabel: "CLA Form Link",
     importance: "high",
@@ -514,6 +558,7 @@ const androidPhaseOneItems: ContributorJourneyChecklistItem[] = [
     notes: "If you do not sign the CLA, any PRs you open will be closed.",
   },
   {
+    id: "fill_contributor_survey",
     href: "https://goo.gl/forms/otv30JV3Ihv0dT3C3",
     hrefLabel: "Survey Form Link",
     importance: "medium",
@@ -521,6 +566,7 @@ const androidPhaseOneItems: ContributorJourneyChecklistItem[] = [
       "Fill in the Oppia contributor survey to let us know what your interests are.",
   },
   {
+    id: "learn_bazel",
     importance: "high",
     label: "Build working understanding of Bazel.",
     notes: [
@@ -543,6 +589,7 @@ const androidPhaseOneItems: ContributorJourneyChecklistItem[] = [
 
 const androidPhaseTwoItems: ContributorJourneyChecklistItem[] = [
   {
+    id: "install_oppia_android",
     href: "https://github.com/oppia/oppia-android/wiki/Installing-Oppia-Android",
     hrefLabel: "Installation Docs Link",
     importance: "high",
@@ -567,6 +614,7 @@ const androidPhaseTwoItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "set_up_2fa",
     href: "https://help.github.com/articles/securing-your-account-with-two-factor-authentication-2fa/",
     hrefLabel: "Docs Link",
     importance: "high",
@@ -589,6 +637,7 @@ const androidPhaseTwoItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "set_github_notification_preferences",
     href: "https://github.com/oppia/oppia-android/subscription",
     hrefLabel: "Setting Link",
     label: "Set your GitHub notification preferences.",
@@ -597,6 +646,7 @@ const androidPhaseTwoItems: ContributorJourneyChecklistItem[] = [
     importance: "medium",
   },
   {
+    id: "set_up_git_auth",
     href: "https://help.github.com/articles/caching-your-github-password-in-git/",
     hrefLabel: "Docs Link",
     label:
@@ -611,6 +661,7 @@ const androidPhaseTwoItems: ContributorJourneyChecklistItem[] = [
 
 const androidPhaseThreeItems: ContributorJourneyChecklistItem[] = [
   {
+    id: "familiarize_with_codebase",
     href: "https://github.com/oppia/oppia-android/wiki/Overview-of-the-Oppia-Android-codebase-and-architecture",
     hrefLabel: "Codebase Overview",
     importance: "high",
@@ -620,11 +671,14 @@ const androidPhaseThreeItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "shortlist_first_issue",
     importance: "high",
     label: "Shortlist Your First Issue",
   },
   {
+    id: "claim_first_issue",
     completionType: "verification",
+    derivedKey: "FIRST_ISSUE_CLAIMED",
     importance: "high",
     label: "Claim Your First Issue",
     notes: [
@@ -644,6 +698,7 @@ const androidPhaseThreeItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "create_first_pr",
     importance: "high",
     label: "Create Your First PR",
     notes: [
@@ -658,7 +713,9 @@ const androidPhaseThreeItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "merge_first_pr",
     completionType: "verification",
+    derivedKey: "FIRST_PR_MERGED",
     importance: "high",
     label: "Merge Your First PR",
     notes: [
@@ -679,7 +736,9 @@ const androidPhaseThreeItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "merge_second_pr",
     completionType: "verification",
+    derivedKey: "SECOND_PR_MERGED",
     importance: "high",
     label: "Repeat the Process and Merge Your Second PR",
     notes: [
@@ -691,6 +750,7 @@ const androidPhaseThreeItems: ContributorJourneyChecklistItem[] = [
 
 const androidPhaseFourItems: ContributorJourneyChecklistItem[] = [
   {
+    id: "understand_contributor_roles",
     href: "https://github.com/oppia/oppia/wiki/Contributing-code-to-Oppia#contributor-roles",
     hrefLabel: "Contributor Roles",
     importance: "high",
@@ -705,6 +765,7 @@ const androidPhaseFourItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "apply_for_collaborator",
     href: "https://docs.google.com/forms/d/e/1FAIpQLSes4wj7oKtiN0iyUwd-Xt_DAOr1b-MHG9_YYIavWBF4G6g8uA/viewform",
     hrefLabel: "Collaborator Interest Form",
     importance: "high",
@@ -718,6 +779,7 @@ const androidPhaseFourItems: ContributorJourneyChecklistItem[] = [
     ],
   },
   {
+    id: "keep_contributing_while_waiting",
     href: "https://github.com/oppia/oppia-android/wiki/Contributing-to-Oppia-Android",
     hrefLabel: "Contributing Code to Oppia",
     importance: "medium",

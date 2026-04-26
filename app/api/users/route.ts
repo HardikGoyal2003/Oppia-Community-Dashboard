@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import {
-  getUserById,
   getUsersByPlatform,
   updateUserRoleAndTeamWithNotificationByUid,
 } from "@/db/users/users.db";
@@ -74,8 +73,6 @@ export async function PATCH(req: Request) {
   }
 
   try {
-    const adminUser = await getUserById(session.user.id);
-
     await updateUserRoleAndTeamWithNotificationByUid(
       uid,
       role,
@@ -85,7 +82,7 @@ export async function PATCH(req: Request) {
         role,
         team,
         reason,
-        adminUser?.githubUsername,
+        session.user?.githubUsername,
       ),
     );
   } catch (error) {

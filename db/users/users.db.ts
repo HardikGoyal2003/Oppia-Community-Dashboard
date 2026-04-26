@@ -11,8 +11,12 @@ import { getRequiredDocumentRef } from "../utils/document.utils";
 import { getUserNotificationsCollection } from "./notifications/notifications.db";
 import { serializeNotification } from "./notifications/notifications.mapper";
 import { normalizeUserDocument, serializeUser } from "./users.mapper";
+import type { FirestoreUser } from "./users.mapper";
 
 const db = getAdminFirestore();
+export const usersCollection = db.collection(
+  DB_PATHS.USERS.COLLECTION,
+) as FirebaseFirestore.CollectionReference<FirestoreUser>;
 
 export type UserRecord = UserModel & {
   id: string;
@@ -61,7 +65,7 @@ function isDocumentAlreadyExistsError(error: object): boolean {
 async function getRequiredUserDocRefByUid(
   uid: string,
 ): Promise<FirebaseFirestore.DocumentReference> {
-  const userDocRef = db.collection(DB_PATHS.USERS.COLLECTION).doc(uid);
+  const userDocRef = usersCollection.doc(uid);
   return getRequiredDocumentRef("User", userDocRef);
 }
 
@@ -78,7 +82,7 @@ export async function createUserIfNotExists(
 ): Promise<void> {
   assertGithubUsernameForRole(data.githubUsername);
 
-  const ref = db.collection(DB_PATHS.USERS.COLLECTION).doc(uid);
+  const ref = usersCollection.doc(uid);
   const now = Timestamp.now();
 
   try {
@@ -108,7 +112,7 @@ export async function createUserIfNotExists(
  * @returns The normalized user model, or null when no user exists.
  */
 export async function getUserById(uid: string): Promise<UserModel | null> {
-  const snap = await db.collection(DB_PATHS.USERS.COLLECTION).doc(uid).get();
+  const snap = await usersCollection.doc(uid).get();
 
   if (!snap.exists) return null;
 
@@ -135,7 +139,7 @@ export async function getAllUsers(): Promise<UserRecord[]> {
 export async function getUsersByPlatform(
   platform?: ContributionPlatform,
 ): Promise<UserRecord[]> {
-  let query: FirebaseFirestore.Query = db.collection(DB_PATHS.USERS.COLLECTION);
+  let query: FirebaseFirestore.Query = usersCollection;
 
   if (platform) {
     query = query.where("platform", "==", platform);
@@ -232,7 +236,7 @@ export async function updateUserRoleAndTeamWithNotificationByUid(
 
   const userDocRef = await getRequiredUserDocRefByUid(uid);
   const notificationRef = getUserNotificationsCollection(userDocRef).doc();
-  const batch = db.batch();
+  const batch = usersCollection.firestore.batch();
 
   batch.update(userDocRef, {
     role,

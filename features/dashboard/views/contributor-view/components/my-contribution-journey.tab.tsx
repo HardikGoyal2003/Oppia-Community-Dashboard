@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CheckCheck,
   ChevronDown,
@@ -24,6 +24,47 @@ import MyContributionJourneyIssueFinder, {
   type GfiDomain,
 } from "./my-contribution-journey-issue-finder";
 import MyContributionJourneyProgressHero from "./my-contribution-journey-progress-hero";
+
+type ContributorJourneyItemSnapshot = ContributorJourneyChecklistItem & {
+  completed: boolean;
+  completedAt: string | null;
+  locked: boolean;
+};
+
+type ContributorJourneyTaskSnapshot = {
+  id: string;
+  items: ContributorJourneyItemSnapshot[];
+  title: string;
+};
+
+type ContributorJourneyResponse = {
+  progress: {
+    completedManualCount: number;
+    completedRequiredCount: number;
+    totalManualCount: number;
+    totalRequiredCount: number;
+  };
+  tasks: ContributorJourneyTaskSnapshot[];
+};
+
+type ApiErrorResponse = {
+  error?: string;
+};
+
+type VerificationDialogKind =
+  | "first_issue_claim"
+  | "first_pr_merge"
+  | "second_pr_merge";
+
+type ContributorJourneyVerificationResponse = {
+  result: {
+    derivedKey: string;
+    message: string;
+    sourceUrl: string;
+    verified: boolean;
+  };
+  snapshot: ContributorJourneyResponse;
+};
 
 function getInitialGfiDomain(platform: ContributionPlatform): GfiDomain {
   if (platform === "ANDROID") {
@@ -57,11 +98,24 @@ function sanitizeGithubUrl(url: string): string | null {
   }
 }
 
-function getChecklistItemKey(
-  taskId: string,
-  item: ContributorJourneyChecklistItem,
+function getApiErrorMessage(
+  body:
+    | ApiErrorResponse
+    | ContributorJourneyResponse
+    | ContributorJourneyVerificationResponse
+    | null,
+  fallbackMessage: string,
 ): string {
-  return `${taskId}:${item.label}`;
+  if (
+    body &&
+    "error" in body &&
+    typeof body.error === "string" &&
+    body.error.trim()
+  ) {
+    return body.error;
+  }
+
+  return fallbackMessage;
 }
 
 function getImportanceCheckboxClassName(
@@ -132,23 +186,18 @@ function isVerificationItem(item: ContributorJourneyChecklistItem): boolean {
 }
 
 function isFirstPrMergeItem(item: ContributorJourneyChecklistItem): boolean {
-  return (
-    item.completionType === "verification" &&
-    item.label === "Merge Your First PR"
-  );
+  return item.completionType === "verification" && item.id === "merge_first_pr";
 }
 
 function isSecondPrMergeItem(item: ContributorJourneyChecklistItem): boolean {
   return (
-    item.completionType === "verification" &&
-    item.label === "Repeat the Process and Merge Your Second PR"
+    item.completionType === "verification" && item.id === "merge_second_pr"
   );
 }
 
 function isFirstIssueClaimItem(item: ContributorJourneyChecklistItem): boolean {
   return (
-    item.completionType === "verification" &&
-    item.label === "Claim Your First Issue"
+    item.completionType === "verification" && item.id === "claim_first_issue"
   );
 }
 
@@ -157,17 +206,26 @@ export default function MyContributionJourneyTab({
 }: {
   platform: ContributionPlatform;
 }) {
-  const [completedItems, setCompletedItems] = useState<string[]>([]);
+  const [journeyData, setJourneyData] =
+    useState<ContributorJourneyResponse | null>(null);
+  const [isLoadingJourney, setIsLoadingJourney] = useState(true);
+  const [journeyError, setJourneyError] = useState<string | null>(null);
+  const [isSavingCompletion, setIsSavingCompletion] = useState(false);
   const [pendingCompletionItem, setPendingCompletionItem] = useState<{
-    itemKey: string;
+    itemId: string;
     label: string;
   } | null>(null);
   const [firstIssueLink, setFirstIssueLink] = useState("");
   const [firstPrLink, setFirstPrLink] = useState("");
   const [secondPrLink, setSecondPrLink] = useState("");
-  const [activeVerificationDialog, setActiveVerificationDialog] = useState<
-    "first_issue_claim" | "first_pr_merge" | "second_pr_merge" | null
+  const [activeVerificationDialog, setActiveVerificationDialog] =
+    useState<VerificationDialogKind | null>(null);
+  const [verificationStatus, setVerificationStatus] = useState<
+    "error" | "loading" | "not_verified" | "verified" | null
   >(null);
+  const [verificationMessage, setVerificationMessage] = useState<string | null>(
+    null,
+  );
   const [selectedGfiDomain, setSelectedGfiDomain] = useState<GfiDomain>(() =>
     getInitialGfiDomain(platform),
   );
@@ -178,43 +236,30 @@ export default function MyContributionJourneyTab({
   const [expandedPhaseIds, setExpandedPhaseIds] = useState<string[]>([
     journeyContent.tasks[0]?.id ?? "",
   ]);
-  const allChecklistItems = journeyContent.tasks.flatMap((task) =>
+  const tasks = journeyData?.tasks ?? [];
+  const allChecklistItems = tasks.flatMap((task) =>
     task.items.filter((item) => !isVerificationItem(item)),
   );
-  const requiredChecklistItems = journeyContent.tasks.flatMap((task) =>
+  const requiredChecklistItems = tasks.flatMap((task) =>
     task.items.filter(
       (item) => isRequiredChecklistItem(item) && !isVerificationItem(item),
     ),
   );
-  const completedRequiredCount = journeyContent.tasks.reduce(
-    (count, task) =>
-      count +
-      task.items.filter(
-        (item) =>
-          isRequiredChecklistItem(item) &&
-          !isVerificationItem(item) &&
-          completedItems.includes(getChecklistItemKey(task.id, item)),
-      ).length,
-    0,
-  );
-  const phasesWithState = journeyContent.tasks.map((task, taskIndex) => {
-    const requiredItemsInPreviousPhases = journeyContent.tasks
-      .slice(0, taskIndex)
-      .flatMap((previousTask) =>
-        previousTask.items
-          .filter(
-            (item) =>
-              isRequiredChecklistItem(item) && !isVerificationItem(item),
-          )
-          .map((item) => getChecklistItemKey(previousTask.id, item)),
-      );
+  const completedRequiredCount =
+    journeyData?.progress.completedRequiredCount ?? 0;
+  const phasesWithState = tasks.map((task, taskIndex) => {
     const isLocked =
       taskIndex > 0 &&
-      requiredItemsInPreviousPhases.some(
-        (requiredItemKey) => !completedItems.includes(requiredItemKey),
-      );
-    const completedItemsInTask = completedItems.filter((itemKey) =>
-      task.items.some((item) => getChecklistItemKey(task.id, item) === itemKey),
+      tasks
+        .slice(0, taskIndex)
+        .flatMap((previousTask) =>
+          previousTask.items.filter(
+            (item) => isRequiredChecklistItem(item) || isVerificationItem(item),
+          ),
+        )
+        .some((item) => !item.completed);
+    const completedItemsInTask = task.items.filter(
+      (item) => !isVerificationItem(item) && item.completed,
     ).length;
     const trackableItemsInTask = task.items.filter(
       (item) => !isVerificationItem(item),
@@ -227,8 +272,8 @@ export default function MyContributionJourneyTab({
       trackableItemsInTask,
     };
   });
-  const phaseCheckpoints = journeyContent.tasks.map((task, taskIndex) => {
-    const requiredItemsBeforePhase = journeyContent.tasks
+  const phaseCheckpoints = tasks.map((task, taskIndex) => {
+    const requiredItemsBeforePhase = tasks
       .slice(0, taskIndex + 1)
       .flatMap((currentTask) =>
         currentTask.items.filter(
@@ -241,12 +286,8 @@ export default function MyContributionJourneyTab({
     const mediumItems = task.items.filter(
       (item) => isRecommendedChecklistItem(item) && !isVerificationItem(item),
     );
-    const allHighDone = highItems.every((item) =>
-      completedItems.includes(getChecklistItemKey(task.id, item)),
-    );
-    const allMediumDone = mediumItems.every((item) =>
-      completedItems.includes(getChecklistItemKey(task.id, item)),
-    );
+    const allHighDone = highItems.every((item) => item.completed);
+    const allMediumDone = mediumItems.every((item) => item.completed);
     const status: "complete" | "in_progress" | "recommended_left" = allHighDone
       ? allMediumDone
         ? "complete"
@@ -264,21 +305,104 @@ export default function MyContributionJourneyTab({
     };
   });
 
-  function requestManualCompletion(itemKey: string, label: string) {
-    setPendingCompletionItem({ itemKey, label });
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadJourney() {
+      if (isMounted) {
+        setIsLoadingJourney(true);
+        setJourneyError(null);
+      }
+
+      try {
+        const response = await fetch("/api/contributor-journey", {
+          cache: "no-store",
+        });
+
+        const body = (await response.json().catch(() => null)) as
+          | ContributorJourneyResponse
+          | { error?: string }
+          | null;
+
+        if (!response.ok) {
+          throw new Error(
+            getApiErrorMessage(body, "Failed to load contributor journey."),
+          );
+        }
+
+        if (isMounted) {
+          setJourneyData(body as ContributorJourneyResponse);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setJourneyError(
+            error instanceof Error
+              ? error.message
+              : "Failed to load contributor journey.",
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingJourney(false);
+        }
+      }
+    }
+
+    loadJourney();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [platform]);
+
+  function requestManualCompletion(itemId: string, label: string) {
+    setPendingCompletionItem({ itemId, label });
   }
 
-  function confirmManualCompletion() {
+  async function confirmManualCompletion() {
     if (!pendingCompletionItem) {
       return;
     }
 
-    setCompletedItems((currentItems) =>
-      currentItems.includes(pendingCompletionItem.itemKey)
-        ? currentItems
-        : currentItems.concat(pendingCompletionItem.itemKey),
-    );
-    setPendingCompletionItem(null);
+    setIsSavingCompletion(true);
+    setJourneyError(null);
+
+    try {
+      const response = await fetch("/api/contributor-journey", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          itemId: pendingCompletionItem.itemId,
+        }),
+      });
+
+      const body = (await response.json().catch(() => null)) as
+        | ContributorJourneyResponse
+        | { error?: string }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(
+          getApiErrorMessage(
+            body,
+            "Failed to save contributor journey progress.",
+          ),
+        );
+      }
+
+      setJourneyData(body as ContributorJourneyResponse);
+      setPendingCompletionItem(null);
+    } catch (error) {
+      setJourneyError(
+        error instanceof Error
+          ? error.message
+          : "Failed to save contributor journey progress.",
+      );
+    } finally {
+      setIsSavingCompletion(false);
+    }
   }
 
   function toggleExpandedPhase(taskId: string) {
@@ -289,19 +413,66 @@ export default function MyContributionJourneyTab({
     );
   }
 
-  function openFirstPrDialog() {
-    setActiveVerificationDialog("first_pr_merge");
+  async function runVerification(
+    kind: VerificationDialogKind,
+    url: string | null,
+  ) {
+    if (!url) {
+      return;
+    }
+
+    const endpoint =
+      kind === "first_issue_claim"
+        ? "/api/contributor-journey/verify/first-issue-claim"
+        : kind === "first_pr_merge"
+          ? "/api/contributor-journey/verify/first-pr-merge"
+          : "/api/contributor-journey/verify/second-pr-merge";
+
+    setActiveVerificationDialog(kind);
+    setVerificationMessage(null);
+    setVerificationStatus("loading");
+    setJourneyError(null);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ url }),
+      });
+
+      const body = (await response.json().catch(() => null)) as
+        | ApiErrorResponse
+        | ContributorJourneyVerificationResponse
+        | null;
+
+      if (!response.ok) {
+        throw new Error(
+          getApiErrorMessage(
+            body,
+            "Failed to verify contributor journey milestone.",
+          ),
+        );
+      }
+
+      const verification = body as ContributorJourneyVerificationResponse;
+      setJourneyData(verification.snapshot);
+      setVerificationMessage(verification.result.message);
+      setVerificationStatus(
+        verification.result.verified ? "verified" : "not_verified",
+      );
+    } catch (error) {
+      setVerificationMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to verify contributor journey milestone.",
+      );
+      setVerificationStatus("error");
+    }
   }
 
-  function openFirstIssueDialog() {
-    setActiveVerificationDialog("first_issue_claim");
-  }
-
-  function openSecondPrDialog() {
-    setActiveVerificationDialog("second_pr_merge");
-  }
-
-  const completedCount = completedItems.length;
+  const completedCount = journeyData?.progress.completedManualCount ?? 0;
   const isJourneyCompleted =
     allChecklistItems.length > 0 && completedCount === allChecklistItems.length;
   const progressPercentage = Math.round(
@@ -318,12 +489,10 @@ export default function MyContributionJourneyTab({
             (item) =>
               isRequiredChecklistItem(item) && !isVerificationItem(item),
           )
-          .some(
-            (item) =>
-              !completedItems.includes(getChecklistItemKey(task.id, item)),
-          ),
+          .some((item) => !item.completed),
     )?.task ??
     phasesWithState.findLast(({ isLocked }) => !isLocked)?.task ??
+    tasks[0] ??
     journeyContent.tasks[0];
 
   return (
@@ -375,384 +544,429 @@ export default function MyContributionJourneyTab({
 
             <MyContributionJourneyBeforeYouStart />
 
-            <div className="divide-y divide-slate-100">
-              {phasesWithState.map(
-                ({
-                  task,
-                  isLocked,
-                  completedItemsInTask,
-                  trackableItemsInTask,
-                }) => {
-                  return (
-                    <div key={task.id}>
-                      <button
-                        type="button"
-                        disabled={isLocked}
-                        className={cn(
-                          "flex w-full items-center justify-between gap-4 border-b border-slate-100 bg-slate-50/70 px-6 py-4 text-left transition-colors",
-                          isLocked
-                            ? "cursor-not-allowed opacity-70"
-                            : "hover:bg-slate-100/90",
-                        )}
-                        onClick={() => {
-                          if (!isLocked) {
-                            toggleExpandedPhase(task.id);
-                          }
-                        }}
-                      >
-                        <div className="flex items-center gap-3">
-                          {isLocked ? (
-                            <Lock className="h-4 w-4 text-slate-400" />
-                          ) : (
-                            <ChevronDown
-                              className={cn(
-                                "h-4 w-4 text-slate-500 transition-transform",
-                                expandedPhaseIds.includes(task.id) &&
-                                  "rotate-180",
-                              )}
-                            />
-                          )}
-                          <div className="space-y-1">
-                            <h3 className="text-sm font-semibold text-slate-900">
-                              {task.title}
-                            </h3>
-                            {isLocked && (
-                              <p className="text-xs text-slate-500">
-                                Complete all required items in earlier phases to
-                                unlock this phase.
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <span className="text-xs uppercase tracking-[0.14em] text-slate-500">
-                          {completedItemsInTask}/{trackableItemsInTask}
-                        </span>
-                      </button>
+            {isLoadingJourney && (
+              <div className="border-b border-slate-100 px-6 py-4 text-sm text-slate-600">
+                Loading your contributor journey...
+              </div>
+            )}
 
-                      {!isLocked && expandedPhaseIds.includes(task.id) && (
-                        <div className="divide-y divide-slate-100">
-                          {task.items.map((item, itemIndex) => {
-                            const itemKey = getChecklistItemKey(task.id, item);
-                            const checked = completedItems.includes(itemKey);
-                            const isVerificationStep = isVerificationItem(item);
-                            const ItemWrapper = isVerificationStep
-                              ? "div"
-                              : "label";
-                            const previousRequiredItemsInPhase = task.items
-                              .slice(0, itemIndex)
-                              .filter(
-                                (previousItem) =>
-                                  isRequiredChecklistItem(previousItem) &&
-                                  !isVerificationItem(previousItem),
-                              );
-                            const previousRequiredItem =
-                              previousRequiredItemsInPhase.at(-1);
-                            const blockingRequiredItem =
-                              previousRequiredItem &&
-                              !completedItems.includes(
-                                getChecklistItemKey(
-                                  task.id,
-                                  previousRequiredItem,
-                                ),
-                              )
-                                ? previousRequiredItem
-                                : undefined;
-                            const isItemLocked =
-                              blockingRequiredItem !== undefined;
-                            return (
-                              <div key={itemKey}>
-                                <div
-                                  className={cn(
-                                    "px-6 py-5 transition-colors",
-                                    isItemLocked
-                                      ? "bg-slate-100/70"
-                                      : "hover:bg-blue-50/40",
-                                  )}
-                                >
-                                  <ItemWrapper
+            {journeyError && (
+              <div className="border-b border-red-100 bg-red-50 px-6 py-4 text-sm text-red-700">
+                {journeyError}
+              </div>
+            )}
+
+            <div className="divide-y divide-slate-100">
+              {!isLoadingJourney &&
+                phasesWithState.map(
+                  ({
+                    task,
+                    isLocked,
+                    completedItemsInTask,
+                    trackableItemsInTask,
+                  }) => {
+                    return (
+                      <div key={task.id}>
+                        <button
+                          type="button"
+                          disabled={isLocked}
+                          className={cn(
+                            "flex w-full items-center justify-between gap-4 border-b border-slate-100 bg-slate-50/70 px-6 py-4 text-left transition-colors",
+                            isLocked
+                              ? "cursor-not-allowed opacity-70"
+                              : "hover:bg-slate-100/90",
+                          )}
+                          onClick={() => {
+                            if (!isLocked) {
+                              toggleExpandedPhase(task.id);
+                            }
+                          }}
+                        >
+                          <div className="flex items-center gap-3">
+                            {isLocked ? (
+                              <Lock className="h-4 w-4 text-slate-400" />
+                            ) : (
+                              <ChevronDown
+                                className={cn(
+                                  "h-4 w-4 text-slate-500 transition-transform",
+                                  expandedPhaseIds.includes(task.id) &&
+                                    "rotate-180",
+                                )}
+                              />
+                            )}
+                            <div className="space-y-1">
+                              <h3 className="text-sm font-semibold text-slate-900">
+                                {task.title}
+                              </h3>
+                              {isLocked && (
+                                <p className="text-xs text-slate-500">
+                                  Complete all required items in earlier phases
+                                  to unlock this phase.
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <span className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                            {completedItemsInTask}/{trackableItemsInTask}
+                          </span>
+                        </button>
+
+                        {!isLocked && expandedPhaseIds.includes(task.id) && (
+                          <div className="divide-y divide-slate-100">
+                            {task.items.map((item, itemIndex) => {
+                              const checked = item.completed;
+                              const isVerificationStep =
+                                isVerificationItem(item);
+                              const ItemWrapper = isVerificationStep
+                                ? "div"
+                                : "label";
+                              const previousRequiredAndVerifiedItemsInPhase =
+                                task.items
+                                  .slice(0, itemIndex)
+                                  .filter(
+                                    (previousItem) =>
+                                      isRequiredChecklistItem(previousItem) ||
+                                      isVerificationItem(previousItem),
+                                  );
+                              const blockingRequiredItem =
+                                previousRequiredAndVerifiedItemsInPhase.findLast(
+                                  (previousItem) => !previousItem.completed,
+                                );
+                              const isItemLocked =
+                                item.locked ||
+                                blockingRequiredItem !== undefined;
+                              return (
+                                <div key={item.id}>
+                                  <div
                                     className={cn(
-                                      "flex items-start gap-4",
-                                      isVerificationStep
-                                        ? "cursor-default"
-                                        : isItemLocked
-                                          ? "cursor-not-allowed"
-                                          : "cursor-pointer",
+                                      "px-6 py-5 transition-colors",
+                                      isItemLocked
+                                        ? "bg-slate-100/70"
+                                        : "hover:bg-blue-50/40",
                                     )}
                                   >
-                                    <span className="relative mt-0.5">
-                                      {isVerificationStep ? (
-                                        <span className="flex h-5 w-5 items-center justify-center rounded-sm border border-sky-200 bg-sky-50 text-sky-700 shadow-sm">
-                                          <ShieldCheck className="h-3 w-3" />
-                                        </span>
-                                      ) : (
-                                        <>
-                                          <input
-                                            type="checkbox"
-                                            checked={checked}
-                                            disabled={isItemLocked || checked}
-                                            onChange={() =>
-                                              requestManualCompletion(
-                                                itemKey,
-                                                item.label,
-                                              )
-                                            }
-                                            className="peer sr-only"
-                                          />
-                                          <span
-                                            className={cn(
-                                              "flex h-5 w-5 items-center justify-center rounded-sm border bg-white text-white shadow-sm transition",
-                                              isItemLocked
-                                                ? "border-slate-300 bg-slate-100 text-slate-300"
-                                                : getImportanceCheckboxClassName(
-                                                    item.importance,
-                                                  ),
-                                            )}
-                                          >
-                                            <CheckCheck className="h-3 w-3 opacity-0 transition-opacity peer-checked:opacity-100" />
-                                          </span>
-                                        </>
-                                      )}
-                                    </span>
-
-                                    <div
+                                    <ItemWrapper
                                       className={cn(
-                                        "min-w-0 flex-1 space-y-2",
-                                        isItemLocked && "opacity-60",
+                                        "flex items-start gap-4",
+                                        isVerificationStep
+                                          ? "cursor-default"
+                                          : isItemLocked
+                                            ? "cursor-not-allowed"
+                                            : "cursor-pointer",
                                       )}
                                     >
-                                      <div className="flex flex-wrap items-center gap-2">
-                                        <span className="text-sm font-semibold tabular-nums text-slate-400">
-                                          {itemIndex + 1}.
-                                        </span>
-                                        <p
-                                          className={`text-sm leading-6 ${
-                                            checked
-                                              ? "text-slate-400 line-through"
-                                              : "font-medium text-slate-900"
-                                          }`}
-                                        >
-                                          {item.label}
-                                        </p>
-                                        <span
-                                          className={cn(
-                                            "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]",
-                                            item.importance === "high"
-                                              ? "bg-red-100 text-red-800"
-                                              : item.importance === "medium"
-                                                ? "bg-yellow-100 text-yellow-800"
-                                                : "bg-blue-100 text-blue-800",
-                                          )}
-                                        >
-                                          {getImportanceLabel(item.importance)}
-                                        </span>
-                                        {isVerificationStep && (
-                                          <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-sky-700">
-                                            Verification
+                                      <span className="relative mt-0.5">
+                                        {isVerificationStep ? (
+                                          <span className="flex h-5 w-5 items-center justify-center rounded-sm border border-sky-200 bg-sky-50 text-sky-700 shadow-sm">
+                                            <ShieldCheck className="h-3 w-3" />
                                           </span>
-                                        )}
-                                        {isItemLocked && (
-                                          <span className="rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-600">
-                                            Waiting
-                                          </span>
-                                        )}
-                                      </div>
-
-                                      {isItemLocked && (
-                                        <p className="text-xs leading-5 text-slate-500">
-                                          Unlocks after:{" "}
-                                          <span className="font-medium text-slate-700">
-                                            {blockingRequiredItem.label}
-                                          </span>
-                                        </p>
-                                      )}
-
-                                      {isVerificationStep && (
-                                        <p className="text-xs leading-5 text-slate-500">
-                                          This milestone is verified separately
-                                          and cannot be completed by ticking the
-                                          checklist yourself.
-                                        </p>
-                                      )}
-
-                                      {item.href && (
-                                        <div
-                                          className={cn(
-                                            "flex flex-wrap items-center gap-3",
-                                            item.notes && "mb-8",
-                                          )}
-                                        >
-                                          {isItemLocked ? (
-                                            <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
-                                              {item.hrefLabel ??
-                                                "Open resource"}
-                                              <ExternalLink className="h-3.5 w-3.5" />
-                                            </span>
-                                          ) : (
-                                            <a
-                                              href={item.href}
-                                              target="_blank"
-                                              rel="noreferrer"
-                                              className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 transition hover:bg-blue-100"
-                                            >
-                                              {item.hrefLabel ??
-                                                "Open resource"}
-                                              <ExternalLink className="h-3.5 w-3.5" />
-                                            </a>
-                                          )}
-                                        </div>
-                                      )}
-
-                                      {item.notes && (
-                                        <div className="border-l-2 border-slate-300 pl-3 text-sm leading-6 text-slate-600">
-                                          <span className="font-medium text-slate-800">
-                                            Note:
-                                          </span>
-                                          {Array.isArray(item.notes) ? (
-                                            <ul className="mt-1 list-disc space-y-1 pl-5">
-                                              {item.notes.map((notePoint) => (
-                                                <li
-                                                  key={
-                                                    typeof notePoint ===
-                                                    "string"
-                                                      ? notePoint
-                                                      : `${notePoint.hrefLabel}-${notePoint.href}`
-                                                  }
-                                                >
-                                                  {isRichNote(notePoint)
-                                                    ? renderRichNote(notePoint)
-                                                    : notePoint}
-                                                </li>
-                                              ))}
-                                            </ul>
-                                          ) : isRichNote(item.notes) ? (
-                                            renderRichNote(item.notes)
-                                          ) : (
-                                            <span> {item.notes}</span>
-                                          )}
-                                        </div>
-                                      )}
-
-                                      {isFirstIssueClaimItem(item) &&
-                                        !isItemLocked && (
-                                          <JourneyVerificationCard
-                                            accentBorderClassName="border-amber-100"
-                                            accentButtonClassName="bg-amber-700 text-white hover:bg-amber-800"
-                                            accentHeaderClassName="text-amber-700"
-                                            accentInputClassName="border-amber-200"
-                                            buttonLabel="Verify Claimed Issue"
-                                            description="Paste the link to the issue or claim thread you used for your first assignment. This will later confirm that the issue was actually claimed by you."
-                                            helperText="Use the full issue URL or the exact thread where you claimed the issue."
-                                            inputId="first-issue-link"
-                                            inputLabel="First Issue Claim Link"
-                                            inputPlaceholder="https://github.com/oppia/oppia/issues/12345"
-                                            inputValue={firstIssueLink}
-                                            onButtonClick={openFirstIssueDialog}
-                                            onInputChange={setFirstIssueLink}
-                                            sectionLabel="First Issue Claim Verification"
-                                            title="Verify Your First Claimed Issue"
-                                          />
-                                        )}
-
-                                      {isFirstPrMergeItem(item) &&
-                                        !isItemLocked && (
-                                          <JourneyVerificationCard
-                                            accentBorderClassName="border-sky-100"
-                                            accentButtonClassName="bg-sky-700 text-white hover:bg-sky-800"
-                                            accentHeaderClassName="text-sky-700"
-                                            accentInputClassName="border-sky-200"
-                                            buttonLabel="Verify Merge PR"
-                                            description="Paste the link to your first pull request. This will later confirm whether the PR was actually merged, rather than relying on a manual checkbox."
-                                            helperText="Use the full GitHub pull request URL for your first merged PR."
-                                            inputId="first-pr-link"
-                                            inputLabel="First PR Link"
-                                            inputPlaceholder="https://github.com/oppia/oppia/pull/12345"
-                                            inputValue={firstPrLink}
-                                            onButtonClick={openFirstPrDialog}
-                                            onInputChange={setFirstPrLink}
-                                            sectionLabel="First PR Verification"
-                                            title="Verify Your First Merged PR"
-                                          />
-                                        )}
-
-                                      {isSecondPrMergeItem(item) &&
-                                        !isItemLocked && (
-                                          <JourneyVerificationCard
-                                            accentBorderClassName="border-emerald-100"
-                                            accentButtonClassName="bg-emerald-700 text-white hover:bg-emerald-800"
-                                            accentHeaderClassName="text-emerald-700"
-                                            accentInputClassName="border-emerald-200"
-                                            buttonLabel="Verify Second PR"
-                                            description="Paste the link to your second merged pull request. This will later confirm the second milestone from real GitHub activity rather than using a manual checkbox."
-                                            helperText="Use the full GitHub pull request URL for your second merged PR."
-                                            inputId="second-pr-link"
-                                            inputLabel="Second PR Link"
-                                            inputPlaceholder="https://github.com/oppia/oppia/pull/23456"
-                                            inputValue={secondPrLink}
-                                            onButtonClick={openSecondPrDialog}
-                                            onInputChange={setSecondPrLink}
-                                            sectionLabel="Second PR Verification"
-                                            title="Verify Your Second Merged PR"
-                                          />
-                                        )}
-
-                                      {task.id ===
-                                        "phase-3-making-your-first-contribution" &&
-                                        item.label ===
-                                          "Shortlist Your First Issue" &&
-                                        (() => {
-                                          const previousRequiredActivityItem =
-                                            task.items
-                                              .slice(0, itemIndex)
-                                              .filter(
-                                                (previousItem) =>
-                                                  isRequiredChecklistItem(
-                                                    previousItem,
-                                                  ) &&
-                                                  !isVerificationItem(
-                                                    previousItem,
-                                                  ),
-                                              )
-                                              .at(-1);
-                                          const blockingRequiredActivityItem =
-                                            previousRequiredActivityItem &&
-                                            !completedItems.includes(
-                                              getChecklistItemKey(
-                                                task.id,
-                                                previousRequiredActivityItem,
-                                              ),
-                                            )
-                                              ? previousRequiredActivityItem
-                                              : undefined;
-                                          const isActivityPanelLocked =
-                                            blockingRequiredActivityItem !==
-                                            undefined;
-
-                                          return (
-                                            <MyContributionJourneyIssueFinder
-                                              blockingLabel={
-                                                blockingRequiredActivityItem?.label
+                                        ) : (
+                                          <>
+                                            <input
+                                              type="checkbox"
+                                              checked={checked}
+                                              disabled={
+                                                isItemLocked ||
+                                                checked ||
+                                                isSavingCompletion
                                               }
-                                              isLocked={isActivityPanelLocked}
-                                              platform={platform}
-                                              selectedDomain={selectedGfiDomain}
-                                              setSelectedDomain={
-                                                setSelectedGfiDomain
+                                              onChange={() =>
+                                                requestManualCompletion(
+                                                  item.id,
+                                                  item.label,
+                                                )
                                               }
+                                              className="peer sr-only"
                                             />
-                                          );
-                                        })()}
-                                    </div>
-                                  </ItemWrapper>
+                                            <span
+                                              className={cn(
+                                                "flex h-5 w-5 items-center justify-center rounded-sm border bg-white text-white shadow-sm transition",
+                                                isItemLocked
+                                                  ? "border-slate-300 bg-slate-100 text-slate-300"
+                                                  : getImportanceCheckboxClassName(
+                                                      item.importance,
+                                                    ),
+                                              )}
+                                            >
+                                              <CheckCheck className="h-3 w-3 opacity-0 transition-opacity peer-checked:opacity-100" />
+                                            </span>
+                                          </>
+                                        )}
+                                      </span>
+
+                                      <div
+                                        className={cn(
+                                          "min-w-0 flex-1 space-y-2",
+                                          isItemLocked && "opacity-60",
+                                        )}
+                                      >
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <span className="text-sm font-semibold tabular-nums text-slate-400">
+                                            {itemIndex + 1}.
+                                          </span>
+                                          <p
+                                            className={`text-sm leading-6 ${
+                                              checked
+                                                ? "text-slate-400 line-through"
+                                                : "font-medium text-slate-900"
+                                            }`}
+                                          >
+                                            {item.label}
+                                          </p>
+                                          <span
+                                            className={cn(
+                                              "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]",
+                                              item.importance === "high"
+                                                ? "bg-red-100 text-red-800"
+                                                : item.importance === "medium"
+                                                  ? "bg-yellow-100 text-yellow-800"
+                                                  : "bg-blue-100 text-blue-800",
+                                            )}
+                                          >
+                                            {getImportanceLabel(
+                                              item.importance,
+                                            )}
+                                          </span>
+                                          {isVerificationStep && (
+                                            <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-sky-700">
+                                              Verification
+                                            </span>
+                                          )}
+                                          {isItemLocked && (
+                                            <span className="rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-600">
+                                              Waiting
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        {isItemLocked && (
+                                          <p className="text-xs leading-5 text-slate-500">
+                                            Unlocks after:{" "}
+                                            <span className="font-medium text-slate-700">
+                                              {blockingRequiredItem?.label ??
+                                                "an earlier required step"}
+                                            </span>
+                                          </p>
+                                        )}
+
+                                        {isVerificationStep && (
+                                          <p className="text-xs leading-5 text-slate-500">
+                                            This milestone is verified
+                                            separately and cannot be completed
+                                            by ticking the checklist yourself.
+                                          </p>
+                                        )}
+
+                                        {item.href && (
+                                          <div
+                                            className={cn(
+                                              "flex flex-wrap items-center gap-3",
+                                              item.notes && "mb-8",
+                                            )}
+                                          >
+                                            {isItemLocked ? (
+                                              <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
+                                                {item.hrefLabel ??
+                                                  "Open resource"}
+                                                <ExternalLink className="h-3.5 w-3.5" />
+                                              </span>
+                                            ) : (
+                                              <a
+                                                href={item.href}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 transition hover:bg-blue-100"
+                                              >
+                                                {item.hrefLabel ??
+                                                  "Open resource"}
+                                                <ExternalLink className="h-3.5 w-3.5" />
+                                              </a>
+                                            )}
+                                          </div>
+                                        )}
+
+                                        {item.notes && (
+                                          <div className="border-l-2 border-slate-300 pl-3 text-sm leading-6 text-slate-600">
+                                            <span className="font-medium text-slate-800">
+                                              Note:
+                                            </span>
+                                            {Array.isArray(item.notes) ? (
+                                              <ul className="mt-1 list-disc space-y-1 pl-5">
+                                                {item.notes.map((notePoint) => (
+                                                  <li
+                                                    key={
+                                                      typeof notePoint ===
+                                                      "string"
+                                                        ? notePoint
+                                                        : `${notePoint.hrefLabel}-${notePoint.href}`
+                                                    }
+                                                  >
+                                                    {isRichNote(notePoint)
+                                                      ? renderRichNote(
+                                                          notePoint,
+                                                        )
+                                                      : notePoint}
+                                                  </li>
+                                                ))}
+                                              </ul>
+                                            ) : isRichNote(item.notes) ? (
+                                              renderRichNote(item.notes)
+                                            ) : (
+                                              <span> {item.notes}</span>
+                                            )}
+                                          </div>
+                                        )}
+
+                                        {isFirstIssueClaimItem(item) &&
+                                          !isItemLocked &&
+                                          !item.completed && (
+                                            <JourneyVerificationCard
+                                              accentBorderClassName="border-amber-100"
+                                              accentButtonClassName="bg-amber-700 text-white hover:bg-amber-800"
+                                              accentHeaderClassName="text-amber-700"
+                                              accentInputClassName="border-amber-200"
+                                              buttonLabel="Verify Claimed Issue"
+                                              description="Paste the link to the issue or claim thread you used for your first assignment. This will later confirm that the issue was actually claimed by you."
+                                              helperText="Use the full issue URL or the exact thread where you claimed the issue."
+                                              inputId="first-issue-link"
+                                              inputLabel="First Issue Claim Link"
+                                              inputPlaceholder="https://github.com/oppia/oppia/issues/12345"
+                                              inputValue={firstIssueLink}
+                                              isSubmitting={
+                                                activeVerificationDialog ===
+                                                  "first_issue_claim" &&
+                                                verificationStatus === "loading"
+                                              }
+                                              onButtonClick={() =>
+                                                runVerification(
+                                                  "first_issue_claim",
+                                                  sanitizedFirstIssueLink,
+                                                )
+                                              }
+                                              onInputChange={setFirstIssueLink}
+                                              sectionLabel="First Issue Claim Verification"
+                                              title="Verify Your First Claimed Issue"
+                                            />
+                                          )}
+
+                                        {isFirstPrMergeItem(item) &&
+                                          !isItemLocked &&
+                                          !item.completed && (
+                                            <JourneyVerificationCard
+                                              accentBorderClassName="border-sky-100"
+                                              accentButtonClassName="bg-sky-700 text-white hover:bg-sky-800"
+                                              accentHeaderClassName="text-sky-700"
+                                              accentInputClassName="border-sky-200"
+                                              buttonLabel="Verify Merge PR"
+                                              description="Paste the link to your first pull request. This will later confirm whether the PR was actually merged, rather than relying on a manual checkbox."
+                                              helperText="Use the full GitHub pull request URL for your first merged PR."
+                                              inputId="first-pr-link"
+                                              inputLabel="First PR Link"
+                                              inputPlaceholder="https://github.com/oppia/oppia/pull/12345"
+                                              inputValue={firstPrLink}
+                                              isSubmitting={
+                                                activeVerificationDialog ===
+                                                  "first_pr_merge" &&
+                                                verificationStatus === "loading"
+                                              }
+                                              onButtonClick={() =>
+                                                runVerification(
+                                                  "first_pr_merge",
+                                                  sanitizedFirstPrLink,
+                                                )
+                                              }
+                                              onInputChange={setFirstPrLink}
+                                              sectionLabel="First PR Verification"
+                                              title="Verify Your First Merged PR"
+                                            />
+                                          )}
+
+                                        {isSecondPrMergeItem(item) &&
+                                          !isItemLocked &&
+                                          !item.completed && (
+                                            <JourneyVerificationCard
+                                              accentBorderClassName="border-emerald-100"
+                                              accentButtonClassName="bg-emerald-700 text-white hover:bg-emerald-800"
+                                              accentHeaderClassName="text-emerald-700"
+                                              accentInputClassName="border-emerald-200"
+                                              buttonLabel="Verify Second PR"
+                                              description="Paste the link to your second merged pull request. This will later confirm the second milestone from real GitHub activity rather than using a manual checkbox."
+                                              helperText="Use the full GitHub pull request URL for your second merged PR."
+                                              inputId="second-pr-link"
+                                              inputLabel="Second PR Link"
+                                              inputPlaceholder="https://github.com/oppia/oppia/pull/23456"
+                                              inputValue={secondPrLink}
+                                              isSubmitting={
+                                                activeVerificationDialog ===
+                                                  "second_pr_merge" &&
+                                                verificationStatus === "loading"
+                                              }
+                                              onButtonClick={() =>
+                                                runVerification(
+                                                  "second_pr_merge",
+                                                  sanitizedSecondPrLink,
+                                                )
+                                              }
+                                              onInputChange={setSecondPrLink}
+                                              sectionLabel="Second PR Verification"
+                                              title="Verify Your Second Merged PR"
+                                            />
+                                          )}
+
+                                        {task.id ===
+                                          "phase-3-making-your-first-contribution" &&
+                                          item.id === "shortlist_first_issue" &&
+                                          (() => {
+                                            const previousRequiredOrVerifiedItem =
+                                              task.items
+                                                .slice(0, itemIndex)
+                                                .filter(
+                                                  (previousItem) =>
+                                                    isRequiredChecklistItem(
+                                                      previousItem,
+                                                    ) ||
+                                                    isVerificationItem(
+                                                      previousItem,
+                                                    ),
+                                                )
+                                                .at(-1);
+                                            const blockingActivityItem =
+                                              previousRequiredOrVerifiedItem &&
+                                              !previousRequiredOrVerifiedItem.completed
+                                                ? previousRequiredOrVerifiedItem
+                                                : undefined;
+                                            const isActivityPanelLocked =
+                                              blockingActivityItem !==
+                                              undefined;
+
+                                            return (
+                                              <MyContributionJourneyIssueFinder
+                                                blockingLabel={
+                                                  blockingActivityItem?.label
+                                                }
+                                                isLocked={isActivityPanelLocked}
+                                                platform={platform}
+                                                selectedDomain={
+                                                  selectedGfiDomain
+                                                }
+                                                setSelectedDomain={
+                                                  setSelectedGfiDomain
+                                                }
+                                              />
+                                            );
+                                          })()}
+                                      </div>
+                                    </ItemWrapper>
+                                  </div>
                                 </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                },
-              )}
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  },
+                )}
             </div>
 
             {isJourneyCompleted && (
@@ -780,18 +994,23 @@ export default function MyContributionJourneyTab({
         activeVerificationDialog={activeVerificationDialog}
         firstIssueLink={sanitizedFirstIssueLink}
         firstPrLink={sanitizedFirstPrLink}
+        message={verificationMessage}
         onOpenChange={(open) => {
           if (!open) {
             setActiveVerificationDialog(null);
+            setVerificationMessage(null);
+            setVerificationStatus(null);
           }
         }}
         secondPrLink={sanitizedSecondPrLink}
+        status={verificationStatus}
       />
       <JourneyManualCompletionDialog
+        isSubmitting={isSavingCompletion}
         itemLabel={pendingCompletionItem?.label ?? null}
         onConfirm={confirmManualCompletion}
         onOpenChange={(open) => {
-          if (!open) {
+          if (!open && !isSavingCompletion) {
             setPendingCompletionItem(null);
           }
         }}

@@ -16,6 +16,7 @@ export default function JourneyVerificationCard({
   inputLabel,
   inputPlaceholder,
   inputValue,
+  isSubmitting,
   onButtonClick,
   onInputChange,
   sectionLabel,
@@ -32,6 +33,7 @@ export default function JourneyVerificationCard({
   inputLabel: string;
   inputPlaceholder: string;
   inputValue: string;
+  isSubmitting: boolean;
   onButtonClick: () => void;
   onInputChange: (value: string) => void;
   sectionLabel: string;
@@ -82,11 +84,11 @@ export default function JourneyVerificationCard({
           <Button
             type="button"
             className={accentButtonClassName}
-            disabled={!inputValue.trim()}
+            disabled={!inputValue.trim() || isSubmitting}
             onClick={onButtonClick}
           >
             <ShieldCheck className="mr-2 h-4 w-4" />
-            {buttonLabel}
+            {isSubmitting ? "Verifying..." : buttonLabel}
           </Button>
         </div>
       </div>

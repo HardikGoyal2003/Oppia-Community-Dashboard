@@ -15,8 +15,10 @@ export default function JourneyVerificationDialog({
   activeVerificationDialog,
   firstIssueLink,
   firstPrLink,
+  message,
   onOpenChange,
   secondPrLink,
+  status,
 }: {
   activeVerificationDialog:
     | "first_issue_claim"
@@ -25,9 +27,51 @@ export default function JourneyVerificationDialog({
     | null;
   firstIssueLink: string | null;
   firstPrLink: string | null;
+  message: string | null;
   onOpenChange: (open: boolean) => void;
   secondPrLink: string | null;
+  status: "error" | "loading" | "not_verified" | "verified" | null;
 }) {
+  const title =
+    activeVerificationDialog === "first_issue_claim"
+      ? status === "loading"
+        ? "Checking Your First Issue Claim"
+        : status === "verified"
+          ? "First Issue Claim Verified"
+          : status === "not_verified"
+            ? "Issue Claim Not Verified Yet"
+            : status === "error"
+              ? "Issue Claim Verification Failed"
+              : "Issue Claim Verification"
+      : activeVerificationDialog === "first_pr_merge"
+        ? status === "loading"
+          ? "Checking Your First Merged PR"
+          : status === "verified"
+            ? "First PR Merge Verified"
+            : status === "not_verified"
+              ? "First PR Not Verified Yet"
+              : status === "error"
+                ? "First PR Verification Failed"
+                : "First PR Verification"
+        : activeVerificationDialog === "second_pr_merge"
+          ? status === "loading"
+            ? "Checking Your Second Merged PR"
+            : status === "verified"
+              ? "Second PR Merge Verified"
+              : status === "not_verified"
+                ? "Second PR Not Verified Yet"
+                : status === "error"
+                  ? "Second PR Verification Failed"
+                  : "Second PR Verification"
+          : "Verification";
+
+  const description =
+    activeVerificationDialog === "first_issue_claim"
+      ? "This verifies whether your first issue was actually claimed by you."
+      : activeVerificationDialog === "first_pr_merge"
+        ? "This verifies whether your first pull request was actually merged."
+        : "This verifies whether your second pull request was actually merged.";
+
   return (
     <Dialog
       open={activeVerificationDialog !== null}
@@ -35,30 +79,25 @@ export default function JourneyVerificationDialog({
     >
       <DialogContent className="border-slate-200 bg-white sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-slate-950">
-            {activeVerificationDialog === "first_issue_claim" &&
-              "Issue Claim Verification UI Ready"}
-            {activeVerificationDialog === "first_pr_merge" &&
-              "Merge Verification UI Ready"}
-            {activeVerificationDialog === "second_pr_merge" &&
-              "Second PR Verification UI Ready"}
-          </DialogTitle>
+          <DialogTitle className="text-slate-950">{title}</DialogTitle>
           <DialogDescription className="leading-6 text-slate-600">
-            {activeVerificationDialog === "first_issue_claim" &&
-              "Verify whether your first issue was actually claimed by you."}
-            {activeVerificationDialog === "first_pr_merge" &&
-              "Verify whether your first PR has been merged."}
-            {activeVerificationDialog === "second_pr_merge" &&
-              "Verify whether your second PR has been merged."}
+            {description}
           </DialogDescription>
         </DialogHeader>
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700">
-          {activeVerificationDialog === "first_issue_claim" &&
-            "This is only the UI for now. The next step will be wiring this button to an issue-claim verification flow using the link you provide."}
-          {activeVerificationDialog === "first_pr_merge" &&
-            "This is only the UI for now. The next step will be wiring this button to a PR-merge verification flow using the link you provide."}
-          {activeVerificationDialog === "second_pr_merge" &&
-            "This is only the UI for now. The next step will be wiring this button to a second-PR merge verification flow using the link you provide."}
+        <div
+          className={`rounded-2xl border px-4 py-3 text-sm leading-6 ${
+            status === "verified"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+              : status === "not_verified"
+                ? "border-amber-200 bg-amber-50 text-amber-950"
+                : status === "error"
+                  ? "border-red-200 bg-red-50 text-red-900"
+                  : "border-slate-200 bg-slate-50 text-slate-700"
+          }`}
+        >
+          {status === "loading"
+            ? "Verification is running against GitHub now."
+            : (message ?? "No verification message available.")}
         </div>
         <DialogFooter showCloseButton>
           {activeVerificationDialog === "first_issue_claim" &&
