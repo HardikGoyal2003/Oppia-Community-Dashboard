@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { getKnownRoleDisplayLabel } from "@/lib/auth/role-display";
 import { ASSIGNABLE_USER_ROLES } from "@/lib/auth/roles";
@@ -26,6 +27,13 @@ type PendingUpdate = {
   team: string | null;
 };
 
+type UsersResponse = {
+  users: User[];
+  nextCursor: string | null;
+};
+
+const USERS_PAGE_SIZE = 10;
+
 function getDisplayRole(role: UserRole): UserRole {
   return role === "SUPER_ADMIN" ? "ADMIN" : role;
 }
@@ -47,21 +55,35 @@ export function UserRoleManagerTab() {
   const [platform, setPlatform] = useState<ContributionPlatform>("WEB");
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageCursors, setPageCursors] = useState<Array<string | null>>([null]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [pendingUpdate, setPendingUpdate] = useState<PendingUpdate | null>(
     null,
   );
+  const currentCursor = pageCursors[pageIndex] ?? null;
 
   useEffect(() => {
     async function loadUsers() {
       setLoading(true);
 
       try {
-        const res = await fetch(`/api/users?platform=${platform}`);
+        const searchParams = new URLSearchParams({
+          platform,
+          limit: String(USERS_PAGE_SIZE),
+        });
+
+        if (currentCursor) {
+          searchParams.set("cursor", currentCursor);
+        }
+
+        const res = await fetch(`/api/users?${searchParams.toString()}`);
         if (!res.ok) {
           throw new Error("Unauthorized");
         }
-        const data = (await res.json()) as User[];
-        setUsers(data);
+        const data = (await res.json()) as UsersResponse;
+        setUsers(data.users);
+        setNextCursor(data.nextCursor);
       } catch (err) {
         console.error(err);
       } finally {
@@ -70,7 +92,7 @@ export function UserRoleManagerTab() {
     }
 
     loadUsers();
-  }, [platform]);
+  }, [platform, currentCursor]);
 
   const openUpdateModal = (user: User, role: UserRole, team: string | null) => {
     if (user.role === role && user.team === team) {
@@ -88,6 +110,32 @@ export function UserRoleManagerTab() {
 
   const closeUpdateModal = () => {
     setPendingUpdate(null);
+  };
+
+  const handlePlatformChange = (nextPlatform: ContributionPlatform) => {
+    setPlatform(nextPlatform);
+    setPageIndex(0);
+    setPageCursors([null]);
+    setNextCursor(null);
+  };
+
+  const goToPreviousPage = () => {
+    setPageIndex((prev) => Math.max(0, prev - 1));
+  };
+
+  const goToNextPage = () => {
+    if (!nextCursor) {
+      return;
+    }
+
+    setPageCursors((prev) => {
+      if (prev[pageIndex + 1] === nextCursor) {
+        return prev;
+      }
+
+      return [...prev.slice(0, pageIndex + 1), nextCursor];
+    });
+    setPageIndex((prev) => prev + 1);
   };
 
   const submitUpdate = async (reason: string) => {
@@ -153,7 +201,7 @@ export function UserRoleManagerTab() {
                 ? "border-blue-600 bg-blue-600 text-white"
                 : "border-gray-300 bg-white text-gray-700"
             }`}
-            onClick={() => setPlatform(option)}
+            onClick={() => handlePlatformChange(option)}
           >
             {formatDisplayValue(option)}
           </button>
@@ -176,7 +224,9 @@ export function UserRoleManagerTab() {
           <tbody>
             {users.map((user, index) => (
               <tr key={user.id} className="border-b">
-                <td className="p-3">{index + 1}</td>
+                <td className="p-3">
+                  {pageIndex * USERS_PAGE_SIZE + index + 1}
+                </td>
                 <td className="p-3">{user.fullName}</td>
                 <td className="p-3">{user.email}</td>
                 <td className="p-3">{user.githubUsername}</td>
@@ -225,6 +275,30 @@ export function UserRoleManagerTab() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <p className="text-sm text-gray-600">
+          Showing up to {USERS_PAGE_SIZE} users per page
+        </p>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={goToPreviousPage}
+            disabled={loading || pageIndex === 0}
+          >
+            Previous
+          </Button>
+          <span className="text-sm text-gray-600">Page {pageIndex + 1}</span>
+          <Button
+            variant="outline"
+            onClick={goToNextPage}
+            disabled={loading || !nextCursor}
+          >
+            Next
+          </Button>
+        </div>
       </div>
 
       <UserUpdateReasonModal

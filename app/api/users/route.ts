@@ -45,9 +45,20 @@ export async function GET(req: Request) {
     platformParam === "WEB" || platformParam === "ANDROID"
       ? (platformParam as ContributionPlatform)
       : undefined;
+  const cursorParam = searchParams.get("cursor");
+  const limitParam = Number(searchParams.get("limit"));
+  const limit = Number.isFinite(limitParam) ? limitParam : undefined;
 
-  const users = await getUsersByPlatform(platform);
-  return NextResponse.json(users);
+  try {
+    const usersPage = await getUsersByPlatform(platform, cursorParam, limit);
+    return NextResponse.json(usersPage);
+  } catch (error) {
+    if (error instanceof DbValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    throw error;
+  }
 }
 
 export async function PATCH(req: Request) {

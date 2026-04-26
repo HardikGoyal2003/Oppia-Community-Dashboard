@@ -4,7 +4,7 @@ import {
   UserRole,
   UserModel,
 } from "@/lib/auth/auth.types";
-import { Timestamp } from "firebase-admin/firestore";
+import { FieldPath, Timestamp } from "firebase-admin/firestore";
 import { DB_PATHS } from "../db-paths";
 import { DbValidationError } from "../db.errors";
 import { getRequiredDocumentRef } from "../utils/document.utils";
@@ -21,6 +21,53 @@ export const usersCollection = db.collection(
 export type UserRecord = UserModel & {
   id: string;
 };
+
+export type PaginatedUserRecords = {
+  users: UserRecord[];
+  nextCursor: string | null;
+};
+
+const DEFAULT_USER_PAGE_SIZE = 10;
+
+/**
+ * Encodes the final document of a page into a cursor token.
+ *
+ * @param createdAt The createdAt timestamp of the final document in the page.
+ * @param id The Firestore document id of the final document in the page.
+ * @returns The encoded cursor token.
+ */
+function encodeUserPageCursor(createdAt: Timestamp, id: string): string {
+  return `${createdAt.toMillis()}:${id}`;
+}
+
+/**
+ * Decodes a cursor token into Firestore paging values.
+ *
+ * @param cursor The encoded cursor token from a previous page response.
+ * @returns The decoded timestamp and document id for `startAfter`.
+ */
+function decodeUserPageCursor(cursor: string): {
+  createdAt: Timestamp;
+  id: string;
+} {
+  const separatorIndex = cursor.indexOf(":");
+
+  if (separatorIndex <= 0 || separatorIndex === cursor.length - 1) {
+    throw new DbValidationError("cursor", "Cursor is invalid.");
+  }
+
+  const createdAtMillis = Number(cursor.slice(0, separatorIndex));
+  const id = cursor.slice(separatorIndex + 1);
+
+  if (!Number.isFinite(createdAtMillis) || !id.trim()) {
+    throw new DbValidationError("cursor", "Cursor is invalid.");
+  }
+
+  return {
+    createdAt: Timestamp.fromMillis(createdAtMillis),
+    id,
+  };
+}
 
 /**
  * Validates the GitHub username requirement for non-contributor roles.
@@ -127,32 +174,72 @@ export async function getUserById(uid: string): Promise<UserModel | null> {
  * @returns The normalized user models with document ids attached.
  */
 export async function getAllUsers(): Promise<UserRecord[]> {
-  return getUsersByPlatform();
+  const users: UserRecord[] = [];
+  let cursor: string | null = null;
+
+  do {
+    const page = await getUsersByPlatform(
+      undefined,
+      cursor,
+      DEFAULT_USER_PAGE_SIZE,
+    );
+    users.push(...page.users);
+    cursor = page.nextCursor;
+  } while (cursor);
+
+  return users;
 }
 
 /**
  * Retrieves users, optionally scoped to a contribution platform.
  *
  * @param platform The optional contribution platform filter.
+ * @param cursor The optional cursor token for continuing from a previous page.
+ * @param limit The requested page size, capped to the default maximum.
  * @returns The normalized user models with document ids attached.
  */
 export async function getUsersByPlatform(
   platform?: ContributionPlatform,
-): Promise<UserRecord[]> {
+  cursor?: string | null,
+  limit = DEFAULT_USER_PAGE_SIZE,
+): Promise<PaginatedUserRecords> {
   let query: FirebaseFirestore.Query = usersCollection;
 
   if (platform) {
     query = query.where("platform", "==", platform);
   }
 
-  const snap = await query.orderBy("createdAt", "desc").get();
+  query = query
+    .orderBy("createdAt", "desc")
+    .orderBy(FieldPath.documentId(), "desc");
 
-  return snap.docs.map((doc) => {
-    return {
-      id: doc.id,
-      ...normalizeUserDocument(doc.data()),
-    };
-  });
+  if (cursor) {
+    const decodedCursor = decodeUserPageCursor(cursor);
+    query = query.startAfter(decodedCursor.createdAt, decodedCursor.id);
+  }
+
+  const safeLimit = Math.max(1, Math.min(limit, DEFAULT_USER_PAGE_SIZE));
+  const snap = await query.limit(safeLimit + 1).get();
+
+  const pageDocs = snap.docs.slice(0, safeLimit);
+  const hasNextPage = snap.docs.length > safeLimit;
+  const lastVisibleDoc = pageDocs.at(-1);
+
+  return {
+    users: pageDocs.map((doc) => {
+      return {
+        id: doc.id,
+        ...normalizeUserDocument(doc.data()),
+      };
+    }),
+    nextCursor:
+      hasNextPage && lastVisibleDoc
+        ? encodeUserPageCursor(
+            lastVisibleDoc.data().createdAt,
+            lastVisibleDoc.id,
+          )
+        : null,
+  };
 }
 
 /**
