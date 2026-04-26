@@ -1,7 +1,7 @@
 import { LibInvalidStateError } from "@/lib/lib.errors";
 
 const API_URL = "https://api.github.com";
-const API_VERSION = "2022-11-28";
+const API_VERSION = "2026-03-10";
 
 /**
  * Represents a GitHub REST failure with actionable upstream details.
