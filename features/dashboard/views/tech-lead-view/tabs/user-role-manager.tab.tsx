@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { getKnownRoleDisplayLabel } from "@/lib/auth/role-display";
-import { ASSIGNABLE_USER_ROLES } from "@/lib/auth/roles";
+import { ASSIGNABLE_USER_ROLES, USER_ROLES } from "@/lib/auth/roles";
 import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config";
 import { UserUpdateReasonModal } from "../components/user-update-reason-modal";
 import { formatDisplayValue } from "@/lib/utils/display.utils";
@@ -24,6 +26,24 @@ type PendingUpdate = {
   githubUsername: string;
   role: UserRole;
   team: string | null;
+};
+
+type UsersResponse = {
+  users: User[];
+  nextCursor: string | null;
+};
+
+type UserFilters = {
+  name: string;
+  role: string;
+  team: string;
+};
+
+const USERS_PAGE_SIZE = 10;
+const DEFAULT_FILTERS: UserFilters = {
+  name: "",
+  role: "",
+  team: "",
 };
 
 function getDisplayRole(role: UserRole): UserRole {
@@ -47,21 +67,50 @@ export function UserRoleManagerTab() {
   const [platform, setPlatform] = useState<ContributionPlatform>("WEB");
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageCursors, setPageCursors] = useState<Array<string | null>>([null]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [filters, setFilters] = useState<UserFilters>(DEFAULT_FILTERS);
+  const [appliedFilters, setAppliedFilters] =
+    useState<UserFilters>(DEFAULT_FILTERS);
   const [pendingUpdate, setPendingUpdate] = useState<PendingUpdate | null>(
     null,
   );
+  const currentCursor = pageCursors[pageIndex] ?? null;
 
   useEffect(() => {
     async function loadUsers() {
       setLoading(true);
 
       try {
-        const res = await fetch(`/api/users?platform=${platform}`);
+        const searchParams = new URLSearchParams({
+          platform,
+          limit: String(USERS_PAGE_SIZE),
+        });
+
+        if (appliedFilters.name) {
+          searchParams.set("name", appliedFilters.name);
+        }
+
+        if (appliedFilters.role) {
+          searchParams.set("role", appliedFilters.role);
+        }
+
+        if (appliedFilters.team) {
+          searchParams.set("team", appliedFilters.team);
+        }
+
+        if (currentCursor) {
+          searchParams.set("cursor", currentCursor);
+        }
+
+        const res = await fetch(`/api/users?${searchParams.toString()}`);
         if (!res.ok) {
           throw new Error("Unauthorized");
         }
-        const data = (await res.json()) as User[];
-        setUsers(data);
+        const data = (await res.json()) as UsersResponse;
+        setUsers(data.users);
+        setNextCursor(data.nextCursor);
       } catch (err) {
         console.error(err);
       } finally {
@@ -70,7 +119,7 @@ export function UserRoleManagerTab() {
     }
 
     loadUsers();
-  }, [platform]);
+  }, [platform, currentCursor, appliedFilters]);
 
   const openUpdateModal = (user: User, role: UserRole, team: string | null) => {
     if (user.role === role && user.team === team) {
@@ -88,6 +137,62 @@ export function UserRoleManagerTab() {
 
   const closeUpdateModal = () => {
     setPendingUpdate(null);
+  };
+
+  const handlePlatformChange = (nextPlatform: ContributionPlatform) => {
+    setPlatform(nextPlatform);
+    setPageIndex(0);
+    setPageCursors([null]);
+    setNextCursor(null);
+    setFilters(DEFAULT_FILTERS);
+    setAppliedFilters(DEFAULT_FILTERS);
+  };
+
+  const updateFilter = (key: keyof UserFilters, value: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
+  const applyFilters = () => {
+    const nextFilters = {
+      name: filters.name.trim(),
+      role: filters.role,
+      team: filters.team,
+    };
+
+    setAppliedFilters(nextFilters);
+    setPageIndex(0);
+    setPageCursors([null]);
+    setNextCursor(null);
+  };
+
+  const resetFilters = () => {
+    setFilters(DEFAULT_FILTERS);
+    setAppliedFilters(DEFAULT_FILTERS);
+    setPageIndex(0);
+    setPageCursors([null]);
+    setNextCursor(null);
+  };
+
+  const goToPreviousPage = () => {
+    setPageIndex((prev) => Math.max(0, prev - 1));
+  };
+
+  const goToNextPage = () => {
+    if (!nextCursor) {
+      return;
+    }
+
+    setPageCursors((prev) => {
+      if (prev[pageIndex + 1] === nextCursor) {
+        return prev;
+      }
+
+      return [...prev.slice(0, pageIndex + 1), nextCursor];
+    });
+    setPageIndex((prev) => prev + 1);
   };
 
   const submitUpdate = async (reason: string) => {
@@ -153,11 +258,83 @@ export function UserRoleManagerTab() {
                 ? "border-blue-600 bg-blue-600 text-white"
                 : "border-gray-300 bg-white text-gray-700"
             }`}
-            onClick={() => setPlatform(option)}
+            onClick={() => handlePlatformChange(option)}
           >
             {formatDisplayValue(option)}
           </button>
         ))}
+      </div>
+
+      <div className="mb-4 rounded border bg-white p-4">
+        <div className="grid gap-3 md:grid-cols-3">
+          <div>
+            <label
+              htmlFor="user-name-filter"
+              className="mb-1 block text-sm font-medium text-gray-700"
+            >
+              Name
+            </label>
+            <Input
+              id="user-name-filter"
+              value={filters.name}
+              onChange={(e) => updateFilter("name", e.target.value)}
+              placeholder="Filter by name prefix"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="user-role-filter"
+              className="mb-1 block text-sm font-medium text-gray-700"
+            >
+              Role
+            </label>
+            <select
+              id="user-role-filter"
+              value={filters.role}
+              onChange={(e) => updateFilter("role", e.target.value)}
+              className="h-9 w-full rounded-md border px-3 py-1 text-sm"
+            >
+              <option value="">All roles</option>
+              {USER_ROLES.map((role) => (
+                <option key={role} value={role}>
+                  {getKnownRoleDisplayLabel(role)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label
+              htmlFor="user-team-filter"
+              className="mb-1 block text-sm font-medium text-gray-700"
+            >
+              Team
+            </label>
+            <select
+              id="user-team-filter"
+              value={filters.team}
+              onChange={(e) => updateFilter("team", e.target.value)}
+              className="h-9 w-full rounded-md border px-3 py-1 text-sm"
+            >
+              <option value="">All teams</option>
+              {getTeamsForPlatform(platform).map((team) => (
+                <option key={team} value={team}>
+                  {formatDisplayValue(team)}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="mt-3 flex gap-2">
+          <Button variant="outline" onClick={applyFilters} disabled={loading}>
+            Apply Filters
+          </Button>
+          <Button variant="ghost" onClick={resetFilters} disabled={loading}>
+            Reset
+          </Button>
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded border bg-white">
@@ -174,57 +351,91 @@ export function UserRoleManagerTab() {
           </thead>
 
           <tbody>
-            {users.map((user, index) => (
-              <tr key={user.id} className="border-b">
-                <td className="p-3">{index + 1}</td>
-                <td className="p-3">{user.fullName}</td>
-                <td className="p-3">{user.email}</td>
-                <td className="p-3">{user.githubUsername}</td>
-                <td className="p-3">
-                  <select
-                    value={user.team ?? ""}
-                    disabled={
-                      updatingId === user.id || !isManagedRole(user.role)
-                    }
-                    onChange={(e) =>
-                      openUpdateModal(user, user.role, e.target.value || null)
-                    }
-                    className="border rounded px-2 py-1 disabled:opacity-50"
-                  >
-                    <option value="">Unassigned</option>
-                    {getTeamsForPlatform(user.platform).map((team) => (
-                      <option key={team} value={team}>
-                        {formatDisplayValue(team)}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td className="p-3">
-                  <select
-                    value={getDisplayRole(user.role)}
-                    disabled={
-                      updatingId === user.id || !isManagedRole(user.role)
-                    }
-                    onChange={(e) =>
-                      openUpdateModal(
-                        user,
-                        e.target.value as UserRole,
-                        user.team,
-                      )
-                    }
-                    className="border rounded px-2 py-1 disabled:opacity-50"
-                  >
-                    {ASSIGNABLE_USER_ROLES.map((role) => (
-                      <option key={role} value={role}>
-                        {getKnownRoleDisplayLabel(role)}
-                      </option>
-                    ))}
-                  </select>
+            {users.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="p-6 text-center text-gray-500">
+                  No users found for the selected filters.
                 </td>
               </tr>
-            ))}
+            ) : (
+              users.map((user, index) => (
+                <tr key={user.id} className="border-b">
+                  <td className="p-3">
+                    {pageIndex * USERS_PAGE_SIZE + index + 1}
+                  </td>
+                  <td className="p-3">{user.fullName}</td>
+                  <td className="p-3">{user.email}</td>
+                  <td className="p-3">{user.githubUsername}</td>
+                  <td className="p-3">
+                    <select
+                      value={user.team ?? ""}
+                      disabled={
+                        updatingId === user.id || !isManagedRole(user.role)
+                      }
+                      onChange={(e) =>
+                        openUpdateModal(user, user.role, e.target.value || null)
+                      }
+                      className="border rounded px-2 py-1 disabled:opacity-50"
+                    >
+                      <option value="">Unassigned</option>
+                      {getTeamsForPlatform(user.platform).map((team) => (
+                        <option key={team} value={team}>
+                          {formatDisplayValue(team)}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="p-3">
+                    <select
+                      value={getDisplayRole(user.role)}
+                      disabled={
+                        updatingId === user.id || !isManagedRole(user.role)
+                      }
+                      onChange={(e) =>
+                        openUpdateModal(
+                          user,
+                          e.target.value as UserRole,
+                          user.team,
+                        )
+                      }
+                      className="border rounded px-2 py-1 disabled:opacity-50"
+                    >
+                      {ASSIGNABLE_USER_ROLES.map((role) => (
+                        <option key={role} value={role}>
+                          {getKnownRoleDisplayLabel(role)}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <p className="text-sm text-gray-600">
+          Showing up to {USERS_PAGE_SIZE} users per page
+        </p>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={goToPreviousPage}
+            disabled={loading || pageIndex === 0}
+          >
+            Previous
+          </Button>
+          <span className="text-sm text-gray-600">Page {pageIndex + 1}</span>
+          <Button
+            variant="outline"
+            onClick={goToNextPage}
+            disabled={loading || !nextCursor}
+          >
+            Next
+          </Button>
+        </div>
       </div>
 
       <UserUpdateReasonModal

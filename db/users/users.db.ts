@@ -4,7 +4,8 @@ import {
   UserRole,
   UserModel,
 } from "@/lib/auth/auth.types";
-import { Timestamp } from "firebase-admin/firestore";
+import { FieldPath, Timestamp } from "firebase-admin/firestore";
+import { TEAM_KEYS } from "@/lib/domain/team-definitions";
 import { DB_PATHS } from "../db-paths";
 import { DbValidationError } from "../db.errors";
 import { getRequiredDocumentRef } from "../utils/document.utils";
@@ -21,6 +22,120 @@ export const usersCollection = db.collection(
 export type UserRecord = UserModel & {
   id: string;
 };
+
+export type UserFilters = {
+  role?: UserRole;
+  team?: string;
+  name?: string;
+};
+
+export type PaginatedUserRecords = {
+  users: UserRecord[];
+  nextCursor: string | null;
+};
+
+const DEFAULT_USER_PAGE_SIZE = 10;
+
+type UserPageCursor = {
+  createdAtMillis: number;
+  fullName: string;
+  id: string;
+};
+
+/**
+ * Encodes the final document of a page into a cursor token.
+ *
+ * @param user The Firestore user document of the final item in the page.
+ * @param id The Firestore document id of the final item in the page.
+ * @returns The encoded cursor token.
+ */
+function encodeUserPageCursor(user: FirestoreUser, id: string): string {
+  const payload: UserPageCursor = {
+    createdAtMillis: user.createdAt.toMillis(),
+    fullName: user.fullName,
+    id,
+  };
+
+  return Buffer.from(JSON.stringify(payload)).toString("base64url");
+}
+
+/**
+ * Decodes a cursor token into Firestore paging values.
+ *
+ * @param cursor The encoded cursor token from a previous page response.
+ * @returns The decoded page cursor values for `startAfter`.
+ */
+function decodeUserPageCursor(cursor: string): UserPageCursor {
+  let parsedCursor: Partial<UserPageCursor>;
+
+  try {
+    parsedCursor = JSON.parse(
+      Buffer.from(cursor, "base64url").toString("utf8"),
+    ) as Partial<UserPageCursor>;
+  } catch {
+    throw new DbValidationError("cursor", "Cursor is invalid.");
+  }
+
+  if (
+    !parsedCursor ||
+    typeof parsedCursor !== "object" ||
+    !("createdAtMillis" in parsedCursor) ||
+    !("fullName" in parsedCursor) ||
+    !("id" in parsedCursor)
+  ) {
+    throw new DbValidationError("cursor", "Cursor is invalid.");
+  }
+
+  const { createdAtMillis, fullName, id } = parsedCursor;
+
+  if (
+    typeof createdAtMillis !== "number" ||
+    !Number.isFinite(createdAtMillis) ||
+    typeof fullName !== "string" ||
+    typeof id !== "string" ||
+    !id.trim()
+  ) {
+    throw new DbValidationError("cursor", "Cursor is invalid.");
+  }
+
+  return parsedCursor as UserPageCursor;
+}
+
+/**
+ * Validates and normalizes the optional user query filters.
+ *
+ * @param filters The raw user query filters.
+ * @returns The normalized query filters safe to apply to Firestore.
+ */
+function normalizeUserFilters(filters?: UserFilters): UserFilters {
+  if (!filters) {
+    return {};
+  }
+
+  const normalizedFilters: UserFilters = {};
+
+  if (filters.role) {
+    normalizedFilters.role = filters.role;
+  }
+
+  if (filters.team) {
+    if (!TEAM_KEYS.includes(filters.team)) {
+      throw new DbValidationError("team", "Team filter is invalid.");
+    }
+
+    normalizedFilters.team = filters.team;
+  }
+
+  if (filters.name) {
+    const trimmedName = filters.name.trim();
+
+    if (trimmedName) {
+      normalizedFilters.name = trimmedName;
+    }
+  }
+
+  return normalizedFilters;
+}
 
 /**
  * Validates the GitHub username requirement for non-contributor roles.
@@ -127,32 +242,94 @@ export async function getUserById(uid: string): Promise<UserModel | null> {
  * @returns The normalized user models with document ids attached.
  */
 export async function getAllUsers(): Promise<UserRecord[]> {
-  return getUsersByPlatform();
+  const users: UserRecord[] = [];
+  let cursor: string | null = null;
+
+  do {
+    const page = await getUsersByPlatform(
+      undefined,
+      undefined,
+      cursor,
+      DEFAULT_USER_PAGE_SIZE,
+    );
+    users.push(...page.users);
+    cursor = page.nextCursor;
+  } while (cursor);
+
+  return users;
 }
 
 /**
  * Retrieves users, optionally scoped to a contribution platform.
  *
  * @param platform The optional contribution platform filter.
+ * @param filters The optional server-side filters for narrowing users.
+ * @param cursor The optional cursor token for continuing from a previous page.
+ * @param limit The requested page size, capped to the default maximum.
  * @returns The normalized user models with document ids attached.
  */
 export async function getUsersByPlatform(
   platform?: ContributionPlatform,
-): Promise<UserRecord[]> {
-  let query: FirebaseFirestore.Query = usersCollection;
+  filters?: UserFilters,
+  cursor?: string | null,
+  limit = DEFAULT_USER_PAGE_SIZE,
+): Promise<PaginatedUserRecords> {
+  const normalizedFilters = normalizeUserFilters(filters);
+  let query: FirebaseFirestore.Query<FirestoreUser> = usersCollection;
 
   if (platform) {
     query = query.where("platform", "==", platform);
   }
 
-  const snap = await query.orderBy("createdAt", "desc").get();
+  if (normalizedFilters.role) {
+    query = query.where("role", "==", normalizedFilters.role);
+  }
 
-  return snap.docs.map((doc) => {
-    return {
-      id: doc.id,
-      ...normalizeUserDocument(doc.data()),
-    };
-  });
+  if (normalizedFilters.team) {
+    query = query.where("team", "==", normalizedFilters.team);
+  }
+
+  if (normalizedFilters.name) {
+    query = query
+      .where("fullName", ">=", normalizedFilters.name)
+      .where("fullName", "<=", `${normalizedFilters.name}\uf8ff`)
+      .orderBy("fullName", "asc")
+      .orderBy(FieldPath.documentId(), "asc");
+  } else {
+    query = query
+      .orderBy("createdAt", "desc")
+      .orderBy(FieldPath.documentId(), "desc");
+  }
+
+  if (cursor) {
+    const decodedCursor = decodeUserPageCursor(cursor);
+    query = normalizedFilters.name
+      ? query.startAfter(decodedCursor.fullName, decodedCursor.id)
+      : query.startAfter(
+          Timestamp.fromMillis(decodedCursor.createdAtMillis),
+          decodedCursor.id,
+        );
+  }
+
+  const safeLimit = Math.max(1, Math.min(limit, DEFAULT_USER_PAGE_SIZE));
+  const snap = await query.limit(safeLimit + 1).get();
+
+  const pageDocs = snap.docs.slice(0, safeLimit);
+  const hasNextPage = snap.docs.length > safeLimit;
+  const lastVisibleDoc = pageDocs.at(-1);
+
+  return {
+    users: pageDocs.map((doc) => {
+      return {
+        id: doc.id,
+        ...normalizeUserDocument(doc.data()),
+      };
+    }),
+    nextCursor:
+      hasNextPage && lastVisibleDoc
+        ? encodeUserPageCursor(lastVisibleDoc.data(), lastVisibleDoc.id)
+        : null,
+  };
 }
 
 /**
