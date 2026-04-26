@@ -16,14 +16,10 @@ import {
 type GitHubIssueResponse = {
   assignee: { login: string } | null;
   assignees: Array<{ login: string }>;
+  body: string | null;
   html_url: string;
   number: number;
   pull_request?: object;
-};
-
-type GitHubIssueCommentResponse = {
-  body: string | null;
-  user: { login: string } | null;
 };
 
 type GitHubPullRequestResponse = {
@@ -37,9 +33,6 @@ type ParsedGitHubArtifact = {
   issueNumber: number;
   normalizedUrl: string;
 };
-
-const CLAIM_COMMENT_PATTERN =
-  /\b(claim|claimed|take(?!n)|taking|work(?:ing)? on|assign(?:ed)? to me)\b/i;
 
 /**
  * Returns the expected GitHub repository for the selected contribution platform.
@@ -114,37 +107,7 @@ function parseGitHubArtifactUrl(
 }
 
 /**
- * Loads all issue comments for a GitHub issue.
- *
- * @param platform The selected contribution platform.
- * @param issueNumber The GitHub issue number to load comments for.
- * @returns All loaded GitHub issue comments.
- */
-async function getAllIssueComments(
-  platform: ContributionPlatform,
-  issueNumber: number,
-): Promise<GitHubIssueCommentResponse[]> {
-  const { owner, repo } = getExpectedRepo(platform);
-  const comments: GitHubIssueCommentResponse[] = [];
-  let page = 1;
-
-  while (true) {
-    const batch = await requestGitHubRest<GitHubIssueCommentResponse[]>(
-      `/repos/${owner}/${repo}/issues/${issueNumber}/comments?per_page=100&page=${page}`,
-    );
-
-    comments.push(...batch);
-
-    if (batch.length < 100) {
-      return comments;
-    }
-
-    page += 1;
-  }
-}
-
-/**
- * Verifies a first issue claim using assignee state or a claim-like comment by the user.
+ * Verifies a first issue claim using assignee state or checkbox @username in description.
  *
  * @param platform The selected contribution platform.
  * @param githubUsername The contributor's GitHub username.
@@ -189,21 +152,20 @@ async function verifyFirstIssueClaim(
     };
   }
 
-  const comments = await getAllIssueComments(platform, issueNumber);
-  const hasClaimComment = comments.some((comment) => {
-    const author = comment.user?.login.toLowerCase();
-    const body = comment.body ?? "";
-
-    return author === normalizedUsername && CLAIM_COMMENT_PATTERN.test(body);
-  });
+  const description = issue.body ?? "";
+  const checkboxPattern = new RegExp(
+    `^\\s*[-*]\\s*\\[x?\\s*\\]\\s*.*@${normalizedUsername}\\s*$`,
+    "im",
+  );
+  const hasCheckboxWithUsername = checkboxPattern.test(description);
 
   return {
     derivedKey: "FIRST_ISSUE_CLAIMED",
-    message: hasClaimComment
-      ? `Found a claim-style comment by @${githubUsername} on issue #${issue.number}.`
-      : `Could not verify a claim for issue #${issue.number}. Use an assigned issue or a claim comment from @${githubUsername}.`,
+    message: hasCheckboxWithUsername
+      ? `Found @${githubUsername} in a checklist on issue #${issue.number}.`
+      : `Could not verify a claim for issue #${issue.number}. Either get assigned or add @${githubUsername} in a checklist item.`,
     sourceUrl: normalizedUrl,
-    verified: hasClaimComment,
+    verified: hasCheckboxWithUsername,
   };
 }
 
