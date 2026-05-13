@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/capture-daily-team-metrics",
       "schedule": "30 22 * * *"
+    },
+    {
+      "path": "/api/cron/sync-team-gfi-counts",
+      "schedule": "0 0 * * *"
     }
   ]
 }
