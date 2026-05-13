@@ -72,6 +72,11 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
     .slice(-3)
     .map((metric) => metric.unansweredIssuesCount);
   const lowGfiDomainShortfalls = getLowGfiDomainShortfalls(team.gfiCounts);
+  const totalGfiCount =
+    team.gfiCounts.frontend +
+    team.gfiCounts.backend +
+    team.gfiCounts.fullstack +
+    team.gfiCounts.uncategorized;
   const traineeLeadCount = team.leads.filter(
     (lead) => lead.role === "LEAD_TRAINEE",
   ).length;
@@ -98,15 +103,24 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
 
   if (lowGfiDomainShortfalls.length > 0) {
     nextSteps.push({
-      message: `Ask leads to add ${lowGfiDomainShortfalls
-        .map(
-          ({ countNeeded, domain }) =>
-            `${countNeeded} more ${domain} GFI${countNeeded === 1 ? "" : "s"}`,
-        )
-        .join(", ")}.`,
+      message:
+        team.platform === "ANDROID"
+          ? `Ask leads to add ${Math.max(15 - totalGfiCount, 1)} more GFI${
+              Math.max(15 - totalGfiCount, 1) === 1 ? "" : "s"
+            }.`
+          : `Ask leads to add ${lowGfiDomainShortfalls
+              .map(
+                ({ countNeeded, domain }) =>
+                  `${countNeeded} more ${domain} GFI${
+                    countNeeded === 1 ? "" : "s"
+                  }`,
+              )
+              .join(", ")}.`,
       priority: "high",
       reason:
-        "Each tracked domain should have at least 5 good first issues so new contributors can find enough well-scoped starter work.",
+        team.platform === "ANDROID"
+          ? "Android teams should keep a healthy pool of good first issues so new contributors can consistently find starter work."
+          : "Each tracked domain should have at least 5 good first issues so new contributors can find enough well-scoped starter work.",
     });
   }
 
@@ -125,6 +139,10 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
   }
 
   if (team.gfiCounts.uncategorized > 0) {
+    if (team.platform === "ANDROID") {
+      return nextSteps;
+    }
+
     nextSteps.push({
       message:
         "Ask leads to categorize uncategorized good first issues into frontend, backend, or fullstack.",
