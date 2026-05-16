@@ -11,6 +11,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { Issue } from "@/lib/domain/issues.types";
+import { getElapsedTimeLabel } from "@/lib/utils/date.utils";
 import Link from "next/link";
 import { useArchiveIssue } from "../hooks/use-archive-issue.hook";
 import { CircleCheck } from "lucide-react";
@@ -24,6 +25,7 @@ interface IssueCardProps {
 export const IssueCard = ({ issue, serialNumber }: IssueCardProps) => {
   const archiveIssue = useArchiveIssue();
   const issueAnswered = useMarkIssueAsnwered();
+  const waitedForLabel = getElapsedTimeLabel(issue.lastCommentCreatedAt);
 
   return (
     <Card className="w-full flex flex-col sm:flex-row px-4 sm:px-10">
@@ -41,7 +43,14 @@ export const IssueCard = ({ issue, serialNumber }: IssueCardProps) => {
           <CardTitle className="text-base sm:text-lg wrap-break-words">
             {issue.issueTitle}
           </CardTitle>
-          <CardDescription>{`#${issue.issueNumber}`}</CardDescription>
+          <CardDescription className="space-y-1">
+            <p>{`#${issue.issueNumber}`}</p>
+            {!issue.isArchived && (
+              <p className="text-xs text-slate-600">
+                Waiting {waitedForLabel} since last comment
+              </p>
+            )}
+          </CardDescription>
         </CardHeader>
       </Link>
 
