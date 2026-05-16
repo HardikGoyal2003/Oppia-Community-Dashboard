@@ -57,3 +57,50 @@ export function getIstDateKeyDaysAgo(days: number): string {
 
   return getIstDateKey(target);
 }
+
+/**
+ * Formats the elapsed time between now and a past timestamp into a compact label.
+ *
+ * @param timestamp The earlier timestamp to compare against the current time.
+ * @returns A compact relative duration such as `2d 4h` or `35m`.
+ */
+export function getElapsedTimeLabel(timestamp: string | Date): string {
+  const targetDate =
+    timestamp instanceof Date ? timestamp : new Date(timestamp);
+  const elapsedMs = Date.now() - targetDate.getTime();
+
+  if (Number.isNaN(targetDate.getTime()) || elapsedMs <= 0) {
+    return "0m";
+  }
+
+  const totalMinutes = Math.floor(elapsedMs / (1000 * 60));
+
+  if (totalMinutes < 60) {
+    return `${totalMinutes}m`;
+  }
+
+  const totalHours = Math.floor(totalMinutes / 60);
+
+  if (totalHours < 24) {
+    const remainingMinutes = totalMinutes % 60;
+    return remainingMinutes === 0
+      ? `${totalHours}h`
+      : `${totalHours}h ${remainingMinutes}m`;
+  }
+
+  const totalDays = Math.floor(totalHours / 24);
+
+  if (totalDays < 7) {
+    const remainingHours = totalHours % 24;
+    return remainingHours === 0
+      ? `${totalDays}d`
+      : `${totalDays}d ${remainingHours}h`;
+  }
+
+  const totalWeeks = Math.floor(totalDays / 7);
+  const remainingDays = totalDays % 7;
+
+  return remainingDays === 0
+    ? `${totalWeeks}w`
+    : `${totalWeeks}w ${remainingDays}d`;
+}

@@ -5,6 +5,14 @@ import { CategorizedProjectIssues } from "../../../dashboard.types";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { unarchiveIssueForPlatform } from "./archived-issues-api.service";
 
+function sortIssuesByWaitingTime(issues: Issue[]): Issue[] {
+  return [...issues].sort(
+    (left, right) =>
+      new Date(left.lastCommentCreatedAt).getTime() -
+      new Date(right.lastCommentCreatedAt).getTime(),
+  );
+}
+
 export async function categorizeIssues(
   rawIssues: GitHubIssue[],
   archivedIssues: Issue[],
@@ -54,6 +62,12 @@ export async function categorizeIssues(
       result[getIssueBucket(platform, rawIssue.linkedProject)].push(issue);
     }
   }
+
+  result.team1 = sortIssuesByWaitingTime(result.team1);
+  result.team2 = sortIssuesByWaitingTime(result.team2);
+  result.team3 = sortIssuesByWaitingTime(result.team3);
+  result.others = sortIssuesByWaitingTime(result.others);
+  result.archive = sortIssuesByWaitingTime(result.archive);
 
   return result;
 }
