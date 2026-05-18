@@ -9,6 +9,7 @@ import {
 
 export const authOptions: AuthOptions = {
   secret: readEnv("NEXTAUTH_SECRET"),
+  debug: process.env.NODE_ENV === "development",
   session: {
     maxAge: 7 * 24 * 60 * 60,
   },
@@ -28,6 +29,20 @@ export const authOptions: AuthOptions = {
 
     async session({ session, token }) {
       return handleAuthSession(session, token);
+    },
+  },
+  logger: {
+    error(code, metadata) {
+      console.error("[next-auth][logger][error]", code, {
+        ...metadata,
+        cause:
+          metadata &&
+          "error" in metadata &&
+          metadata.error instanceof Error &&
+          "cause" in metadata.error
+            ? metadata.error.cause
+            : undefined,
+      });
     },
   },
 };
