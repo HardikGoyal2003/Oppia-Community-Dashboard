@@ -1,6 +1,8 @@
 import { getDailyTeamMetricsSinceDateKey } from "@/db/team-metrics/daily-team-metrics.db";
 import { getTeams } from "@/db/teams/teams.db";
+import { TEAM_DEFINITIONS } from "@/lib/domain/team-definitions";
 import type { TeamGfiCounts, TeamModel } from "@/lib/domain/teams.types";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { getIstDateKeyDaysAgo } from "@/lib/utils/date.utils";
 
 export type TeamReportNextStep = {
@@ -125,16 +127,15 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
   }
 
   if (
-    recentTrend.length === 3 &&
-    recentTrend[0] < recentTrend[1] &&
-    recentTrend[1] < recentTrend[2]
+    recentTrend.length >= 2 &&
+    recentTrend[0] <= recentTrend[recentTrend.length - 1]
   ) {
     nextSteps.push({
       message:
-        "Ask leads about the team’s issue response performance because unanswered issues are consistently growing.",
+        "Ask leads about the team\u2019s issue response performance because unanswered issues are consistently growing.",
       priority: "high",
       reason:
-        "A steadily rising unanswered issue trend usually signals a support bottleneck that needs attention before it grows further.",
+        "A steadily rising (or flat) unanswered issue trend usually signals a support bottleneck that needs attention before it grows further.",
     });
   }
 
@@ -195,4 +196,31 @@ export async function getTeamReportsSnapshot(): Promise<TeamReportsSnapshot> {
     generatedAt: new Date().toISOString(),
     reports,
   };
+}
+
+/**
+ * Returns the current report for a specific team assignment.
+ *
+ * @param teamKey The team key stored on the user record.
+ * @param platform The contribution platform stored on the user record.
+ * @returns The current team report when a matching team exists, or null.
+ */
+export async function getTeamReportForAssignment(
+  teamKey: string,
+  platform: ContributionPlatform,
+): Promise<TeamReport | null> {
+  const teamDefinition = TEAM_DEFINITIONS.find(
+    (team) => team.teamKey === teamKey && team.platform === platform,
+  );
+
+  if (!teamDefinition) {
+    return null;
+  }
+
+  const snapshot = await getTeamReportsSnapshot();
+
+  return (
+    snapshot.reports.find((report) => report.id === teamDefinition.teamId) ??
+    null
+  );
 }
