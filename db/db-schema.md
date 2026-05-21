@@ -50,11 +50,14 @@ Fields:
 - `lastCommentCreatedAt: Timestamp`
 - `linkedProject: string`
 - `platform: "WEB" | "ANDROID"`
+- `archivedBy: string | null` **(GitHub username of the lead who archived the issue; null for legacy records)**
+- `archivedAt: Timestamp | null` **(When the issue was archived; null for legacy records)**
 
 Notes:
 
-- this schema currently mirrors the shared `Issue` domain type plus `platform`
+- this schema mirrors the shared `Issue` domain type plus `platform`
 - `isArchived` is currently persisted even though the collection itself already implies archived state
+- `archivedBy` and `archivedAt` are set server-side on archive; absent in legacy documents
 
 ### `memberAccessRequests`
 

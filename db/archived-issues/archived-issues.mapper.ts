@@ -7,9 +7,16 @@ import {
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
 
-export type FirestoreArchivedIssue = Omit<Issue, "lastCommentCreatedAt"> & {
+export type FirestoreArchivedIssue = {
+  issueNumber: number;
+  issueUrl: string;
+  issueTitle: string;
+  isArchived: boolean;
   lastCommentCreatedAt: Timestamp;
+  linkedProject: string;
   platform: ContributionPlatform;
+  archivedBy?: string;
+  archivedAt?: Timestamp;
 };
 
 export type ArchivedIssueRecord = Issue & {
@@ -72,6 +79,17 @@ function assertFirestoreArchivedIssue(
       "Archived issue platform must be WEB or ANDROID.",
     );
   }
+
+  if (issue.archivedBy !== undefined && typeof issue.archivedBy !== "string") {
+    throw new DbValidationError(
+      "archivedBy",
+      "Archived issue archivedBy must be a string.",
+    );
+  }
+
+  if (issue.archivedAt !== undefined) {
+    assertTimestamp("Archived issue", "archivedAt", issue.archivedAt);
+  }
 }
 
 /**
@@ -93,6 +111,10 @@ function normalizeArchivedIssue(
     ).toISOString(),
     linkedProject: issue.linkedProject,
     platform: issue.platform,
+    archivedBy: issue.archivedBy,
+    archivedAt: issue.archivedAt
+      ? normalizeTimestamp(issue.archivedAt).toISOString()
+      : undefined,
   };
 }
 
@@ -114,11 +136,13 @@ export function normalizeArchivedIssueDocument(
  *
  * @param issue The normalized archived issue.
  * @param platform The contribution platform to persist.
+ * @param archivedBy The GitHub username of the user who archived the issue.
  * @returns The Firestore-ready archived issue document.
  */
 export function serializeArchivedIssue(
   issue: Issue,
   platform: ContributionPlatform,
+  archivedBy?: string,
 ): FirestoreArchivedIssue {
   return {
     issueNumber: issue.issueNumber,
@@ -130,5 +154,7 @@ export function serializeArchivedIssue(
     ),
     linkedProject: issue.linkedProject,
     platform,
+    archivedBy,
+    archivedAt: Timestamp.now(),
   };
 }

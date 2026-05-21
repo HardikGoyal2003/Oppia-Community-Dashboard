@@ -71,7 +71,7 @@ export async function POST(req: Request) {
     );
   }
 
-  await archiveIssue(body.issue, platform);
+  await archiveIssue(body.issue, platform, session.user.githubUsername);
   return NextResponse.json({ success: true });
 }
 
