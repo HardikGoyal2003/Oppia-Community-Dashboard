@@ -5,4 +5,6 @@ export interface Issue {
   isArchived: boolean;
   lastCommentCreatedAt: string;
   linkedProject: string;
+  archivedBy?: string;
+  archivedAt?: string;
 }

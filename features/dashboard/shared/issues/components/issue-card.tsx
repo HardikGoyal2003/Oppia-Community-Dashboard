@@ -45,11 +45,21 @@ export const IssueCard = ({ issue, serialNumber }: IssueCardProps) => {
           </CardTitle>
           <CardDescription className="space-y-1">
             <p>{`#${issue.issueNumber}`}</p>
-            {!issue.isArchived && (
+            {!issue.isArchived ? (
               <p className="text-xs text-slate-600">
                 Waiting {waitedForLabel} since last comment
               </p>
-            )}
+            ) : issue.archivedBy || issue.archivedAt ? (
+              <p className="text-xs text-slate-500">
+                {issue.archivedBy && (
+                  <span>Archived by {issue.archivedBy}</span>
+                )}
+                {issue.archivedBy && issue.archivedAt && <span> · </span>}
+                {issue.archivedAt && (
+                  <span>{getElapsedTimeLabel(issue.archivedAt)} ago</span>
+                )}
+              </p>
+            ) : null}
           </CardDescription>
         </CardHeader>
       </Link>

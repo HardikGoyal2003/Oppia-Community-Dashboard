@@ -46,15 +46,16 @@ Fields:
 - `issueNumber: number`
 - `issueUrl: string`
 - `issueTitle: string`
-- `isArchived: true` **(Audit if this field is needed or not)**
 - `lastCommentCreatedAt: Timestamp`
 - `linkedProject: string`
 - `platform: "WEB" | "ANDROID"`
+- `archivedBy: string` **(GitHub username of the lead who archived the issue; absent in legacy records)**
+- `archivedAt: Timestamp` **(When the issue was archived; absent in legacy records)**
 
 Notes:
 
-- this schema currently mirrors the shared `Issue` domain type plus `platform`
-- `isArchived` is currently persisted even though the collection itself already implies archived state
+- `isArchived` was previously persisted but has been removed — the collection itself implies archived state. On read, `normalizeArchivedIssue` always sets `isArchived: true`.
+- `archivedBy` and `archivedAt` are set server-side on archive; absent in legacy documents
 
 ### `memberAccessRequests`
 

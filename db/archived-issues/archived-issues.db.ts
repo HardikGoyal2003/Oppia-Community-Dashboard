@@ -51,15 +51,17 @@ export async function getArchivedIssues(
  *
  * @param issue The issue to archive.
  * @param platform The contribution platform that owns the archive entry.
+ * @param archivedBy The GitHub username of the user who archived the issue.
  * @returns A promise that resolves when the archive record has been written.
  */
 export async function archiveIssue(
   issue: Issue,
   platform: ContributionPlatform,
+  archivedBy?: string,
 ): Promise<void> {
   await archivedIssuesCollection
     .doc(getArchivedIssueDocId(platform, issue.issueNumber))
-    .set(serializeArchivedIssue({ ...issue, isArchived: true }, platform));
+    .set(serializeArchivedIssue(issue, platform, archivedBy));
 }
 
 /**
