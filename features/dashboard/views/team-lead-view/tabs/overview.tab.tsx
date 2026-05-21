@@ -111,6 +111,8 @@ const STAT_CARD_STYLES = [
   },
 ];
 
+const CHART_GRADIENT_ID = "unanswered-issues-gradient";
+
 function formatChartTickLabel(capturedAtIso: string): string {
   return new Intl.DateTimeFormat("en-IN", {
     day: "2-digit",
@@ -429,8 +431,6 @@ function TeamOverviewChartTooltip({
     </div>
   );
 }
-
-const CHART_GRADIENT_ID = "unanswered-issues-gradient";
 
 function TeamOverviewUnansweredIssuesChart({
   metrics,

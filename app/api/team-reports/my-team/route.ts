@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import { getTeamReportForAssignment } from "@/lib/team-reports/team-reports.service";
 
-function canViewOwnTeamReport(role: string | undefined): boolean {
+function canViewOwnTeamReport(role: string): boolean {
   return role === "TEAM_LEAD" || role === "LEAD_TRAINEE";
 }
 
