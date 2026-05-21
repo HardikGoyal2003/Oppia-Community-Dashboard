@@ -33,193 +33,23 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-
-type TeamLead = {
-  role: "TEAM_LEAD" | "LEAD_TRAINEE";
-  uid: string;
-  username: string;
-};
-
-type TeamReport = {
-  id: string;
-  gfiCounts: {
-    backend: number;
-    frontend: number;
-    fullstack: number;
-    uncategorized: number;
-  };
-  lastUpdated: string | Date;
-  leads: TeamLead[];
-  metrics: Array<{
-    capturedAt: string;
-    dateKey: string;
-    unansweredIssuesCount: number;
-  }>;
-  nextSteps: Array<{
-    message: string;
-    priority: "high" | "medium";
-    reason: string;
-  }>;
-  platform: "WEB" | "ANDROID";
-  teamName: string;
-};
-
-type TeamLeadOverviewResponse = {
-  report: TeamReport;
-};
-
-type ChartTooltipPayloadItem = {
-  color?: string;
-  name?: string;
-  payload?: {
-    capturedAt?: string;
-  };
-  value?: number | string | null;
-};
-
-const GFI_DOMAIN_COLORS = {
-  backend: "#2563eb",
-  frontend: "#14b8a6",
-  fullstack: "#f59e0b",
-  uncategorized: "#94a3b8",
-} as const;
-
-const STAT_CARD_STYLES = [
-  {
-    accent: "from-blue-600 to-blue-400",
-    bg: "bg-blue-50",
-    icon: "text-blue-600",
-    gradient: "from-blue-50/50",
-  },
-  {
-    accent: "from-emerald-500 to-emerald-400",
-    bg: "bg-emerald-50",
-    icon: "text-emerald-600",
-    gradient: "from-emerald-50/50",
-  },
-  {
-    accent: "from-violet-500 to-violet-400",
-    bg: "bg-violet-50",
-    icon: "text-violet-600",
-    gradient: "from-violet-50/50",
-  },
-  {
-    accent: "from-amber-500 to-amber-400",
-    bg: "bg-amber-50",
-    icon: "text-amber-600",
-    gradient: "from-amber-50/50",
-  },
-];
-
-const CHART_GRADIENT_ID = "unanswered-issues-gradient";
-
-function formatChartTickLabel(capturedAtIso: string): string {
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    hour: "2-digit",
-    hour12: true,
-    minute: "2-digit",
-    month: "short",
-    timeZone: "Asia/Kolkata",
-  }).format(new Date(capturedAtIso));
-}
-
-function formatChartTooltipLabel(capturedAtIso: string): string {
-  return new Intl.DateTimeFormat("en-IN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Asia/Kolkata",
-  }).format(new Date(capturedAtIso));
-}
-
-function getCurrentUnansweredIssuesCount(report: TeamReport): number {
-  return report.metrics.at(-1)?.unansweredIssuesCount ?? 0;
-}
-
-function getStatusSummary(report: TeamReport): {
-  badgeClassName: string;
-  description: string;
-  label: string;
-} {
-  const currentUnansweredIssues = getCurrentUnansweredIssuesCount(report);
-  const highPriorityStepCount = report.nextSteps.filter(
-    (step) => step.priority === "high",
-  ).length;
-
-  if (highPriorityStepCount > 0 || currentUnansweredIssues >= 12) {
-    return {
-      badgeClassName: "border-amber-200 bg-amber-50 text-amber-800",
-      description:
-        "Your backlog or staffing needs attention before it starts slowing down contributor support.",
-      label: "Needs attention",
-    };
-  }
-
-  if (currentUnansweredIssues >= 6 || report.nextSteps.length > 0) {
-    return {
-      badgeClassName: "border-sky-200 bg-sky-50 text-sky-800",
-      description:
-        "Your team is stable, with a few follow-ups worth scheduling soon.",
-      label: "Stable",
-    };
-  }
-
-  return {
-    badgeClassName: "border-emerald-200 bg-emerald-50 text-emerald-800",
-    description:
-      "Backlog, coverage, and staffing look healthy with no immediate action flagged.",
-    label: "Healthy",
-  };
-}
-
-function getTotalGfiCount(counts: TeamReport["gfiCounts"]): number {
-  return (
-    counts.backend + counts.frontend + counts.fullstack + counts.uncategorized
-  );
-}
-
-function getTeamLeadActionMessage(message: string): string {
-  if (message.startsWith("Ask leads to add ")) {
-    return message.replace(/^Ask leads to add /, "Add ");
-  }
-
-  if (
-    message ===
-    "Ask leads about the team\u2019s issue response performance because unanswered issues are consistently growing."
-  ) {
-    return "Review your team\u2019s issue response performance because unanswered issues are consistently growing.";
-  }
-
-  if (
-    message ===
-    "Ask leads to categorize uncategorized good first issues into frontend, backend, or fullstack."
-  ) {
-    return "Categorize uncategorized good first issues into frontend, backend, or fullstack.";
-  }
-
-  if (message === "It is better to onboard one trainee lead in this team.") {
-    return "Onboard one trainee lead in your team.";
-  }
-
-  if (message.startsWith("Onboard ")) {
-    return message.replace(/in this team\.$/, "in your team.");
-  }
-
-  return message;
-}
-
-function getStatusVariant(label: string): {
-  dot: string;
-  ring: string;
-} {
-  if (label === "Needs attention") {
-    return { dot: "bg-amber-500", ring: "ring-amber-200" };
-  }
-  if (label === "Stable") {
-    return { dot: "bg-sky-500", ring: "ring-sky-200" };
-  }
-  return { dot: "bg-emerald-500", ring: "ring-emerald-200" };
-}
+import type {
+  TeamReport,
+  TeamLeadOverviewResponse,
+  ChartTooltipPayloadItem,
+} from "../overview.types";
+import {
+  CHART_GRADIENT_ID,
+  GFI_DOMAIN_COLORS,
+  STAT_CARD_STYLES,
+  formatChartTickLabel,
+  formatChartTooltipLabel,
+  getCurrentUnansweredIssuesCount,
+  getStatusSummary,
+  getStatusVariant,
+  getTeamLeadActionMessage,
+  getTotalGfiCount,
+} from "../overview.utils";
 
 function AndroidTeamGfiSummary({
   counts,
