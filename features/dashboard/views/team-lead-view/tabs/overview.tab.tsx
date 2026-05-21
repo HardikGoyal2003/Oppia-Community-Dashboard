@@ -2,16 +2,6 @@
 
 import { useEffect, useState } from "react";
 import {
-  Area,
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
   AlertCircle,
   ArrowUpRight,
   ChartPie,
@@ -24,16 +14,9 @@ import {
 import { getRoleDisplayLabel } from "@/lib/auth/role-display";
 import { formatDisplayValue } from "@/lib/utils/display.utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import type {
-  TeamReport,
-  TeamLeadOverviewResponse,
-  ChartTooltipPayloadItem,
-} from "../overview.types";
+import type { TeamReport, TeamLeadOverviewResponse } from "../overview.types";
 import {
-  CHART_GRADIENT_ID,
   STAT_CARD_STYLES,
-  formatChartTickLabel,
-  formatChartTooltipLabel,
   getCurrentUnansweredIssuesCount,
   getStatusSummary,
   getStatusVariant,
@@ -42,120 +25,7 @@ import {
 } from "../overview.utils";
 import { AndroidTeamGfiSummary } from "../components/android-team-gfi-summary";
 import { TeamLeadGfiDonutSection } from "../components/team-lead-gfi-donut-section";
-
-function TeamOverviewChartTooltip({
-  active,
-  payload,
-}: {
-  active?: boolean;
-  payload?: ChartTooltipPayloadItem[];
-}) {
-  if (!active || !payload || payload.length === 0) {
-    return null;
-  }
-
-  const capturedAt = payload[0]?.payload?.capturedAt;
-  const value = payload[0]?.value;
-
-  return (
-    <div className="min-w-44 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
-      <div className="border-b border-slate-100 bg-slate-50 px-3.5 py-2">
-        <p className="text-xs font-semibold text-slate-900">
-          {capturedAt ? formatChartTooltipLabel(capturedAt) : "Snapshot"}
-        </p>
-      </div>
-      <div className="flex items-center justify-between gap-6 px-3.5 py-2.5">
-        <div className="flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
-          <span className="text-sm text-slate-600">Unanswered issues</span>
-        </div>
-        <span className="text-sm font-bold text-slate-900">{value}</span>
-      </div>
-    </div>
-  );
-}
-
-function TeamOverviewUnansweredIssuesChart({
-  metrics,
-}: {
-  metrics: TeamReport["metrics"];
-}) {
-  if (metrics.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-6 py-12">
-        <TrendingUp className="mb-3 h-8 w-8 text-slate-300" />
-        <p className="text-sm text-slate-500">
-          No daily metrics captured yet for this team.
-        </p>
-      </div>
-    );
-  }
-
-  const chartData = metrics.map((metric) => ({
-    capturedAt: metric.capturedAt,
-    capturedAtLabel: formatChartTickLabel(metric.capturedAt),
-    unansweredIssuesCount: metric.unansweredIssuesCount,
-  }));
-
-  return (
-    <div className="h-72 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart
-          data={chartData}
-          margin={{ top: 12, right: 8, bottom: 8, left: -16 }}
-        >
-          <defs>
-            <linearGradient id={CHART_GRADIENT_ID} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#2563eb" stopOpacity={0.12} />
-              <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid
-            stroke="#e2e8f0"
-            strokeDasharray="4 4"
-            vertical={false}
-          />
-          <XAxis
-            dataKey="capturedAtLabel"
-            tick={{ fill: "#94a3b8", fontSize: 11 }}
-            tickLine={false}
-            axisLine={false}
-            interval="preserveStartEnd"
-            minTickGap={40}
-          />
-          <YAxis
-            allowDecimals={false}
-            tick={{ fill: "#94a3b8", fontSize: 11 }}
-            tickLine={false}
-            axisLine={false}
-            width={30}
-          />
-          <Tooltip content={<TeamOverviewChartTooltip />} />
-          <Area
-            type="monotone"
-            dataKey="unansweredIssuesCount"
-            fill={`url(#${CHART_GRADIENT_ID})`}
-            stroke="none"
-          />
-          <Line
-            type="monotone"
-            dataKey="unansweredIssuesCount"
-            name="Unanswered issues"
-            stroke="#2563eb"
-            strokeWidth={2.5}
-            activeDot={{
-              r: 5,
-              stroke: "#fff",
-              strokeWidth: 2,
-              fill: "#2563eb",
-            }}
-            dot={false}
-          />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
+import { TeamOverviewUnansweredIssuesChart } from "../components/team-overview-unanswered-issues-chart";
 
 function OverviewSkeleton() {
   return (
