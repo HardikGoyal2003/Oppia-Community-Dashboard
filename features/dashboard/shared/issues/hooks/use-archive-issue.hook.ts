@@ -20,6 +20,8 @@ export function useArchiveIssue() {
       return;
     }
 
+    const githubUsername = session?.user?.githubUsername;
+
     await archiveIssueForPlatform(issue, platform);
 
     const from: keyof CategorizedProjectIssues = getIssueBucket(
@@ -27,6 +29,9 @@ export function useArchiveIssue() {
       issue.linkedProject,
     );
 
-    moveIssue(from, "archive", issue.issueNumber);
+    moveIssue(from, "archive", issue.issueNumber, {
+      archivedBy: githubUsername,
+      archivedAt: new Date().toISOString(),
+    });
   };
 }

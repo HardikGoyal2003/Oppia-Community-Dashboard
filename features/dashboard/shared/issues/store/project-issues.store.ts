@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { Issue } from "@/lib/domain/issues.types";
 import { CategorizedProjectIssues } from "../../../dashboard.types";
 
 interface ProjectIssuesStore {
@@ -8,6 +9,7 @@ interface ProjectIssuesStore {
     from: keyof CategorizedProjectIssues,
     to: keyof CategorizedProjectIssues,
     issueNumber: number,
+    metadata?: Partial<Pick<Issue, "archivedBy" | "archivedAt">>,
   ) => void;
   removeIssue: (
     from: keyof CategorizedProjectIssues,
@@ -29,7 +31,7 @@ export const useProjectIssuesStore = create<ProjectIssuesStore>((set) => ({
       issues: newIssues,
     }),
 
-  moveIssue: (from, to, issueNumber) =>
+  moveIssue: (from, to, issueNumber, metadata) =>
     set((state) => {
       const issueToMove = state.issues[from].find(
         (i) => i.issueNumber === issueNumber,
@@ -37,7 +39,11 @@ export const useProjectIssuesStore = create<ProjectIssuesStore>((set) => ({
 
       if (!issueToMove) return {};
 
-      const updatedIssue = { ...issueToMove, isArchived: true };
+      const updatedIssue = {
+        ...issueToMove,
+        isArchived: true,
+        ...metadata,
+      };
 
       return {
         issues: {
