@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import {
-  AlertCircle,
   ArrowUpRight,
   ChartPie,
   LayoutDashboard,
@@ -13,7 +12,6 @@ import {
 } from "lucide-react";
 import { getRoleDisplayLabel } from "@/lib/auth/role-display";
 import { formatDisplayValue } from "@/lib/utils/display.utils";
-import { Skeleton } from "@/components/ui/skeleton";
 import type { TeamReport, TeamLeadOverviewResponse } from "../overview.types";
 import {
   STAT_CARD_STYLES,
@@ -26,107 +24,9 @@ import {
 import { AndroidTeamGfiSummary } from "../components/android-team-gfi-summary";
 import { TeamLeadGfiDonutSection } from "../components/team-lead-gfi-donut-section";
 import { TeamOverviewUnansweredIssuesChart } from "../components/team-overview-unanswered-issues-chart";
-
-function OverviewSkeleton() {
-  return (
-    <div className="mx-auto max-w-7xl space-y-8">
-      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="bg-gradient-to-br from-white via-slate-50/80 to-blue-50/30 p-8">
-          <div className="flex items-start justify-between">
-            <div className="space-y-3">
-              <Skeleton className="h-5 w-32" />
-              <Skeleton className="h-9 w-72" />
-              <Skeleton className="h-4 w-48" />
-            </div>
-            <Skeleton className="h-7 w-28 rounded-full" />
-          </div>
-          <Skeleton className="mt-4 h-4 w-full max-w-xl" />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-          >
-            <Skeleton className="h-9 w-9 rounded-lg" />
-            <Skeleton className="mt-4 h-9 w-20" />
-            <Skeleton className="mt-2 h-3 w-24" />
-            <Skeleton className="mt-2 h-3 w-full" />
-          </div>
-        ))}
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[1.3fr_0.9fr]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <Skeleton className="h-5 w-36" />
-          <div className="mt-5 space-y-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-20 w-full rounded-xl" />
-            ))}
-          </div>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <Skeleton className="h-5 w-28" />
-          <div className="mt-5 space-y-3">
-            {Array.from({ length: 2 }).map((_, i) => (
-              <Skeleton key={i} className="h-14 w-full rounded-xl" />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[1fr_1.1fr]">
-        {Array.from({ length: 2 }).map((_, i) => (
-          <div
-            key={i}
-            className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
-          >
-            <Skeleton className="h-5 w-32" />
-            <Skeleton className="mt-6 h-52 w-full rounded-xl" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ErrorFallback({ message }: { message: string }) {
-  return (
-    <div className="mx-auto max-w-7xl">
-      <div className="overflow-hidden rounded-2xl border border-red-200 bg-white shadow-sm">
-        <div className="flex items-center gap-4 bg-gradient-to-r from-red-50 to-red-50/50 px-6 py-5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-            <AlertCircle className="h-5 w-5 text-red-600" />
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold text-red-900">
-              Failed to load team overview
-            </h2>
-            <p className="mt-0.5 text-sm text-red-600">{message}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function EmptyFallback() {
-  return (
-    <div className="mx-auto max-w-7xl">
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-16 shadow-sm">
-        <LayoutDashboard className="mb-4 h-10 w-10 text-slate-300" />
-        <h3 className="text-base font-semibold text-slate-700">
-          No team overview found
-        </h3>
-        <p className="mt-1 text-sm text-slate-500">
-          Team report data is not available yet.
-        </p>
-      </div>
-    </div>
-  );
-}
+import { OverviewSkeleton } from "../components/overview-skeleton";
+import { ErrorFallback } from "../components/error-fallback";
+import { EmptyFallback } from "../components/empty-fallback";
 
 export default function TeamLeadOverviewTab() {
   const [report, setReport] = useState<TeamReport | null>(null);
