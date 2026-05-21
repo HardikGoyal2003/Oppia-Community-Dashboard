@@ -61,13 +61,7 @@ export async function archiveIssue(
 ): Promise<void> {
   await archivedIssuesCollection
     .doc(getArchivedIssueDocId(platform, issue.issueNumber))
-    .set(
-      serializeArchivedIssue(
-        { ...issue, isArchived: true },
-        platform,
-        archivedBy,
-      ),
-    );
+    .set(serializeArchivedIssue(issue, platform, archivedBy));
 }
 
 /**

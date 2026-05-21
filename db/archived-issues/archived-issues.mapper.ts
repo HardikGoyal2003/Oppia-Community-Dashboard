@@ -11,7 +11,7 @@ export type FirestoreArchivedIssue = {
   issueNumber: number;
   issueUrl: string;
   issueTitle: string;
-  isArchived: boolean;
+  isArchived?: boolean;
   lastCommentCreatedAt: Timestamp;
   linkedProject: string;
   platform: ContributionPlatform;
@@ -53,7 +53,7 @@ function assertFirestoreArchivedIssue(
     );
   }
 
-  if (typeof issue.isArchived !== "boolean") {
+  if (issue.isArchived !== undefined && typeof issue.isArchived !== "boolean") {
     throw new DbValidationError(
       "isArchived",
       "Archived issue isArchived must be a boolean.",
@@ -105,7 +105,7 @@ function normalizeArchivedIssue(
     issueNumber: issue.issueNumber,
     issueUrl: issue.issueUrl,
     issueTitle: issue.issueTitle,
-    isArchived: issue.isArchived,
+    isArchived: true,
     lastCommentCreatedAt: normalizeTimestamp(
       issue.lastCommentCreatedAt,
     ).toISOString(),
@@ -148,7 +148,6 @@ export function serializeArchivedIssue(
     issueNumber: issue.issueNumber,
     issueUrl: issue.issueUrl,
     issueTitle: issue.issueTitle,
-    isArchived: issue.isArchived,
     lastCommentCreatedAt: Timestamp.fromDate(
       new Date(issue.lastCommentCreatedAt),
     ),
