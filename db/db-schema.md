@@ -49,13 +49,8 @@ Fields:
 - `lastCommentCreatedAt: Timestamp`
 - `linkedProject: string`
 - `platform: "WEB" | "ANDROID"`
-- `archivedBy: string` **(GitHub username of the lead who archived the issue; absent in legacy records)**
-- `archivedAt: Timestamp` **(When the issue was archived; absent in legacy records)**
-
-Notes:
-
-- `isArchived` was previously persisted but has been removed — the collection itself implies archived state. On read, `normalizeArchivedIssue` always sets `isArchived: true`.
-- `archivedBy` and `archivedAt` are set server-side on archive; absent in legacy documents
+- `archivedBy: string`
+- `archivedAt: Timestamp`
 
 ### `memberAccessRequests`
 

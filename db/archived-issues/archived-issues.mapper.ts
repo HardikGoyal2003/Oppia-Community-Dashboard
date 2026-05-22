@@ -142,7 +142,7 @@ export function normalizeArchivedIssueDocument(
 export function serializeArchivedIssue(
   issue: Issue,
   platform: ContributionPlatform,
-  archivedBy?: string,
+  archivedBy: string,
 ): FirestoreArchivedIssue {
   return {
     issueNumber: issue.issueNumber,

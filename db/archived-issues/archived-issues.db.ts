@@ -57,7 +57,7 @@ export async function getArchivedIssues(
 export async function archiveIssue(
   issue: Issue,
   platform: ContributionPlatform,
-  archivedBy?: string,
+  archivedBy: string,
 ): Promise<void> {
   await archivedIssuesCollection
     .doc(getArchivedIssueDocId(platform, issue.issueNumber))
