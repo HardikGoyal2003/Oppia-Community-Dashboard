@@ -46,15 +46,11 @@ Fields:
 - `issueNumber: number`
 - `issueUrl: string`
 - `issueTitle: string`
-- `isArchived: true` **(Audit if this field is needed or not)**
 - `lastCommentCreatedAt: Timestamp`
 - `linkedProject: string`
 - `platform: "WEB" | "ANDROID"`
-
-Notes:
-
-- this schema currently mirrors the shared `Issue` domain type plus `platform`
-- `isArchived` is currently persisted even though the collection itself already implies archived state
+- `archivedBy: string`
+- `archivedAt: Timestamp`
 
 ### `memberAccessRequests`
 

@@ -1,3 +1,4 @@
+import { Timestamp, FieldValue } from "firebase-admin/firestore";
 import { DbNotFoundError } from "@/db/db.errors";
 import {
   createDataJobRun,
@@ -6,7 +7,9 @@ import {
   markDataJobRunFailed,
   markDataJobRunSucceeded,
 } from "@/db/data-jobs/data-job-runs.db";
+import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { getAllUsers } from "@/db/users/users.db";
+import { DB_PATHS } from "@/db/db-paths";
 import type {
   DataJobDefinition,
   DataJobResult,
@@ -20,6 +23,7 @@ type DataJobActor = {
 
 type DataJobHandlerContext = {
   dryRun: boolean;
+  triggeredByGithubUsername: string;
 };
 
 type DataJobHandler = (
@@ -80,6 +84,58 @@ async function auditPrivilegedUsersMissingTeam(
   };
 }
 
+/**
+ * Backfills archived issue documents:
+ *   - Removes the redundant `isArchived` field
+ *   - Adds `archivedBy` and `archivedAt` to legacy records that lack them
+ *
+ * @param context The data-job execution context.
+ * @returns A summary of the migration results.
+ */
+async function backfillArchivedIssues(
+  context: DataJobHandlerContext,
+): Promise<DataJobResult> {
+  const db = getAdminFirestore();
+  const snapshot = await db
+    .collection(DB_PATHS.ARCHIVED_ISSUES.COLLECTION)
+    .get();
+
+  let updatedCount = 0;
+
+  for (const doc of snapshot.docs) {
+    const data = doc.data();
+    const updates: Record<string, string | Timestamp | FieldValue> = {};
+
+    if (data.isArchived !== undefined) {
+      updates.isArchived = FieldValue.delete();
+    }
+
+    if (data.archivedBy === undefined) {
+      updates.archivedBy = context.triggeredByGithubUsername;
+    }
+
+    if (data.archivedAt === undefined) {
+      updates.archivedAt = Timestamp.now();
+    }
+
+    if (Object.keys(updates).length === 0) {
+      continue;
+    }
+
+    updatedCount++;
+
+    if (!context.dryRun) {
+      await doc.ref.update(updates);
+    }
+  }
+
+  const suffix = context.dryRun ? " (dry run — no changes persisted)" : ".";
+
+  return {
+    summary: `Backfill completed. ${updatedCount} document(s) updated${suffix}`,
+  };
+}
+
 const DATA_JOB_REGISTRY: RegisteredDataJob[] = [
   {
     key: "audit_users_missing_platform",
@@ -98,6 +154,15 @@ const DATA_JOB_REGISTRY: RegisteredDataJob[] = [
     kind: "AUDIT",
     supportsDryRun: true,
     handler: auditPrivilegedUsersMissingTeam,
+  },
+  {
+    key: "backfill_archived_issues",
+    name: "Backfill Archived Issues",
+    description:
+      "Removes the redundant isArchived field and adds archivedBy + archivedAt to legacy archived issue documents.",
+    kind: "MIGRATION",
+    supportsDryRun: true,
+    handler: backfillArchivedIssues,
   },
 ];
 
@@ -161,7 +226,10 @@ export async function runDataJob(
   });
 
   try {
-    const result = await job.handler({ dryRun });
+    const result = await job.handler({
+      dryRun,
+      triggeredByGithubUsername: actor.githubUsername,
+    });
     await markDataJobRunSucceeded(runId, result.summary);
   } catch (error) {
     const errorMessage =
