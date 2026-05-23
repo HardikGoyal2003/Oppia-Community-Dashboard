@@ -70,11 +70,11 @@ export async function fetchUnansweredIssues(
   console.log(`Collaborators: ${collabAll.size}`);
   console.log(`Maintainers: ${maintainers.size}`);
 
-  console.log("Fetching recent issues (30-day window)...");
+  console.log("Fetching recent issues (15-day window)...");
   const issues = await fetchRecentIssueNodes(target);
   console.log(`Fetched ${issues.length} recent issues.`);
 
-  const cutoffTime = Date.now() - 30 * 86400 * 1000;
+  const cutoffTime = Date.now() - 15 * 86400 * 1000;
   const filtered = issues.filter((issue) => {
     if (issue.state === "CLOSED") {
       return false;
@@ -108,7 +108,7 @@ export async function fetchUnansweredIssues(
   });
 
   console.log(
-    "\nIssues where last comment in past 30 days is from non-maintainer",
+    "\nIssues where last comment in past 15 days is from non-maintainer",
   );
   console.log("----------------------------------------------------------");
   console.log(`\nTotal filtered issues: ${filtered.length}`);
