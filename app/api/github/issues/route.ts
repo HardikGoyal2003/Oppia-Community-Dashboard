@@ -33,7 +33,7 @@ export async function GET() {
       );
     }
 
-    const issuesData = await fetchUnansweredIssues(repoTarget);
+    const issuesData = await fetchUnansweredIssues(repoTarget, platform);
     return NextResponse.json({
       issues: issuesData,
     });
