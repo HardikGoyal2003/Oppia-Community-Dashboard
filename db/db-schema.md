@@ -129,12 +129,9 @@ Document id:
 
 Fields:
 
-- `orgMembers: string[]` — GitHub usernames of organization members (via `membersWithRole`)
-- `collaborators: Array<{ login: string, permission: string }>` — Repository collaborators with their permission level
+- `orgMembers: string[]`
+- `collaborators: Array<{ login: string, permission: string }>`
 - `lastUpdated: Timestamp`
-
-This collection is populated by a cron job (`/api/cron/sync-org-meta`) that runs every 3 days at 3 AM IST.
-The cached data is used by the unanswered-issues fetcher to avoid fetching org/collaborator data from the GitHub API on every request.
 
 ## Derived Type Summary
 

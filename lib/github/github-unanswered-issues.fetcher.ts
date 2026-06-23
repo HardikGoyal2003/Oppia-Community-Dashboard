@@ -17,7 +17,7 @@ import type { GitHubIssue, GitHubRepoTarget } from "./github.types";
  */
 export async function fetchUnansweredIssues(
   target: GitHubRepoTarget,
-  platform?: ContributionPlatform,
+  platform: ContributionPlatform,
 ): Promise<GitHubIssue[]> {
   let orgMembers: Set<string>;
   let collabAll: Set<string>;
