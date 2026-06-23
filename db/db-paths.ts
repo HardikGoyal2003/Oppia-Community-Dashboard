@@ -21,4 +21,7 @@ export const DB_PATHS = {
     COLLECTION: "users",
     NOTIFICATIONS_SUBCOLLECTION: "notifications",
   },
+  ORG_META: {
+    COLLECTION: "orgMeta",
+  },
 } as const;

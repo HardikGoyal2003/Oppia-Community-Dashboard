@@ -5,6 +5,7 @@ import type {
 import { LibInvalidStateError } from "@/lib/lib.errors";
 import { captureDailyUnansweredIssueMetrics } from "@/lib/team-metrics/capture-daily-team-metrics.service";
 import { syncTeamGfiCounts } from "@/lib/teams/sync-team-gfi-counts.service";
+import { syncOrgMeta } from "@/lib/org-meta/sync-org-meta.service";
 
 const CRON_JOBS: CronJobDefinition[] = [
   {
@@ -18,6 +19,12 @@ const CRON_JOBS: CronJobDefinition[] = [
     name: "Sync Team GFI Counts",
     description:
       "Fetch open unassigned good first issues from GitHub and update each team's gfiCounts.",
+  },
+  {
+    key: "sync_org_meta",
+    name: "Sync Org Meta",
+    description:
+      "Fetch org members and repo collaborators from GitHub and cache them in Firestore for faster unanswered-issues lookups.",
   },
 ];
 
@@ -82,6 +89,24 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
           `Updated teams: ${result.updatedTeamsCount}.`,
           `Total GFI issues scanned: ${result.totalIssuesCount}.`,
           `Skipped issues: ${result.skippedIssuesCount}.`,
+        ].join("\n"),
+      };
+    }
+    case "sync_org_meta": {
+      const result = await syncOrgMeta();
+      const finishedAt = new Date();
+
+      return {
+        finishedAt,
+        jobKey: job.key,
+        jobName: job.name,
+        startedAt,
+        summary: [
+          "Cron job completed.",
+          `Platforms: ${result.platforms.join(", ")}.`,
+          `Org members: ${result.orgMemberCount}.`,
+          `Collaborators: ${result.collaboratorCount}.`,
+          `Last updated: ${result.lastUpdated}.`,
         ].join("\n"),
       };
     }

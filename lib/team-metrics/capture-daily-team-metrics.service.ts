@@ -92,7 +92,7 @@ async function capturePlatformTeamMetrics(
   dateKey: string,
 ): Promise<TeamMetricCaptureSummary["teams"]> {
   const [liveIssues, archivedIssues] = await Promise.all([
-    fetchUnansweredIssues(GITHUB_REPOS[platform]),
+    fetchUnansweredIssues(GITHUB_REPOS[platform], platform),
     getArchivedIssues(platform),
   ]);
 

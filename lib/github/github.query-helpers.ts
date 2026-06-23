@@ -139,7 +139,7 @@ function assertOrgAndRepoAccessResponse(
 }
 
 /**
- * Fetches recent repository issues from the last 30 days using paginated GraphQL requests.
+ * Fetches recent repository issues from the last 15 days using paginated GraphQL requests.
  *
  * @param target The repository to fetch from.
  * @returns The aggregated recent issue nodes.
@@ -150,7 +150,7 @@ export async function fetchRecentIssueNodes(
   const issues: GitHubIssueNode[] = [];
   let cursor: string | null = null;
   let hasNextPage = true;
-  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const since = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
 
   const query = `
     query($owner: String!, $repo: String!, $cursor: String, $since: DateTime!) {

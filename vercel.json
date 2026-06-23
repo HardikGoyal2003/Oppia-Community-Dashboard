@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/sync-team-gfi-counts",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/sync-org-meta",
+      "schedule": "30 21 */3 * *"
     }
   ]
 }
