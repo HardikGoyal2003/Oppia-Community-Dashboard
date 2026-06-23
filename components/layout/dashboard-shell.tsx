@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { BarChart3, Bug, Inbox, LayoutDashboard, Map, Users } from "lucide-react";
-import type { UserRole, ContributionPlatform } from "@/lib/auth/auth.types";
+import type { UserRole } from "@/lib/auth/auth.types";
 import { AppSidebar } from "@/components/layout/sidebar/app-sidebar";
 import { Navbar } from "@/components/layout/navbar";
 import {
