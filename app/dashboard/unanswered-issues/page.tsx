@@ -16,11 +16,7 @@ export default async function UnansweredIssuesPage() {
     redirect("/dashboard");
   }
 
-  if (role === "CONTRIBUTOR") {
-    redirect("/dashboard/overview");
-  }
-
-  if (role === "TEAM_MEMBER") {
+  if (role === "CONTRIBUTOR" || role === "TEAM_MEMBER") {
     redirect("/dashboard/overview");
   }
 
