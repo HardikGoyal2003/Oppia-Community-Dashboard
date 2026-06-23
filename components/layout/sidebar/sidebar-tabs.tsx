@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { type LucideIcon } from "lucide-react";
 
 import {
@@ -10,45 +12,30 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
-import { useActiveSidebarTab } from "./sidebar.store";
-
 export type SidebarNavigationItem = {
   name: string;
   icon: LucideIcon;
+  url: string;
 };
 
-export function SideBarTabs({
-  items,
-  activeItemName,
-  onItemSelect,
-}: {
-  items: SidebarNavigationItem[];
-  activeItemName?: string;
-  onItemSelect?: (itemName: string) => void;
-}) {
-  const updateActiveSidebarTab = useActiveSidebarTab(
-    (state) => state.updateActiveSidebarTab,
-  );
-  const handleItemSelect = onItemSelect ?? updateActiveSidebarTab;
+export function SideBarTabs({ items }: { items: SidebarNavigationItem[] }) {
+  const pathname = usePathname();
 
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Navigation</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => (
-          <SidebarMenuItem
-            key={item.name}
-            onClick={() => handleItemSelect(item.name)}
-          >
+          <SidebarMenuItem key={item.name}>
             <SidebarMenuButton
               asChild
               tooltip={item.name}
-              isActive={activeItemName === item.name}
+              isActive={pathname === item.url}
             >
-              <div>
+              <Link href={item.url}>
                 <item.icon />
                 <span>{item.name}</span>
-              </div>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         ))}
