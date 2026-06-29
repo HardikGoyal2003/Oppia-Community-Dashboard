@@ -1,32 +1,19 @@
-import { requestGitHubGraphQL } from "./github.request";
+import { requestGitHubRest } from "./github.rest";
 
-type RateLimitNode = {
+type CoreRateLimit = {
   limit: number;
-  cost: number;
   remaining: number;
-  resetAt: string;
+  reset: number;
 };
 
-type RateLimitResponse = {
-  rateLimit: RateLimitNode;
+type RateLimitResources = {
+  core: CoreRateLimit;
 };
 
-/**
- * Fetches the current GitHub GraphQL rate-limit snapshot.
- *
- * @returns The current GraphQL rate-limit information.
- */
-export async function fetchGitHubRateLimit(): Promise<RateLimitResponse> {
-  const query = `
-    query {
-      rateLimit {
-        limit
-        cost
-        remaining
-        resetAt
-      }
-    }
-  `;
+export async function fetchGitHubRateLimit(): Promise<CoreRateLimit> {
+  const data = await requestGitHubRest<{ resources: RateLimitResources }>(
+    "/rate_limit",
+  );
 
-  return requestGitHubGraphQL(query);
+  return data.resources.core;
 }

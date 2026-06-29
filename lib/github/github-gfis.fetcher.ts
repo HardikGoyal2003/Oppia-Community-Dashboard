@@ -24,7 +24,7 @@ export async function fetchGoodFirstIssues(
 
   const rate = await fetchGitHubRateLimit();
   console.log("\nRate Limit:");
-  console.log(rate.rateLimit);
+  console.log(rate);
 
   return mapGitHubGoodFirstIssueNodes(issues);
 }

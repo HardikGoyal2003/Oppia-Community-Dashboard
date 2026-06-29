@@ -97,7 +97,7 @@ export async function fetchAssignedPRs(): Promise<MemberPRMap> {
 
   const rate = await fetchGitHubRateLimit();
   console.log("\nRate Limit:");
-  console.log(rate.rateLimit);
+  console.log(rate);
 
   return map;
 }

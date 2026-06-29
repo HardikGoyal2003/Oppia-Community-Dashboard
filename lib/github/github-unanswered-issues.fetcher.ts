@@ -115,7 +115,7 @@ export async function fetchUnansweredIssues(
 
   const rate = await fetchGitHubRateLimit();
   console.log("\nRate Limit:");
-  console.log(rate.rateLimit);
+  console.log(rate);
 
   return mapGitHubIssueNodes(filtered);
 }
