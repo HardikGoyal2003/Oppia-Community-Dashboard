@@ -1,33 +1,38 @@
-import { requestGitHubRest } from "./github.rest";
+import { requestGitHubRest, getCoreRateLimit } from "./github.rest";
 
-export type RateLimitSnapshot = {
+export type { RateLimitSnapshot } from "./github.rest";
+export { getCoreRateLimit } from "./github.rest";
+
+type GraphQLRateLimit = {
   limit: number;
   remaining: number;
   used: number;
   reset: number;
 };
 
-type RateLimitResources = {
-  core: RateLimitSnapshot;
-  graphql: RateLimitSnapshot;
-};
-
+/**
+ * Fetches the current GitHub rate limits from the REST endpoint and
+ * combines them with the header-captured core rate limit.
+ *
+ * Core (REST) → from response headers (always accurate).
+ * GraphQL    → from the endpoint body (accurate for GraphQL).
+ */
 export async function fetchGitHubRateLimit(): Promise<{
-  core: RateLimitSnapshot;
-  graphql: RateLimitSnapshot;
+  core: import("./github.rest").RateLimitSnapshot;
+  graphql: GraphQLRateLimit;
 }> {
-  const raw = await requestGitHubRest<Record<string, unknown>>(
-    "/rate_limit",
-  );
+  const core = getCoreRateLimit();
 
-  console.log("Token set:", !!process.env.GITHUB_TOKEN);
-  console.log("Raw /rate_limit keys:", Object.keys(raw));
-  console.log("Raw resources:", JSON.stringify(raw.resources, null, 2));
+  let graphql: GraphQLRateLimit = { limit: 5000, remaining: 5000, used: 0, reset: 0 };
 
-  const resources = raw.resources as RateLimitResources;
+  try {
+    const data = await requestGitHubRest<{
+      resources: { graphql: GraphQLRateLimit };
+    }>("/rate_limit");
+    graphql = data.resources.graphql;
+  } catch {
+    // Fall back to defaults if the rate limit endpoint fails.
+  }
 
-  return {
-    core: resources.core,
-    graphql: resources.graphql,
-  };
+  return { core, graphql };
 }
