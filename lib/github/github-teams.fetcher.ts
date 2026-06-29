@@ -1,4 +1,5 @@
-import { requestGitHubRest } from "./github.rest";
+import { requestGitHubRestAll } from "./github.rest";
+import { fetchGitHubRateLimit } from "./github.rate-limit";
 
 const ORG = "oppia";
 const WEB_TEAM_SLUG = "all-web-dev-teams";
@@ -22,15 +23,10 @@ export type FetchedTeam = {
   }>;
 };
 
-/**
- * Fetches all child teams under all-web-dev-teams along with their members.
- *
- * @returns The list of web sub-teams with their members.
- */
 export async function fetchWebReviewerTeams(): Promise<FetchedTeam[]> {
   console.log("Fetching web reviewer teams from GitHub...");
 
-  const childTeams = await requestGitHubRest<GitHubTeamResponse[]>(
+  const childTeams = await requestGitHubRestAll<GitHubTeamResponse>(
     `/orgs/${ORG}/teams/${WEB_TEAM_SLUG}/teams`,
   );
 
@@ -41,7 +37,7 @@ export async function fetchWebReviewerTeams(): Promise<FetchedTeam[]> {
   for (const team of childTeams) {
     console.log(`Fetching members for ${team.slug}...`);
 
-    const members = await requestGitHubRest<GitHubTeamMemberResponse[]>(
+    const members = await requestGitHubRestAll<GitHubTeamMemberResponse>(
       `/orgs/${ORG}/teams/${team.slug}/members`,
     );
 
@@ -56,6 +52,10 @@ export async function fetchWebReviewerTeams(): Promise<FetchedTeam[]> {
 
     console.log(`  → ${members.length} members in ${team.slug}.`);
   }
+
+  const rate = await fetchGitHubRateLimit();
+  console.log("\nRate Limit:");
+  console.log(rate.rateLimit);
 
   return teamsWithMembers;
 }
