@@ -4,6 +4,18 @@ import { fetchGitHubRateLimit } from "./github.rate-limit";
 const ORG = "oppia";
 const WEB_TEAM_SLUG = "all-web-dev-teams";
 
+const EXCLUDED_SLUGS = new Set([
+  "committers",
+  "release-coordinators",
+  "oppiabot-maintainers",
+  "foundation-website-team",
+  "web-welfare-team",
+  "server-admins-team",
+  "oppia-good-first-issue-labelers",
+  "web-tech-leads",
+  "lace-team-leads",
+]);
+
 type GitHubTeamResponse = {
   slug: string;
   name: string;
@@ -34,9 +46,12 @@ export async function fetchWebReviewerTeams(): Promise<FetchedTeam[]> {
 
   console.log(`Found ${childTeams.length} web sub-teams.`);
 
+  const teamsToFetch = childTeams.filter((t) => !EXCLUDED_SLUGS.has(t.slug));
+  console.log(`Skipping ${childTeams.length - teamsToFetch.length} excluded teams, fetching ${teamsToFetch.length} teams.`);
+
   const teamsWithMembers: FetchedTeam[] = [];
 
-  for (const team of childTeams) {
+  for (const team of teamsToFetch) {
     console.log(`Fetching members for ${team.slug}...`);
 
     const members = await requestGitHubRestAll<GitHubTeamMemberResponse>(
