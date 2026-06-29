@@ -99,8 +99,8 @@ export async function fetchAssignedPRs(): Promise<MemberPRMap> {
 
   console.log(`Total timeline API calls made: ${timelineFetches}.`);
   const rate = await fetchGitHubRateLimit();
-  console.log("\nRate Limit:");
-  console.log(rate);
+  console.log("\nRate Limit (REST):");
+  console.log(rate.core);
 
   return map;
 }

@@ -72,8 +72,8 @@ export async function fetchWebReviewerTeams(): Promise<FetchedTeam[]> {
   }
 
   const rate = await fetchGitHubRateLimit();
-  console.log("\nRate Limit:");
-  console.log(rate);
+  console.log("\nRate Limit (REST):");
+  console.log(rate.core);
 
   return teamsWithMembers;
 }

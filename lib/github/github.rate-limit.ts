@@ -1,6 +1,6 @@
 import { requestGitHubRest } from "./github.rest";
 
-type CoreRateLimit = {
+export type RateLimitSnapshot = {
   limit: number;
   remaining: number;
   used: number;
@@ -8,15 +8,22 @@ type CoreRateLimit = {
 };
 
 type RateLimitResources = {
-  core: CoreRateLimit;
+  core: RateLimitSnapshot;
+  graphql: RateLimitSnapshot;
 };
 
-export async function fetchGitHubRateLimit(): Promise<CoreRateLimit> {
+export async function fetchGitHubRateLimit(): Promise<{
+  core: RateLimitSnapshot;
+  graphql: RateLimitSnapshot;
+}> {
   const data = await requestGitHubRest<{ resources: RateLimitResources }>(
     "/rate_limit",
   );
 
   console.log("Token set:", !!process.env.GITHUB_TOKEN);
 
-  return data.resources.core;
+  return {
+    core: data.resources.core,
+    graphql: data.resources.graphql,
+  };
 }
