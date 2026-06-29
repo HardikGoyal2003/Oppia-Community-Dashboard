@@ -6,6 +6,7 @@ import { LibInvalidStateError } from "@/lib/lib.errors";
 import { captureDailyUnansweredIssueMetrics } from "@/lib/team-metrics/capture-daily-team-metrics.service";
 import { syncTeamGfiCounts } from "@/lib/teams/sync-team-gfi-counts.service";
 import { syncOrgMeta } from "@/lib/org-meta/sync-org-meta.service";
+import { syncReviewerTeams } from "@/lib/team-activity/sync-reviewer-teams.service";
 
 const CRON_JOBS: CronJobDefinition[] = [
   {
@@ -25,6 +26,12 @@ const CRON_JOBS: CronJobDefinition[] = [
     name: "Sync Org Meta",
     description:
       "Fetch org members and repo collaborators from GitHub and cache them in Firestore for faster unanswered-issues lookups.",
+  },
+  {
+    key: "sync_reviewer_teams",
+    name: "Sync Reviewer Teams",
+    description:
+      "Fetch web sub-teams and their members from GitHub under all-web-dev-teams and store in reviewerTeams collection.",
   },
 ];
 
@@ -107,6 +114,23 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
           `Org members: ${result.orgMemberCount}.`,
           `Collaborators: ${result.collaboratorCount}.`,
           `Last updated: ${result.lastUpdated}.`,
+        ].join("\n"),
+      };
+    }
+    case "sync_reviewer_teams": {
+      const result = await syncReviewerTeams();
+      const finishedAt = new Date();
+
+      return {
+        finishedAt,
+        jobKey: job.key,
+        jobName: job.name,
+        startedAt,
+        summary: [
+          "Cron job completed.",
+          `Platform: ${result.platform}.`,
+          `Synced ${result.syncedTeamsCount} teams with ${result.totalMembersCount} members.`,
+          `Last synced: ${finishedAt.toLocaleString("en-IN")}.`,
         ].join("\n"),
       };
     }
