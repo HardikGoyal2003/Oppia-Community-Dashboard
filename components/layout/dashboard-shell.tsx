@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { BarChart3, Bug, Inbox, LayoutDashboard, Map, Users } from "lucide-react";
+import { BarChart3, Bug, Inbox, LayoutDashboard, Map, Shield, Users } from "lucide-react";
 import type { UserRole } from "@/lib/auth/auth.types";
 import { AppSidebar } from "@/components/layout/sidebar/app-sidebar";
 import { Navbar } from "@/components/layout/navbar";
@@ -20,6 +20,7 @@ function getSidebarItems(role: UserRole): SidebarNavigationItem[] {
         { name: "Incoming Requests", icon: Inbox, url: "/dashboard/incoming-requests" },
         { name: "User Role Manager", icon: Users, url: "/dashboard/user-role-manager" },
         { name: "Team Reports", icon: BarChart3, url: "/dashboard/team-reports" },
+        { name: "Reviewer Teams", icon: Shield, url: "/dashboard/reviewer-teams" },
         { name: "Unanswered Issue", icon: Bug, url: "/dashboard/unanswered-issues" },
       ];
     case "TEAM_LEAD":
