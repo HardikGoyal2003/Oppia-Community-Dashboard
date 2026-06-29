@@ -52,10 +52,10 @@ function assertAssignedPR(
     );
   }
 
-  if (typeof pr.waitingSince !== "string" || !pr.waitingSince.trim()) {
+  if (typeof pr.assignedAt !== "string" || !pr.assignedAt.trim()) {
     throw new DbValidationError(
-      `members[${username}].assignedPRs[${index}].waitingSince`,
-      "Each assigned PR waitingSince must be a non-empty string.",
+      `members[${username}].assignedPRs[${index}].assignedAt`,
+      "Each assigned PR assignedAt must be a non-empty string.",
     );
   }
 }
@@ -202,7 +202,7 @@ export function normalizeReviewerTeamsDocument(
                   prNumber: pr.prNumber,
                   title: pr.title,
                   url: pr.url,
-                  waitingSince: pr.waitingSince,
+                  assignedAt: (pr.assignedAt ?? pr.waitingSince) as string,
                 }),
               ) ?? [],
             }),
@@ -229,7 +229,7 @@ export function serializeReviewerTeamsDocument(
           prNumber: pr.prNumber,
           title: pr.title,
           url: pr.url,
-          waitingSince: pr.waitingSince,
+          assignedAt: pr.assignedAt,
         })),
       })),
     })),

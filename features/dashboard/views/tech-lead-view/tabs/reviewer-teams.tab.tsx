@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight, Clock, ExternalLink, RefreshCw, Shield, Users } from "lucide-react";
 import type { ReviewerTeamsDocument } from "@/lib/domain/reviewer-teams.types";
 
-function hoursSince(iso: string): string {
+function waitingSince(iso: string): string {
   const hours = (Date.now() - new Date(iso).getTime()) / 3_600_000;
   if (hours < 1) return `${Math.round(hours * 60)}m`;
   if (hours < 24) return `${Math.round(hours)}h`;
@@ -197,7 +197,7 @@ export function ReviewerTeamsTab() {
                               </span>
                               <span className="flex shrink-0 items-center gap-1 text-xs text-slate-400">
                                 <Clock className="h-3 w-3" />
-                                {hoursSince(pr.waitingSince)}
+                                {waitingSince(pr.assignedAt)}
                               </span>
                             </div>
                           ))}

@@ -36,8 +36,8 @@ export async function GET() {
             .slice()
             .sort(
               (a, b) =>
-                new Date(a.waitingSince).getTime() -
-                new Date(b.waitingSince).getTime(),
+                new Date(a.assignedAt).getTime() -
+                new Date(b.assignedAt).getTime(),
             ),
         })),
       })),

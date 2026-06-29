@@ -4,5 +4,5 @@ export { fetchUnansweredIssues } from "./github-unanswered-issues.fetcher";
 export { fetchWebReviewerTeams } from "./github-teams.fetcher";
 export { fetchAssignedPRs } from "./github-prs.fetcher";
 export type { FetchedTeam } from "./github-teams.fetcher";
-export type { MemberPRMap } from "./github-prs.fetcher";
+export type { MemberPRMap, OpenPRAssignment } from "./github-prs.fetcher";
 export type { GitHubRepoTarget } from "./github.types";

@@ -1,6 +1,5 @@
 import { requestGitHubRestAll } from "./github.rest";
 import { fetchGitHubRateLimit } from "./github.rate-limit";
-import type { AssignedPR } from "@/lib/domain/reviewer-teams.types";
 
 const ORG = "oppia";
 const REPO = "oppia";
@@ -13,7 +12,13 @@ type GitHubPullResponse = {
   requested_reviewers: Array<{ login: string }>;
 };
 
-export type MemberPRMap = Map<string, AssignedPR[]>;
+export type OpenPRAssignment = {
+  prNumber: number;
+  title: string;
+  url: string;
+};
+
+export type MemberPRMap = Map<string, OpenPRAssignment[]>;
 
 export async function fetchAssignedPRs(): Promise<MemberPRMap> {
   console.log("Fetching open PRs from oppia/oppia...");
@@ -30,16 +35,15 @@ export async function fetchAssignedPRs(): Promise<MemberPRMap> {
     const reviewers = pr.requested_reviewers;
     if (!reviewers || reviewers.length === 0) continue;
 
-    const assignedPR: AssignedPR = {
+    const assignment: OpenPRAssignment = {
       prNumber: pr.number,
       title: pr.title,
       url: pr.html_url,
-      waitingSince: pr.created_at,
     };
 
     for (const reviewer of reviewers) {
       const existing = map.get(reviewer.login) ?? [];
-      existing.push(assignedPR);
+      existing.push(assignment);
       map.set(reviewer.login, existing);
     }
   }

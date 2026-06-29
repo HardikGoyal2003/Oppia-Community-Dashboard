@@ -4,7 +4,7 @@ export type AssignedPR = {
   prNumber: number;
   title: string;
   url: string;
-  waitingSince: string;
+  assignedAt: string;
 };
 
 export type ReviewerTeamMember = {
