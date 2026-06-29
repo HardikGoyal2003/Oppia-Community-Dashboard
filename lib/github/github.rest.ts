@@ -48,6 +48,7 @@ function getNextPageUrl(linkHeader: string | null): string | null {
 export async function requestGitHubRest<T>(path: string): Promise<T> {
   const token = process.env.GITHUB_TOKEN;
   const res = await fetch(`${API_URL}${path}`, {
+    cache: "no-store",
     headers: {
       Accept: "application/vnd.github+json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -100,6 +101,7 @@ export async function requestGitHubRestAll<T>(
   while (nextUrl) {
     const token = process.env.GITHUB_TOKEN;
     const res = await fetch(nextUrl, {
+      cache: "no-store",
       headers: {
         Accept: "application/vnd.github+json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),

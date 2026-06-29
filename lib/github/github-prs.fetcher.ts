@@ -54,8 +54,9 @@ export async function fetchAssignedPRs(): Promise<MemberPRMap> {
     `/repos/${ORG}/${REPO}/pulls?state=open`,
   );
 
-  console.log(`Found ${prs.length} open PRs.`);
+  console.log(`Found ${prs.length} open PRs (1 API call for list).`);
 
+  let timelineFetches = 0;
   const map: MemberPRMap = new Map();
 
   for (const pr of prs) {
@@ -68,6 +69,7 @@ export async function fetchAssignedPRs(): Promise<MemberPRMap> {
     );
     if (nonAuthorLogins.size === 0) continue;
 
+    timelineFetches++;
     console.log(`  Fetching timeline for PR #${pr.number}...`);
 
     const timelineEvents = await requestGitHubRestAll<TimelineEvent>(
@@ -95,6 +97,7 @@ export async function fetchAssignedPRs(): Promise<MemberPRMap> {
     }
   }
 
+  console.log(`Total timeline API calls made: ${timelineFetches}.`);
   const rate = await fetchGitHubRateLimit();
   console.log("\nRate Limit:");
   console.log(rate);
