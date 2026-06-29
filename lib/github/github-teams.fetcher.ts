@@ -7,6 +7,7 @@ const WEB_TEAM_SLUG = "all-web-dev-teams";
 type GitHubTeamResponse = {
   slug: string;
   name: string;
+  description: string | null;
 };
 
 type GitHubTeamMemberResponse = {
@@ -17,6 +18,7 @@ type GitHubTeamMemberResponse = {
 export type FetchedTeam = {
   teamSlug: string;
   teamName: string;
+  description: string;
   members: Array<{
     username: string;
     avatarUrl: string;
@@ -44,6 +46,7 @@ export async function fetchWebReviewerTeams(): Promise<FetchedTeam[]> {
     teamsWithMembers.push({
       teamSlug: team.slug,
       teamName: team.name,
+      description: team.description ?? "",
       members: members.map((member) => ({
         username: member.login,
         avatarUrl: member.avatar_url,

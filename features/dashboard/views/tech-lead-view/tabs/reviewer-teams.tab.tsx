@@ -107,7 +107,11 @@ export function ReviewerTeamsTab() {
                   <h2 className="text-sm font-semibold text-slate-900">
                     {team.teamName}
                   </h2>
-                  <p className="text-xs text-slate-500">{team.teamSlug}</p>
+                  {team.description && (
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {team.description}
+                    </p>
+                  )}
                 </div>
               </div>
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">

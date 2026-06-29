@@ -8,6 +8,7 @@ export type ReviewerTeamMember = {
 export type ReviewerTeam = {
   teamSlug: string;
   teamName: string;
+  description: string;
   members: ReviewerTeamMember[];
 };
 

@@ -70,6 +70,13 @@ function assertReviewerTeam(
     );
   }
 
+  if (typeof team.description !== "string") {
+    throw new DbValidationError(
+      `teams[${index}].description`,
+      "Each reviewer team description must be a string.",
+    );
+  }
+
   if (!Array.isArray(team.members)) {
     throw new DbValidationError(
       `teams[${index}].members`,
@@ -126,6 +133,7 @@ export function normalizeReviewerTeamsDocument(
         ({
           teamSlug: team.teamSlug,
           teamName: team.teamName,
+          description: team.description,
           members: (team.members as Record<string, unknown>[]).map(
             (member) => ({
               username: member.username,
@@ -146,6 +154,7 @@ export function serializeReviewerTeamsDocument(
     teams: document.teams.map((team) => ({
       teamSlug: team.teamSlug,
       teamName: team.teamName,
+      description: team.description,
       members: team.members.map((member) => ({
         username: member.username,
         avatarUrl: member.avatarUrl,

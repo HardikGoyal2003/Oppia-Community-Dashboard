@@ -22,6 +22,7 @@ export async function syncReviewerTeams(): Promise<SyncSummary> {
     teams: fetchedTeams.map((team) => ({
       teamSlug: team.teamSlug,
       teamName: team.teamName,
+      description: team.description,
       members: team.members.map((member) => ({
         username: member.username,
         avatarUrl: member.avatarUrl,
