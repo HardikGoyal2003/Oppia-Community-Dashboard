@@ -133,6 +133,11 @@ export async function requestGitHubRestAll<T>(
       throw new GitHubRestError(message, res.status, details);
     }
 
+    const remainingHeader = res.headers.get("x-ratelimit-remaining");
+    console.log(
+      `  [rate] ${path} → remaining=${remainingHeader}`,
+    );
+
     const items = (await res.json()) as T[];
     allItems.push(...items);
     nextUrl = getNextPageUrl(res.headers.get("Link"));
