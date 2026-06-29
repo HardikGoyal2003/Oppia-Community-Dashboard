@@ -1,13 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Users, Shield, Clock, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronRight, Clock, ExternalLink, RefreshCw, Shield, Users } from "lucide-react";
 import type { ReviewerTeamsDocument } from "@/lib/domain/reviewer-teams.types";
+
+function hoursSince(iso: string): string {
+  const hours = (Date.now() - new Date(iso).getTime()) / 3_600_000;
+  if (hours < 1) return `${Math.round(hours * 60)}m`;
+  if (hours < 24) return `${Math.round(hours)}h`;
+  const days = Math.floor(hours / 24);
+  const remaining = Math.round(hours % 24);
+  return `${days}d ${remaining}h`;
+}
 
 export function ReviewerTeamsTab() {
   const [data, setData] = useState<ReviewerTeamsDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     async function load() {
@@ -33,6 +43,15 @@ export function ReviewerTeamsTab() {
 
     void load();
   }, []);
+
+  function toggleMember(key: string) {
+    setExpandedMembers((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   if (loading) {
     return (
@@ -65,8 +84,9 @@ export function ReviewerTeamsTab() {
     );
   }
 
-  const totalMembers = data.teams.reduce(
-    (sum, team) => sum + team.members.length,
+  const totalAssignedPRs = data.teams.reduce(
+    (sum, team) =>
+      sum + team.members.reduce((msum, m) => msum + m.assignedPRs.length, 0),
     0,
   );
 
@@ -122,21 +142,76 @@ export function ReviewerTeamsTab() {
 
             {team.members.length > 0 ? (
               <div className="divide-y divide-slate-100">
-                {team.members.map((member) => (
-                  <div
-                    key={member.username}
-                    className="flex items-center gap-3 px-5 py-3"
-                  >
-                    <img
-                      src={member.avatarUrl}
-                      alt={member.username}
-                      className="h-8 w-8 rounded-full"
-                    />
-                    <span className="text-sm font-medium text-slate-700">
-                      @{member.username}
-                    </span>
-                  </div>
-                ))}
+                {team.members.map((member) => {
+                  const key = `${team.teamSlug}/${member.username}`;
+                  const isExpanded = expandedMembers.has(key);
+                  const count = member.assignedPRs.length;
+
+                  return (
+                    <div key={member.username}>
+                      <button
+                        type="button"
+                        onClick={() => toggleMember(key)}
+                        className="flex w-full items-center gap-3 px-5 py-3 text-left hover:bg-slate-50"
+                      >
+                        <img
+                          src={member.avatarUrl}
+                          alt={member.username}
+                          className="h-8 w-8 shrink-0 rounded-full"
+                        />
+                        <span className="text-sm font-medium text-slate-700">
+                          @{member.username}
+                        </span>
+                        <div className="ml-auto flex items-center gap-2 text-xs text-slate-500">
+                          {count > 0 && (
+                            <span className="rounded-full bg-amber-50 px-2.5 py-0.5 font-medium text-amber-700">
+                              {count} PR{count !== 1 ? "s" : ""}
+                            </span>
+                          )}
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </div>
+                      </button>
+
+                      {isExpanded && count > 0 && (
+                        <div className="border-t border-slate-100 bg-slate-50">
+                          {member.assignedPRs.map((pr) => (
+                            <div
+                              key={pr.prNumber}
+                              className="flex items-center gap-3 px-5 py-2.5 pl-16"
+                            >
+                              <a
+                                href={pr.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                              >
+                                #{pr.prNumber}
+                                <ExternalLink className="h-3 w-3 shrink-0" />
+                              </a>
+                              <span className="min-w-0 flex-1 truncate text-sm text-slate-600">
+                                {pr.title}
+                              </span>
+                              <span className="flex shrink-0 items-center gap-1 text-xs text-slate-400">
+                                <Clock className="h-3 w-3" />
+                                {hoursSince(pr.waitingSince)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {isExpanded && count === 0 && (
+                        <div className="border-t border-slate-100 px-5 py-4 pl-16 text-center text-sm text-slate-400">
+                          No PRs assigned for review.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="px-5 py-6 text-center text-sm text-slate-400">
@@ -150,7 +225,7 @@ export function ReviewerTeamsTab() {
       <div className="rounded-lg border border-slate-200 bg-slate-50 px-5 py-3">
         <p className="text-xs text-slate-500">
           <strong className="font-medium text-slate-700">{data.teams.length}</strong> teams,{" "}
-          <strong className="font-medium text-slate-700">{totalMembers}</strong> total members.
+          <strong className="font-medium text-slate-700">{totalAssignedPRs}</strong> open PRs awaiting review.
           Synced every 7 days via cron.
         </p>
       </div>

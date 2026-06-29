@@ -2,6 +2,7 @@ import { Timestamp } from "firebase-admin/firestore";
 import { DbValidationError } from "@/db/db.errors";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type {
+  AssignedPR,
   ReviewerTeam,
   ReviewerTeamMember,
   ReviewerTeamsDocument,
@@ -17,6 +18,47 @@ export type FirestoreReviewerTeamsDocument = Omit<
 > & {
   lastSyncedAt: Timestamp;
 };
+
+function assertAssignedPR(
+  pr: Record<string, unknown> | null,
+  index: number,
+  username: string,
+): asserts pr is AssignedPR {
+  if (pr === null) {
+    throw new DbValidationError(
+      `members[${username}].assignedPRs[${index}]`,
+      "Assigned PR must be an object.",
+    );
+  }
+
+  if (typeof pr.prNumber !== "number") {
+    throw new DbValidationError(
+      `members[${username}].assignedPRs[${index}].prNumber`,
+      "Each assigned PR prNumber must be a number.",
+    );
+  }
+
+  if (typeof pr.title !== "string" || !pr.title.trim()) {
+    throw new DbValidationError(
+      `members[${username}].assignedPRs[${index}].title`,
+      "Each assigned PR title must be a non-empty string.",
+    );
+  }
+
+  if (typeof pr.url !== "string" || !pr.url.trim()) {
+    throw new DbValidationError(
+      `members[${username}].assignedPRs[${index}].url`,
+      "Each assigned PR url must be a non-empty string.",
+    );
+  }
+
+  if (typeof pr.waitingSince !== "string" || !pr.waitingSince.trim()) {
+    throw new DbValidationError(
+      `members[${username}].assignedPRs[${index}].waitingSince`,
+      "Each assigned PR waitingSince must be a non-empty string.",
+    );
+  }
+}
 
 function assertReviewerTeamMember(
   member: Record<string, unknown> | null,
@@ -42,6 +84,23 @@ function assertReviewerTeamMember(
       `teams[${teamSlug}].members[${index}].avatarUrl`,
       "Each reviewer team member avatarUrl must be a non-empty string.",
     );
+  }
+
+  if (member.assignedPRs !== undefined) {
+    if (!Array.isArray(member.assignedPRs)) {
+      throw new DbValidationError(
+        `teams[${teamSlug}].members[${index}].assignedPRs`,
+        "Reviewer team member assignedPRs must be an array.",
+      );
+    }
+
+    for (let i = 0; i < member.assignedPRs.length; i++) {
+      assertAssignedPR(
+        member.assignedPRs[i] as Record<string, unknown> | null,
+        i,
+        member.username,
+      );
+    }
   }
 }
 
@@ -138,6 +197,14 @@ export function normalizeReviewerTeamsDocument(
             (member) => ({
               username: member.username,
               avatarUrl: member.avatarUrl,
+              assignedPRs: (member.assignedPRs as Record<string, unknown>[])?.map(
+                (pr) => ({
+                  prNumber: pr.prNumber,
+                  title: pr.title,
+                  url: pr.url,
+                  waitingSince: pr.waitingSince,
+                }),
+              ) ?? [],
             }),
           ),
         }) as ReviewerTeam,
@@ -158,6 +225,12 @@ export function serializeReviewerTeamsDocument(
       members: team.members.map((member) => ({
         username: member.username,
         avatarUrl: member.avatarUrl,
+        assignedPRs: member.assignedPRs.map((pr) => ({
+          prNumber: pr.prNumber,
+          title: pr.title,
+          url: pr.url,
+          waitingSince: pr.waitingSince,
+        })),
       })),
     })),
   };

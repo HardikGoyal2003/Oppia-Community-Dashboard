@@ -1,4 +1,4 @@
-import { fetchWebReviewerTeams } from "@/lib/github/github-teams.fetcher";
+import { fetchWebReviewerTeams, fetchAssignedPRs } from "@/lib/github/github.fetcher";
 import { upsertReviewerTeamsDocument } from "@/db/reviewer-teams/reviewer-teams.db";
 import type { ReviewerTeamsDocument } from "@/lib/domain/reviewer-teams.types";
 
@@ -9,7 +9,10 @@ type SyncSummary = {
 };
 
 export async function syncReviewerTeams(): Promise<SyncSummary> {
-  const fetchedTeams = await fetchWebReviewerTeams();
+  const [fetchedTeams, assignedPRs] = await Promise.all([
+    fetchWebReviewerTeams(),
+    fetchAssignedPRs(),
+  ]);
 
   const totalMembersCount = fetchedTeams.reduce(
     (sum, team) => sum + team.members.length,
@@ -26,6 +29,7 @@ export async function syncReviewerTeams(): Promise<SyncSummary> {
       members: team.members.map((member) => ({
         username: member.username,
         avatarUrl: member.avatarUrl,
+        assignedPRs: assignedPRs.get(member.username) ?? [],
       })),
     })),
   };
