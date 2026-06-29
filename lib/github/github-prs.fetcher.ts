@@ -9,7 +9,8 @@ type GitHubPullResponse = {
   title: string;
   html_url: string;
   created_at: string;
-  requested_reviewers: Array<{ login: string }>;
+  user: { login: string } | null;
+  assignees: Array<{ login: string }>;
 };
 
 export type OpenPRAssignment = {
@@ -32,8 +33,10 @@ export async function fetchAssignedPRs(): Promise<MemberPRMap> {
   const map: MemberPRMap = new Map();
 
   for (const pr of prs) {
-    const reviewers = pr.requested_reviewers;
-    if (!reviewers || reviewers.length === 0) continue;
+    const assignees = pr.assignees;
+    if (!assignees || assignees.length === 0) continue;
+
+    const author = pr.user?.login;
 
     const assignment: OpenPRAssignment = {
       prNumber: pr.number,
@@ -41,10 +44,11 @@ export async function fetchAssignedPRs(): Promise<MemberPRMap> {
       url: pr.html_url,
     };
 
-    for (const reviewer of reviewers) {
-      const existing = map.get(reviewer.login) ?? [];
+    for (const assignee of assignees) {
+      if (assignee.login === author) continue;
+      const existing = map.get(assignee.login) ?? [];
       existing.push(assignment);
-      map.set(reviewer.login, existing);
+      map.set(assignee.login, existing);
     }
   }
 
