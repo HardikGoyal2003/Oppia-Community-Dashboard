@@ -16,14 +16,18 @@ export async function fetchGitHubRateLimit(): Promise<{
   core: RateLimitSnapshot;
   graphql: RateLimitSnapshot;
 }> {
-  const data = await requestGitHubRest<{ resources: RateLimitResources }>(
+  const raw = await requestGitHubRest<Record<string, unknown>>(
     "/rate_limit",
   );
 
   console.log("Token set:", !!process.env.GITHUB_TOKEN);
+  console.log("Raw /rate_limit keys:", Object.keys(raw));
+  console.log("Raw resources:", JSON.stringify(raw.resources, null, 2));
+
+  const resources = raw.resources as RateLimitResources;
 
   return {
-    core: data.resources.core,
-    graphql: data.resources.graphql,
+    core: resources.core,
+    graphql: resources.graphql,
   };
 }
