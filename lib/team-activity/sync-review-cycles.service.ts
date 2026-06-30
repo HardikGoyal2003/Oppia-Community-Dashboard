@@ -1,8 +1,6 @@
 import { fetchCycleRecords } from "@/lib/github/github.fetcher";
-import { getTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
-import { upsertReviewer } from "@/db/reviewers/reviewers.db";
+import { getReviewer, upsertReviewer } from "@/db/reviewers/reviewers.db";
 import { upsertReviewCycles } from "@/db/review-cycles/review-cycles.db";
-import type { ReviewerDocument } from "@/lib/domain/reviewer-teams.types";
 
 type SyncSummary = {
   completedCyclesCount: number;
@@ -10,32 +8,20 @@ type SyncSummary = {
 };
 
 /**
- * Syncs review cycles and reviewer data from GitHub into Firestore.
+ * Syncs completed review cycles from GitHub into Firestore.
  *
- * Reads team memberships from the existing `teamReviewers/{platform}` doc,
- * fetches cycle records from open PRs, and writes them to:
+ * Fetches cycle records from open PRs and writes:
  * - `reviewCycles/{key}` — completed review cycles (idempotent)
- * - `reviewers/{login}` — per-reviewer teams + pending reviews + aggregates
+ * - `reviewers/{login}` — updates `completedReviews` and
+ *   `avgReviewTimeHours`, preserving existing `pendingReviews` and `teams`.
+ *
+ * Does NOT update pending reviews — that is handled by the separate
+ * `sync-pending-reviews` cron job.
  *
  * @returns A summary of the sync operation.
  */
 export async function syncReviewCycles(): Promise<SyncSummary> {
-  const platform = "WEB";
-
-  const teamDoc = await getTeamReviewers(platform);
-  const memberToTeams = new Map<string, string[]>();
-
-  if (teamDoc) {
-    for (const team of teamDoc.teams) {
-      for (const member of team.members) {
-        const existing = memberToTeams.get(member.username) ?? [];
-        existing.push(team.teamSlug);
-        memberToTeams.set(member.username, existing);
-      }
-    }
-  }
-
-  const { completed, pending } = await fetchCycleRecords();
+  const { completed } = await fetchCycleRecords();
 
   await upsertReviewCycles(completed);
 
@@ -54,34 +40,21 @@ export async function syncReviewCycles(): Promise<SyncSummary> {
   for (const record of completed) {
     reviewerLogins.add(record.reviewerLogin);
   }
-  for (const p of pending) {
-    reviewerLogins.add(p.reviewerLogin);
-  }
 
   for (const login of reviewerLogins) {
-    const pendingReviews = pending
-      .filter((p) => p.reviewerLogin === login)
-      .map((p) => ({
-        prNumber: p.prNumber,
-        title: p.prTitle,
-        url: p.prUrl,
-        assignedAt: p.assignedAt,
-      }));
-
+    const existing = await getReviewer(login);
     const agg = cycleAggs.get(login);
 
-    const doc: ReviewerDocument = {
-      teams: memberToTeams.get(login) ?? [],
-      pendingReviews,
+    await upsertReviewer(login, {
+      teams: existing?.teams ?? [],
+      pendingReviews: existing?.pendingReviews ?? [],
       completedReviews: agg?.count ?? 0,
       avgReviewTimeHours:
         agg && agg.count > 0
           ? Number((agg.totalMs / agg.count / 3_600_000).toFixed(1))
           : null,
       lastUpdated: new Date(),
-    };
-
-    await upsertReviewer(login, doc);
+    });
   }
 
   return {

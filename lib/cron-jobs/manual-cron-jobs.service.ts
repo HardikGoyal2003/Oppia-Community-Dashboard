@@ -8,6 +8,7 @@ import { syncTeamGfiCounts } from "@/lib/teams/sync-team-gfi-counts.service";
 import { syncOrgMeta } from "@/lib/org-meta/sync-org-meta.service";
 import { syncReviewerTeams } from "@/lib/team-activity/sync-reviewer-teams.service";
 import { syncReviewCycles } from "@/lib/team-activity/sync-review-cycles.service";
+import { syncPendingReviews } from "@/lib/team-activity/sync-pending-reviews.service";
 
 const CRON_JOBS: CronJobDefinition[] = [
   {
@@ -38,7 +39,13 @@ const CRON_JOBS: CronJobDefinition[] = [
     key: "sync_review_cycles",
     name: "Sync Review Cycles",
     description:
-      "Fetch open PRs, extract review cycles from timeline events, and update reviewers and reviewCycles collections. Runs daily.",
+      "Fetch open PRs, extract completed review cycles from timeline events, and update completedReviews and avgReviewTimeHours on reviewer docs. Runs daily.",
+  },
+  {
+    key: "sync_pending_reviews",
+    name: "Sync Pending Reviews",
+    description:
+      "Fetch open PR assignments and update pendingReviews on reviewer docs. Runs daily.",
   },
 ];
 
@@ -154,6 +161,23 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
         summary: [
           "Cron job completed.",
           `Completed cycles: ${result.completedCyclesCount}.`,
+          `Updated reviewers: ${result.updatedReviewersCount}.`,
+          `Finished at: ${finishedAt.toLocaleString("en-IN")}.`,
+        ].join("\n"),
+      };
+    }
+    case "sync_pending_reviews": {
+      const result = await syncPendingReviews();
+      const finishedAt = new Date();
+
+      return {
+        finishedAt,
+        jobKey: job.key,
+        jobName: job.name,
+        startedAt,
+        summary: [
+          "Cron job completed.",
+          `Pending reviews synced: ${result.pendingReviewsCount}.`,
           `Updated reviewers: ${result.updatedReviewersCount}.`,
           `Finished at: ${finishedAt.toLocaleString("en-IN")}.`,
         ].join("\n"),
