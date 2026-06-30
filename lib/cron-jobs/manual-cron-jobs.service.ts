@@ -7,6 +7,7 @@ import { captureDailyUnansweredIssueMetrics } from "@/lib/team-metrics/capture-d
 import { syncTeamGfiCounts } from "@/lib/teams/sync-team-gfi-counts.service";
 import { syncOrgMeta } from "@/lib/org-meta/sync-org-meta.service";
 import { syncReviewerTeams } from "@/lib/team-activity/sync-reviewer-teams.service";
+import { syncReviewCycles } from "@/lib/team-activity/sync-review-cycles.service";
 
 const CRON_JOBS: CronJobDefinition[] = [
   {
@@ -31,7 +32,13 @@ const CRON_JOBS: CronJobDefinition[] = [
     key: "sync_reviewer_teams",
     name: "Sync Reviewer Teams",
     description:
-      "Fetch web sub-teams and their members from GitHub under all-web-dev-teams and store in reviewerTeams collection.",
+      "Fetch web sub-teams and their members from GitHub under all-web-dev-teams and store in teamReviewers collection.",
+  },
+  {
+    key: "sync_review_cycles",
+    name: "Sync Review Cycles",
+    description:
+      "Fetch open PRs, extract review cycles from timeline events, and update reviewers and reviewCycles collections. Runs daily.",
   },
 ];
 
@@ -131,6 +138,23 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
           `Platform: ${result.platform}.`,
           `Synced ${result.syncedTeamsCount} teams with ${result.totalMembersCount} members.`,
           `Last synced: ${finishedAt.toLocaleString("en-IN")}.`,
+        ].join("\n"),
+      };
+    }
+    case "sync_review_cycles": {
+      const result = await syncReviewCycles();
+      const finishedAt = new Date();
+
+      return {
+        finishedAt,
+        jobKey: job.key,
+        jobName: job.name,
+        startedAt,
+        summary: [
+          "Cron job completed.",
+          `Completed cycles: ${result.completedCyclesCount}.`,
+          `Updated reviewers: ${result.updatedReviewersCount}.`,
+          `Finished at: ${finishedAt.toLocaleString("en-IN")}.`,
         ].join("\n"),
       };
     }
