@@ -1,4 +1,4 @@
-import { requestGitHubRestAll } from "./github.rest";
+import { requestGitHubRest, requestGitHubRestAll } from "./github.rest";
 import { fetchGitHubRateLimit } from "./github.rate-limit";
 import fs from "fs";
 import path from "path";
@@ -13,8 +13,9 @@ type GitHubPullResponse = {
   created_at: string;
   closed_at: string | null;
   user: { login: string } | null;
-  assignees: Array<{ login: string }>;
+  assignees: Array<{ login: string }> | null;
   requested_teams: Array<{ slug: string }>;
+  pull_request?: Record<string, string>;
 };
 
 type TimelineEvent = {
@@ -522,9 +523,7 @@ function extractCyclesFromPR(
  * @param prNumber The PR number to fetch data for.
  * @returns The timeline events and review submissions.
  */
-async function fetchPRTimelineAndReviews(
-  prNumber: number,
-): Promise<{
+async function fetchPRTimelineAndReviews(prNumber: number): Promise<{
   timelineEvents: TimelineEvent[];
   reviews: GitHubReviewResponse[];
 }> {
@@ -574,9 +573,16 @@ export async function fetchCycleRecords(): Promise<CycleRecordsResult> {
   return { completed, pending };
 }
 
+/** Max closed PRs to process in a single run to stay within function limits. */
+const MAX_CLOSED_PRS = 20;
+
 /**
  * Fetches PRs closed within the last `sinceDate` days and extracts
  * completed review cycles from their timelines.
+ *
+ * Uses the GitHub Search API to fetch only PRs actually closed in the
+ * window (not merely updated), and caps processing at `MAX_CLOSED_PRS`
+ * to avoid serverless function timeout.
  *
  * @param sinceDate Only PRs closed on or after this date are processed.
  * @returns Completed cycle records.
@@ -584,29 +590,40 @@ export async function fetchCycleRecords(): Promise<CycleRecordsResult> {
 export async function fetchClosedPRCycleRecords(
   sinceDate: Date,
 ): Promise<CycleRecord[]> {
-  const sinceIso = sinceDate.toISOString();
+  const sinceDateStr = sinceDate.toISOString().slice(0, 10);
 
-  console.log(`Fetching cycle records from PRs closed since ${sinceIso}...`);
-
-  const prs = await requestGitHubRestAll<GitHubPullResponse>(
-    `/repos/${ORG}/${REPO}/pulls?state=closed&since=${sinceIso}&sort=updated&direction=desc`,
+  console.log(
+    `Fetching cycle records from PRs closed since ${sinceDateStr}...`,
   );
 
-  const filtered = prs.filter(
-    (pr) => pr.closed_at !== null && new Date(pr.closed_at) >= sinceDate,
+  const searchQuery = `repo:${ORG}/${REPO}+type:pr+state:closed+closed:>=${sinceDateStr}`;
+
+  interface SearchResult {
+    items: GitHubPullResponse[];
+    total_count: number;
+  }
+
+  const searchResult = await requestGitHubRest<SearchResult>(
+    `/search/issues?q=${searchQuery}&sort=updated&order=desc&per_page=${MAX_CLOSED_PRS}`,
   );
 
-  console.log(`Found ${filtered.length} PRs closed since ${sinceIso}`);
+  console.log(
+    `Found ${searchResult.total_count} closed PRs since ${sinceDateStr}, processing up to ${MAX_CLOSED_PRS}.`,
+  );
 
   const completed: CycleRecord[] = [];
 
-  for (const pr of filtered) {
-    console.log(`  Processing closed PR #${pr.number}...`);
+  for (const item of searchResult.items) {
+    if (!item.pull_request || !item.assignees || item.assignees.length === 0) {
+      continue;
+    }
+
+    console.log(`  Processing closed PR #${item.number}...`);
 
     const { timelineEvents, reviews } = await fetchPRTimelineAndReviews(
-      pr.number,
+      item.number,
     );
-    const result = extractCyclesFromPR(pr, timelineEvents, reviews, false);
+    const result = extractCyclesFromPR(item, timelineEvents, reviews, false);
 
     completed.push(...result.completed);
   }

@@ -2,11 +2,9 @@ import {
   fetchCycleRecords,
   fetchClosedPRCycleRecords,
 } from "@/lib/github/github.fetcher";
-import {
-  getAllReviewerLogins,
-  getReviewer,
-  upsertReviewer,
-} from "@/db/reviewers/reviewers.db";
+import { getReviewer, upsertReviewer } from "@/db/reviewers/reviewers.db";
+import { getTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import {
   upsertReviewCycles,
   findNewCycleRecords,
@@ -37,21 +35,29 @@ const CLOSED_PR_LOOKBACK_DAYS = 3;
  * @returns A summary of the sync operation.
  */
 export async function syncReviewCycles(): Promise<SyncSummary> {
+  const platform: ContributionPlatform = "WEB";
   const sinceDate = new Date(
     Date.now() - CLOSED_PR_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
   );
 
-  const [openResult, closedCompleted, reviewerLogins] = await Promise.all([
+  const [openResult, closedCompleted, teamDoc] = await Promise.all([
     fetchCycleRecords(),
     fetchClosedPRCycleRecords(sinceDate),
-    getAllReviewerLogins(),
+    getTeamReviewers(platform),
   ]);
+
+  const knownLogins = new Set<string>();
+  if (teamDoc) {
+    for (const team of teamDoc.teams) {
+      for (const member of team.members) {
+        knownLogins.add(member.username);
+      }
+    }
+  }
 
   const allCompleted = [...openResult.completed, ...closedCompleted];
 
-  const filtered = allCompleted.filter((c) =>
-    reviewerLogins.has(c.reviewerLogin),
-  );
+  const filtered = allCompleted.filter((c) => knownLogins.has(c.reviewerLogin));
 
   const newRecords = await findNewCycleRecords(filtered);
 
