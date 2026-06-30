@@ -26,6 +26,8 @@ export type TeamReviewersDocument = {
 export type ReviewerDocument = {
   teams: string[];
   pendingReviews: PendingReview[];
+  completedReviews: number;
+  avgReviewTimeHours: number | null;
   lastUpdated: Date;
 };
 

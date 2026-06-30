@@ -33,6 +33,25 @@ function assertFirestoreReviewer(
       "pendingReviews must be an array.",
     );
   }
+  if (
+    data.completedReviews !== undefined &&
+    typeof data.completedReviews !== "number"
+  ) {
+    throw new DbValidationError(
+      "completedReviews",
+      "completedReviews must be a number.",
+    );
+  }
+  if (
+    data.avgReviewTimeHours !== undefined &&
+    data.avgReviewTimeHours !== null &&
+    typeof data.avgReviewTimeHours !== "number"
+  ) {
+    throw new DbValidationError(
+      "avgReviewTimeHours",
+      "avgReviewTimeHours must be a number or null.",
+    );
+  }
   assertTimestamp("Reviewer", "lastUpdated", data.lastUpdated);
 }
 
@@ -49,6 +68,11 @@ export function normalizeReviewer(
   return {
     teams: data.teams,
     pendingReviews: data.pendingReviews,
+    completedReviews: (data.completedReviews as number) ?? 0,
+    avgReviewTimeHours:
+      data.avgReviewTimeHours !== undefined && data.avgReviewTimeHours !== null
+        ? (data.avgReviewTimeHours as number)
+        : null,
     lastUpdated: normalizeTimestamp(data.lastUpdated),
   };
 }
@@ -63,6 +87,8 @@ export function serializeReviewer(doc: ReviewerDocument): FirestoreReviewer {
   return {
     teams: doc.teams,
     pendingReviews: doc.pendingReviews,
+    completedReviews: doc.completedReviews,
+    avgReviewTimeHours: doc.avgReviewTimeHours,
     lastUpdated: Timestamp.fromDate(doc.lastUpdated),
   };
 }

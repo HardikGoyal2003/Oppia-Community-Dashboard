@@ -70,6 +70,17 @@ export async function syncReviewerTeams(): Promise<SyncSummary> {
 
   await upsertReviewCycles(completed);
 
+  const cycleAggs = new Map<string, { count: number; totalMs: number }>();
+  for (const record of completed) {
+    const agg = cycleAggs.get(record.reviewerLogin) ?? {
+      count: 0,
+      totalMs: 0,
+    };
+    agg.count++;
+    agg.totalMs += record.durationMs;
+    cycleAggs.set(record.reviewerLogin, agg);
+  }
+
   for (const login of reviewerLogins) {
     const pendingReviews = pending
       .filter((p) => p.reviewerLogin === login)
@@ -80,9 +91,16 @@ export async function syncReviewerTeams(): Promise<SyncSummary> {
         assignedAt: p.assignedAt,
       }));
 
+    const agg = cycleAggs.get(login);
+
     const doc: ReviewerDocument = {
       teams: memberToTeams.get(login) ?? [],
       pendingReviews,
+      completedReviews: agg?.count ?? 0,
+      avgReviewTimeHours:
+        agg && agg.count > 0
+          ? Number((agg.totalMs / agg.count / 3_600_000).toFixed(1))
+          : null,
       lastUpdated: new Date(),
     };
 

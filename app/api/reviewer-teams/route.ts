@@ -3,7 +3,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import { getTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
 import { getReviewer } from "@/db/reviewers/reviewers.db";
-import { getReviewCycleAggregates } from "@/db/review-cycles/review-cycles.db";
 import type { TeamReviewerMember } from "@/lib/domain/reviewer-teams.types";
 
 function canViewReviewerTeams(role: string | undefined): boolean {
@@ -37,7 +36,6 @@ export async function GET() {
         const members = await Promise.all(
           team.members.map(async (member: TeamReviewerMember) => {
             const reviewer = await getReviewer(member.username);
-            const cycleAgg = await getReviewCycleAggregates(member.username);
 
             const pendingReviews = (reviewer?.pendingReviews ?? [])
               .slice()
@@ -47,25 +45,13 @@ export async function GET() {
                   new Date(b.assignedAt).getTime(),
               );
 
-            const reviewsDone = cycleAgg.reviewsDone;
-            const avgReviewTimeHours =
-              reviewsDone > 0
-                ? Number(
-                    (
-                      cycleAgg.totalReviewTimeMs /
-                      reviewsDone /
-                      3_600_000
-                    ).toFixed(1),
-                  )
-                : null;
-
             return {
               username: member.username,
               avatarUrl: member.avatarUrl,
               assignedPRs: pendingReviews,
-              reviewsDone,
+              reviewsDone: reviewer?.completedReviews ?? 0,
               pendingReviews: pendingReviews.length,
-              avgReviewTimeHours,
+              avgReviewTimeHours: reviewer?.avgReviewTimeHours ?? null,
             };
           }),
         );
