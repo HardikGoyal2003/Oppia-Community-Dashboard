@@ -7,6 +7,7 @@ export {
   fetchTeamAssignedPRs,
   fetchReviewerStats,
   fetchCycleRecords,
+  fetchClosedPRCycleRecords,
 } from "./github-prs.fetcher";
 export type { FetchedTeam } from "./github-teams.fetcher";
 export type {

@@ -1,64 +1,100 @@
-import { fetchCycleRecords } from "@/lib/github/github.fetcher";
-import { getReviewer, upsertReviewer } from "@/db/reviewers/reviewers.db";
-import { upsertReviewCycles } from "@/db/review-cycles/review-cycles.db";
+import {
+  fetchCycleRecords,
+  fetchClosedPRCycleRecords,
+} from "@/lib/github/github.fetcher";
+import {
+  getAllReviewerLogins,
+  getReviewer,
+  upsertReviewer,
+} from "@/db/reviewers/reviewers.db";
+import {
+  upsertReviewCycles,
+  findNewCycleRecords,
+} from "@/db/review-cycles/review-cycles.db";
 
 type SyncSummary = {
   completedCyclesCount: number;
+  newCyclesCount: number;
   updatedReviewersCount: number;
 };
+
+/** Number of days of closed PR history to process each run. */
+const CLOSED_PR_LOOKBACK_DAYS = 3;
 
 /**
  * Syncs completed review cycles from GitHub into Firestore.
  *
- * Fetches cycle records from open PRs and writes:
- * - `reviewCycles/{key}` — completed review cycles (idempotent)
- * - `reviewers/{login}` — updates `completedReviews` and
- *   `avgReviewTimeHours`, preserving existing `pendingReviews` and `teams`.
+ * Processes all open PRs + PRs closed within the last
+ * `CLOSED_PR_LOOKBACK_DAYS` days, extracts completed cycles from their
+ * timelines, and writes:
+ * - `reviewCycles/{key}` — completed cycles (idempotent merge)
+ * - `reviewers/{login}` — incrementally updates `completedReviews` and
+ *   `avgReviewTimeHours` only for cycles that are newly persisted.
  *
- * Does NOT update pending reviews — that is handled by the separate
- * `sync-pending-reviews` cron job.
+ * Only processes cycles for reviewers who already have a doc in the
+ * `reviewers` collection.
  *
  * @returns A summary of the sync operation.
  */
 export async function syncReviewCycles(): Promise<SyncSummary> {
-  const { completed } = await fetchCycleRecords();
+  const sinceDate = new Date(
+    Date.now() - CLOSED_PR_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+  );
 
-  await upsertReviewCycles(completed);
+  const [openResult, closedCompleted, reviewerLogins] = await Promise.all([
+    fetchCycleRecords(),
+    fetchClosedPRCycleRecords(sinceDate),
+    getAllReviewerLogins(),
+  ]);
 
-  const cycleAggs = new Map<string, { count: number; totalMs: number }>();
-  for (const record of completed) {
-    const agg = cycleAggs.get(record.reviewerLogin) ?? {
+  const allCompleted = [...openResult.completed, ...closedCompleted];
+
+  const filtered = allCompleted.filter((c) =>
+    reviewerLogins.has(c.reviewerLogin),
+  );
+
+  const newRecords = await findNewCycleRecords(filtered);
+
+  await upsertReviewCycles(filtered);
+
+  const newAggs = new Map<string, { count: number; totalMs: number }>();
+  for (const record of newRecords) {
+    const agg = newAggs.get(record.reviewerLogin) ?? {
       count: 0,
       totalMs: 0,
     };
     agg.count++;
     agg.totalMs += record.durationMs;
-    cycleAggs.set(record.reviewerLogin, agg);
+    newAggs.set(record.reviewerLogin, agg);
   }
 
-  const reviewerLogins = new Set<string>();
-  for (const record of completed) {
-    reviewerLogins.add(record.reviewerLogin);
-  }
+  let updatedCount = 0;
 
-  for (const login of reviewerLogins) {
+  for (const [login, batch] of newAggs) {
     const existing = await getReviewer(login);
-    const agg = cycleAggs.get(login);
+    const oldCount = existing?.completedReviews ?? 0;
+    const newCount = oldCount + batch.count;
+    const oldTotalHours = (existing?.avgReviewTimeHours ?? 0) * oldCount;
+    const newTotalHours = batch.totalMs / 3_600_000;
+    const avgReviewTimeHours =
+      newCount > 0
+        ? Number(((oldTotalHours + newTotalHours) / newCount).toFixed(1))
+        : null;
 
     await upsertReviewer(login, {
       teams: existing?.teams ?? [],
       pendingReviews: existing?.pendingReviews ?? [],
-      completedReviews: agg?.count ?? 0,
-      avgReviewTimeHours:
-        agg && agg.count > 0
-          ? Number((agg.totalMs / agg.count / 3_600_000).toFixed(1))
-          : null,
+      completedReviews: newCount,
+      avgReviewTimeHours,
       lastUpdated: new Date(),
     });
+
+    updatedCount++;
   }
 
   return {
-    completedCyclesCount: completed.length,
-    updatedReviewersCount: reviewerLogins.size,
+    completedCyclesCount: allCompleted.length,
+    newCyclesCount: newRecords.length,
+    updatedReviewersCount: updatedCount,
   };
 }

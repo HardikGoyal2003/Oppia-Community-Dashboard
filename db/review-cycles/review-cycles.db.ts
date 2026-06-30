@@ -47,6 +47,30 @@ export async function upsertReviewCycles(
 }
 
 /**
+ * Given a list of candidate cycle records, returns only those whose
+ * corresponding Firestore doc does not yet exist.
+ *
+ * Uses composite key `${reviewerLogin}:${prNumber}:${assignedAt}`.
+ *
+ * @param records The candidate cycle records.
+ * @returns The subset of records that are new (not yet in Firestore).
+ */
+export async function findNewCycleRecords(
+  records: ReviewCycleRecord[],
+): Promise<ReviewCycleRecord[]> {
+  if (records.length === 0) return [];
+
+  const firestore = getAdminFirestore();
+  const refs = records.map((r) =>
+    collection.doc(`${r.reviewerLogin}:${r.prNumber}:${r.assignedAt}`),
+  );
+
+  const snapshots = await firestore.getAll(...refs);
+
+  return records.filter((_, i) => !snapshots[i].exists);
+}
+
+/**
  * Computes aggregate stats for a given reviewer from their stored cycles.
  *
  * @param login The GitHub login of the reviewer.

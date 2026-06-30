@@ -161,6 +161,7 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
         summary: [
           "Cron job completed.",
           `Completed cycles: ${result.completedCyclesCount}.`,
+          `New cycles: ${result.newCyclesCount}.`,
           `Updated reviewers: ${result.updatedReviewersCount}.`,
           `Finished at: ${finishedAt.toLocaleString("en-IN")}.`,
         ].join("\n"),

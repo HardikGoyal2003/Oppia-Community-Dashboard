@@ -11,6 +11,7 @@ type GitHubPullResponse = {
   title: string;
   html_url: string;
   created_at: string;
+  closed_at: string | null;
   user: { login: string } | null;
   assignees: Array<{ login: string }>;
   requested_teams: Array<{ slug: string }>;
@@ -413,6 +414,132 @@ export async function fetchReviewerStats(): Promise<ReviewerStatsMap> {
 }
 
 /**
+ * Processes a single PR's timeline and reviews to extract completed and
+ * pending review cycles for all non-author assignees.
+ *
+ * @param pr The PR response from GitHub.
+ * @param timelineEvents The timeline events for the PR.
+ * @param reviews The review submissions for the PR.
+ * @param includePending Whether to include pending (unpaired) cycles.
+ * @returns Completed cycles and optionally pending cycles.
+ */
+function extractCyclesFromPR(
+  pr: GitHubPullResponse,
+  timelineEvents: TimelineEvent[],
+  reviews: GitHubReviewResponse[],
+  includePending: boolean,
+): { completed: CycleRecord[]; pending: CycleRecordsResult["pending"] } {
+  const assignees = pr.assignees;
+  if (!assignees || assignees.length === 0)
+    return { completed: [], pending: [] };
+
+  const author = pr.user?.login;
+  const nonAuthorLogins = new Set(
+    assignees.map((a) => a.login).filter((l) => l !== author),
+  );
+  if (nonAuthorLogins.size === 0) return { completed: [], pending: [] };
+
+  const completed: CycleRecord[] = [];
+  const pending: CycleRecordsResult["pending"] = [];
+
+  for (const login of nonAuthorLogins) {
+    const events: CycleEvent[] = [];
+
+    for (const e of timelineEvents) {
+      if (e.event === "assigned" && e.assignee?.login === login) {
+        events.push({ type: "assigned", timestamp: e.created_at });
+      }
+      if (e.event === "unassigned" && e.assignee?.login === login) {
+        events.push({ type: "unassigned", timestamp: e.created_at });
+      }
+    }
+
+    for (const r of reviews) {
+      if (r.user?.login === login && r.state !== "PENDING") {
+        events.push({ type: "reviewed", timestamp: r.submitted_at });
+      }
+    }
+
+    events.sort(
+      (a, b) =>
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+    );
+
+    let cycleStart = "";
+    let inCycle = false;
+
+    for (const event of events) {
+      if (event.type === "assigned") {
+        if (inCycle) {
+          if (includePending) {
+            pending.push({
+              reviewerLogin: login,
+              prNumber: pr.number,
+              prTitle: pr.title,
+              prUrl: pr.html_url,
+              assignedAt: cycleStart,
+            });
+          }
+        }
+        inCycle = true;
+        cycleStart = event.timestamp;
+      } else {
+        if (inCycle) {
+          const durationMs =
+            new Date(event.timestamp).getTime() -
+            new Date(cycleStart).getTime();
+          completed.push({
+            reviewerLogin: login,
+            prNumber: pr.number,
+            prTitle: pr.title,
+            prUrl: pr.html_url,
+            assignedAt: cycleStart,
+            completedAt: event.timestamp,
+            durationMs: Math.max(0, durationMs),
+          });
+          inCycle = false;
+        }
+      }
+    }
+
+    if (inCycle && includePending) {
+      pending.push({
+        reviewerLogin: login,
+        prNumber: pr.number,
+        prTitle: pr.title,
+        prUrl: pr.html_url,
+        assignedAt: cycleStart,
+      });
+    }
+  }
+
+  return { completed, pending };
+}
+
+/**
+ * Fetches the timeline events and review submissions for a single PR.
+ *
+ * @param prNumber The PR number to fetch data for.
+ * @returns The timeline events and review submissions.
+ */
+async function fetchPRTimelineAndReviews(
+  prNumber: number,
+): Promise<{
+  timelineEvents: TimelineEvent[];
+  reviews: GitHubReviewResponse[];
+}> {
+  const [timelineEvents, reviews] = await Promise.all([
+    requestGitHubRestAll<TimelineEvent>(
+      `/repos/${ORG}/${REPO}/issues/${prNumber}/timeline`,
+    ),
+    requestGitHubRestAll<GitHubReviewResponse>(
+      `/repos/${ORG}/${REPO}/pulls/${prNumber}/reviews`,
+    ),
+  ]);
+  return { timelineEvents, reviews };
+}
+
+/**
  * Fetches all open PRs and extracts completed review cycles (to persist in
  * reviewCycles) and pending cycles (current open assignments).
  *
@@ -429,94 +556,15 @@ export async function fetchCycleRecords(): Promise<CycleRecordsResult> {
   const pending: CycleRecordsResult["pending"] = [];
 
   for (const pr of prs) {
-    const assignees = pr.assignees;
-    if (!assignees || assignees.length === 0) continue;
+    console.log(`  Processing open PR #${pr.number}...`);
 
-    const author = pr.user?.login;
-    const nonAuthorLogins = new Set(
-      assignees.map((a) => a.login).filter((l) => l !== author),
+    const { timelineEvents, reviews } = await fetchPRTimelineAndReviews(
+      pr.number,
     );
-    if (nonAuthorLogins.size === 0) continue;
+    const result = extractCyclesFromPR(pr, timelineEvents, reviews, true);
 
-    console.log(`  Processing PR #${pr.number}...`);
-
-    const [timelineEvents, reviews] = await Promise.all([
-      requestGitHubRestAll<TimelineEvent>(
-        `/repos/${ORG}/${REPO}/issues/${pr.number}/timeline`,
-      ),
-      requestGitHubRestAll<GitHubReviewResponse>(
-        `/repos/${ORG}/${REPO}/pulls/${pr.number}/reviews`,
-      ),
-    ]);
-
-    for (const login of nonAuthorLogins) {
-      const events: CycleEvent[] = [];
-
-      for (const e of timelineEvents) {
-        if (e.event === "assigned" && e.assignee?.login === login) {
-          events.push({ type: "assigned", timestamp: e.created_at });
-        }
-        if (e.event === "unassigned" && e.assignee?.login === login) {
-          events.push({ type: "unassigned", timestamp: e.created_at });
-        }
-      }
-
-      for (const r of reviews) {
-        if (r.user?.login === login && r.state !== "PENDING") {
-          events.push({ type: "reviewed", timestamp: r.submitted_at });
-        }
-      }
-
-      events.sort(
-        (a, b) =>
-          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-      );
-
-      let cycleStart = "";
-      let inCycle = false;
-
-      for (const event of events) {
-        if (event.type === "assigned") {
-          if (inCycle) {
-            pending.push({
-              reviewerLogin: login,
-              prNumber: pr.number,
-              prTitle: pr.title,
-              prUrl: pr.html_url,
-              assignedAt: cycleStart,
-            });
-          }
-          inCycle = true;
-          cycleStart = event.timestamp;
-        } else {
-          if (inCycle) {
-            const durationMs =
-              new Date(event.timestamp).getTime() -
-              new Date(cycleStart).getTime();
-            completed.push({
-              reviewerLogin: login,
-              prNumber: pr.number,
-              prTitle: pr.title,
-              prUrl: pr.html_url,
-              assignedAt: cycleStart,
-              completedAt: event.timestamp,
-              durationMs: Math.max(0, durationMs),
-            });
-            inCycle = false;
-          }
-        }
-      }
-
-      if (inCycle) {
-        pending.push({
-          reviewerLogin: login,
-          prNumber: pr.number,
-          prTitle: pr.title,
-          prUrl: pr.html_url,
-          assignedAt: cycleStart,
-        });
-      }
-    }
+    completed.push(...result.completed);
+    pending.push(...result.pending);
   }
 
   const rate = await fetchGitHubRateLimit();
@@ -524,4 +572,48 @@ export async function fetchCycleRecords(): Promise<CycleRecordsResult> {
   console.log(rate.core);
 
   return { completed, pending };
+}
+
+/**
+ * Fetches PRs closed within the last `sinceDate` days and extracts
+ * completed review cycles from their timelines.
+ *
+ * @param sinceDate Only PRs closed on or after this date are processed.
+ * @returns Completed cycle records.
+ */
+export async function fetchClosedPRCycleRecords(
+  sinceDate: Date,
+): Promise<CycleRecord[]> {
+  const sinceIso = sinceDate.toISOString();
+
+  console.log(`Fetching cycle records from PRs closed since ${sinceIso}...`);
+
+  const prs = await requestGitHubRestAll<GitHubPullResponse>(
+    `/repos/${ORG}/${REPO}/pulls?state=closed&since=${sinceIso}&sort=updated&direction=desc`,
+  );
+
+  const filtered = prs.filter(
+    (pr) => pr.closed_at !== null && new Date(pr.closed_at) >= sinceDate,
+  );
+
+  console.log(`Found ${filtered.length} PRs closed since ${sinceIso}`);
+
+  const completed: CycleRecord[] = [];
+
+  for (const pr of filtered) {
+    console.log(`  Processing closed PR #${pr.number}...`);
+
+    const { timelineEvents, reviews } = await fetchPRTimelineAndReviews(
+      pr.number,
+    );
+    const result = extractCyclesFromPR(pr, timelineEvents, reviews, false);
+
+    completed.push(...result.completed);
+  }
+
+  const rate = await fetchGitHubRateLimit();
+  console.log("\nRate Limit (REST):");
+  console.log(rate.core);
+
+  return completed;
 }

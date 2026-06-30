@@ -43,6 +43,20 @@ export async function upsertReviewer(
 }
 
 /**
+ * Returns the set of all reviewer login keys in the collection.
+ *
+ * Only reads document IDs — no field data is fetched.
+ *
+ * @returns A set of reviewer logins (doc IDs).
+ */
+export async function getAllReviewerLogins(): Promise<Set<string>> {
+  const snapshot = await collection.select().get();
+  const logins = new Set<string>();
+  snapshot.forEach((doc) => logins.add(doc.id));
+  return logins;
+}
+
+/**
  * Fetches all reviewer documents from Firestore.
  *
  * @returns A promise that resolves to a map of login to reviewer document.
