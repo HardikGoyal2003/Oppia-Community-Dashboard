@@ -5,7 +5,6 @@ import {
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
 import type {
-  PendingReview,
   TeamReviewerEntry,
   TeamReviewersDocument,
 } from "@/lib/domain/reviewer-teams.types";
@@ -14,46 +13,6 @@ export type FirestoreTeamReviewers = {
   teams: TeamReviewerEntry[];
   lastUpdated: Timestamp;
 };
-
-/**
- * Validates that the raw value is a valid PendingReview.
- *
- * @param pr The raw Firestore value to validate.
- * @param path Dot-delimited error path prefix.
- * @returns Nothing. Throws when the value is invalid.
- */
-function assertPendingReview(
-  pr: FirebaseFirestore.DocumentData | null,
-  path: string,
-): asserts pr is PendingReview {
-  if (pr === null) {
-    throw new DbValidationError(path, "Pending review must be an object.");
-  }
-  if (typeof pr.prNumber !== "number") {
-    throw new DbValidationError(
-      `${path}.prNumber`,
-      "prNumber must be a number.",
-    );
-  }
-  if (typeof pr.title !== "string" || !pr.title.trim()) {
-    throw new DbValidationError(
-      `${path}.title`,
-      "title must be a non-empty string.",
-    );
-  }
-  if (typeof pr.url !== "string" || !pr.url.trim()) {
-    throw new DbValidationError(
-      `${path}.url`,
-      "url must be a non-empty string.",
-    );
-  }
-  if (typeof pr.assignedAt !== "string" || !pr.assignedAt.trim()) {
-    throw new DbValidationError(
-      `${path}.assignedAt`,
-      "assignedAt must be a non-empty string.",
-    );
-  }
-}
 
 /**
  * Validates that the raw value is a valid TeamReviewerEntry.
@@ -114,20 +73,6 @@ function assertTeamReviewerEntry(
       throw new DbValidationError(
         `teams[${index}].members[${i}].avatarUrl`,
         "avatarUrl must be a non-empty string.",
-      );
-    }
-  }
-  if (team.teamAssignedPRs !== undefined) {
-    if (!Array.isArray(team.teamAssignedPRs)) {
-      throw new DbValidationError(
-        `teams[${index}].teamAssignedPRs`,
-        "teamAssignedPRs must be an array.",
-      );
-    }
-    for (let i = 0; i < team.teamAssignedPRs.length; i++) {
-      assertPendingReview(
-        team.teamAssignedPRs[i] as FirebaseFirestore.DocumentData | null,
-        `teams[${index}].teamAssignedPRs[${i}]`,
       );
     }
   }

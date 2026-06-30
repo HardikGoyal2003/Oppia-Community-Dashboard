@@ -16,7 +16,6 @@ export type TeamReviewerEntry = {
   teamName: string;
   description: string;
   members: TeamReviewerMember[];
-  teamAssignedPRs: PendingReview[];
 };
 
 export type TeamReviewersDocument = {
@@ -53,7 +52,6 @@ export type ReviewerTeam = {
   teamSlug: string;
   teamName: string;
   description: string;
-  assignedPRs: PendingReview[];
   members: ReviewerTeamMember[];
 };
 

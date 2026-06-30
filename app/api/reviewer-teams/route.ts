@@ -74,13 +74,6 @@ export async function GET() {
           teamSlug: team.teamSlug,
           teamName: team.teamName,
           description: team.description,
-          assignedPRs: team.teamAssignedPRs
-            .slice()
-            .sort(
-              (a, b) =>
-                new Date(a.assignedAt).getTime() -
-                new Date(b.assignedAt).getTime(),
-            ),
           members,
         };
       }),

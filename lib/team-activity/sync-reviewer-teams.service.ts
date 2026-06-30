@@ -1,6 +1,5 @@
 import {
   fetchWebReviewerTeams,
-  fetchTeamAssignedPRs,
   fetchCycleRecords,
 } from "@/lib/github/github.fetcher";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
@@ -24,7 +23,7 @@ type SyncSummary = {
  *
  * Fetches web reviewer teams, extracts cycle records from open PRs, and
  * writes to three collections:
- * - `teamReviewers/{platform}` — team info + member lists + team PRs
+ * - `teamReviewers/{platform}` — team info + member lists
  * - `reviewers/{login}` — per-reviewer teams + pending reviews
  * - `reviewCycles/{key}` — completed review cycles (idempotent)
  *
@@ -35,12 +34,7 @@ export async function syncReviewerTeams(): Promise<SyncSummary> {
 
   const fetchedTeams = await fetchWebReviewerTeams();
 
-  const trackedSlugs = fetchedTeams.map((t) => t.teamSlug);
-
-  const [teamPRs, { completed, pending }] = await Promise.all([
-    fetchTeamAssignedPRs(trackedSlugs),
-    fetchCycleRecords(),
-  ]);
+  const { completed, pending } = await fetchCycleRecords();
 
   const teamDoc: TeamReviewersDocument = {
     teams: fetchedTeams.map((team) => ({
@@ -51,7 +45,6 @@ export async function syncReviewerTeams(): Promise<SyncSummary> {
         username: m.username,
         avatarUrl: m.avatarUrl,
       })),
-      teamAssignedPRs: teamPRs.get(team.teamSlug) ?? [],
     })),
     lastUpdated: new Date(),
   };
