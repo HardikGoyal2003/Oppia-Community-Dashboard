@@ -17,6 +17,7 @@ export type ReviewerTeam = {
   teamSlug: string;
   teamName: string;
   description: string;
+  assignedPRs: AssignedPR[];
   members: ReviewerTeamMember[];
 };
 

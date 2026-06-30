@@ -19,49 +19,60 @@ export type FirestoreReviewerTeamsDocument = Omit<
   lastSyncedAt: Timestamp;
 };
 
+/**
+ * Validates that the raw value is a valid AssignedPR.
+ *
+ * @param pr The raw Firestore value to validate.
+ * @param path Dot-delimited error path prefix.
+ * @returns Nothing. Throws when the value is invalid.
+ */
 function assertAssignedPR(
-  pr: Record<string, unknown> | null,
-  index: number,
-  username: string,
+  pr: FirebaseFirestore.DocumentData | null,
+  path: string,
 ): asserts pr is AssignedPR {
   if (pr === null) {
-    throw new DbValidationError(
-      `members[${username}].assignedPRs[${index}]`,
-      "Assigned PR must be an object.",
-    );
+    throw new DbValidationError(path, "Assigned PR must be an object.");
   }
 
   if (typeof pr.prNumber !== "number") {
     throw new DbValidationError(
-      `members[${username}].assignedPRs[${index}].prNumber`,
+      `${path}.prNumber`,
       "Each assigned PR prNumber must be a number.",
     );
   }
 
   if (typeof pr.title !== "string" || !pr.title.trim()) {
     throw new DbValidationError(
-      `members[${username}].assignedPRs[${index}].title`,
+      `${path}.title`,
       "Each assigned PR title must be a non-empty string.",
     );
   }
 
   if (typeof pr.url !== "string" || !pr.url.trim()) {
     throw new DbValidationError(
-      `members[${username}].assignedPRs[${index}].url`,
+      `${path}.url`,
       "Each assigned PR url must be a non-empty string.",
     );
   }
 
   if (typeof pr.assignedAt !== "string" || !pr.assignedAt.trim()) {
     throw new DbValidationError(
-      `members[${username}].assignedPRs[${index}].assignedAt`,
+      `${path}.assignedAt`,
       "Each assigned PR assignedAt must be a non-empty string.",
     );
   }
 }
 
+/**
+ * Validates that the raw value is a valid ReviewerTeamMember.
+ *
+ * @param member The raw Firestore value to validate.
+ * @param index The index of the member in the parent team array.
+ * @param teamSlug The slug of the parent team, used for error paths.
+ * @returns Nothing. Throws when the value is invalid.
+ */
 function assertReviewerTeamMember(
-  member: Record<string, unknown> | null,
+  member: FirebaseFirestore.DocumentData | null,
   index: number,
   teamSlug: string,
 ): asserts member is ReviewerTeamMember {
@@ -96,16 +107,22 @@ function assertReviewerTeamMember(
 
     for (let i = 0; i < member.assignedPRs.length; i++) {
       assertAssignedPR(
-        member.assignedPRs[i] as Record<string, unknown> | null,
-        i,
-        member.username,
+        member.assignedPRs[i] as FirebaseFirestore.DocumentData | null,
+        `teams[${teamSlug}].members[${index}].assignedPRs[${i}]`,
       );
     }
   }
 }
 
+/**
+ * Validates that the raw value is a valid ReviewerTeam.
+ *
+ * @param team The raw Firestore value to validate.
+ * @param index The index of the team in the teams array.
+ * @returns Nothing. Throws when the value is invalid.
+ */
 function assertReviewerTeam(
-  team: Record<string, unknown> | null,
+  team: FirebaseFirestore.DocumentData | null,
   index: number,
 ): asserts team is ReviewerTeam {
   if (team === null) {
@@ -145,13 +162,35 @@ function assertReviewerTeam(
 
   for (let i = 0; i < team.members.length; i++) {
     assertReviewerTeamMember(
-      team.members[i] as Record<string, unknown> | null,
+      team.members[i] as FirebaseFirestore.DocumentData | null,
       i,
       team.teamSlug,
     );
   }
+
+  if (team.assignedPRs !== undefined) {
+    if (!Array.isArray(team.assignedPRs)) {
+      throw new DbValidationError(
+        `teams[${index}].assignedPRs`,
+        "Reviewer team assignedPRs must be an array.",
+      );
+    }
+
+    for (let i = 0; i < team.assignedPRs.length; i++) {
+      assertAssignedPR(
+        team.assignedPRs[i] as FirebaseFirestore.DocumentData | null,
+        `teams[${index}].assignedPRs[${i}]`,
+      );
+    }
+  }
 }
 
+/**
+ * Validates the raw Firestore reviewer teams document shape.
+ *
+ * @param doc The raw Firestore document data.
+ * @returns Nothing. Throws when the document shape is invalid.
+ */
 function assertFirestoreReviewerTeamsDocument(
   doc: FirebaseFirestore.DocumentData,
 ): asserts doc is FirestoreReviewerTeamsDocument {
@@ -165,20 +204,23 @@ function assertFirestoreReviewerTeamsDocument(
   assertTimestamp("ReviewerTeams", "lastSyncedAt", doc.lastSyncedAt);
 
   if (!Array.isArray(doc.teams)) {
-    throw new DbValidationError(
-      "teams",
-      "Reviewer teams must be an array.",
-    );
+    throw new DbValidationError("teams", "Reviewer teams must be an array.");
   }
 
   for (let i = 0; i < doc.teams.length; i++) {
     assertReviewerTeam(
-      doc.teams[i] as Record<string, unknown> | null,
+      doc.teams[i] as FirebaseFirestore.DocumentData | null,
       i,
     );
   }
 }
 
+/**
+ * Converts a raw Firestore document into a typed ReviewerTeamsDocument.
+ *
+ * @param doc The raw Firestore document data.
+ * @returns The normalized ReviewerTeamsDocument.
+ */
 export function normalizeReviewerTeamsDocument(
   doc: FirebaseFirestore.DocumentData,
 ): ReviewerTeamsDocument {
@@ -188,23 +230,33 @@ export function normalizeReviewerTeamsDocument(
     platform: doc.platform as ContributionPlatform,
     lastSyncedAt: normalizeTimestamp(doc.lastSyncedAt),
     teams: doc.teams.map(
-      (team: Record<string, unknown>) =>
+      (team: FirebaseFirestore.DocumentData) =>
         ({
           teamSlug: team.teamSlug,
           teamName: team.teamName,
           description: team.description,
-          members: (team.members as Record<string, unknown>[]).map(
+          assignedPRs:
+            (team.assignedPRs as FirebaseFirestore.DocumentData[])?.map(
+              (pr) => ({
+                prNumber: pr.prNumber,
+                title: pr.title,
+                url: pr.url,
+                assignedAt: (pr.assignedAt ?? pr.waitingSince) as string,
+              }),
+            ) ?? [],
+          members: (team.members as FirebaseFirestore.DocumentData[]).map(
             (member) => ({
               username: member.username,
               avatarUrl: member.avatarUrl,
-              assignedPRs: (member.assignedPRs as Record<string, unknown>[])?.map(
-                (pr) => ({
-                  prNumber: pr.prNumber,
-                  title: pr.title,
-                  url: pr.url,
-                  assignedAt: (pr.assignedAt ?? pr.waitingSince) as string,
-                }),
-              ) ?? [],
+              assignedPRs:
+                (member.assignedPRs as FirebaseFirestore.DocumentData[])?.map(
+                  (pr) => ({
+                    prNumber: pr.prNumber,
+                    title: pr.title,
+                    url: pr.url,
+                    assignedAt: (pr.assignedAt ?? pr.waitingSince) as string,
+                  }),
+                ) ?? [],
             }),
           ),
         }) as ReviewerTeam,
@@ -212,6 +264,12 @@ export function normalizeReviewerTeamsDocument(
   };
 }
 
+/**
+ * Converts a ReviewerTeamsDocument into a Firestore-safe format.
+ *
+ * @param document The domain document to serialize.
+ * @returns The Firestore-ready document with Timestamp fields.
+ */
 export function serializeReviewerTeamsDocument(
   document: ReviewerTeamsDocument,
 ): FirestoreReviewerTeamsDocument {
@@ -222,6 +280,12 @@ export function serializeReviewerTeamsDocument(
       teamSlug: team.teamSlug,
       teamName: team.teamName,
       description: team.description,
+      assignedPRs: team.assignedPRs.map((pr) => ({
+        prNumber: pr.prNumber,
+        title: pr.title,
+        url: pr.url,
+        assignedAt: pr.assignedAt,
+      })),
       members: team.members.map((member) => ({
         username: member.username,
         avatarUrl: member.avatarUrl,

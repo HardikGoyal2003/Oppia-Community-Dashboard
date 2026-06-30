@@ -18,7 +18,10 @@ export async function GET() {
 
   if (!document) {
     return NextResponse.json(
-      { error: "No reviewer teams data found. Run the Sync Reviewer Teams cron job first." },
+      {
+        error:
+          "No reviewer teams data found. Run the Sync Reviewer Teams cron job first.",
+      },
       { status: 404 },
     );
   }
@@ -30,6 +33,13 @@ export async function GET() {
       .sort((a, b) => a.teamName.localeCompare(b.teamName))
       .map((team) => ({
         ...team,
+        assignedPRs: team.assignedPRs
+          .slice()
+          .sort(
+            (a, b) =>
+              new Date(a.assignedAt).getTime() -
+              new Date(b.assignedAt).getTime(),
+          ),
         members: team.members.map((member) => ({
           ...member,
           assignedPRs: member.assignedPRs
