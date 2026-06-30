@@ -33,6 +33,7 @@ function IndividualView({ data }: { data: ReviewerTeamsDocument }) {
         username: string;
         avatarUrl: string;
         reviewsDone: number;
+        pendingReviews: number;
         avgReviewTimeHours: number | null;
       }
     >();
@@ -43,6 +44,7 @@ function IndividualView({ data }: { data: ReviewerTeamsDocument }) {
             username: m.username,
             avatarUrl: m.avatarUrl,
             reviewsDone: m.reviewsDone,
+            pendingReviews: m.pendingReviews,
             avgReviewTimeHours: m.avgReviewTimeHours,
           });
         }
@@ -123,7 +125,13 @@ function IndividualView({ data }: { data: ReviewerTeamsDocument }) {
                 <p className="font-semibold text-slate-800">
                   {member.reviewsDone}
                 </p>
-                <p className="text-slate-500">Reviews done</p>
+                <p className="text-slate-500">Done</p>
+              </div>
+              <div className="text-center">
+                <p className="font-semibold text-slate-800">
+                  {member.pendingReviews}
+                </p>
+                <p className="text-slate-500">Pending</p>
               </div>
               <div className="text-center">
                 <p className="font-semibold text-slate-800">

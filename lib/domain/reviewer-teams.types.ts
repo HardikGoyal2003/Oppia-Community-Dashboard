@@ -13,6 +13,7 @@ export type ReviewerTeamMember = {
   assignedPRs: AssignedPR[];
   reviewsDone: number;
   avgReviewTimeHours: number | null;
+  pendingReviews: number;
 };
 
 export type ReviewerTeam = {

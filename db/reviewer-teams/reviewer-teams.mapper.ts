@@ -133,6 +133,16 @@ function assertReviewerTeamMember(
       "Reviewer team member avgReviewTimeHours must be a number or null.",
     );
   }
+
+  if (
+    member.pendingReviews !== undefined &&
+    typeof member.pendingReviews !== "number"
+  ) {
+    throw new DbValidationError(
+      `teams[${teamSlug}].members[${index}].pendingReviews`,
+      "Reviewer team member pendingReviews must be a number.",
+    );
+  }
 }
 
 /**
@@ -279,6 +289,7 @@ export function normalizeReviewerTeamsDocument(
                   }),
                 ) ?? [],
               reviewsDone: (member.reviewsDone as number) ?? 0,
+              pendingReviews: (member.pendingReviews as number) ?? 0,
               avgReviewTimeHours:
                 (member.avgReviewTimeHours as number | null) ?? null,
             }),
@@ -320,6 +331,7 @@ export function serializeReviewerTeamsDocument(
           assignedAt: pr.assignedAt,
         })),
         reviewsDone: member.reviewsDone,
+        pendingReviews: member.pendingReviews,
         avgReviewTimeHours: member.avgReviewTimeHours,
       })),
     })),

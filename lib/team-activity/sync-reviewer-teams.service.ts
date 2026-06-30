@@ -51,6 +51,7 @@ export async function syncReviewerTeams(): Promise<SyncSummary> {
           avatarUrl: member.avatarUrl,
           assignedPRs: memberPRs.get(member.username) ?? [],
           reviewsDone: stats?.reviewsDone ?? 0,
+          pendingReviews: stats?.pendingReviews ?? 0,
           avgReviewTimeHours:
             stats && stats.reviewsDone > 0
               ? Number(

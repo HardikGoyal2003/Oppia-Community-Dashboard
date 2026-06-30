@@ -34,7 +34,7 @@ export type MemberPRMap = Map<string, OpenPRAssignment[]>;
 export type TeamPRMap = Map<string, OpenPRAssignment[]>;
 export type ReviewerStatsMap = Map<
   string,
-  { reviewsDone: number; totalReviewTimeMs: number }
+  { reviewsDone: number; totalReviewTimeMs: number; pendingReviews: number }
 >;
 
 /**
@@ -235,9 +235,103 @@ type GitHubReviewResponse = {
   submitted_at: string;
 };
 
+type CycleEvent = {
+  type: "assigned" | "unassigned" | "reviewed";
+  timestamp: string;
+};
+
 /**
- * Fetches review stats for all open PRs — how many reviews each assignee
- * has completed and the total review time across all their reviews.
+ * Computes review cycles from timeline and review events per assignee.
+ *
+ * Each `assigned` event paired with a following `unassigned` or
+ * non-PENDING review submission counts as one completed review cycle.
+ * Unpaired `assigned` events count as pending reviews.
+ *
+ * @param timelineEvents The timeline events for a single PR.
+ * @param reviews The PR review submissions.
+ * @param nonAuthorLogins The set of non-author assignee logins.
+ * @returns A map of login to computed review stats.
+ */
+function computeReviewCycles(
+  timelineEvents: TimelineEvent[],
+  reviews: GitHubReviewResponse[],
+  nonAuthorLogins: Set<string>,
+): Map<
+  string,
+  { reviewsDone: number; totalReviewTimeMs: number; pendingReviews: number }
+> {
+  const result = new Map<
+    string,
+    { reviewsDone: number; totalReviewTimeMs: number; pendingReviews: number }
+  >();
+
+  for (const login of nonAuthorLogins) {
+    const events: CycleEvent[] = [];
+
+    for (const e of timelineEvents) {
+      if (e.event === "assigned" && e.assignee?.login === login) {
+        events.push({ type: "assigned", timestamp: e.created_at });
+      }
+      if (e.event === "unassigned" && e.assignee?.login === login) {
+        events.push({ type: "unassigned", timestamp: e.created_at });
+      }
+    }
+
+    for (const r of reviews) {
+      if (r.user?.login === login && r.state !== "PENDING") {
+        events.push({ type: "reviewed", timestamp: r.submitted_at });
+      }
+    }
+
+    events.sort(
+      (a, b) =>
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+    );
+
+    let reviewsDone = 0;
+    let totalReviewTimeMs = 0;
+    let pendingReviews = 0;
+    let inCycle = false;
+    let cycleStart = "";
+
+    for (const event of events) {
+      if (event.type === "assigned") {
+        if (inCycle) {
+          pendingReviews++;
+        }
+        inCycle = true;
+        cycleStart = event.timestamp;
+      } else {
+        if (inCycle) {
+          reviewsDone++;
+          totalReviewTimeMs +=
+            new Date(event.timestamp).getTime() -
+            new Date(cycleStart).getTime();
+          inCycle = false;
+        }
+      }
+    }
+
+    if (inCycle) {
+      pendingReviews++;
+    }
+
+    result.set(login, {
+      reviewsDone,
+      totalReviewTimeMs: Math.max(0, totalReviewTimeMs),
+      pendingReviews,
+    });
+  }
+
+  return result;
+}
+
+/**
+ * Fetches review stats for all open PRs — how many review cycles each
+ * assignee has completed and the total/pending review counts.
+ *
+ * Cycles are computed from the PR timeline by pairing each `assigned`
+ * event with the next `unassigned` or review-submission event.
  *
  * @returns A map of username to their review stats.
  */
@@ -260,37 +354,32 @@ export async function fetchReviewerStats(): Promise<ReviewerStatsMap> {
     );
     if (nonAuthorLogins.size === 0) continue;
 
-    console.log(`  Fetching reviews for PR #${pr.number}...`);
+    console.log(`  Fetching timeline & reviews for PR #${pr.number}...`);
 
-    const reviews = await requestGitHubRestAll<GitHubReviewResponse>(
-      `/repos/${ORG}/${REPO}/pulls/${pr.number}/reviews`,
+    const [timelineEvents, reviews] = await Promise.all([
+      requestGitHubRestAll<TimelineEvent>(
+        `/repos/${ORG}/${REPO}/issues/${pr.number}/timeline`,
+      ),
+      requestGitHubRestAll<GitHubReviewResponse>(
+        `/repos/${ORG}/${REPO}/pulls/${pr.number}/reviews`,
+      ),
+    ]);
+
+    const perUser = computeReviewCycles(
+      timelineEvents,
+      reviews,
+      nonAuthorLogins,
     );
 
-    const submittedByUser = new Map<string, string>();
-
-    for (const review of reviews) {
-      const login = review.user?.login;
-      if (!login) continue;
-      if (review.state === "PENDING") continue;
-      if (!nonAuthorLogins.has(login)) continue;
-
-      const existing = submittedByUser.get(login);
-      if (!existing || review.submitted_at > existing) {
-        submittedByUser.set(login, review.submitted_at);
-      }
-    }
-
-    const assignedAt = pr.created_at;
-
-    for (const [login, submittedAt] of submittedByUser) {
-      const timeMs =
-        new Date(submittedAt).getTime() - new Date(assignedAt).getTime();
+    for (const [login, stats] of perUser) {
       const existing = statsMap.get(login) ?? {
         reviewsDone: 0,
         totalReviewTimeMs: 0,
+        pendingReviews: 0,
       };
-      existing.reviewsDone += 1;
-      existing.totalReviewTimeMs += Math.max(0, timeMs);
+      existing.reviewsDone += stats.reviewsDone;
+      existing.totalReviewTimeMs += stats.totalReviewTimeMs;
+      existing.pendingReviews += stats.pendingReviews;
       statsMap.set(login, existing);
     }
   }
