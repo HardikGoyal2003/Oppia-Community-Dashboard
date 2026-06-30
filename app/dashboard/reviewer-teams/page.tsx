@@ -1,9 +1,9 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import { redirect } from "next/navigation";
-import UnansweredIssuesTab from "@/features/dashboard/shared/unanswered-issues.tab";
+import { ReviewerReportsTab } from "@/features/dashboard/views/tech-lead-view/tabs/reviewer-teams.tab";
 
-export default async function UnansweredIssuesPage() {
+export default async function ReviewerTeamsPage() {
   const session = await getServerSession(authOptions);
 
   if (!session?.user) {
@@ -16,9 +16,9 @@ export default async function UnansweredIssuesPage() {
     redirect("/dashboard");
   }
 
-  if (role === "CONTRIBUTOR" || role === "TEAM_MEMBER") {
+  if (role !== "ADMIN" && role !== "SUPER_ADMIN") {
     redirect("/dashboard/overview");
   }
 
-  return <UnansweredIssuesTab />;
+  return <ReviewerReportsTab />;
 }
