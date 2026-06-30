@@ -46,21 +46,23 @@ export async function syncReviewerTeams(): Promise<SyncSummary> {
 
   await upsertTeamReviewers(platform, teamDoc);
 
-  const allLogins = new Set<string>();
+  const memberToTeams = new Map<string, string[]>();
   for (const team of fetchedTeams) {
     for (const member of team.members) {
-      allLogins.add(member.username);
+      const existing = memberToTeams.get(member.username) ?? [];
+      existing.push(team.teamSlug);
+      memberToTeams.set(member.username, existing);
     }
   }
 
   let initialDocsCreated = 0;
 
-  for (const login of allLogins) {
+  for (const [login, teams] of memberToTeams) {
     const existing = await getReviewer(login);
     if (existing) continue;
 
     const doc: ReviewerDocument = {
-      teams: [],
+      teams,
       pendingReviews: [],
       completedReviews: 0,
       avgReviewTimeHours: null,
