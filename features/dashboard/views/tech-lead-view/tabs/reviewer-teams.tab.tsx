@@ -189,9 +189,19 @@ function IndividualView({ data }: { data: ReviewerTeamsDocument }) {
 }
 
 function TeamsView({ data }: { data: ReviewerTeamsDocument }) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [expandedMembers, setExpandedMembers] = useState<Set<string>>(
     new Set(),
   );
+
+  function toggleTeam(slug: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(slug)) next.delete(slug);
+      else next.add(slug);
+      return next;
+    });
+  }
 
   function toggleMember(key: string) {
     setExpandedMembers((prev) => {
@@ -203,115 +213,147 @@ function TeamsView({ data }: { data: ReviewerTeamsDocument }) {
   }
 
   return (
-    <div className="grid gap-4">
-      {data.teams.map((team) => (
-        <div
-          key={team.teamSlug}
-          className="rounded-xl border border-slate-200 bg-white shadow-sm"
-        >
-          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100">
-                <Users className="h-5 w-5 text-slate-600" />
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {data.teams.map((team) => {
+        const isExpanded = expanded.has(team.teamSlug);
+        const hasMembers = team.members.length > 0;
+
+        return (
+          <div
+            key={team.teamSlug}
+            className="rounded-xl border border-slate-200 bg-white shadow-sm"
+          >
+            <button
+              type="button"
+              onClick={() => toggleTeam(team.teamSlug)}
+              className="flex w-full flex-col items-center gap-2 px-4 py-5 text-center hover:bg-slate-50"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-100">
+                <Users className="h-6 w-6 text-slate-600" />
               </div>
-              <div>
-                <h2 className="text-sm font-semibold text-slate-900">
-                  {team.teamName}
-                </h2>
-                {team.description && (
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    {team.description}
-                  </p>
+              <span className="text-sm font-semibold text-slate-900">
+                {team.teamName}
+              </span>
+              {team.description && (
+                <p className="line-clamp-2 text-xs text-slate-500">
+                  {team.description}
+                </p>
+              )}
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                {team.members.length}{" "}
+                {team.members.length === 1 ? "member" : "members"}
+              </span>
+            </button>
+
+            {hasMembers && (
+              <div className="flex flex-wrap justify-center gap-2 border-t border-slate-100 px-4 py-3">
+                {team.members.slice(0, 4).map((m) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={m.username}
+                    src={m.avatarUrl}
+                    alt={m.username}
+                    title={`@${m.username}`}
+                    className="h-8 w-8 rounded-full border-2 border-white"
+                  />
+                ))}
+                {team.members.length > 4 && (
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-xs font-medium text-slate-500">
+                    +{team.members.length - 4}
+                  </span>
                 )}
               </div>
-            </div>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
-              {team.members.length}{" "}
-              {team.members.length === 1 ? "member" : "members"}
-            </span>
-          </div>
+            )}
 
-          {team.members.length > 0 ? (
-            <div className="divide-y divide-slate-100">
-              {team.members.map((member) => {
-                const key = `${team.teamSlug}/${member.username}`;
-                const isExpanded = expandedMembers.has(key);
-                const count = member.assignedPRs.length;
+            {isExpanded && (
+              <div className="divide-y divide-slate-100 border-t border-slate-100 bg-slate-50">
+                {team.members.map((member) => {
+                  const key = `${team.teamSlug}/${member.username}`;
+                  const isMemberExpanded = expandedMembers.has(key);
+                  const count = member.assignedPRs.length;
 
-                return (
-                  <div key={member.username}>
-                    <button
-                      type="button"
-                      onClick={() => toggleMember(key)}
-                      className="flex w-full items-center gap-3 px-5 py-3 text-left hover:bg-slate-50"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={member.avatarUrl}
-                        alt={member.username}
-                        className="h-8 w-8 shrink-0 rounded-full"
-                      />
-                      <span className="text-sm font-medium text-slate-700">
-                        @{member.username}
-                      </span>
-                      <div className="ml-auto flex items-center gap-2 text-xs text-slate-500">
-                        {count > 0 && (
-                          <span className="rounded-full bg-amber-50 px-2.5 py-0.5 font-medium text-amber-700">
-                            {count} PR{count !== 1 ? "s" : ""}
-                          </span>
-                        )}
-                        {isExpanded ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                      </div>
-                    </button>
+                  return (
+                    <div key={member.username}>
+                      <button
+                        type="button"
+                        onClick={() => toggleMember(key)}
+                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-slate-100"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={member.avatarUrl}
+                          alt={member.username}
+                          className="h-6 w-6 shrink-0 rounded-full"
+                        />
+                        <span className="text-xs font-medium text-slate-700">
+                          @{member.username}
+                        </span>
+                        <div className="ml-auto flex items-center gap-1.5">
+                          {count > 0 && (
+                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                              {count}
+                            </span>
+                          )}
+                          {isMemberExpanded ? (
+                            <ChevronDown className="h-3 w-3 text-slate-400" />
+                          ) : (
+                            <ChevronRight className="h-3 w-3 text-slate-400" />
+                          )}
+                        </div>
+                      </button>
 
-                    {isExpanded && count > 0 && (
-                      <div className="border-t border-slate-100 bg-slate-50">
-                        {member.assignedPRs.map((pr) => (
-                          <div
-                            key={pr.prNumber}
-                            className="flex items-center gap-3 px-5 py-2.5 pl-16"
-                          >
-                            <a
-                              href={pr.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                      {isMemberExpanded && count > 0 && (
+                        <div className="border-t border-slate-100 bg-white">
+                          {member.assignedPRs.map((pr) => (
+                            <div
+                              key={pr.prNumber}
+                              className="flex items-center gap-2 px-4 py-2 pl-8"
                             >
-                              #{pr.prNumber}
-                              <ExternalLink className="h-3 w-3 shrink-0" />
-                            </a>
-                            <span className="min-w-0 flex-1 truncate text-sm text-slate-600">
-                              {pr.title}
-                            </span>
-                            <span className="flex shrink-0 items-center gap-1 text-xs text-slate-400">
-                              <Clock className="h-3 w-3" />
-                              {waitingSince(pr.assignedAt)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                              <a
+                                href={pr.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                              >
+                                #{pr.prNumber}
+                                <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+                              </a>
+                              <span className="min-w-0 flex-1 truncate text-[11px] text-slate-600">
+                                {pr.title}
+                              </span>
+                              <span className="flex shrink-0 items-center gap-0.5 text-[10px] text-slate-400">
+                                <Clock className="h-2.5 w-2.5" />
+                                {waitingSince(pr.assignedAt)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
-                    {isExpanded && count === 0 && (
-                      <div className="border-t border-slate-100 px-5 py-4 pl-16 text-center text-sm text-slate-400">
-                        No PRs assigned for review.
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="px-5 py-6 text-center text-sm text-slate-400">
-              No members in this team.
-            </div>
-          )}
+                      {isMemberExpanded && count === 0 && (
+                        <div className="border-t border-slate-100 px-4 py-3 pl-8 text-center text-[11px] text-slate-400">
+                          No PRs assigned.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {isExpanded && !hasMembers && (
+              <div className="border-t border-slate-100 px-4 py-4 text-center text-xs text-slate-400">
+                No members in this team.
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {data.teams.length === 0 && (
+        <div className="col-span-full rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center">
+          <p className="text-sm text-slate-400">No teams found.</p>
         </div>
-      ))}
+      )}
     </div>
   );
 }
