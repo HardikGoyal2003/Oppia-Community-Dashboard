@@ -32,6 +32,10 @@ export type OpenPRAssignment = {
 
 export type MemberPRMap = Map<string, OpenPRAssignment[]>;
 export type TeamPRMap = Map<string, OpenPRAssignment[]>;
+export type ReviewerStatsMap = Map<
+  string,
+  { reviewsDone: number; totalReviewTimeMs: number }
+>;
 
 /**
  * Extracts the most recent `assigned` timeline event timestamp per assignee.
@@ -223,4 +227,77 @@ export async function fetchTeamAssignedPRs(
   console.log(rate.core);
 
   return map;
+}
+
+type GitHubReviewResponse = {
+  user: { login: string };
+  state: string;
+  submitted_at: string;
+};
+
+/**
+ * Fetches review stats for all open PRs — how many reviews each assignee
+ * has completed and the total review time across all their reviews.
+ *
+ * @returns A map of username to their review stats.
+ */
+export async function fetchReviewerStats(): Promise<ReviewerStatsMap> {
+  console.log("Fetching review stats...");
+
+  const prs = await requestGitHubRestAll<GitHubPullResponse>(
+    `/repos/${ORG}/${REPO}/pulls?state=open`,
+  );
+
+  const statsMap: ReviewerStatsMap = new Map();
+
+  for (const pr of prs) {
+    const assignees = pr.assignees;
+    if (!assignees || assignees.length === 0) continue;
+
+    const author = pr.user?.login;
+    const nonAuthorLogins = new Set(
+      assignees.map((a) => a.login).filter((l) => l !== author),
+    );
+    if (nonAuthorLogins.size === 0) continue;
+
+    console.log(`  Fetching reviews for PR #${pr.number}...`);
+
+    const reviews = await requestGitHubRestAll<GitHubReviewResponse>(
+      `/repos/${ORG}/${REPO}/pulls/${pr.number}/reviews`,
+    );
+
+    const submittedByUser = new Map<string, string>();
+
+    for (const review of reviews) {
+      const login = review.user?.login;
+      if (!login) continue;
+      if (review.state === "PENDING") continue;
+      if (!nonAuthorLogins.has(login)) continue;
+
+      const existing = submittedByUser.get(login);
+      if (!existing || review.submitted_at > existing) {
+        submittedByUser.set(login, review.submitted_at);
+      }
+    }
+
+    const assignedAt = pr.created_at;
+
+    for (const [login, submittedAt] of submittedByUser) {
+      const timeMs =
+        new Date(submittedAt).getTime() - new Date(assignedAt).getTime();
+      const existing = statsMap.get(login) ?? {
+        reviewsDone: 0,
+        totalReviewTimeMs: 0,
+      };
+      existing.reviewsDone += 1;
+      existing.totalReviewTimeMs += Math.max(0, timeMs);
+      statsMap.set(login, existing);
+    }
+  }
+
+  const rate = await fetchGitHubRateLimit();
+  console.log("\nRate Limit (REST):");
+  console.log(rate.core);
+
+  return statsMap;
 }

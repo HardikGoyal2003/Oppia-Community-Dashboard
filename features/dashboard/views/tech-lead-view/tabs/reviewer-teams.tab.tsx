@@ -27,13 +27,23 @@ function IndividualView({ data }: { data: ReviewerTeamsDocument }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const members = useMemo(() => {
-    const seen = new Map<string, { username: string; avatarUrl: string }>();
+    const seen = new Map<
+      string,
+      {
+        username: string;
+        avatarUrl: string;
+        reviewsDone: number;
+        avgReviewTimeHours: number | null;
+      }
+    >();
     for (const team of data.teams) {
       for (const m of team.members) {
         if (!seen.has(m.username)) {
           seen.set(m.username, {
             username: m.username,
             avatarUrl: m.avatarUrl,
+            reviewsDone: m.reviewsDone,
+            avgReviewTimeHours: m.avgReviewTimeHours,
           });
         }
       }
@@ -107,6 +117,23 @@ function IndividualView({ data }: { data: ReviewerTeamsDocument }) {
                 {prs.length} PR{prs.length !== 1 ? "s" : ""}
               </span>
             </button>
+
+            <div className="flex justify-center gap-4 border-t border-slate-100 px-4 py-3 text-xs">
+              <div className="text-center">
+                <p className="font-semibold text-slate-800">
+                  {member.reviewsDone}
+                </p>
+                <p className="text-slate-500">Reviews done</p>
+              </div>
+              <div className="text-center">
+                <p className="font-semibold text-slate-800">
+                  {member.avgReviewTimeHours !== null
+                    ? `${member.avgReviewTimeHours}h`
+                    : "—"}
+                </p>
+                <p className="text-slate-500">Avg time</p>
+              </div>
+            </div>
 
             {isExpanded && prs.length > 0 && (
               <div className="divide-y divide-slate-100 border-t border-slate-100 bg-slate-50">

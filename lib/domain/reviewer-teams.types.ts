@@ -11,6 +11,8 @@ export type ReviewerTeamMember = {
   username: string;
   avatarUrl: string;
   assignedPRs: AssignedPR[];
+  reviewsDone: number;
+  avgReviewTimeHours: number | null;
 };
 
 export type ReviewerTeam = {

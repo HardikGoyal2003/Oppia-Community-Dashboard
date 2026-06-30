@@ -112,6 +112,27 @@ function assertReviewerTeamMember(
       );
     }
   }
+
+  if (
+    member.reviewsDone !== undefined &&
+    typeof member.reviewsDone !== "number"
+  ) {
+    throw new DbValidationError(
+      `teams[${teamSlug}].members[${index}].reviewsDone`,
+      "Reviewer team member reviewsDone must be a number.",
+    );
+  }
+
+  if (
+    member.avgReviewTimeHours !== undefined &&
+    member.avgReviewTimeHours !== null &&
+    typeof member.avgReviewTimeHours !== "number"
+  ) {
+    throw new DbValidationError(
+      `teams[${teamSlug}].members[${index}].avgReviewTimeHours`,
+      "Reviewer team member avgReviewTimeHours must be a number or null.",
+    );
+  }
 }
 
 /**
@@ -257,6 +278,9 @@ export function normalizeReviewerTeamsDocument(
                     assignedAt: (pr.assignedAt ?? pr.waitingSince) as string,
                   }),
                 ) ?? [],
+              reviewsDone: (member.reviewsDone as number) ?? 0,
+              avgReviewTimeHours:
+                (member.avgReviewTimeHours as number | null) ?? null,
             }),
           ),
         }) as ReviewerTeam,
@@ -295,6 +319,8 @@ export function serializeReviewerTeamsDocument(
           url: pr.url,
           assignedAt: pr.assignedAt,
         })),
+        reviewsDone: member.reviewsDone,
+        avgReviewTimeHours: member.avgReviewTimeHours,
       })),
     })),
   };

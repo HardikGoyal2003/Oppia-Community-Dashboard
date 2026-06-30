@@ -2,6 +2,7 @@ import {
   fetchWebReviewerTeams,
   fetchAssignedPRs,
   fetchTeamAssignedPRs,
+  fetchReviewerStats,
 } from "@/lib/github/github.fetcher";
 import { upsertReviewerTeamsDocument } from "@/db/reviewer-teams/reviewer-teams.db";
 import type { ReviewerTeamsDocument } from "@/lib/domain/reviewer-teams.types";
@@ -24,9 +25,10 @@ export async function syncReviewerTeams(): Promise<SyncSummary> {
   const fetchedTeams = await fetchWebReviewerTeams();
 
   const trackedSlugs = fetchedTeams.map((t) => t.teamSlug);
-  const [memberPRs, teamPRs] = await Promise.all([
+  const [memberPRs, teamPRs, reviewerStats] = await Promise.all([
     fetchAssignedPRs(),
     fetchTeamAssignedPRs(trackedSlugs),
+    fetchReviewerStats(),
   ]);
 
   const totalMembersCount = fetchedTeams.reduce(
@@ -42,11 +44,25 @@ export async function syncReviewerTeams(): Promise<SyncSummary> {
       teamName: team.teamName,
       description: team.description,
       assignedPRs: teamPRs.get(team.teamSlug) ?? [],
-      members: team.members.map((member) => ({
-        username: member.username,
-        avatarUrl: member.avatarUrl,
-        assignedPRs: memberPRs.get(member.username) ?? [],
-      })),
+      members: team.members.map((member) => {
+        const stats = reviewerStats.get(member.username);
+        return {
+          username: member.username,
+          avatarUrl: member.avatarUrl,
+          assignedPRs: memberPRs.get(member.username) ?? [],
+          reviewsDone: stats?.reviewsDone ?? 0,
+          avgReviewTimeHours:
+            stats && stats.reviewsDone > 0
+              ? Number(
+                  (
+                    stats.totalReviewTimeMs /
+                    stats.reviewsDone /
+                    3_600_000
+                  ).toFixed(1),
+                )
+              : null,
+        };
+      }),
     })),
   };
 
