@@ -137,6 +137,7 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
           "Cron job completed.",
           `Platform: ${result.platform}.`,
           `Synced ${result.syncedTeamsCount} teams with ${result.totalMembersCount} members.`,
+          `Initial docs created: ${result.initialDocsCreated}.`,
           `Last synced: ${finishedAt.toLocaleString("en-IN")}.`,
         ].join("\n"),
       };
