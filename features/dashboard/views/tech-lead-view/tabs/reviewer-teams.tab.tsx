@@ -136,7 +136,7 @@ function IndividualView({ data }: { data: ReviewerTeamsDocument }) {
               <div className="text-center">
                 <p className="font-semibold text-slate-800">
                   {member.avgReviewTimeHours !== null
-                    ? `${member.avgReviewTimeHours}h`
+                    ? `${Math.floor(member.avgReviewTimeHours / 24)}d ${Math.round(member.avgReviewTimeHours % 24)}h`
                     : "—"}
                 </p>
                 <p className="text-slate-500">Avg time</p>

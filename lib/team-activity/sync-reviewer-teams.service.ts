@@ -1,11 +1,16 @@
 import {
   fetchWebReviewerTeams,
-  fetchAssignedPRs,
   fetchTeamAssignedPRs,
-  fetchReviewerStats,
+  fetchCycleRecords,
 } from "@/lib/github/github.fetcher";
-import { upsertReviewerTeamsDocument } from "@/db/reviewer-teams/reviewer-teams.db";
-import type { ReviewerTeamsDocument } from "@/lib/domain/reviewer-teams.types";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import { upsertTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
+import { upsertReviewer } from "@/db/reviewers/reviewers.db";
+import { upsertReviewCycles } from "@/db/review-cycles/review-cycles.db";
+import type {
+  TeamReviewersDocument,
+  ReviewerDocument,
+} from "@/lib/domain/reviewer-teams.types";
 
 type SyncSummary = {
   platform: string;
@@ -14,63 +19,90 @@ type SyncSummary = {
 };
 
 /**
- * Syncs reviewer teams and their PR assignments from GitHub into Firestore.
+ * Syncs reviewer teams, reviewers, and review cycles from GitHub into
+ * Firestore.
  *
- * Fetches web reviewer teams, then fetches both individual and team-level
- * PR assignments, and upserts the combined document.
+ * Fetches web reviewer teams, extracts cycle records from open PRs, and
+ * writes to three collections:
+ * - `teamReviewers/{platform}` — team info + member lists + team PRs
+ * - `reviewers/{login}` — per-reviewer teams + pending reviews
+ * - `reviewCycles/{key}` — completed review cycles (idempotent)
  *
  * @returns A summary of the sync operation.
  */
 export async function syncReviewerTeams(): Promise<SyncSummary> {
+  const platform: ContributionPlatform = "WEB";
+
   const fetchedTeams = await fetchWebReviewerTeams();
 
   const trackedSlugs = fetchedTeams.map((t) => t.teamSlug);
-  const [memberPRs, teamPRs, reviewerStats] = await Promise.all([
-    fetchAssignedPRs(),
+
+  const [teamPRs, { completed, pending }] = await Promise.all([
     fetchTeamAssignedPRs(trackedSlugs),
-    fetchReviewerStats(),
+    fetchCycleRecords(),
   ]);
+
+  const teamDoc: TeamReviewersDocument = {
+    teams: fetchedTeams.map((team) => ({
+      teamSlug: team.teamSlug,
+      teamName: team.teamName,
+      description: team.description,
+      members: team.members.map((m) => ({
+        username: m.username,
+        avatarUrl: m.avatarUrl,
+      })),
+      teamAssignedPRs: teamPRs.get(team.teamSlug) ?? [],
+    })),
+    lastUpdated: new Date(),
+  };
+
+  await upsertTeamReviewers(platform, teamDoc);
+
+  const memberToTeams = new Map<string, string[]>();
+  for (const team of fetchedTeams) {
+    for (const member of team.members) {
+      const existing = memberToTeams.get(member.username) ?? [];
+      existing.push(team.teamSlug);
+      memberToTeams.set(member.username, existing);
+    }
+  }
+
+  const reviewerLogins = new Set<string>();
+  for (const record of completed) {
+    reviewerLogins.add(record.reviewerLogin);
+  }
+  for (const p of pending) {
+    reviewerLogins.add(p.reviewerLogin);
+  }
+
+  await upsertReviewCycles(completed);
+
+  for (const login of reviewerLogins) {
+    const pendingReviews = pending
+      .filter((p) => p.reviewerLogin === login)
+      .map((p) => ({
+        prNumber: p.prNumber,
+        title: p.prTitle,
+        url: p.prUrl,
+        assignedAt: p.assignedAt,
+      }));
+
+    const doc: ReviewerDocument = {
+      teams: memberToTeams.get(login) ?? [],
+      pendingReviews,
+      lastUpdated: new Date(),
+    };
+
+    await upsertReviewer(login, doc);
+  }
 
   const totalMembersCount = fetchedTeams.reduce(
     (sum, team) => sum + team.members.length,
     0,
   );
 
-  const document: ReviewerTeamsDocument = {
-    platform: "WEB",
-    lastSyncedAt: new Date(),
-    teams: fetchedTeams.map((team) => ({
-      teamSlug: team.teamSlug,
-      teamName: team.teamName,
-      description: team.description,
-      assignedPRs: teamPRs.get(team.teamSlug) ?? [],
-      members: team.members.map((member) => {
-        const stats = reviewerStats.get(member.username);
-        return {
-          username: member.username,
-          avatarUrl: member.avatarUrl,
-          assignedPRs: memberPRs.get(member.username) ?? [],
-          reviewsDone: stats?.reviewsDone ?? 0,
-          pendingReviews: stats?.pendingReviews ?? 0,
-          avgReviewTimeHours:
-            stats && stats.reviewsDone > 0
-              ? Number(
-                  (
-                    stats.totalReviewTimeMs /
-                    stats.reviewsDone /
-                    3_600_000
-                  ).toFixed(1),
-                )
-              : null,
-        };
-      }),
-    })),
-  };
-
-  await upsertReviewerTeamsDocument(document);
-
   return {
-    platform: "WEB",
+    platform,
     syncedTeamsCount: fetchedTeams.length,
     totalMembersCount,
   };

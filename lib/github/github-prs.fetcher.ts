@@ -229,6 +229,27 @@ export async function fetchTeamAssignedPRs(
   return map;
 }
 
+export type CycleRecord = {
+  reviewerLogin: string;
+  prNumber: number;
+  prTitle: string;
+  prUrl: string;
+  assignedAt: string;
+  completedAt: string;
+  durationMs: number;
+};
+
+export type CycleRecordsResult = {
+  completed: CycleRecord[];
+  pending: Array<{
+    reviewerLogin: string;
+    prNumber: number;
+    prTitle: string;
+    prUrl: string;
+    assignedAt: string;
+  }>;
+};
+
 type GitHubReviewResponse = {
   user: { login: string };
   state: string;
@@ -389,4 +410,118 @@ export async function fetchReviewerStats(): Promise<ReviewerStatsMap> {
   console.log(rate.core);
 
   return statsMap;
+}
+
+/**
+ * Fetches all open PRs and extracts completed review cycles (to persist in
+ * reviewCycles) and pending cycles (current open assignments).
+ *
+ * @returns Completed cycle records and pending cycle info per reviewer.
+ */
+export async function fetchCycleRecords(): Promise<CycleRecordsResult> {
+  console.log("Fetching cycle records from open PRs...");
+
+  const prs = await requestGitHubRestAll<GitHubPullResponse>(
+    `/repos/${ORG}/${REPO}/pulls?state=open`,
+  );
+
+  const completed: CycleRecord[] = [];
+  const pending: CycleRecordsResult["pending"] = [];
+
+  for (const pr of prs) {
+    const assignees = pr.assignees;
+    if (!assignees || assignees.length === 0) continue;
+
+    const author = pr.user?.login;
+    const nonAuthorLogins = new Set(
+      assignees.map((a) => a.login).filter((l) => l !== author),
+    );
+    if (nonAuthorLogins.size === 0) continue;
+
+    console.log(`  Processing PR #${pr.number}...`);
+
+    const [timelineEvents, reviews] = await Promise.all([
+      requestGitHubRestAll<TimelineEvent>(
+        `/repos/${ORG}/${REPO}/issues/${pr.number}/timeline`,
+      ),
+      requestGitHubRestAll<GitHubReviewResponse>(
+        `/repos/${ORG}/${REPO}/pulls/${pr.number}/reviews`,
+      ),
+    ]);
+
+    for (const login of nonAuthorLogins) {
+      const events: CycleEvent[] = [];
+
+      for (const e of timelineEvents) {
+        if (e.event === "assigned" && e.assignee?.login === login) {
+          events.push({ type: "assigned", timestamp: e.created_at });
+        }
+        if (e.event === "unassigned" && e.assignee?.login === login) {
+          events.push({ type: "unassigned", timestamp: e.created_at });
+        }
+      }
+
+      for (const r of reviews) {
+        if (r.user?.login === login && r.state !== "PENDING") {
+          events.push({ type: "reviewed", timestamp: r.submitted_at });
+        }
+      }
+
+      events.sort(
+        (a, b) =>
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+      );
+
+      let cycleStart = "";
+      let inCycle = false;
+
+      for (const event of events) {
+        if (event.type === "assigned") {
+          if (inCycle) {
+            pending.push({
+              reviewerLogin: login,
+              prNumber: pr.number,
+              prTitle: pr.title,
+              prUrl: pr.html_url,
+              assignedAt: cycleStart,
+            });
+          }
+          inCycle = true;
+          cycleStart = event.timestamp;
+        } else {
+          if (inCycle) {
+            const durationMs =
+              new Date(event.timestamp).getTime() -
+              new Date(cycleStart).getTime();
+            completed.push({
+              reviewerLogin: login,
+              prNumber: pr.number,
+              prTitle: pr.title,
+              prUrl: pr.html_url,
+              assignedAt: cycleStart,
+              completedAt: event.timestamp,
+              durationMs: Math.max(0, durationMs),
+            });
+            inCycle = false;
+          }
+        }
+      }
+
+      if (inCycle) {
+        pending.push({
+          reviewerLogin: login,
+          prNumber: pr.number,
+          prTitle: pr.title,
+          prUrl: pr.html_url,
+          assignedAt: cycleStart,
+        });
+      }
+    }
+  }
+
+  const rate = await fetchGitHubRateLimit();
+  console.log("\nRate Limit (REST):");
+  console.log(rate.core);
+
+  return { completed, pending };
 }

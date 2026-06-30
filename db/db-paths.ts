@@ -24,7 +24,13 @@ export const DB_PATHS = {
   ORG_META: {
     COLLECTION: "orgMeta",
   },
-  REVIEWER_TEAMS: {
-    COLLECTION: "reviewerTeams",
+  TEAM_REVIEWERS: {
+    COLLECTION: "teamReviewers",
+  },
+  REVIEWERS: {
+    COLLECTION: "reviewers",
+  },
+  REVIEW_CYCLES: {
+    COLLECTION: "reviewCycles",
   },
 } as const;
