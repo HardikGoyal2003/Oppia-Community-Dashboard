@@ -35,6 +35,8 @@ function IndividualView({ data }: { data: ReviewerTeamsDocument }) {
         reviewsDone: number;
         pendingReviews: number;
         avgReviewTimeHours: number | null;
+        avgReviewRoundsBeforeApproval: number | null;
+        avgCommentsPerReview: number | null;
       }
     >();
     for (const team of data.teams) {
@@ -46,6 +48,8 @@ function IndividualView({ data }: { data: ReviewerTeamsDocument }) {
             reviewsDone: m.reviewsDone,
             pendingReviews: m.pendingReviews,
             avgReviewTimeHours: m.avgReviewTimeHours,
+            avgReviewRoundsBeforeApproval: m.avgReviewRoundsBeforeApproval,
+            avgCommentsPerReview: m.avgCommentsPerReview,
           });
         }
       }
@@ -120,7 +124,7 @@ function IndividualView({ data }: { data: ReviewerTeamsDocument }) {
               </span>
             </button>
 
-            <div className="flex justify-center gap-4 border-t border-slate-100 px-4 py-3 text-xs">
+            <div className="flex flex-wrap justify-center gap-4 border-t border-slate-100 px-4 py-3 text-xs">
               <div className="text-center">
                 <p className="font-semibold text-slate-800">
                   {member.reviewsDone}
@@ -140,6 +144,22 @@ function IndividualView({ data }: { data: ReviewerTeamsDocument }) {
                     : "—"}
                 </p>
                 <p className="text-slate-500">Avg time</p>
+              </div>
+              <div className="text-center">
+                <p className="font-semibold text-slate-800">
+                  {member.avgReviewRoundsBeforeApproval !== null
+                    ? member.avgReviewRoundsBeforeApproval
+                    : "—"}
+                </p>
+                <p className="text-slate-500">Avg rounds</p>
+              </div>
+              <div className="text-center">
+                <p className="font-semibold text-slate-800">
+                  {member.avgCommentsPerReview !== null
+                    ? Math.floor(member.avgCommentsPerReview)
+                    : "—"}
+                </p>
+                <p className="text-slate-500">Avg comments</p>
               </div>
             </div>
 

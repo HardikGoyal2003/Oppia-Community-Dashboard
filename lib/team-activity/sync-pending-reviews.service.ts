@@ -37,7 +37,11 @@ export async function syncPendingReviews(): Promise<SyncSummary> {
       teams: existing?.teams ?? [],
       pendingReviews,
       completedReviews: existing?.completedReviews ?? 0,
+      approvedPrCount: existing?.approvedPrCount ?? 0,
       avgReviewTimeHours: existing?.avgReviewTimeHours ?? null,
+      avgReviewRoundsBeforeApproval:
+        existing?.avgReviewRoundsBeforeApproval ?? null,
+      avgCommentsPerReview: existing?.avgCommentsPerReview ?? null,
       lastUpdated: new Date(),
     });
 

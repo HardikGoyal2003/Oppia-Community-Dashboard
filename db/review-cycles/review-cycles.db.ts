@@ -96,23 +96,63 @@ export async function getReviewCycleAggregates(
 /**
  * Computes aggregate stats for all reviewers from all stored cycles.
  *
+ * Deduplicates per-PR stats (reviewRoundsBeforeApproval, commentCount)
+ * by PR number since multiple cycles can exist for the same reviewer
+ * on the same PR.
+ *
  * @returns A map of login to aggregate stats.
  */
 export async function getAllReviewCycleAggregates(): Promise<
-  Map<string, { reviewsDone: number; totalReviewTimeMs: number }>
+  Map<
+    string,
+    {
+      completedReviews: number;
+      totalReviewTimeMs: number;
+      totalRoundsBeforeApproval: number;
+      approvedPrCount: number;
+      totalComments: number;
+    }
+  >
 > {
   const snapshot = await collection.get();
   const map = new Map<
     string,
-    { reviewsDone: number; totalReviewTimeMs: number }
+    {
+      completedReviews: number;
+      totalReviewTimeMs: number;
+      totalRoundsBeforeApproval: number;
+      approvedPrCount: number;
+      totalComments: number;
+    }
   >();
+
+  const seenPRsByReviewer = new Map<string, Set<number>>();
 
   snapshot.forEach((doc) => {
     const data = doc.data();
     const login = data.reviewerLogin;
-    const existing = map.get(login) ?? { reviewsDone: 0, totalReviewTimeMs: 0 };
-    existing.reviewsDone++;
+    const existing = map.get(login) ?? {
+      completedReviews: 0,
+      totalReviewTimeMs: 0,
+      totalRoundsBeforeApproval: 0,
+      approvedPrCount: 0,
+      totalComments: 0,
+    };
+    existing.completedReviews++;
     existing.totalReviewTimeMs += data.durationMs;
+
+    const seenPRs = seenPRsByReviewer.get(login) ?? new Set<number>();
+    if (!seenPRs.has(data.prNumber)) {
+      seenPRs.add(data.prNumber);
+      seenPRsByReviewer.set(login, seenPRs);
+
+      if (data.reviewRoundsBeforeApproval !== null) {
+        existing.totalRoundsBeforeApproval += data.reviewRoundsBeforeApproval;
+        existing.approvedPrCount++;
+      }
+      existing.totalComments += data.commentCount;
+    }
+
     map.set(login, existing);
   });
 

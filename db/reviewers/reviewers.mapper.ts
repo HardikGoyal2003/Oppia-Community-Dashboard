@@ -43,6 +43,15 @@ function assertFirestoreReviewer(
     );
   }
   if (
+    data.approvedPrCount !== undefined &&
+    typeof data.approvedPrCount !== "number"
+  ) {
+    throw new DbValidationError(
+      "approvedPrCount",
+      "approvedPrCount must be a number.",
+    );
+  }
+  if (
     data.avgReviewTimeHours !== undefined &&
     data.avgReviewTimeHours !== null &&
     typeof data.avgReviewTimeHours !== "number"
@@ -50,6 +59,26 @@ function assertFirestoreReviewer(
     throw new DbValidationError(
       "avgReviewTimeHours",
       "avgReviewTimeHours must be a number or null.",
+    );
+  }
+  if (
+    data.avgReviewRoundsBeforeApproval !== undefined &&
+    data.avgReviewRoundsBeforeApproval !== null &&
+    typeof data.avgReviewRoundsBeforeApproval !== "number"
+  ) {
+    throw new DbValidationError(
+      "avgReviewRoundsBeforeApproval",
+      "avgReviewRoundsBeforeApproval must be a number or null.",
+    );
+  }
+  if (
+    data.avgCommentsPerReview !== undefined &&
+    data.avgCommentsPerReview !== null &&
+    typeof data.avgCommentsPerReview !== "number"
+  ) {
+    throw new DbValidationError(
+      "avgCommentsPerReview",
+      "avgCommentsPerReview must be a number or null.",
     );
   }
   assertTimestamp("Reviewer", "lastUpdated", data.lastUpdated);
@@ -69,9 +98,20 @@ export function normalizeReviewer(
     teams: data.teams,
     pendingReviews: data.pendingReviews,
     completedReviews: (data.completedReviews as number) ?? 0,
+    approvedPrCount: (data.approvedPrCount as number) ?? 0,
     avgReviewTimeHours:
       data.avgReviewTimeHours !== undefined && data.avgReviewTimeHours !== null
         ? (data.avgReviewTimeHours as number)
+        : null,
+    avgReviewRoundsBeforeApproval:
+      data.avgReviewRoundsBeforeApproval !== undefined &&
+      data.avgReviewRoundsBeforeApproval !== null
+        ? (data.avgReviewRoundsBeforeApproval as number)
+        : null,
+    avgCommentsPerReview:
+      data.avgCommentsPerReview !== undefined &&
+      data.avgCommentsPerReview !== null
+        ? (data.avgCommentsPerReview as number)
         : null,
     lastUpdated: normalizeTimestamp(data.lastUpdated),
   };
@@ -88,7 +128,10 @@ export function serializeReviewer(doc: ReviewerDocument): FirestoreReviewer {
     teams: doc.teams,
     pendingReviews: doc.pendingReviews,
     completedReviews: doc.completedReviews,
+    approvedPrCount: doc.approvedPrCount,
     avgReviewTimeHours: doc.avgReviewTimeHours,
+    avgReviewRoundsBeforeApproval: doc.avgReviewRoundsBeforeApproval,
+    avgCommentsPerReview: doc.avgCommentsPerReview,
     lastUpdated: Timestamp.fromDate(doc.lastUpdated),
   };
 }

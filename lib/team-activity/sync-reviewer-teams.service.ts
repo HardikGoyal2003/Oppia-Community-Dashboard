@@ -65,7 +65,10 @@ export async function syncReviewerTeams(): Promise<SyncSummary> {
       teams,
       pendingReviews: [],
       completedReviews: 0,
+      approvedPrCount: 0,
       avgReviewTimeHours: null,
+      avgReviewRoundsBeforeApproval: null,
+      avgCommentsPerReview: null,
       lastUpdated: new Date(),
     };
 

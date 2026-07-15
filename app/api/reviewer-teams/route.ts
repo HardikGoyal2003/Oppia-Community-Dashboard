@@ -52,6 +52,9 @@ export async function GET() {
               reviewsDone: reviewer?.completedReviews ?? 0,
               pendingReviews: pendingReviews.length,
               avgReviewTimeHours: reviewer?.avgReviewTimeHours ?? null,
+              avgReviewRoundsBeforeApproval:
+                reviewer?.avgReviewRoundsBeforeApproval ?? null,
+              avgCommentsPerReview: reviewer?.avgCommentsPerReview ?? null,
             };
           }),
         );

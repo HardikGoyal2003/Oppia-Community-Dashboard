@@ -17,5 +17,6 @@ export type {
   OpenPRAssignment,
   CycleRecord,
   CycleRecordsResult,
+  ReviewerPRStats,
 } from "./github-prs.fetcher";
 export type { GitHubRepoTarget } from "./github.types";

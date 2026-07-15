@@ -8,6 +8,7 @@ import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import {
   upsertReviewCycles,
   findNewCycleRecords,
+  getAllReviewCycleAggregates,
 } from "@/db/review-cycles/review-cycles.db";
 
 type SyncSummary = {
@@ -26,8 +27,8 @@ const CLOSED_PR_LOOKBACK_DAYS = 3;
  * `CLOSED_PR_LOOKBACK_DAYS` days, extracts completed cycles from their
  * timelines, and writes:
  * - `reviewCycles/{key}` — completed cycles (idempotent merge)
- * - `reviewers/{login}` — incrementally updates `completedReviews` and
- *   `avgReviewTimeHours` only for cycles that are newly persisted.
+ * - `reviewers/{login}` — recomputes all stats from every stored cycle
+ *   record so averages stay consistent even when no new cycles appear.
  *
  * Only processes cycles for reviewers who already have a doc in the
  * `reviewers` collection.
@@ -40,7 +41,7 @@ export async function syncReviewCycles(): Promise<SyncSummary> {
     Date.now() - CLOSED_PR_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
   );
 
-  const [openResult, closedCompleted, teamDoc] = await Promise.all([
+  const [openResult, closedResult, teamDoc] = await Promise.all([
     fetchCycleRecords(),
     fetchClosedPRCycleRecords(sinceDate),
     getTeamReviewers(platform),
@@ -55,7 +56,7 @@ export async function syncReviewCycles(): Promise<SyncSummary> {
     }
   }
 
-  const allCompleted = [...openResult.completed, ...closedCompleted];
+  const allCompleted = [...openResult.completed, ...closedResult.completed];
 
   const filtered = allCompleted.filter((c) => knownLogins.has(c.reviewerLogin));
 
@@ -63,35 +64,44 @@ export async function syncReviewCycles(): Promise<SyncSummary> {
 
   await upsertReviewCycles(filtered);
 
-  const newAggs = new Map<string, { count: number; totalMs: number }>();
-  for (const record of newRecords) {
-    const agg = newAggs.get(record.reviewerLogin) ?? {
-      count: 0,
-      totalMs: 0,
-    };
-    agg.count++;
-    agg.totalMs += record.durationMs;
-    newAggs.set(record.reviewerLogin, agg);
-  }
+  const aggregates = await getAllReviewCycleAggregates();
 
   let updatedCount = 0;
 
-  for (const [login, batch] of newAggs) {
+  for (const [login, agg] of aggregates) {
+    if (!knownLogins.has(login)) continue;
+
     const existing = await getReviewer(login);
-    const oldCount = existing?.completedReviews ?? 0;
-    const newCount = oldCount + batch.count;
-    const oldTotalHours = (existing?.avgReviewTimeHours ?? 0) * oldCount;
-    const newTotalHours = batch.totalMs / 3_600_000;
+
     const avgReviewTimeHours =
-      newCount > 0
-        ? Number(((oldTotalHours + newTotalHours) / newCount).toFixed(1))
+      agg.completedReviews > 0
+        ? Number(
+            (agg.totalReviewTimeMs / agg.completedReviews / 3_600_000).toFixed(
+              1,
+            ),
+          )
+        : null;
+
+    const avgReviewRoundsBeforeApproval =
+      agg.approvedPrCount > 0
+        ? Number(
+            (agg.totalRoundsBeforeApproval / agg.approvedPrCount).toFixed(1),
+          )
+        : null;
+
+    const avgCommentsPerReview =
+      agg.completedReviews > 0
+        ? Number((agg.totalComments / agg.completedReviews).toFixed(1))
         : null;
 
     await upsertReviewer(login, {
       teams: existing?.teams ?? [],
       pendingReviews: existing?.pendingReviews ?? [],
-      completedReviews: newCount,
+      completedReviews: agg.completedReviews,
+      approvedPrCount: agg.approvedPrCount,
       avgReviewTimeHours,
+      avgReviewRoundsBeforeApproval,
+      avgCommentsPerReview,
       lastUpdated: new Date(),
     });
 

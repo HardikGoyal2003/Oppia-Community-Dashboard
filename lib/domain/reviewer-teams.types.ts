@@ -27,7 +27,10 @@ export type ReviewerDocument = {
   teams: string[];
   pendingReviews: PendingReview[];
   completedReviews: number;
+  approvedPrCount: number;
   avgReviewTimeHours: number | null;
+  avgReviewRoundsBeforeApproval: number | null;
+  avgCommentsPerReview: number | null;
   lastUpdated: Date;
 };
 
@@ -39,6 +42,8 @@ export type ReviewCycleRecord = {
   assignedAt: string;
   completedAt: string;
   durationMs: number;
+  reviewRoundsBeforeApproval: number | null;
+  commentCount: number;
 };
 
 export type ReviewerTeamMember = {
@@ -47,6 +52,8 @@ export type ReviewerTeamMember = {
   assignedPRs: PendingReview[];
   reviewsDone: number;
   avgReviewTimeHours: number | null;
+  avgReviewRoundsBeforeApproval: number | null;
+  avgCommentsPerReview: number | null;
   pendingReviews: number;
 };
 

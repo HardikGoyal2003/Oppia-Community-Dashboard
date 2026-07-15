@@ -239,6 +239,8 @@ export type CycleRecord = {
   assignedAt: string;
   completedAt: string;
   durationMs: number;
+  reviewRoundsBeforeApproval: number | null;
+  commentCount: number;
 };
 
 export type CycleRecordsResult = {
@@ -250,12 +252,24 @@ export type CycleRecordsResult = {
     prUrl: string;
     assignedAt: string;
   }>;
+  reviewerPRStats: Map<string, Map<number, ReviewerPRStats>>;
 };
 
 type GitHubReviewResponse = {
   user: { login: string };
   state: string;
+  body: string | null;
   submitted_at: string;
+};
+
+type InlineComment = {
+  user: { login: string };
+  body: string;
+};
+
+export type ReviewerPRStats = {
+  reviewRoundsBeforeApproval: number | null;
+  commentCount: number;
 };
 
 type CycleEvent = {
@@ -422,6 +436,7 @@ export async function fetchReviewerStats(): Promise<ReviewerStatsMap> {
  * @param timelineEvents The timeline events for the PR.
  * @param reviews The review submissions for the PR.
  * @param includePending Whether to include pending (unpaired) cycles.
+ * @param reviewerStats Per-reviewer PR stats (rounds before approval, comment count).
  * @returns Completed cycles and optionally pending cycles.
  */
 function extractCyclesFromPR(
@@ -429,6 +444,7 @@ function extractCyclesFromPR(
   timelineEvents: TimelineEvent[],
   reviews: GitHubReviewResponse[],
   includePending: boolean,
+  reviewerStats: Map<string, ReviewerPRStats>,
 ): { completed: CycleRecord[]; pending: CycleRecordsResult["pending"] } {
   const assignees = pr.assignees;
   if (!assignees || assignees.length === 0)
@@ -444,6 +460,11 @@ function extractCyclesFromPR(
   const pending: CycleRecordsResult["pending"] = [];
 
   for (const login of nonAuthorLogins) {
+    const stats = reviewerStats.get(login);
+    const reviewRoundsBeforeApproval =
+      stats?.reviewRoundsBeforeApproval ?? null;
+    const commentCount = stats?.commentCount ?? 0;
+
     const events: CycleEvent[] = [];
 
     for (const e of timelineEvents) {
@@ -497,6 +518,8 @@ function extractCyclesFromPR(
             assignedAt: cycleStart,
             completedAt: event.timestamp,
             durationMs: Math.max(0, durationMs),
+            reviewRoundsBeforeApproval,
+            commentCount,
           });
           inCycle = false;
         }
@@ -518,6 +541,68 @@ function extractCyclesFromPR(
 }
 
 /**
+ * Computes per-reviewer stats for a single PR: review rounds before
+ * approval and total comment count (review bodies + inline comments).
+ *
+ * @param pr The PR response from GitHub.
+ * @param reviews The review submissions for the PR.
+ * @param inlineComments The inline code comments on the PR.
+ * @returns A map of reviewer login to their stats for this PR.
+ */
+function extractReviewerPRStats(
+  pr: GitHubPullResponse,
+  reviews: GitHubReviewResponse[],
+  inlineComments: InlineComment[],
+): Map<string, ReviewerPRStats> {
+  const result = new Map<string, ReviewerPRStats>();
+
+  const assignees = pr.assignees;
+  if (!assignees || assignees.length === 0) return result;
+
+  const author = pr.user?.login;
+  const nonAuthorLogins = assignees
+    .map((a) => a.login)
+    .filter((l) => l !== author);
+
+  const inlineByUser = new Map<string, number>();
+  for (const c of inlineComments) {
+    const login = c.user?.login;
+    if (!login) continue;
+    inlineByUser.set(login, (inlineByUser.get(login) ?? 0) + 1);
+  }
+
+  for (const login of nonAuthorLogins) {
+    const userReviews = reviews
+      .filter((r) => r.user?.login === login && r.state !== "PENDING")
+      .sort(
+        (a, b) =>
+          new Date(a.submitted_at).getTime() -
+          new Date(b.submitted_at).getTime(),
+      );
+
+    let reviewRoundsBeforeApproval: number | null = null;
+    for (let i = 0; i < userReviews.length; i++) {
+      if (userReviews[i].state === "APPROVED") {
+        reviewRoundsBeforeApproval = i + 1;
+        break;
+      }
+    }
+
+    let commentCount = 0;
+    for (const r of userReviews) {
+      if (r.body && r.body.trim().length > 0) {
+        commentCount++;
+      }
+    }
+    commentCount += inlineByUser.get(login) ?? 0;
+
+    result.set(login, { reviewRoundsBeforeApproval, commentCount });
+  }
+
+  return result;
+}
+
+/**
  * Fetches the timeline events and review submissions for a single PR.
  *
  * @param prNumber The PR number to fetch data for.
@@ -526,16 +611,20 @@ function extractCyclesFromPR(
 async function fetchPRTimelineAndReviews(prNumber: number): Promise<{
   timelineEvents: TimelineEvent[];
   reviews: GitHubReviewResponse[];
+  inlineComments: InlineComment[];
 }> {
-  const [timelineEvents, reviews] = await Promise.all([
+  const [timelineEvents, reviews, inlineComments] = await Promise.all([
     requestGitHubRestAll<TimelineEvent>(
       `/repos/${ORG}/${REPO}/issues/${prNumber}/timeline`,
     ),
     requestGitHubRestAll<GitHubReviewResponse>(
       `/repos/${ORG}/${REPO}/pulls/${prNumber}/reviews`,
     ),
+    requestGitHubRestAll<InlineComment>(
+      `/repos/${ORG}/${REPO}/pulls/${prNumber}/comments`,
+    ),
   ]);
-  return { timelineEvents, reviews };
+  return { timelineEvents, reviews, inlineComments };
 }
 
 /**
@@ -553,24 +642,37 @@ export async function fetchCycleRecords(): Promise<CycleRecordsResult> {
 
   const completed: CycleRecord[] = [];
   const pending: CycleRecordsResult["pending"] = [];
+  const reviewerPRStats: CycleRecordsResult["reviewerPRStats"] = new Map();
 
   for (const pr of prs) {
     console.log(`  Processing open PR #${pr.number}...`);
 
-    const { timelineEvents, reviews } = await fetchPRTimelineAndReviews(
-      pr.number,
+    const { timelineEvents, reviews, inlineComments } =
+      await fetchPRTimelineAndReviews(pr.number);
+    const stats = extractReviewerPRStats(pr, reviews, inlineComments);
+    const result = extractCyclesFromPR(
+      pr,
+      timelineEvents,
+      reviews,
+      true,
+      stats,
     );
-    const result = extractCyclesFromPR(pr, timelineEvents, reviews, true);
 
     completed.push(...result.completed);
     pending.push(...result.pending);
+
+    for (const [login, prStats] of stats) {
+      const byPR = reviewerPRStats.get(login) ?? new Map();
+      byPR.set(pr.number, prStats);
+      reviewerPRStats.set(login, byPR);
+    }
   }
 
   const rate = await fetchGitHubRateLimit();
   console.log("\nRate Limit (REST):");
   console.log(rate.core);
 
-  return { completed, pending };
+  return { completed, pending, reviewerPRStats };
 }
 
 /** Max closed PRs to process in a single run to stay within function limits. */
@@ -589,7 +691,10 @@ const MAX_CLOSED_PRS = 20;
  */
 export async function fetchClosedPRCycleRecords(
   sinceDate: Date,
-): Promise<CycleRecord[]> {
+): Promise<{
+  completed: CycleRecord[];
+  reviewerPRStats: Map<string, Map<number, ReviewerPRStats>>;
+}> {
   const sinceDateStr = sinceDate.toISOString().slice(0, 10);
 
   console.log(
@@ -612,6 +717,7 @@ export async function fetchClosedPRCycleRecords(
   );
 
   const completed: CycleRecord[] = [];
+  const reviewerPRStats: Map<string, Map<number, ReviewerPRStats>> = new Map();
 
   for (const item of searchResult.items) {
     if (!item.pull_request || !item.assignees || item.assignees.length === 0) {
@@ -620,17 +726,28 @@ export async function fetchClosedPRCycleRecords(
 
     console.log(`  Processing closed PR #${item.number}...`);
 
-    const { timelineEvents, reviews } = await fetchPRTimelineAndReviews(
-      item.number,
+    const { timelineEvents, reviews, inlineComments } =
+      await fetchPRTimelineAndReviews(item.number);
+    const stats = extractReviewerPRStats(item, reviews, inlineComments);
+    const result = extractCyclesFromPR(
+      item,
+      timelineEvents,
+      reviews,
+      false,
+      stats,
     );
-    const result = extractCyclesFromPR(item, timelineEvents, reviews, false);
 
     completed.push(...result.completed);
+    for (const [login, prStats] of stats) {
+      const byPR = reviewerPRStats.get(login) ?? new Map();
+      byPR.set(item.number, prStats);
+      reviewerPRStats.set(login, byPR);
+    }
   }
 
   const rate = await fetchGitHubRateLimit();
   console.log("\nRate Limit (REST):");
   console.log(rate.core);
 
-  return completed;
+  return { completed, reviewerPRStats };
 }
