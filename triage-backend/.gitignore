@@ -1,0 +1,7 @@
+
+# Python
+__pycache__/
+*.pyc
+
+# ChromaDB
+triage-backend/chroma_db/

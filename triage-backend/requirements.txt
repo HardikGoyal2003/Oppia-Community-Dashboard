@@ -1,0 +1,8 @@
+fastapi==0.115.6
+uvicorn==0.34.0
+chromadb==0.6.3
+sentence-transformers==3.4.1
+httpx==0.28.1
+pydantic==2.10.4
+firebase-admin==6.6.0
+python-dotenv==1.0.1
