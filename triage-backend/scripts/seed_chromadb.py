@@ -121,14 +121,12 @@ def fetch_labeled_issues(
 def infer_team(labels: list[str]) -> str:
     """Infer team from labels (best effort)."""
     if "translation" in labels:
-        return "Community"
+        return "LEAP"
     if "documentation" in labels:
-        return "Docs"
+        return "Developer Workflow"
     if "CI breakage" in labels:
         return "Developer Workflow"
-    if "performance" in labels:
-        return "Engineering"
-    return "Engineering"
+    return "CORE"
 
 
 def seed_chromadb(

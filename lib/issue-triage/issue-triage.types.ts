@@ -62,17 +62,7 @@ export interface TriageStats {
   accuracyRate: number;
 }
 
-export const TRIAGE_TEAMS = [
-  "Engineering",
-  "Product",
-  "Design",
-  "Community",
-  "Docs",
-  "Developer Workflow",
-  "LEAP",
-  "CORE",
-  "Infra",
-] as const;
+export const TRIAGE_TEAMS = ["LEAP", "CORE", "Developer Workflow"] as const;
 
 export const TRIAGE_REPOSITORIES = [
   "oppia/oppia",

@@ -10,6 +10,7 @@ import type { AIPrediction } from "@/lib/issue-triage/issue-triage.types";
 
 const TRIAGE_BACKEND =
   process.env.TRIAGE_BACKEND_URL || "http://localhost:8000";
+const TRIAGE_API_KEY = process.env.TRIAGE_API_KEY || "";
 
 interface GitHubSearchIssue {
   number: number;
@@ -70,6 +71,12 @@ export async function POST() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
+  // Batch triage is expensive (long-running backend job) — admins only.
+  const { role } = session.user;
+  if (role !== "ADMIN" && role !== "SUPER_ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   try {
     const allIssues = await fetchAllOpenIssues();
 
@@ -103,7 +110,10 @@ export async function POST() {
 
     const backendRes = await fetch(`${TRIAGE_BACKEND}/batch-triage`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(TRIAGE_API_KEY ? { "X-API-Key": TRIAGE_API_KEY } : {}),
+      },
       body: JSON.stringify(backendPayload),
       signal: AbortSignal.timeout(600000), // 10 min timeout
     });

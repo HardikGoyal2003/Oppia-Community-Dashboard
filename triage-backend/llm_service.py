@@ -1,8 +1,8 @@
 """
 LLM service for generating triage predictions.
 
-Uses Hugging Face Inference Providers (OpenAI-compatible endpoint).
-Falls back to heuristic prediction if the API is unavailable.
+Uses huggingface_hub InferenceClient (handles routing and auth automatically)
+with fallback to heuristic prediction if the API is unavailable.
 """
 
 import os
@@ -11,6 +11,8 @@ import re
 import logging
 
 logger = logging.getLogger(__name__)
+
+VALID_TEAMS = {"LEAP", "CORE", "Developer Workflow"}
 
 TRIAGE_SYSTEM_PROMPT = """You are an expert issue triage assistant for the Oppia open-source project (a free online education platform).
 
@@ -26,14 +28,14 @@ Your job is to analyze GitHub issues and predict the correct triage labels based
 Respond with a JSON object containing:
 - labels: array of label names that SHOULD BE ADDED (not including existing labels). Choose from: bug, enhancement, feature, documentation, good first issue, impact-high, impact-medium, impact-low, CI breakage, translation, accessibility, performance
 - newLabels: array of ONLY the labels that are NEW and should be added to the issue (exclude existing labels)
-- team: one of Engineering, Product, Design, Community, Docs, Developer Workflow, LEAP, CORE, Infra
+- team: one of LEAP, CORE, Developer Workflow
 - repository: one of oppia/oppia, oppia/oppia-android, oppia/product-operations, oppia/design
 - cuj: one of Learner Experience, Creator Experience, Translation Review, Community Management, Infrastructure, Onboarding, None
 - goodFirstIssue: boolean (true if the issue is well-scoped and suitable for new contributors)
 - priority: one of critical, high, medium, low
 - severity: one of blocker, major, minor, trivial
 - confidenceScore: number between 0-100
-- explanation: a detailed 2-3 sentence explanation that describes WHY you chose these labels, referencing specific parts of the issue content. For example: "The issue reports a crash when submitting a translation, indicating a bug. The mention of 'translation' and 'i18n' suggests the translation team should handle this. The crash affects all users attempting to submit, making it impact-high."
+- explanation: a detailed 2-3 sentence explanation that describes WHY you chose these labels, referencing specific parts of the issue content.
 
 Respond with ONLY valid JSON, no other text."""
 
@@ -47,16 +49,22 @@ Analyze this issue and predict which labels should be ADDED (newLabels) based on
 
 
 class LLMService:
-    """Generates triage predictions using Hugging Face Inference Providers."""
+    """Generates triage predictions using Hugging Face Inference API."""
 
     def __init__(self):
         self._api_token = os.getenv("HF_API_TOKEN", "")
         self._model = os.getenv("HF_MODEL_ID", "Qwen/Qwen2.5-7B-Instruct")
-        self._api_url = "https://router.huggingface.co/v1/chat/completions"
+        self._client = None
+
+    def _get_client(self):
+        """Lazy-init the InferenceClient."""
+        if self._client is None:
+            from huggingface_hub import InferenceClient
+            self._client = InferenceClient(token=self._api_token or None)
+        return self._client
 
     def predict(self, title: str, body: str, context: str = "", existing_labels: list[str] = None) -> dict:
-        """
-        Run triage prediction using the LLM.
+        """Run triage prediction using the LLM.
 
         Falls back to a heuristic-based prediction if the API is unavailable.
         """
@@ -67,64 +75,81 @@ class LLMService:
             return self._fallback_prediction(title, body, existing_labels or [])
 
     def _query_llm(self, title: str, body: str, context: str, existing_labels: list[str]) -> dict:
-        """Query the LLM via Hugging Face Inference Providers (OpenAI-compatible)."""
-        import httpx
-
+        """Query the LLM via Hugging Face Inference API."""
         existing_labels_str = ", ".join(existing_labels) if existing_labels else "none"
 
         user_prompt = TRIAGE_USER_PROMPT_TEMPLATE.format(
             title=title,
-            body=body[:2000],  # Truncate to avoid token limits
+            body=body[:2000],
             existing_labels=existing_labels_str,
             context=context or "No similar issues found.",
         )
 
-        payload = {
-            "model": self._model,
-            "messages": [
-                {"role": "system", "content": TRIAGE_SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt},
-            ],
-            "max_tokens": 512,
-            "temperature": 0.1,
-        }
+        messages = [
+            {"role": "system", "content": TRIAGE_SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ]
 
-        headers = {"Content-Type": "application/json"}
-        if self._api_token:
-            headers["Authorization"] = f"Bearer {self._api_token}"
-
-        response = httpx.post(
-            self._api_url,
-            json=payload,
-            headers=headers,
-            timeout=120,
+        client = self._get_client()
+        response = client.chat_completion(
+            model=self._model,
+            messages=messages,
+            max_tokens=512,
+            temperature=0.1,
         )
-        response.raise_for_status()
 
-        result = response.json()
+        raw = response.choices[0].message.content
+        if not raw:
+            raise RuntimeError("Empty LLM response")
 
-        # OpenAI-compatible response format
-        choices = result.get("choices", [])
-        if choices and len(choices) > 0:
-            raw = choices[0].get("message", {}).get("content", "{}")
-        else:
-            raw = json.dumps(result)
+        parsed = self._parse_json_response(raw)
+        if parsed is None:
+            raise RuntimeError(f"Could not parse LLM JSON response: {raw[:300]}")
 
-        # Try to parse JSON from the response
+        self._validate_team(parsed)
+        return parsed
+
+    def _parse_json_response(self, raw: str) -> dict | None:
+        """Try multiple strategies to parse JSON from LLM output."""
         try:
             return json.loads(raw)
         except json.JSONDecodeError:
-            # Try extracting JSON block (strip markdown code fences)
-            cleaned = re.sub(r"```json\s*", "", raw)
-            cleaned = re.sub(r"```\s*$", "", cleaned)
-            cleaned = cleaned.strip()
+            pass
+
+        cleaned = re.sub(r"```json\s*", "", raw)
+        cleaned = re.sub(r"```\s*$", "", cleaned)
+        cleaned = cleaned.strip()
+        try:
+            return json.loads(cleaned)
+        except json.JSONDecodeError:
+            pass
+
+        match = re.search(r"\{.*\}", raw, re.DOTALL)
+        if match:
             try:
-                return json.loads(cleaned)
+                return json.loads(match.group())
             except json.JSONDecodeError:
-                match = re.search(r"\{.*\}", raw, re.DOTALL)
-                if match:
-                    return json.loads(match.group())
-                raise ValueError(f"Could not parse LLM response: {raw[:300]}")
+                pass
+
+        return None
+
+    def _validate_team(self, parsed: dict) -> None:
+        """Ensure the team field is one of the valid values."""
+        team = parsed.get("team", "")
+        if team in VALID_TEAMS:
+            return
+        team_lower = team.lower()
+        for valid in VALID_TEAMS:
+            if valid.lower() == team_lower:
+                parsed["team"] = valid
+                return
+        team_map = {
+            "engineering": "CORE", "product": "CORE", "design": "CORE",
+            "community": "LEAP", "docs": "Developer Workflow", "infra": "Developer Workflow",
+        }
+        mapped = team_map.get(team_lower, "CORE")
+        logger.warning(f"LLM returned invalid team '{team}', mapped to '{mapped}'")
+        parsed["team"] = mapped
 
     def _fallback_prediction(self, title: str, body: str, existing_labels: list[str] = None) -> dict:
         """Heuristic-based fallback when LLM is unavailable."""
@@ -160,11 +185,11 @@ class LLMService:
 
         new_labels = [l for l in all_labels if l not in existing_labels]
 
-        team = "Engineering"
+        team = "CORE"
         if is_translation:
-            team = "Community"
-        elif is_docs:
-            team = "Docs"
+            team = "LEAP"
+        elif is_docs or is_ci:
+            team = "Developer Workflow"
 
         cuj = "Learner Experience"
         if is_translation:
@@ -173,27 +198,35 @@ class LLMService:
         priority = "high" if is_bug else "medium"
         severity = "major" if is_bug else "minor"
 
-        # Build a detailed explanation
         reasons = []
         if is_bug:
-            reasons.append("The issue describes a bug or error — the title/body contains keywords like 'crash', 'error', or 'broken'")
+            reasons.append("The issue describes a bug or error")
         if is_feature:
-            reasons.append("The issue is a feature request — the title/body contains keywords like 'feature', 'request', or 'please add'")
+            reasons.append("The issue is a feature request")
         if is_translation:
-            reasons.append("The issue relates to translations — keywords like 'translation', 'i18n', or 'locale' were found")
+            reasons.append("The issue relates to translations")
         if is_perf:
-            reasons.append("The issue mentions performance concerns — keywords like 'slow' or 'latency' were detected")
+            reasons.append("The issue mentions performance concerns")
         if is_docs:
-            reasons.append("The issue involves documentation — keywords like 'readme' or 'typo' were found")
+            reasons.append("The issue involves documentation")
         if is_accessibility:
-            reasons.append("The issue addresses accessibility — keywords like 'screen reader' or 'wcag' were found")
+            reasons.append("The issue addresses accessibility")
         if is_ci:
-            reasons.append("The issue involves CI/build failures — keywords like 'test fail' or 'pipeline' were detected")
+            reasons.append("The issue involves CI/build failures")
         if not reasons:
-            reasons.append("The issue was analyzed but no strong keyword signals were found — defaulting to bug classification")
+            reasons.append("No strong keyword signals found — defaulting to bug classification")
 
-        team_reason = f"The {team} team was selected based on {'translation-related content' if is_translation else 'documentation-related content' if is_docs else 'general engineering scope'}."
-        explanation = " ".join(reasons) + " " + team_reason
+        explanation = "Heuristic analysis (LLM unavailable): " + ". ".join(reasons) + f". The {team} team was selected."
+
+        signal_count = sum([is_bug, is_feature, is_translation, is_perf, is_docs, is_accessibility, is_ci])
+        if signal_count >= 3:
+            confidence = 55.0
+        elif signal_count == 2:
+            confidence = 48.0
+        elif signal_count == 1:
+            confidence = 42.0
+        else:
+            confidence = 35.0
 
         return {
             "labels": all_labels,
@@ -204,7 +237,8 @@ class LLMService:
             "goodFirstIssue": is_bug and not is_translation,
             "priority": priority,
             "severity": severity,
-            "confidenceScore": 80.0,
+            "confidenceScore": confidence,
             "explanation": explanation,
             "similarIssues": [],
+            "_method": "heuristic_fallback",
         }

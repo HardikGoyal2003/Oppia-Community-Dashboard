@@ -51,7 +51,12 @@ class ChromaService:
         embedding: list[float],
         metadata: dict | None = None,
     ):
-        """Add or update an issue embedding in the collection."""
+        """Add or update an issue embedding in the collection.
+
+        WARNING: this REPLACES any existing record (upsert). Use it only for
+        seeding ground truth. For unverified AI predictions use
+        add_prediction(), which never overwrites verified records.
+        """
         safe_metadata = self._sanitize_metadata(metadata)
         self.collection.upsert(
             ids=[str(issue_number)],
@@ -59,6 +64,38 @@ class ChromaService:
             metadatas=[safe_metadata],
             documents=[title],
         )
+
+    def add_prediction(
+        self,
+        issue_number: int,
+        title: str,
+        embedding: list[float],
+        metadata: dict | None = None,
+    ):
+        """Store an unverified AI prediction WITHOUT overwriting ground truth.
+
+        If the issue already exists in the collection with a verified state
+        ('accepted' or 'edited' — i.e. seeded ground truth or reviewer-
+        confirmed data), the existing record is left untouched. Only brand-new
+        issues (or ones still 'pending') are written.
+        """
+        try:
+            existing = self.collection.get(
+                ids=[str(issue_number)], include=["metadatas"]
+            )
+            if existing["ids"]:
+                meta = existing["metadatas"][0] if existing["metadatas"] else {}
+                state = meta.get("state", "")
+                if state in ("accepted", "edited"):
+                    logger.info(
+                        f"Skipping ChromaDB write for #{issue_number}: "
+                        f"verified record (state={state}) already exists."
+                    )
+                    return
+        except Exception as e:
+            logger.warning(f"ChromaDB lookup failed for #{issue_number}: {e}")
+
+        self.add_issue(issue_number, title, embedding, metadata)
 
     def search(
         self, embedding: list[float], n_results: int = 5

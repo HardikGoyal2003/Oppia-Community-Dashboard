@@ -116,7 +116,7 @@ class LabelClassifier:
                 selected_labels = [top_label]
 
         # Select top vote for categorical fields
-        team = team_votes.most_common(1)[0][0] if team_votes else "Engineering"
+        team = team_votes.most_common(1)[0][0] if team_votes else "CORE"
         priority = priority_votes.most_common(1)[0][0] if priority_votes else "medium"
         severity = severity_votes.most_common(1)[0][0] if severity_votes else "minor"
         cuj = cuj_votes.most_common(1)[0][0] if cuj_votes else "Learner Experience"
@@ -152,11 +152,24 @@ class LabelClassifier:
                     "number": s["number"],
                     "title": s["title"],
                     "score": round((1 - s["distance"]) * 100, 1),
+                    # Include neighbor labels so explanations can reference them.
+                    "labels": self._get_labels(s.get("metadata", {})),
                 }
                 for s in similar[:5]
             ],
             "_method": "knn_classifier",
         }
+
+    @staticmethod
+    def _get_labels(meta: dict) -> list[str]:
+        """Extract labels (preferring reviewer-corrected ones) from metadata."""
+        labels = meta.get("corrected_labels") or meta.get("labels", [])
+        if isinstance(labels, str):
+            try:
+                labels = json.loads(labels)
+            except (json.JSONDecodeError, TypeError):
+                labels = [labels] if labels else []
+        return labels if isinstance(labels, list) else []
 
     def _compute_confidence(
         self,
@@ -180,7 +193,7 @@ class LabelClassifier:
     def _empty_prediction(self) -> dict:
         return {
             "labels": ["bug"],
-            "team": "Engineering",
+            "team": "CORE",
             "repository": "oppia/oppia",
             "cuj": "Learner Experience",
             "goodFirstIssue": False,

@@ -39,6 +39,7 @@ export async function submitTriageAction(
   issueNumber: number,
   action: "accept" | "edit" | "reject",
   corrections?: TriageCorrection[],
+  reviewerNotes?: string,
 ): Promise<{ labelsApplied?: string[]; triageLabelRemoved?: boolean } | void> {
   const res = await fetch("/api/issue-triage", {
     method: "POST",
@@ -47,6 +48,7 @@ export async function submitTriageAction(
       action,
       issueNumber,
       corrections,
+      reviewerNotes,
     }),
   });
 
@@ -97,53 +99,24 @@ export async function triggerTriage(
   issueBody: string,
   labels: string[],
 ): Promise<void> {
-  const res = await fetch("http://localhost:8000/triage", {
+  // Goes through our own API route, which proxies to the Python backend
+  // server-side (keeps the backend URL + API key off the client).
+  const res = await fetch("/api/issue-triage/trigger", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      issue: {
-        issueNumber,
-        issueTitle,
-        issueUrl,
-        issueBody,
-        labels,
-      },
+      issueNumber,
+      issueTitle,
+      issueUrl,
+      issueBody,
+      labels,
     }),
     signal: AbortSignal.timeout(150000),
   });
 
   if (!res.ok) {
-    throw new Error("AI triage backend returned an error");
-  }
-
-  const prediction = await res.json();
-
-  const saveRes = await fetch("/api/issue-triage", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      action: "create",
-      issueNumber,
-      issueTitle,
-      issueUrl,
-      prediction: {
-        labels: prediction.labels,
-        newLabels: prediction.newLabels || [],
-        team: prediction.team,
-        repository: prediction.repository,
-        cuj: prediction.cuj,
-        goodFirstIssue: prediction.goodFirstIssue,
-        priority: prediction.priority,
-        severity: prediction.severity,
-        confidenceScore: prediction.confidenceScore,
-        explanation: prediction.explanation,
-        similarIssues: prediction.similarIssues,
-      },
-    }),
-  });
-
-  if (!saveRes.ok) {
-    throw new Error("Failed to save triage prediction");
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error || "AI triage failed");
   }
 }
 

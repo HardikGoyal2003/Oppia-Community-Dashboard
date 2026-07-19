@@ -3,5 +3,8 @@
 __pycache__/
 *.pyc
 
-# ChromaDB
-triage-backend/chroma_db/
+# Secrets — never commit
+.env
+
+# ChromaDB (path is relative to this directory)
+chroma_db/

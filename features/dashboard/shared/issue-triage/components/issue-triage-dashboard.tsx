@@ -12,8 +12,21 @@ import type {
   TriageStats,
   TriageCorrection,
 } from "@/lib/issue-triage/issue-triage.types";
+import {
+  TRIAGE_LABELS,
+  TRIAGE_TEAMS,
+  TRIAGE_REPOSITORIES,
+  TRIAGE_CUJS,
+} from "@/lib/issue-triage/issue-triage.types";
 
-type TabFilter = "all" | "bug" | "feature" | "engineering" | "needs-review";
+type TabFilter =
+  | "all"
+  | "bug"
+  | "feature"
+  | "leap"
+  | "core"
+  | "developer-workflow"
+  | "needs-review";
 
 export function IssueTriageDashboard() {
   const [issues, setIssues] = useState<TriagePrediction[]>([]);
@@ -89,12 +102,12 @@ export function IssueTriageDashboard() {
             l.toLowerCase().includes("feature") ||
             l.toLowerCase().includes("enhancement"),
         );
-      case "engineering":
-        return (
-          issue.prediction.team === "Engineering" ||
-          issue.prediction.team === "CORE" ||
-          issue.prediction.team === "Infra"
-        );
+      case "leap":
+        return issue.prediction.team === "LEAP";
+      case "core":
+        return issue.prediction.team === "CORE";
+      case "developer-workflow":
+        return issue.prediction.team === "Developer Workflow";
       case "needs-review":
         return issue.status === "pending";
       default:
@@ -106,27 +119,44 @@ export function IssueTriageDashboard() {
     issueNumber: number,
     action: "accept" | "edit" | "reject",
     corrections?: TriageCorrection[],
+    reviewerNotes?: string,
   ) => {
-    const result = await submitTriageAction(issueNumber, action, corrections);
-    if (
-      result &&
-      "labelsApplied" in result &&
-      result.labelsApplied &&
-      result.labelsApplied.length > 0
-    ) {
-      const added = result.labelsApplied.join(", ");
-      setSuccessMessage(
-        `Labels applied to GitHub: [${added}]. "triage needed" label removed.`,
+    try {
+      const result = await submitTriageAction(
+        issueNumber,
+        action,
+        corrections,
+        reviewerNotes,
       );
-      setTimeout(() => setSuccessMessage(null), 5000);
-    } else if (action === "reject") {
-      setSuccessMessage("Prediction rejected. No changes applied to GitHub.");
-      setTimeout(() => setSuccessMessage(null), 3000);
+      if (
+        result &&
+        "labelsApplied" in result &&
+        result.labelsApplied &&
+        result.labelsApplied.length > 0
+      ) {
+        const added = result.labelsApplied.join(", ");
+        setSuccessMessage(
+          result.triageLabelRemoved
+            ? `Labels applied to GitHub: [${added}]. "triage needed" label removed.`
+            : `Labels applied to GitHub: [${added}]. Note: "triage needed" label could not be removed — check the issue on GitHub.`,
+        );
+        setTimeout(() => setSuccessMessage(null), 5000);
+      } else if (action === "reject") {
+        setSuccessMessage("Prediction rejected. No changes applied to GitHub.");
+        setTimeout(() => setSuccessMessage(null), 3000);
+      }
+      setIssues((prev) => prev.filter((i) => i.issueNumber !== issueNumber));
+      setSelectedIssue(null);
+      const fetchedStats = await fetchTriageStats();
+      setStats(fetchedStats);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to submit review. Please try again.",
+      );
+      setTimeout(() => setError(null), 6000);
     }
-    setIssues((prev) => prev.filter((i) => i.issueNumber !== issueNumber));
-    setSelectedIssue(null);
-    const fetchedStats = await fetchTriageStats();
-    setStats(fetchedStats);
   };
 
   const tabCounts = {
@@ -141,11 +171,10 @@ export function IssueTriageDashboard() {
           l.toLowerCase().includes("enhancement"),
       ),
     ).length,
-    engineering: issues.filter(
-      (i) =>
-        i.prediction.team === "Engineering" ||
-        i.prediction.team === "CORE" ||
-        i.prediction.team === "Infra",
+    leap: issues.filter((i) => i.prediction.team === "LEAP").length,
+    core: issues.filter((i) => i.prediction.team === "CORE").length,
+    "developer-workflow": issues.filter(
+      (i) => i.prediction.team === "Developer Workflow",
     ).length,
     "needs-review": issues.filter((i) => i.status === "pending").length,
   };
@@ -160,7 +189,9 @@ export function IssueTriageDashboard() {
               { key: "all", label: "All" },
               { key: "bug", label: "Bug" },
               { key: "feature", label: "Feature Request" },
-              { key: "engineering", label: "Engineering" },
+              { key: "leap", label: "LEAP" },
+              { key: "core", label: "CORE" },
+              { key: "developer-workflow", label: "Dev Workflow" },
               { key: "needs-review", label: "Needs Review" },
             ] as const
           ).map((tab) => (
@@ -423,9 +454,12 @@ function TriageSuggestionPanel({
     issueNumber: number,
     action: "accept" | "edit" | "reject",
     corrections?: TriageCorrection[],
+    reviewerNotes?: string,
   ) => Promise<void>;
 }) {
   const [isEditing, setIsEditing] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { prediction: pred } = issue;
 
@@ -459,7 +493,19 @@ function TriageSuggestionPanel({
   const handleReject = async () => {
     setIsSubmitting(true);
     try {
-      await onReview(issue.issueNumber, "reject");
+      // A rejection means the whole prediction was wrong — store what was
+      // predicted so the learning loop knows what to avoid.
+      const corrections: TriageCorrection[] = [
+        { field: "labels", predicted: pred.labels, corrected: [] },
+      ];
+      await onReview(
+        issue.issueNumber,
+        "reject",
+        corrections,
+        rejectReason.trim() || undefined,
+      );
+      setIsRejecting(false);
+      setRejectReason("");
     } finally {
       setIsSubmitting(false);
     }
@@ -517,7 +563,12 @@ function TriageSuggestionPanel({
 
     setIsSubmitting(true);
     try {
-      await onReview(issue.issueNumber, "edit", corrections);
+      await onReview(
+        issue.issueNumber,
+        "edit",
+        corrections,
+        editState.reason.trim() || undefined,
+      );
       setIsEditing(false);
     } finally {
       setIsSubmitting(false);
@@ -533,46 +584,10 @@ function TriageSuggestionPanel({
     }));
   };
 
-  const ALL_LABELS = [
-    "bug",
-    "enhancement",
-    "feature",
-    "documentation",
-    "good first issue",
-    "impact-high",
-    "impact-medium",
-    "impact-low",
-    "CI breakage",
-    "translation",
-    "accessibility",
-    "performance",
-  ];
-  const ALL_TEAMS = [
-    "Engineering",
-    "Product",
-    "Design",
-    "Community",
-    "Docs",
-    "Developer Workflow",
-    "LEAP",
-    "CORE",
-    "Infra",
-  ];
-  const ALL_REPOS = [
-    "oppia/oppia",
-    "oppia/oppia-android",
-    "oppia/product-operations",
-    "oppia/design",
-  ];
-  const ALL_CUJS = [
-    "Learner Experience",
-    "Creator Experience",
-    "Translation Review",
-    "Community Management",
-    "Infrastructure",
-    "Onboarding",
-    "None",
-  ];
+  const ALL_LABELS = [...TRIAGE_LABELS];
+  const ALL_TEAMS = [...TRIAGE_TEAMS];
+  const ALL_REPOS = [...TRIAGE_REPOSITORIES];
+  const ALL_CUJS = [...TRIAGE_CUJS];
 
   return (
     <div className="p-6">
@@ -885,8 +900,65 @@ function TriageSuggestionPanel({
       )}
 
       {/* Action Buttons */}
+      {isEditing && (
+        <div className="mb-4 rounded-xl border bg-white p-5 shadow-sm">
+          <label className="block text-sm font-semibold text-gray-900 mb-2">
+            Why did you change this?{" "}
+            <span className="font-normal text-gray-500">(optional)</span>
+          </label>
+          <textarea
+            value={editState.reason}
+            onChange={(e) =>
+              setEditState((prev) => ({ ...prev, reason: e.target.value }))
+            }
+            rows={2}
+            placeholder="e.g. This is a CI infrastructure issue, not a frontend bug"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Your reason is stored with the correction and helps improve future
+            AI predictions.
+          </p>
+        </div>
+      )}
+
+      {isRejecting && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-5">
+          <label className="block text-sm font-semibold text-red-900 mb-2">
+            Why is this prediction wrong?{" "}
+            <span className="font-normal text-red-700">(optional)</span>
+          </label>
+          <textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            rows={2}
+            placeholder="e.g. Completely misclassified — this is a product question, not a bug"
+            className="w-full rounded-lg border border-red-300 bg-white px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+          />
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              onClick={handleReject}
+              disabled={isSubmitting}
+              className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-5 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 cursor-pointer"
+            >
+              {isSubmitting ? "Rejecting..." : "Confirm Reject"}
+            </button>
+            <button
+              onClick={() => {
+                setIsRejecting(false);
+                setRejectReason("");
+              }}
+              disabled={isSubmitting}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-3 mb-6">
-        {!isEditing ? (
+        {!isEditing && !isRejecting ? (
           <>
             <button
               onClick={handleAccept}
@@ -929,7 +1001,7 @@ function TriageSuggestionPanel({
               Edit & Review
             </button>
             <button
-              onClick={handleReject}
+              onClick={() => setIsRejecting(true)}
               disabled={isSubmitting}
               className="inline-flex items-center gap-2 rounded-lg border border-red-300 bg-red-50 px-5 py-2.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50 cursor-pointer"
             >
@@ -949,7 +1021,7 @@ function TriageSuggestionPanel({
               Reject Suggestions
             </button>
           </>
-        ) : (
+        ) : isEditing ? (
           <>
             <button
               onClick={handleEditSubmit}
@@ -966,7 +1038,7 @@ function TriageSuggestionPanel({
               Cancel
             </button>
           </>
-        )}
+        ) : null}
       </div>
 
       {/* Corrections */}

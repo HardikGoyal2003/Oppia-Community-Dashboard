@@ -5,20 +5,31 @@ import { requestGitHubRest } from "@/lib/github/github.rest";
 import {
   getPendingTriageIssues,
   getAllTriageIssues,
+  getTriageIssuesByStatus,
   getTriageStats,
   upsertTriagePrediction,
   acceptTriagePrediction,
   editTriagePrediction,
   rejectTriagePrediction,
   getTriageIssueByIssueNumber,
+  storeTriageFeedback,
 } from "@/db/issue-triage/issue-triage.db";
 import type {
   AIPrediction,
   TriageCorrection,
+  TriageReviewStatus,
 } from "@/lib/issue-triage/issue-triage.types";
 
 const TRIAGE_BACKEND =
   process.env.TRIAGE_BACKEND_URL || "http://localhost:8000";
+const TRIAGE_API_KEY = process.env.TRIAGE_API_KEY || "";
+
+const VALID_STATUSES: TriageReviewStatus[] = [
+  "pending",
+  "accepted",
+  "edited",
+  "rejected",
+];
 
 function extractRepoFromIssueUrl(url: string): string {
   // https://github.com/oppia/oppia/issues/12345 → oppia/oppia
@@ -37,7 +48,8 @@ async function applyLabelsOnGitHub(
       body: JSON.stringify({ labels: labelsToAdd }),
     });
     return true;
-  } catch {
+  } catch (error) {
+    console.error(`Failed to apply labels to ${repo}#${issueNumber}:`, error);
     return false;
   }
 }
@@ -53,8 +65,12 @@ async function removeLabelOnGitHub(
       { method: "DELETE" },
     );
     return true;
-  } catch {
-    // Label might not exist on the issue — that's fine
+  } catch (error) {
+    // A 404 here usually means the label wasn't on the issue — acceptable.
+    console.warn(
+      `Could not remove label "${labelName}" from ${repo}#${issueNumber}:`,
+      error,
+    );
     return false;
   }
 }
@@ -65,6 +81,8 @@ async function sendFeedbackToBackend(
   reviewStatus: string,
   corrections: TriageCorrection[],
   predictionAccuracy: number,
+  reviewer: string,
+  reviewerNotes?: string,
 ) {
   try {
     // Extract corrected labels and team from corrections for the learning loop
@@ -77,14 +95,18 @@ async function sendFeedbackToBackend(
 
     await fetch(`${TRIAGE_BACKEND}/feedback`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(TRIAGE_API_KEY ? { "X-API-Key": TRIAGE_API_KEY } : {}),
+      },
       body: JSON.stringify({
         issueNumber,
         issueId,
         predictionAccuracy,
         reviewStatus,
-        reviewer: "system",
+        reviewer,
         changes: corrections,
+        reviewerNotes: reviewerNotes || "",
         correctedLabels:
           correctedLabels && correctedLabels.length > 0
             ? correctedLabels
@@ -114,7 +136,16 @@ export async function GET(req: Request) {
   }
 
   if (status && status !== "all") {
-    const issues = await getPendingTriageIssues();
+    if (!VALID_STATUSES.includes(status as TriageReviewStatus)) {
+      return NextResponse.json(
+        { error: `Invalid status: ${status}` },
+        { status: 400 },
+      );
+    }
+    const issues =
+      status === "pending"
+        ? await getPendingTriageIssues()
+        : await getTriageIssuesByStatus(status as TriageReviewStatus);
     return NextResponse.json({ issues });
   }
 
@@ -133,6 +164,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const reviewer = session.user.githubUsername || "unknown";
+
   try {
     const body = (await req.json()) as {
       action: "create" | "accept" | "edit" | "reject";
@@ -141,10 +174,17 @@ export async function POST(req: Request) {
       issueUrl?: string;
       prediction?: AIPrediction;
       corrections?: TriageCorrection[];
+      reviewerNotes?: string;
       createdAt?: string;
     };
 
     const { action, issueNumber } = body;
+    if (typeof issueNumber !== "number" || !Number.isInteger(issueNumber)) {
+      return NextResponse.json(
+        { error: "issueNumber must be an integer" },
+        { status: 400 },
+      );
+    }
 
     switch (action) {
       case "create": {
@@ -176,37 +216,69 @@ export async function POST(req: Request) {
             { status: 404 },
           );
         }
-        await acceptTriagePrediction(
-          existing.id,
-          session.user.githubUsername || "unknown",
-        );
+        // Status guard: prevent double review (two admins racing).
+        if (existing.status !== "pending") {
+          return NextResponse.json(
+            { error: `Issue already reviewed (status: ${existing.status})` },
+            { status: 409 },
+          );
+        }
 
-        // Apply labels on GitHub: add predicted new labels, remove "triage needed"
+        // Apply labels on GitHub FIRST — only mark accepted if it worked.
         const repo = extractRepoFromIssueUrl(existing.issueUrl);
         const labelsToAdd = existing.prediction.newLabels?.length
           ? existing.prediction.newLabels
           : existing.prediction.labels.filter((l) => l !== "triage needed");
 
-        // Apply new labels to GitHub issue
+        let labelsApplied = true;
         if (labelsToAdd.length > 0) {
-          await applyLabelsOnGitHub(issueNumber, repo, labelsToAdd);
+          labelsApplied = await applyLabelsOnGitHub(
+            issueNumber,
+            repo,
+            labelsToAdd,
+          );
         }
-        // Remove "triage needed" label from GitHub issue
-        await removeLabelOnGitHub(issueNumber, repo, "triage needed");
+        if (!labelsApplied) {
+          return NextResponse.json(
+            {
+              error:
+                "Failed to apply labels on GitHub. The prediction was NOT marked as accepted — please retry.",
+            },
+            { status: 502 },
+          );
+        }
+        const triageLabelRemoved = await removeLabelOnGitHub(
+          issueNumber,
+          repo,
+          "triage needed",
+        );
 
-        // Send feedback to Python backend for learning loop (best-effort)
+        await acceptTriagePrediction(existing.id, reviewer);
+
+        // Store feedback doc + notify Python backend (learning loop)
+        await storeTriageFeedback(
+          issueNumber,
+          existing.id,
+          100,
+          "accepted",
+          reviewer,
+          [],
+          body.reviewerNotes,
+        );
         await sendFeedbackToBackend(
           issueNumber,
           existing.id,
-          "accept",
+          "accepted",
           [],
           100,
+          reviewer,
+          body.reviewerNotes,
         );
 
         return NextResponse.json({
           success: true,
           labelsApplied: labelsToAdd,
-          triageLabelRemoved: true,
+          triageLabelRemoved,
         });
       }
 
@@ -218,12 +290,13 @@ export async function POST(req: Request) {
             { status: 404 },
           );
         }
+        if (existing.status !== "pending") {
+          return NextResponse.json(
+            { error: `Issue already reviewed (status: ${existing.status})` },
+            { status: 409 },
+          );
+        }
         const corrections = body.corrections || [];
-        await editTriagePrediction(
-          existing.id,
-          session.user.githubUsername || "unknown",
-          corrections,
-        );
 
         // Determine final labels after corrections
         let finalLabels = [...existing.prediction.labels];
@@ -234,34 +307,64 @@ export async function POST(req: Request) {
         // Remove "triage needed" from final labels
         finalLabels = finalLabels.filter((l) => l !== "triage needed");
 
-        // Apply corrected labels on GitHub
+        // Apply corrected labels on GitHub FIRST — only persist if it worked.
         const editRepo = extractRepoFromIssueUrl(existing.issueUrl);
+        let labelsApplied = true;
         if (finalLabels.length > 0) {
-          await applyLabelsOnGitHub(issueNumber, editRepo, finalLabels);
+          labelsApplied = await applyLabelsOnGitHub(
+            issueNumber,
+            editRepo,
+            finalLabels,
+          );
         }
-        // Remove "triage needed" label from GitHub issue
-        await removeLabelOnGitHub(issueNumber, editRepo, "triage needed");
+        if (!labelsApplied) {
+          return NextResponse.json(
+            {
+              error:
+                "Failed to apply labels on GitHub. The edit was NOT saved — please retry.",
+            },
+            { status: 502 },
+          );
+        }
+        const triageLabelRemoved = await removeLabelOnGitHub(
+          issueNumber,
+          editRepo,
+          "triage needed",
+        );
+
+        await editTriagePrediction(existing.id, reviewer, corrections);
 
         // Calculate prediction accuracy based on corrections
         const totalFields = 7; // labels, team, repo, cuj, gfi, priority, severity
-        const correctedFields = corrections.length;
+        const correctedFields = Math.min(corrections.length, totalFields);
         const accuracy = Math.round(
           ((totalFields - correctedFields) / totalFields) * 100,
         );
 
-        // Send feedback to Python backend for learning loop (best-effort)
+        // Store feedback doc + notify Python backend (learning loop)
+        await storeTriageFeedback(
+          issueNumber,
+          existing.id,
+          accuracy,
+          "edited",
+          reviewer,
+          corrections,
+          body.reviewerNotes,
+        );
         await sendFeedbackToBackend(
           issueNumber,
           existing.id,
-          "edit",
+          "edited",
           corrections,
           accuracy,
+          reviewer,
+          body.reviewerNotes,
         );
 
         return NextResponse.json({
           success: true,
           labelsApplied: finalLabels,
-          triageLabelRemoved: true,
+          triageLabelRemoved,
         });
       }
 
@@ -273,20 +376,33 @@ export async function POST(req: Request) {
             { status: 404 },
           );
         }
+        if (existing.status !== "pending") {
+          return NextResponse.json(
+            { error: `Issue already reviewed (status: ${existing.status})` },
+            { status: 409 },
+          );
+        }
         const corrections = body.corrections || [];
-        await rejectTriagePrediction(
-          existing.id,
-          session.user.githubUsername || "unknown",
-          corrections,
-        );
+        await rejectTriagePrediction(existing.id, reviewer, corrections);
 
-        // Send feedback to Python backend for learning loop (best-effort)
+        // Store feedback doc + notify Python backend (learning loop)
+        await storeTriageFeedback(
+          issueNumber,
+          existing.id,
+          0,
+          "rejected",
+          reviewer,
+          corrections,
+          body.reviewerNotes,
+        );
         await sendFeedbackToBackend(
           issueNumber,
           existing.id,
-          "reject",
+          "rejected",
           corrections,
           0,
+          reviewer,
+          body.reviewerNotes,
         );
 
         return NextResponse.json({ success: true });

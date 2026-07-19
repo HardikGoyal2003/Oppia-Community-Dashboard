@@ -9,6 +9,7 @@ import type { AIPrediction } from "@/lib/issue-triage/issue-triage.types";
 
 const TRIAGE_BACKEND =
   process.env.TRIAGE_BACKEND_URL || "http://localhost:8000";
+const TRIAGE_API_KEY = process.env.TRIAGE_API_KEY || "";
 
 function isAuthorizedCronRequest(req: Request): boolean {
   const cronSecret = readEnv("CRON_SECRET");
@@ -98,7 +99,10 @@ export async function GET(req: Request) {
         batch.map(async (issue) => {
           const res = await fetch(`${TRIAGE_BACKEND}/triage`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...(TRIAGE_API_KEY ? { "X-API-Key": TRIAGE_API_KEY } : {}),
+            },
             body: JSON.stringify({
               issue: {
                 issueNumber: issue.number,
@@ -133,7 +137,7 @@ export async function GET(req: Request) {
             issue.title,
             issue.html_url,
             aiPrediction,
-            [],
+            issue.labels.map((l) => l.name),
             issue.created_at,
           );
         }),

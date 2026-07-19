@@ -10,15 +10,19 @@ FastAPI server that handles:
 """
 
 import os
+import hmac
 import json
+import asyncio
+import hashlib
 import logging
 from contextlib import asynccontextmanager
 from typing import Optional
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Security
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security.api_key import APIKeyHeader
 from pydantic import BaseModel
 
 from chroma_service import ChromaService
@@ -30,6 +34,32 @@ load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Shared secret for API auth. Set the same value in the Next.js app
+# (TRIAGE_API_KEY) so only the dashboard can call this backend.
+TRIAGE_API_KEY = os.getenv("TRIAGE_API_KEY", "")
+# Secret configured on the GitHub webhook for HMAC signature verification.
+GITHUB_WEBHOOK_SECRET = os.getenv("GITHUB_WEBHOOK_SECRET", "")
+# Hard cap on batch size to prevent abuse / event-loop starvation.
+MAX_BATCH_SIZE = int(os.getenv("MAX_BATCH_SIZE", "300"))
+
+_api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+
+async def require_api_key(api_key: Optional[str] = Security(_api_key_header)):
+    """Reject requests without a valid X-API-Key header.
+
+    If TRIAGE_API_KEY is unset, auth is disabled (local dev only) and a
+    warning is logged so this is never silent in production.
+    """
+    if not TRIAGE_API_KEY:
+        logger.warning(
+            "TRIAGE_API_KEY is not set — API auth is DISABLED. "
+            "Set it in .env before deploying."
+        )
+        return
+    if not api_key or not hmac.compare_digest(api_key, TRIAGE_API_KEY):
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 chroma = ChromaService()
 embedder = EmbeddingService()
@@ -44,16 +74,37 @@ async def lifespan(app: FastAPI):
         embedder.load_model()
         logger.info("Embedding model loaded.")
     except Exception as e:
-        logger.warning(f"Could not load embedding model: {e}")
-        logger.warning("Falling back to mock embeddings.")
+        # Do NOT fall back to mock embeddings — predictions would be garbage.
+        logger.error(f"Could not load embedding model: {e}")
+        logger.error("Triage endpoints will return errors until this is fixed.")
     try:
         chroma.initialize()
         logger.info("ChromaDB initialized.")
         global classifier
         classifier = LabelClassifier(chroma)
         logger.info("Label classifier initialized.")
+
+        # Guard against embedding-model/DB dimension mismatch: querying a
+        # collection seeded with a different model silently returns garbage.
+        if embedder.is_loaded() and chroma.count() > 0:
+            try:
+                peek = chroma.collection.peek(limit=1)
+                stored = peek.get("embeddings")
+                stored_dim = len(stored[0]) if stored is not None and len(stored) > 0 else None
+                if stored_dim and embedder.dimension and stored_dim != embedder.dimension:
+                    raise RuntimeError(
+                        f"Embedding dimension mismatch: ChromaDB was seeded with "
+                        f"{stored_dim}-dim vectors but model "
+                        f"'{embedder.model_name}' produces {embedder.dimension}-dim. "
+                        f"Fix EMBEDDING_MODEL in .env or re-seed the database."
+                    )
+            except RuntimeError:
+                raise
+            except Exception as e:
+                logger.warning(f"Could not verify embedding dimensions: {e}")
     except Exception as e:
-        logger.warning(f"Could not initialize ChromaDB: {e}")
+        logger.error(f"Could not initialize ChromaDB: {e}")
+        raise
     yield
     logger.info("Shutting down AI Triage Backend.")
 
@@ -62,7 +113,13 @@ app = FastAPI(title="Oppia AI Issue Triage", version="0.2.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=[
+        o.strip()
+        for o in os.getenv(
+            "ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
+        ).split(",")
+        if o.strip()
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -118,29 +175,51 @@ async def health():
 
 
 @app.post("/triage", response_model=TriageResponse)
-async def triage_issue(request: TriageRequest):
+async def triage_issue(request: TriageRequest, _=Security(require_api_key)):
     """Run AI triage on a single issue with classifier + LLM.
 
     Pipeline:
     1. Embed the issue text
-    2. kNN classifier predicts labels from 9863 historical issues
+    2. kNN classifier predicts labels from historical issues in ChromaDB
     3. LLM refines predictions using classifier output as context
     4. Compute newLabels (labels to ADD, excluding existing ones)
-    5. Store embedding + classifier predictions in ChromaDB
+    5. Store embedding + prediction WITHOUT overwriting seeded ground truth
     """
     issue = request.issue
-    existing_labels = issue.labels or []
-    logger.info(f"Triaging issue #{issue.issueNumber}: {issue.issueTitle}")
+    result = await _triage_one(
+        issue_number=issue.issueNumber,
+        title=issue.issueTitle,
+        body=issue.issueBody or "",
+        existing_labels=issue.labels or [],
+    )
+    return TriageResponse(**result)
 
-    # 1. Generate embedding for the new issue
-    issue_text = f"{issue.issueTitle}\n{issue.issueBody or ''}"
-    embedding = embedder.embed(issue_text)
+
+async def _triage_one(
+    issue_number: int,
+    title: str,
+    body: str,
+    existing_labels: list[str],
+) -> dict:
+    """Shared triage pipeline used by /triage, /batch-triage and the webhook.
+
+    All blocking work (embedding, LLM HTTP call) runs in a worker thread so
+    the event loop is never starved.
+    """
+    logger.info(f"Triaging issue #{issue_number}: {title}")
+
+    # 1. Generate embedding (CPU-bound → worker thread).
+    #    Truncate the body to match how seeded issues were embedded.
+    issue_text = f"{title}\n{body[:2000]}"
+    embedding = await asyncio.to_thread(embedder.embed, issue_text)
 
     # 2. Run kNN classifier (uses all issues in ChromaDB)
     knn_prediction = {}
     if classifier:
         try:
-            knn_prediction = classifier.predict(embedding, k=15)
+            knn_prediction = await asyncio.to_thread(
+                classifier.predict, embedding, 15
+            )
             logger.info(
                 f"  kNN prediction: labels={knn_prediction.get('labels')}, "
                 f"team={knn_prediction.get('team')}, "
@@ -159,9 +238,9 @@ async def triage_issue(request: TriageRequest):
         knn_prediction=knn_prediction,
     )
 
-    # 5. Ask LLM to refine predictions using classifier output
-    llm_prediction = llm.predict(
-        issue.issueTitle, issue.issueBody or "", context, existing_labels
+    # 5. Ask LLM to refine predictions (blocking HTTP → worker thread)
+    llm_prediction = await asyncio.to_thread(
+        llm.predict, title, body, context, existing_labels
     )
 
     # 6. Merge predictions: classifier is primary, LLM refines
@@ -172,10 +251,10 @@ async def triage_issue(request: TriageRequest):
     new_labels = [l for l in all_predicted if l not in existing_labels]
     prediction["newLabels"] = new_labels
 
-    # 8. Store embedding in ChromaDB
-    chroma.add_issue(
-        issue_number=issue.issueNumber,
-        title=issue.issueTitle,
+    # 8. Store embedding in ChromaDB — never overwrite verified ground truth.
+    chroma.add_prediction(
+        issue_number=issue_number,
+        title=title,
         embedding=embedding,
         metadata={
             "labels": prediction.get("labels", []),
@@ -189,27 +268,24 @@ async def triage_issue(request: TriageRequest):
         },
     )
 
-    # 9. Format similar issues for response
-    similar_issues = knn_prediction.get("similarIssues", [])
-
-    return TriageResponse(
-        issueNumber=issue.issueNumber,
-        labels=prediction.get("labels", ["bug"]),
-        newLabels=prediction.get("newLabels", []),
-        team=prediction.get("team", "Engineering"),
-        repository=prediction.get("repository", "oppia/oppia"),
-        cuj=prediction.get("cuj", "Learner Experience"),
-        goodFirstIssue=prediction.get("goodFirstIssue", False),
-        priority=prediction.get("priority", "medium"),
-        severity=prediction.get("severity", "minor"),
-        confidenceScore=prediction.get("confidenceScore", 70.0),
-        explanation=prediction.get("explanation", ""),
-        similarIssues=similar_issues,
-    )
+    return {
+        "issueNumber": issue_number,
+        "labels": prediction.get("labels", ["bug"]),
+        "newLabels": prediction.get("newLabels", []),
+        "team": _normalize_team(prediction.get("team", "CORE")),
+        "repository": prediction.get("repository", "oppia/oppia"),
+        "cuj": prediction.get("cuj", "Learner Experience"),
+        "goodFirstIssue": prediction.get("goodFirstIssue", False),
+        "priority": prediction.get("priority", "medium"),
+        "severity": prediction.get("severity", "minor"),
+        "confidenceScore": prediction.get("confidenceScore", 70.0),
+        "explanation": prediction.get("explanation", ""),
+        "similarIssues": knn_prediction.get("similarIssues", []),
+    }
 
 
 @app.post("/feedback")
-async def store_feedback(feedback: FeedbackEntry):
+async def store_feedback(feedback: FeedbackEntry, _=Security(require_api_key)):
     """Store reviewer feedback and update ChromaDB for continuous learning.
 
     This is the core of the learning loop:
@@ -219,8 +295,11 @@ async def store_feedback(feedback: FeedbackEntry):
     """
     logger.info(
         f"Feedback for issue #{feedback.issueNumber}: "
-        f"{feedback.reviewStatus} (accuracy: {feedback.predictionAccuracy}%)"
+        f"{feedback.reviewStatus} by {feedback.reviewer} "
+        f"(accuracy: {feedback.predictionAccuracy}%)"
     )
+    if feedback.reviewerNotes:
+        logger.info(f"  Reviewer notes: {feedback.reviewerNotes}")
 
     # Update ChromaDB with corrected labels so future few-shot examples are accurate
     chroma.update_feedback(
@@ -234,24 +313,51 @@ async def store_feedback(feedback: FeedbackEntry):
 
 
 @app.post("/webhook/github")
-async def github_webhook(payload: dict, background_tasks: BackgroundTasks):
-    """Receive GitHub issue webhook and trigger triage."""
+async def github_webhook(request: Request, background_tasks: BackgroundTasks):
+    """Receive GitHub issue webhook (HMAC-verified) and trigger triage."""
+    raw_body = await request.body()
+
+    # Verify the GitHub webhook signature (X-Hub-Signature-256).
+    if GITHUB_WEBHOOK_SECRET:
+        signature = request.headers.get("X-Hub-Signature-256", "")
+        expected = "sha256=" + hmac.new(
+            GITHUB_WEBHOOK_SECRET.encode(), raw_body, hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(signature, expected):
+            raise HTTPException(status_code=401, detail="Invalid webhook signature")
+    else:
+        logger.warning(
+            "GITHUB_WEBHOOK_SECRET is not set — webhook signature "
+            "verification is DISABLED. Set it before deploying."
+        )
+
+    try:
+        payload = json.loads(raw_body)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
     action = payload.get("action")
     issue_data = payload.get("issue")
 
-    if action not in ("opened", "reopened") or not issue_data:
+    if action not in ("opened", "reopened") or not isinstance(issue_data, dict):
         return {"status": "ignored", "reason": "Not a new issue event."}
 
-    issue = IssueInput(
-        issueNumber=issue_data["number"],
-        issueTitle=issue_data["title"],
-        issueUrl=issue_data["html_url"],
-        issueBody=issue_data.get("body", ""),
-        labels=[l["name"] for l in issue_data.get("labels", [])],
-    )
+    try:
+        issue = IssueInput(
+            issueNumber=issue_data["number"],
+            issueTitle=issue_data["title"],
+            issueUrl=issue_data["html_url"],
+            issueBody=issue_data.get("body") or "",
+            labels=[
+                l.get("name", "")
+                for l in issue_data.get("labels", [])
+                if isinstance(l, dict)
+            ],
+        )
+    except (KeyError, TypeError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=f"Malformed issue payload: {e}")
 
-    request = TriageRequest(issue=issue)
-    background_tasks.add_task(triage_and_store, request)
+    background_tasks.add_task(triage_and_store, TriageRequest(issue=issue))
 
     return {"status": "processing", "issueNumber": issue.issueNumber}
 
@@ -275,7 +381,7 @@ def _build_context(
     """Build context for the LLM prompt.
 
     Includes:
-    - kNN classifier predictions (from 9863 historical issues)
+    - kNN classifier predictions (from historical issues in ChromaDB)
     - Few-shot examples from reviewer-verified triage decisions
     - Similar issues for reference
     """
@@ -336,14 +442,30 @@ def _build_context(
     return "\n".join(parts) if parts else "No similar historical issues found."
 
 
+VALID_TEAMS = {"LEAP", "CORE", "Developer Workflow"}
+_TEAM_MAP = {
+    "engineering": "CORE", "product": "CORE", "design": "CORE",
+    "community": "LEAP", "docs": "Developer Workflow", "infra": "Developer Workflow",
+}
+
+def _normalize_team(team: str) -> str:
+    """Ensure team is one of the valid values, mapping old names."""
+    if team in VALID_TEAMS:
+        return team
+    mapped = _TEAM_MAP.get(team.lower(), "CORE")
+    if team != mapped:
+        logger.warning(f"Normalized team '{team}' -> '{mapped}'")
+    return mapped
+
+
 def _merge_predictions(knn_pred: dict, llm_pred: dict, existing_labels: list[str] = None) -> dict:
     """Merge kNN classifier and LLM predictions.
 
     Strategy:
-    - kNN is the base (trained on 9863 issues, high recall)
+    - kNN is the base (trained on historical issues, high recall)
     - LLM refines (adds context understanding, catches edge cases)
-    - If kNN confidence >= 80%, trust kNN more
-    - If kNN confidence < 80%, let LLM override more
+    - If the LLM fell back to heuristic (no API), trust kNN exclusively
+    - If both are real, weight by confidence tiers as before
     - newLabels computed: predicted labels excluding existing ones
     """
     existing_labels = existing_labels or []
@@ -354,11 +476,34 @@ def _merge_predictions(knn_pred: dict, llm_pred: dict, existing_labels: list[str
 
     knn_conf = knn_pred.get("confidenceScore", 0)
     llm_conf = llm_pred.get("confidenceScore", 0)
+    llm_is_fallback = llm_pred.get("_method") == "heuristic_fallback"
 
-    # Weight based on confidence
+    if llm_is_fallback:
+        # LLM unavailable — trust kNN as the sole signal.
+        # The fallback heuristic is keyword-based with low confidence (40),
+        # so blending it in only hurts.  Use kNN labels/team/priority as-is
+        # but keep the kNN confidence as the final score.
+        return {
+            "labels": knn_pred.get("labels", ["bug"]),
+            "team": _normalize_team(knn_pred.get("team", "CORE")),
+            "repository": knn_pred.get("repository") or llm_pred.get("repository", "oppia/oppia"),
+            "cuj": knn_pred.get("cuj") or llm_pred.get("cuj", "Learner Experience"),
+            "goodFirstIssue": knn_pred.get("goodFirstIssue", False),
+            "priority": knn_pred.get("priority", "medium"),
+            "severity": knn_pred.get("severity", "minor"),
+            "confidenceScore": knn_conf,
+            "explanation": (
+                f"kNN classifier (on {chroma.count()} historical issues) with "
+                f"{knn_conf}% confidence. LLM was unavailable (heuristic fallback); "
+                f"prediction relies on nearest-neighbor voting only."
+            ),
+            "labelConfidences": knn_pred.get("labelConfidences", {}),
+        }
+
+    # Both kNN and LLM are real predictions — weight by confidence tiers.
     if knn_conf >= 80:
         labels = knn_pred.get("labels", llm_pred.get("labels", ["bug"]))
-        team = knn_pred.get("team", llm_pred.get("team", "Engineering"))
+        team = knn_pred.get("team", llm_pred.get("team", "CORE"))
         priority = knn_pred.get("priority", llm_pred.get("priority", "medium"))
         severity = knn_pred.get("severity", llm_pred.get("severity", "minor"))
         confidence = round((knn_conf * 0.7) + (llm_conf * 0.3), 1)
@@ -368,13 +513,13 @@ def _merge_predictions(knn_pred: dict, llm_pred: dict, existing_labels: list[str
         labels = list(knn_labels | llm_labels) if knn_labels and llm_labels else (
             list(knn_labels) if knn_labels else list(llm_labels)
         )
-        team = knn_pred.get("team") if knn_pred.get("team") else llm_pred.get("team", "Engineering")
+        team = knn_pred.get("team") if knn_pred.get("team") else llm_pred.get("team", "CORE")
         priority = knn_pred.get("priority") if knn_pred.get("priority") else llm_pred.get("priority", "medium")
         severity = knn_pred.get("severity") if knn_pred.get("severity") else llm_pred.get("severity", "minor")
         confidence = round((knn_conf * 0.5) + (llm_conf * 0.5), 1)
     else:
         labels = llm_pred.get("labels", knn_pred.get("labels", ["bug"]))
-        team = llm_pred.get("team", knn_pred.get("team", "Engineering"))
+        team = llm_pred.get("team", knn_pred.get("team", "CORE"))
         priority = llm_pred.get("priority", knn_pred.get("priority", "medium"))
         severity = llm_pred.get("severity", knn_pred.get("severity", "minor"))
         confidence = round((knn_conf * 0.3) + (llm_conf * 0.7), 1)
@@ -427,7 +572,7 @@ def _merge_predictions(knn_pred: dict, llm_pred: dict, existing_labels: list[str
     return {
         "labels": labels,
         "newLabels": new_labels,
-        "team": team,
+        "team": _normalize_team(team),
         "repository": knn_pred.get("repository") or llm_pred.get("repository", "oppia/oppia"),
         "cuj": knn_pred.get("cuj") or llm_pred.get("cuj", "Learner Experience"),
         "goodFirstIssue": knn_pred.get("goodFirstIssue", llm_pred.get("goodFirstIssue", False)),
@@ -435,14 +580,21 @@ def _merge_predictions(knn_pred: dict, llm_pred: dict, existing_labels: list[str
         "severity": severity,
         "confidenceScore": confidence,
         "explanation": explanation,
+        "labelConfidences": knn_pred.get("labelConfidences", {}),
     }
 
 
 async def triage_and_store(request: TriageRequest):
     """Run triage and store results (called in background)."""
     try:
-        result = await triage_issue(request)
-        logger.info(f"Triage complete for #{result.issueNumber}")
+        issue = request.issue
+        result = await _triage_one(
+            issue_number=issue.issueNumber,
+            title=issue.issueTitle,
+            body=issue.issueBody or "",
+            existing_labels=issue.labels or [],
+        )
+        logger.info(f"Triage complete for #{result['issueNumber']}")
     except Exception as e:
         logger.error(f"Triage failed for #{request.issue.issueNumber}: {e}")
 
@@ -453,11 +605,15 @@ class SeedRequest(BaseModel):
 
 
 @app.post("/seed")
-async def seed_chromadb(req: SeedRequest, background_tasks: BackgroundTasks):
+async def seed_chromadb(
+    req: SeedRequest, background_tasks: BackgroundTasks, _=Security(require_api_key)
+):
     """Seed ChromaDB with ALL Oppia issues for few-shot learning.
 
     This runs in the background since it takes several minutes (~10k issues).
     """
+    # Only use the server-configured token — never accept caller tokens
+    # beyond basic use, and require auth (above) to trigger this at all.
     github_token = req.github_token or os.getenv("GITHUB_TOKEN", "")
     if not github_token:
         raise HTTPException(status_code=400, detail="GitHub token required")
@@ -484,7 +640,8 @@ async def _run_seed(github_token: str, max_issues: int):
     all_issues = []
     seen_numbers = set()
     headers = {"Accept": "application/vnd.github.v3+json"}
-    if github_token and github_token != "your_github_token" and github_token.startswith("ghp_"):
+    # Support both classic (ghp_) and fine-grained (github_pat_) tokens.
+    if github_token and github_token != "your_github_token":
         headers["Authorization"] = f"token {github_token}"
 
     # Split by state and year to stay under 1000 per query
@@ -506,6 +663,7 @@ async def _run_seed(github_token: str, max_issues: int):
                         f"https://api.github.com/search/issues"
                         f"?q={query}&per_page=100&page={page}&sort=created&order=desc"
                     )
+                    data = None
                     try:
                         resp = await client.get(url, headers=headers)
                         resp.raise_for_status()
@@ -520,7 +678,14 @@ async def _run_seed(github_token: str, max_issues: int):
                             continue
                         if e.response.status_code == 422:
                             break
-                        raise
+                        logger.warning(f"GitHub error for query {query}: {e}")
+                        break
+                    except _httpx.HTTPError as e:
+                        logger.warning(f"Network error for query {query}: {e}")
+                        break
+
+                    if data is None:
+                        break
 
                     items = data.get("items", [])
                     if not items:
@@ -562,9 +727,10 @@ async def _run_seed(github_token: str, max_issues: int):
     logger.info(f"Issues with labels: {len(issues_with_labels)} / {len(all_issues)}")
 
     try:
-        from embedding_service import EmbeddingService
-        _embedder = EmbeddingService()
-        _embedder.load_model()
+        # Reuse the already-loaded global embedder (avoid loading the model twice).
+        _embedder = embedder
+        if not _embedder.is_loaded():
+            _embedder.load_model()
 
         seeded = 0
         batch_size = 32
@@ -572,9 +738,9 @@ async def _run_seed(github_token: str, max_issues: int):
         for i in range(0, len(issues_with_labels), batch_size):
             batch = issues_with_labels[i:i + batch_size]
 
-            texts = [f"{issue['title']}\n{issue['body'][:500]}" for issue in batch]
+            texts = [f"{issue['title']}\n{issue['body'][:2000]}" for issue in batch]
             try:
-                embeddings = _embedder._model.encode(texts, normalize_embeddings=True).tolist()
+                embeddings = _embedder.embed_batch(texts)
             except Exception as e:
                 logger.warning(f"Batch embedding failed at {i}: {e}")
                 continue
@@ -582,8 +748,8 @@ async def _run_seed(github_token: str, max_issues: int):
             for issue, embedding in zip(batch, embeddings):
                 try:
                     labels = issue["labels"]
-                    team = "Community" if any(l in labels for l in ["translation", "i18n"]) else (
-                        "Docs" if "documentation" in labels else "Engineering"
+                    team = "LEAP" if any(l in labels for l in ["translation", "i18n"]) else (
+                        "Developer Workflow" if "documentation" in labels else "CORE"
                     )
                     chroma.add_issue(
                         issue_number=issue["number"],
@@ -630,66 +796,28 @@ class BatchTriageRequest(BaseModel):
 
 
 @app.post("/batch-triage")
-async def batch_triage(request: BatchTriageRequest):
+async def batch_triage(request: BatchTriageRequest, _=Security(require_api_key)):
     """Triage all issues in one go. Returns results for the caller to store in Firestore."""
-    results = []
     total = len(request.issues)
+    if total > MAX_BATCH_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Batch too large: {total} issues (max {MAX_BATCH_SIZE}).",
+        )
+
+    results = []
     logger.info(f"Batch triage: processing {total} issues")
 
     for idx, issue in enumerate(request.issues):
         try:
-            existing_labels = issue.existingLabels or []
-            issue_text = f"{issue.issueTitle}\n{issue.issueBody}"
-            embedding = embedder.embed(issue_text)
-
-            knn_prediction = {}
-            if classifier:
-                try:
-                    knn_prediction = classifier.predict(embedding, k=15)
-                except Exception as e:
-                    logger.warning(f"  kNN failed for #{issue.issueNumber}: {e}")
-
-            few_shot_examples = chroma.search_for_few_shot(embedding, n_results=5)
-            context = _build_context([], few_shot_examples, knn_prediction)
-            llm_prediction = llm.predict(issue.issueTitle, issue.issueBody, context, existing_labels)
-            prediction = _merge_predictions(knn_prediction, llm_prediction, existing_labels)
-
-            all_labels = prediction.get("labels", [])
-            new_labels = [l for l in all_labels if l not in existing_labels]
-            prediction["newLabels"] = new_labels
-
-            chroma.add_issue(
+            result = await _triage_one(
                 issue_number=issue.issueNumber,
                 title=issue.issueTitle,
-                embedding=embedding,
-                metadata={
-                    "labels": all_labels,
-                    "team": prediction.get("team", ""),
-                    "priority": prediction.get("priority", ""),
-                    "severity": prediction.get("severity", ""),
-                    "cuj": prediction.get("cuj", ""),
-                    "repository": prediction.get("repository", ""),
-                    "goodFirstIssue": prediction.get("goodFirstIssue", False),
-                    "state": "pending",
-                },
+                body=issue.issueBody or "",
+                existing_labels=issue.existingLabels or [],
             )
-
-            similar_issues = knn_prediction.get("similarIssues", [])
-            results.append({
-                "issueNumber": issue.issueNumber,
-                "labels": all_labels,
-                "newLabels": new_labels,
-                "team": prediction.get("team", "Engineering"),
-                "repository": prediction.get("repository", "oppia/oppia"),
-                "cuj": prediction.get("cuj", "Learner Experience"),
-                "goodFirstIssue": prediction.get("goodFirstIssue", False),
-                "priority": prediction.get("priority", "medium"),
-                "severity": prediction.get("severity", "minor"),
-                "confidenceScore": prediction.get("confidenceScore", 70.0),
-                "explanation": prediction.get("explanation", ""),
-                "similarIssues": similar_issues,
-                "existingLabels": existing_labels,
-            })
+            result["existingLabels"] = issue.existingLabels or []
+            results.append(result)
 
             if (idx + 1) % 10 == 0:
                 logger.info(f"  Batch progress: {idx + 1}/{total}")
