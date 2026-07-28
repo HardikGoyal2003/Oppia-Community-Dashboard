@@ -9,7 +9,6 @@ FastAPI server that handles:
 - GitHub webhook ingestion
 """
 
-import os
 import hmac
 import json
 import asyncio
@@ -29,19 +28,16 @@ from chroma_service import ChromaService
 from embedding_service import EmbeddingService
 from llm_service import LLMService
 from classifier_service import LabelClassifier
+from config import config
 
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Shared secret for API auth. Set the same value in the Next.js app
-# (TRIAGE_API_KEY) so only the dashboard can call this backend.
-TRIAGE_API_KEY = os.getenv("TRIAGE_API_KEY", "")
-# Secret configured on the GitHub webhook for HMAC signature verification.
-GITHUB_WEBHOOK_SECRET = os.getenv("GITHUB_WEBHOOK_SECRET", "")
-# Hard cap on batch size to prevent abuse / event-loop starvation.
-MAX_BATCH_SIZE = int(os.getenv("MAX_BATCH_SIZE", "300"))
+TRIAGE_API_KEY = config.triage_api_key
+GITHUB_WEBHOOK_SECRET = config.github_webhook_secret
+MAX_BATCH_SIZE = config.max_batch_size
 
 _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
@@ -113,13 +109,7 @@ app = FastAPI(title="Oppia AI Issue Triage", version="0.2.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        o.strip()
-        for o in os.getenv(
-            "ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
-        ).split(",")
-        if o.strip()
-    ],
+    allow_origins=config.allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -218,7 +208,7 @@ async def _triage_one(
     if classifier:
         try:
             knn_prediction = await asyncio.to_thread(
-                classifier.predict, embedding, 15
+                classifier.predict, embedding, config.knn_default_k
             )
             logger.info(
                 f"  kNN prediction: labels={knn_prediction.get('labels')}, "
@@ -442,17 +432,11 @@ def _build_context(
     return "\n".join(parts) if parts else "No similar historical issues found."
 
 
-VALID_TEAMS = {"LEAP", "CORE", "Developer Workflow"}
-_TEAM_MAP = {
-    "engineering": "CORE", "product": "CORE", "design": "CORE",
-    "community": "LEAP", "docs": "Developer Workflow", "infra": "Developer Workflow",
-}
-
 def _normalize_team(team: str) -> str:
     """Ensure team is one of the valid values, mapping old names."""
-    if team in VALID_TEAMS:
+    if team in config.valid_teams:
         return team
-    mapped = _TEAM_MAP.get(team.lower(), "CORE")
+    mapped = config.team_map.get(team.lower(), "CORE")
     if team != mapped:
         logger.warning(f"Normalized team '{team}' -> '{mapped}'")
     return mapped
@@ -501,13 +485,19 @@ def _merge_predictions(knn_pred: dict, llm_pred: dict, existing_labels: list[str
         }
 
     # Both kNN and LLM are real predictions — weight by confidence tiers.
-    if knn_conf >= 80:
+    high_threshold = config.knn_high_confidence_threshold
+    med_threshold = config.knn_medium_confidence_threshold
+    high_weight = config.knn_high_weight
+    med_weight = config.knn_medium_weight
+    low_weight = config.knn_low_weight
+
+    if knn_conf >= high_threshold:
         labels = knn_pred.get("labels", llm_pred.get("labels", ["bug"]))
         team = knn_pred.get("team", llm_pred.get("team", "CORE"))
         priority = knn_pred.get("priority", llm_pred.get("priority", "medium"))
         severity = knn_pred.get("severity", llm_pred.get("severity", "minor"))
-        confidence = round((knn_conf * 0.7) + (llm_conf * 0.3), 1)
-    elif knn_conf >= 50:
+        confidence = round((knn_conf * high_weight) + (llm_conf * (1 - high_weight)), 1)
+    elif knn_conf >= med_threshold:
         knn_labels = set(knn_pred.get("labels", []))
         llm_labels = set(llm_pred.get("labels", []))
         labels = list(knn_labels | llm_labels) if knn_labels and llm_labels else (
@@ -516,13 +506,13 @@ def _merge_predictions(knn_pred: dict, llm_pred: dict, existing_labels: list[str
         team = knn_pred.get("team") if knn_pred.get("team") else llm_pred.get("team", "CORE")
         priority = knn_pred.get("priority") if knn_pred.get("priority") else llm_pred.get("priority", "medium")
         severity = knn_pred.get("severity") if knn_pred.get("severity") else llm_pred.get("severity", "minor")
-        confidence = round((knn_conf * 0.5) + (llm_conf * 0.5), 1)
+        confidence = round((knn_conf * med_weight) + (llm_conf * (1 - med_weight)), 1)
     else:
         labels = llm_pred.get("labels", knn_pred.get("labels", ["bug"]))
         team = llm_pred.get("team", knn_pred.get("team", "CORE"))
         priority = llm_pred.get("priority", knn_pred.get("priority", "medium"))
         severity = llm_pred.get("severity", knn_pred.get("severity", "minor"))
-        confidence = round((knn_conf * 0.3) + (llm_conf * 0.7), 1)
+        confidence = round((knn_conf * low_weight) + (llm_conf * (1 - low_weight)), 1)
 
     # Compute newLabels: exclude existing labels
     new_labels = [l for l in labels if l not in existing_labels]
@@ -614,7 +604,7 @@ async def seed_chromadb(
     """
     # Only use the server-configured token — never accept caller tokens
     # beyond basic use, and require auth (above) to trigger this at all.
-    github_token = req.github_token or os.getenv("GITHUB_TOKEN", "")
+    github_token = req.github_token or config.github_token
     if not github_token:
         raise HTTPException(status_code=400, detail="GitHub token required")
 
@@ -778,7 +768,7 @@ async def _run_seed(github_token: str, max_issues: int):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host=config.host, port=config.port)
 
 
 # ─── Batch Triage ────────────────────────────────────────────────────────

@@ -46,3 +46,8 @@ firestore-debug.log
 next-env.d.ts
 
 .codex
+
+# Python (safety net for triage-backend/ and any future Python code)
+__pycache__/
+*.pyc
+chroma_db/

@@ -15,6 +15,8 @@ import json
 import logging
 from collections import Counter
 
+from config import config
+
 logger = logging.getLogger(__name__)
 
 

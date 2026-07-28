@@ -6,3 +6,4 @@ httpx==0.28.1
 pydantic==2.10.4
 firebase-admin==6.6.0
 python-dotenv==1.0.1
+huggingface-hub>=0.29.0

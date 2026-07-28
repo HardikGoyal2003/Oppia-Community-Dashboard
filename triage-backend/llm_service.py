@@ -5,16 +5,17 @@ Uses huggingface_hub InferenceClient (handles routing and auth automatically)
 with fallback to heuristic prediction if the API is unavailable.
 """
 
-import os
 import json
 import re
 import logging
 
+from config import config
+
 logger = logging.getLogger(__name__)
 
-VALID_TEAMS = {"LEAP", "CORE", "Developer Workflow"}
+VALID_TEAMS = config.valid_teams
 
-TRIAGE_SYSTEM_PROMPT = """You are an expert issue triage assistant for the Oppia open-source project (a free online education platform).
+TRIAGE_SYSTEM_PROMPT_TPL = """You are an expert issue triage assistant for the Oppia open-source project (a free online education platform).
 
 Your job is to analyze GitHub issues and predict the correct triage labels based on the issue's CONTENT, not its existing labels.
 
@@ -26,9 +27,9 @@ Your job is to analyze GitHub issues and predict the correct triage labels based
 
 ## Response format
 Respond with a JSON object containing:
-- labels: array of label names that SHOULD BE ADDED (not including existing labels). Choose from: bug, enhancement, feature, documentation, good first issue, impact-high, impact-medium, impact-low, CI breakage, translation, accessibility, performance
+- labels: array of label names that SHOULD BE ADDED (not including existing labels). Choose from: {label_list}
 - newLabels: array of ONLY the labels that are NEW and should be added to the issue (exclude existing labels)
-- team: one of LEAP, CORE, Developer Workflow
+- team: one of {team_list}
 - repository: one of oppia/oppia, oppia/oppia-android, oppia/product-operations, oppia/design
 - cuj: one of Learner Experience, Creator Experience, Translation Review, Community Management, Infrastructure, Onboarding, None
 - goodFirstIssue: boolean (true if the issue is well-scoped and suitable for new contributors)
@@ -52,8 +53,8 @@ class LLMService:
     """Generates triage predictions using Hugging Face Inference API."""
 
     def __init__(self):
-        self._api_token = os.getenv("HF_API_TOKEN", "")
-        self._model = os.getenv("HF_MODEL_ID", "Qwen/Qwen2.5-7B-Instruct")
+        self._api_token = config.hf_api_token
+        self._model = config.hf_model_id
         self._client = None
 
     def _get_client(self):
@@ -78,6 +79,11 @@ class LLMService:
         """Query the LLM via Hugging Face Inference API."""
         existing_labels_str = ", ".join(existing_labels) if existing_labels else "none"
 
+        system_prompt = TRIAGE_SYSTEM_PROMPT_TPL.format(
+            label_list=", ".join(sorted(config.triage_labels)),
+            team_list=", ".join(sorted(config.valid_teams)),
+        )
+
         user_prompt = TRIAGE_USER_PROMPT_TEMPLATE.format(
             title=title,
             body=body[:2000],
@@ -86,7 +92,7 @@ class LLMService:
         )
 
         messages = [
-            {"role": "system", "content": TRIAGE_SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
 
@@ -136,18 +142,14 @@ class LLMService:
     def _validate_team(self, parsed: dict) -> None:
         """Ensure the team field is one of the valid values."""
         team = parsed.get("team", "")
-        if team in VALID_TEAMS:
+        if team in config.valid_teams:
             return
         team_lower = team.lower()
-        for valid in VALID_TEAMS:
+        for valid in config.valid_teams:
             if valid.lower() == team_lower:
                 parsed["team"] = valid
                 return
-        team_map = {
-            "engineering": "CORE", "product": "CORE", "design": "CORE",
-            "community": "LEAP", "docs": "Developer Workflow", "infra": "Developer Workflow",
-        }
-        mapped = team_map.get(team_lower, "CORE")
+        mapped = config.team_map.get(team_lower, "CORE")
         logger.warning(f"LLM returned invalid team '{team}', mapped to '{mapped}'")
         parsed["team"] = mapped
 

@@ -5,8 +5,9 @@ Uses local sentence-transformers model (fast, reliable) with optional
 HF API for remote embedding generation.
 """
 
-import os
 import logging
+
+from config import config
 
 logger = logging.getLogger(__name__)
 
@@ -15,10 +16,10 @@ class EmbeddingService:
     """Generates embeddings for issue text using local or remote models."""
 
     def __init__(self):
-        self._model_name = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
-        self._api_token = os.getenv("HF_API_TOKEN", "")
-        self._providers_url = "https://router.huggingface.co/v1/embeddings"
-        self._dimension = 384  # all-MiniLM-L6-v2 produces 384-dim vectors
+        self._model_name = config.embedding_model
+        self._api_token = config.hf_api_token
+        self._providers_url = config.hf_providers_url
+        self._dimension = 384  # all-MiniLM-L6-v2 produces 384-dim vectors; updated on load
         self._local_model = None
 
     def load_model(self):

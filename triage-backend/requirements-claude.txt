@@ -1,0 +1,6 @@
+# Dependencies for Claude/AI-agent-assisted development workflows
+# Install with: pip install -r requirements-claude.txt
+
+-r requirements-dev.txt
+
+ipython>=8.0.0

@@ -7,9 +7,10 @@ Supports:
 - Label updates from reviewer corrections
 """
 
-import os
 import json
 import logging
+
+from config import config
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ class ChromaService:
         import chromadb
         from chromadb.config import Settings
 
-        db_path = os.getenv("CHROMA_DB_PATH", "./chroma_db")
+        db_path = config.chroma_db_path
         self._client = chromadb.PersistentClient(
             path=db_path,
             settings=Settings(anonymized_telemetry=False),

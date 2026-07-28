@@ -1,0 +1,9 @@
+[project]
+name = "oppia-triage-backend"
+version = "0.2.0"
+description = "AI-Assisted Issue Triage Backend for Oppia"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
