@@ -24,4 +24,10 @@ export const DB_PATHS = {
   ORG_META: {
     COLLECTION: "orgMeta",
   },
+  ISSUE_TRIAGE: {
+    COLLECTION: "issueTriage",
+  },
+  ISSUE_TRIAGE_FEEDBACK: {
+    COLLECTION: "issueTriageFeedback",
+  },
 } as const;

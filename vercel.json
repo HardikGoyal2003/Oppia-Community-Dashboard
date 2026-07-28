@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/sync-org-meta",
       "schedule": "30 21 */3 * *"
+    },
+    {
+      "path": "/api/cron/daily-issue-triage",
+      "schedule": "0 3 * * *"
     }
   ]
 }

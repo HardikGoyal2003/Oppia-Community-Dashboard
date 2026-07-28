@@ -1,0 +1,10 @@
+
+# Python
+__pycache__/
+*.pyc
+
+# Secrets — never commit
+.env
+
+# ChromaDB (path is relative to this directory)
+chroma_db/

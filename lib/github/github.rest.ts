@@ -22,17 +22,26 @@ export class GitHubRestError extends LibInvalidStateError {
  * Executes a GitHub REST request and returns the parsed JSON body.
  *
  * @param path The GitHub REST path beginning with a slash.
+ * @param options Optional fetch options (method, body, etc.)
  * @returns The parsed JSON response body.
  * @throws {GitHubRestError} When GitHub returns a non-success response.
  */
-export async function requestGitHubRest<T>(path: string): Promise<T> {
+export async function requestGitHubRest<T>(
+  path: string,
+  options?: { method?: string; body?: string },
+): Promise<T> {
   const token = process.env.GITHUB_TOKEN;
+  const method = options?.method || "GET";
   const res = await fetch(`${API_URL}${path}`, {
+    method,
     headers: {
       Accept: "application/vnd.github+json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       "X-GitHub-Api-Version": API_VERSION,
+      ...(options?.body ? { "Content-Type": "application/json" } : {}),
     },
+    ...(options?.body ? { body: options.body } : {}),
+    signal: AbortSignal.timeout(30000),
   });
 
   if (!res.ok) {
@@ -57,6 +66,11 @@ export async function requestGitHubRest<T>(path: string): Promise<T> {
     }
 
     throw new GitHubRestError(message, res.status, details);
+  }
+
+  // 204 No Content (e.g. DELETE) has no body
+  if (res.status === 204) {
+    return {} as T;
   }
 
   return (await res.json()) as T;
