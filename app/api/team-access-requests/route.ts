@@ -4,13 +4,11 @@ import { authOptions } from "@/lib/auth/auth.options";
 import { getKnownRoleDisplayLabel } from "@/lib/auth/role-display";
 import {
   getPendingMemberAccessRequestsByPlatformAndRoles,
-  PendingMemberAccessRequestError,
   resolveMemberAccessRequest,
-  submitMemberAccessRequest,
 } from "@/db/member-access-requests/member-access-request.db";
 import { updateUserRoleAndTeamWithNotificationByUid } from "@/db/users/users.db";
 import { appendUserNotificationByUid } from "@/db/users/notifications/notifications.db";
-import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
+import { UserRole } from "@/lib/auth/auth.types";
 import { isValidUserRole } from "@/lib/utils/roles.utils";
 import {
   DbInvalidStateError,
@@ -18,8 +16,10 @@ import {
   DbValidationError,
 } from "@/db/db.errors";
 
-function canManageRequests(role: UserRole): boolean {
-  return role === "ADMIN" || role === "SUPER_ADMIN";
+const TEAM_LEAD_MANAGEABLE_ROLES = ["TEAM_MEMBER", "LEAD_TRAINEE"];
+
+function canManageTeamRequests(role: UserRole): boolean {
+  return role === "TEAM_LEAD" || role === "LEAD_TRAINEE";
 }
 
 function getPromotionMessage(role: UserRole, team: string): string {
@@ -28,22 +28,18 @@ function getPromotionMessage(role: UserRole, team: string): string {
   switch (role) {
     case "TEAM_MEMBER":
       return `Great news! You are now a ${roleLabel} on ${team}. We're really happy to have you onboard.`;
-    case "TEAM_LEAD":
+    case "LEAD_TRAINEE":
       return `Amazing! You have been promoted to ${roleLabel} on ${team}. We're truly excited to have you leading with us onboard.`;
-    case "ADMIN":
-      return `Outstanding! You have been promoted to ${roleLabel} on ${team}. We're incredibly grateful and thrilled to have you onboard in this key role.`;
     default:
       return `Welcome! Your access request has been approved and your role is now ${roleLabel} on ${team}. We're happy to have you onboard.`;
   }
 }
 
-const ADMIN_MANAGEABLE_ROLES = ["TEAM_LEAD", "ADMIN"];
-
 function getDeclineMessage(
   reason: string,
   changedByGithubUsername?: string,
 ): string {
-  const actor = changedByGithubUsername ?? "Admin";
+  const actor = changedByGithubUsername ?? "Team Lead";
 
   return [
     `Thank you for your request. ${actor} reviewed it and we are unable to approve it at this moment.`,
@@ -52,111 +48,43 @@ function getDeclineMessage(
   ].join("\n");
 }
 
-export async function GET(req: Request) {
+export async function GET() {
   const session = await getServerSession(authOptions);
 
-  if (!session || !session.user || !canManageRequests(session.user.role)) {
+  if (
+    !session ||
+    !session.user ||
+    !canManageTeamRequests(session.user.role)
+  ) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  const { searchParams } = new URL(req.url);
-  const platformParam = searchParams.get("platform");
-  const platform =
-    platformParam === "WEB" || platformParam === "ANDROID"
-      ? (platformParam as ContributionPlatform)
-      : undefined;
+  if (!session.user.team || !session.user.platform) {
+    return NextResponse.json(
+      { error: "Your team assignment is incomplete." },
+      { status: 400 },
+    );
+  }
 
   const requests = await getPendingMemberAccessRequestsByPlatformAndRoles(
-    platform,
-    ADMIN_MANAGEABLE_ROLES,
+    session.user.platform,
+    TEAM_LEAD_MANAGEABLE_ROLES,
+    session.user.team,
   );
+
   return NextResponse.json({
     pending: requests,
   });
 }
 
-export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || !session.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-  }
-
-  const body = await req.json();
-  const team = typeof body.team === "string" ? body.team.trim() : "";
-  const role = typeof body.role === "string" ? body.role.trim() : "";
-  const note = typeof body.note === "string" ? body.note.trim() : "";
-
-  if (!team || !role || !isValidUserRole(role)) {
-    return NextResponse.json(
-      { error: "Missing or invalid fields: team, role." },
-      { status: 400 },
-    );
-  }
-
-  const username = session.user?.githubUsername;
-  const platform = session.user?.platform;
-
-  if (!username) {
-    return NextResponse.json(
-      {
-        error:
-          "No GitHub username was found on your account. Please sign out and sign in again.",
-      },
-      { status: 400 },
-    );
-  }
-
-  if (!platform) {
-    return NextResponse.json(
-      { error: "No contribution platform was found on your account." },
-      { status: 400 },
-    );
-  }
-
-  try {
-    await submitMemberAccessRequest({
-      userId: session.user.id,
-      platform: platform as ContributionPlatform,
-      team,
-      role,
-      note,
-      username,
-    });
-  } catch (error) {
-    if (error instanceof PendingMemberAccessRequestError) {
-      return NextResponse.json(
-        {
-          error: "You already have a pending team access request.",
-          pendingRequest: {
-            role: error.request.role,
-            team: error.request.team,
-            note: error.request.note,
-            createdAt: error.request.createdAt.toISOString(),
-          },
-        },
-        { status: 409 },
-      );
-    }
-
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to submit access request.",
-      },
-      { status: 409 },
-    );
-  }
-
-  return NextResponse.json({ success: true });
-}
-
 export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions);
 
-  if (!session || !session.user || !canManageRequests(session.user.role)) {
+  if (
+    !session ||
+    !session.user ||
+    !canManageTeamRequests(session.user.role)
+  ) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
@@ -184,11 +112,21 @@ export async function PATCH(req: Request) {
   try {
     const request = await resolveMemberAccessRequest(requestId, decision);
 
-    if (!ADMIN_MANAGEABLE_ROLES.includes(request.role)) {
+    if (!TEAM_LEAD_MANAGEABLE_ROLES.includes(request.role)) {
       return NextResponse.json(
         {
           error:
             "You do not have permission to resolve requests for this role.",
+        },
+        { status: 403 },
+      );
+    }
+
+    if (request.team !== session.user!.team) {
+      return NextResponse.json(
+        {
+          error:
+            "You do not have permission to resolve requests for another team.",
         },
         { status: 403 },
       );

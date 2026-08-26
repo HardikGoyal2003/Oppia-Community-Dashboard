@@ -25,11 +25,15 @@ function getSidebarItems(role: UserRole): SidebarNavigationItem[] {
     case "TEAM_LEAD":
       return [
         { name: "Overview", icon: LayoutDashboard, url: "/dashboard/overview" },
+        { name: "Incoming Requests", icon: Inbox, url: "/dashboard/incoming-requests" },
+        { name: "Team Members", icon: Users, url: "/dashboard/team-members" },
         { name: "Unanswered Issues", icon: Bug, url: "/dashboard/unanswered-issues" },
       ];
     case "LEAD_TRAINEE":
       return [
         { name: "Overview", icon: LayoutDashboard, url: "/dashboard/overview" },
+        { name: "Incoming Requests", icon: Inbox, url: "/dashboard/incoming-requests" },
+        { name: "Team Members", icon: Users, url: "/dashboard/team-members" },
         { name: "Unanswered Issues", icon: Bug, url: "/dashboard/unanswered-issues" },
       ];
     case "TEAM_MEMBER":

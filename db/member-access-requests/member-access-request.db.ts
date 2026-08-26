@@ -53,11 +53,37 @@ export async function getPendingMemberAccessRequests(): Promise<
 export async function getPendingMemberAccessRequestsByPlatform(
   platform?: ContributionPlatform,
 ): Promise<MemberAccessRequestRecord[]> {
+  return getPendingMemberAccessRequestsByPlatformAndRoles(platform);
+}
+
+/**
+ * Retrieves pending member-access requests filtered by platform, roles, and team.
+ *
+ * @param platform The optional contribution platform filter.
+ * @param roles The role values to include. When provided, only requests matching
+ *              one of these roles are returned.
+ * @param team The optional team key filter. When provided, only requests for
+ *             this team are returned.
+ * @returns The pending member-access requests sorted by creation time descending.
+ */
+export async function getPendingMemberAccessRequestsByPlatformAndRoles(
+  platform?: ContributionPlatform,
+  roles?: string[],
+  team?: string,
+): Promise<MemberAccessRequestRecord[]> {
   let query: FirebaseFirestore.Query<FirestoreMemberAccessRequest> =
     memberAccessRequestsCollection.where("status", "==", "PENDING");
 
   if (platform) {
     query = query.where("platform", "==", platform);
+  }
+
+  if (roles && roles.length > 0) {
+    query = query.where("role", "in", roles);
+  }
+
+  if (team) {
+    query = query.where("team", "==", team);
   }
 
   const snapshot = await query.orderBy("createdAt", "desc").get();
