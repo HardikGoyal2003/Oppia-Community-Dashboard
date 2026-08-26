@@ -35,7 +35,8 @@ export function getCachedData<T>(key: string): T | null {
     }
 
     return entry.data;
-  } catch {
+  } catch (error) {
+    console.warn(`[cache] Failed to read "${key}" from localStorage:`, error);
     return null;
   }
 }
@@ -52,15 +53,15 @@ export function setCachedData<T>(
     };
 
     localStorage.setItem(key, JSON.stringify(entry));
-  } catch {
-    // Silently fail if localStorage is full or unavailable.
+  } catch (error) {
+    console.warn(`[cache] Failed to write "${key}" to localStorage:`, error);
   }
 }
 
 export function clearCachedData(key: string): void {
   try {
     localStorage.removeItem(key);
-  } catch {
-    // Silently fail.
+  } catch (error) {
+    console.warn(`[cache] Failed to remove "${key}" from localStorage:`, error);
   }
 }
