@@ -6,8 +6,34 @@ import {
   fetchUnansweredIssues,
   GitHubGraphQLError,
 } from "@/lib/github/github.fetcher";
+import { getOrgMeta } from "@/db/org-meta/org-meta.db";
+import type { OrgMetaRecord } from "@/db/org-meta/org-meta.mapper";
 
-export async function GET() {
+type CachedOrgMeta = {
+  orgMembers: string[];
+  collaborators: { login: string; permission: string }[];
+  lastUpdated: string;
+};
+
+function isValidCachedOrgMeta(data: unknown): data is CachedOrgMeta {
+  if (typeof data !== "object" || data === null) return false;
+  const obj = data as Record<string, unknown>;
+  return (
+    Array.isArray(obj.orgMembers) &&
+    Array.isArray(obj.collaborators) &&
+    typeof obj.lastUpdated === "string"
+  );
+}
+
+function toOrgMetaRecord(cached: CachedOrgMeta): OrgMetaRecord {
+  return {
+    orgMembers: cached.orgMembers,
+    collaborators: cached.collaborators,
+    lastUpdated: new Date(cached.lastUpdated),
+  };
+}
+
+export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
 
   if (!session || !session.user || session.invalidUser) {
@@ -33,9 +59,33 @@ export async function GET() {
       );
     }
 
-    const issuesData = await fetchUnansweredIssues(repoTarget, platform);
+    let clientOrgMeta: OrgMetaRecord | undefined;
+
+    try {
+      const body = await req.json();
+      if (body.orgMeta && isValidCachedOrgMeta(body.orgMeta)) {
+        clientOrgMeta = toOrgMetaRecord(body.orgMeta);
+      }
+    } catch {
+      // No body or invalid JSON — proceed without client orgMeta.
+    }
+
+    const issuesData = await fetchUnansweredIssues(
+      repoTarget,
+      platform,
+      clientOrgMeta,
+    );
+
+    const orgMeta = await getOrgMeta(platform);
     return NextResponse.json({
       issues: issuesData,
+      orgMeta: orgMeta
+        ? {
+            orgMembers: orgMeta.orgMembers,
+            collaborators: orgMeta.collaborators,
+            lastUpdated: orgMeta.lastUpdated.toISOString(),
+          }
+        : null,
     });
   } catch (error) {
     console.error(error);

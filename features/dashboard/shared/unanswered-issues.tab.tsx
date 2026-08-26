@@ -13,6 +13,19 @@ import { useProjectIssuesStore } from "./issues/store/project-issues.store";
 import { categorizeIssues } from "./issues/services/categorize-issues.service";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { getArchivedIssuesForPlatform } from "./issues/services/archived-issues-api.service";
+import {
+  getCachedData,
+  setCachedData,
+  computeTtlFromLastUpdated,
+} from "@/lib/utils/local-storage-cache";
+
+type CachedOrgMeta = {
+  orgMembers: string[];
+  collaborators: { login: string; permission: string }[];
+  lastUpdated: string;
+};
+
+const ORG_META_CACHE_KEY_PREFIX = "oppia_org_meta";
 
 export default function UnansweredIssuesTab() {
   const [responseData, setResponseData] = useState<{
@@ -51,8 +64,13 @@ export default function UnansweredIssuesTab() {
 
     startLoading();
     try {
+      const cacheKey = `${ORG_META_CACHE_KEY_PREFIX}_${platform}`;
+      const cachedOrgMeta = getCachedData<CachedOrgMeta>(cacheKey);
+
       const issuesResponse = await fetch("/api/github/issues", {
-        cache: "no-store",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgMeta: cachedOrgMeta ?? null }),
       });
 
       if (!issuesResponse.ok) {
@@ -61,14 +79,19 @@ export default function UnansweredIssuesTab() {
 
       const issuesData = (await issuesResponse.json()) as {
         issues: GitHubIssue[];
+        orgMeta: CachedOrgMeta | null;
       };
 
-      const [archivedIssues, data] = await Promise.all([
-        getArchivedIssuesForPlatform(platform),
-        Promise.resolve(issuesData),
-      ]);
+      if (issuesData.orgMeta) {
+        const ttl = computeTtlFromLastUpdated(issuesData.orgMeta.lastUpdated);
+        if (ttl > 0) {
+          setCachedData(cacheKey, issuesData.orgMeta, ttl);
+        }
+      }
+
+      const archivedIssues = await getArchivedIssuesForPlatform(platform);
       setArchivedIssues(archivedIssues);
-      setResponseData(data);
+      setResponseData(issuesData);
     } finally {
       stopLoading();
     }
