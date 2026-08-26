@@ -8,7 +8,7 @@ import {
   markDataJobRunSucceeded,
 } from "@/db/data-jobs/data-job-runs.db";
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
-import { getAllUsers } from "@/db/users/users.db";
+import { getAllUsers, updateUserRole } from "@/db/users/users.db";
 import { DB_PATHS } from "@/db/db-paths";
 import type {
   DataJobDefinition,
@@ -136,7 +136,57 @@ async function backfillArchivedIssues(
   };
 }
 
+/**
+ * Moves users who have a team assignment but still hold the CONTRIBUTOR role
+ * to ALUMNI. These are likely former members whose role was never updated.
+ *
+ * @param context The data-job execution context.
+ * @returns A summary of the cleanup results.
+ */
+async function cleanupTeamContributorsToAlumni(
+  context: DataJobHandlerContext,
+): Promise<DataJobResult> {
+  const users = await getAllUsers();
+  const flaggedUsers = users.filter(
+    (user) => user.team !== null && user.role === "CONTRIBUTOR",
+  );
+
+  if (flaggedUsers.length === 0) {
+    return {
+      summary:
+        "Cleanup completed. No users found with a team assignment and CONTRIBUTOR role.",
+    };
+  }
+
+  let updatedCount = 0;
+
+  for (const user of flaggedUsers) {
+    if (!context.dryRun) {
+      await updateUserRole(user.id, "ALUMNI");
+    }
+    updatedCount++;
+  }
+
+  const suffix = context.dryRun ? " (dry run — no changes persisted)" : ".";
+
+  return {
+    summary: `Cleanup completed. ${updatedCount} user(s) moved from CONTRIBUTOR to ALUMNI${suffix}. Affected users: ${flaggedUsers
+      .slice(0, 10)
+      .map((u) => u.githubUsername)
+      .join(", ")}${flaggedUsers.length > 10 ? "..." : ""}`,
+  };
+}
+
 const DATA_JOB_REGISTRY: RegisteredDataJob[] = [
+  {
+    key: "cleanup_team_contributors_to_alumni",
+    name: "Move Team Contributors to Alumni",
+    description:
+      "Finds users with a team assignment but CONTRIBUTOR role and updates their role to ALUMNI.",
+    kind: "CLEANUP",
+    supportsDryRun: true,
+    handler: cleanupTeamContributorsToAlumni,
+  },
   {
     key: "audit_users_missing_platform",
     name: "Audit Users Missing Platform",
