@@ -6,6 +6,7 @@ import {
   fetchUnansweredIssues,
   GitHubGraphQLError,
 } from "@/lib/github/github.fetcher";
+import { getOrgMeta } from "@/db/org-meta/org-meta.db";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -34,8 +35,10 @@ export async function GET() {
     }
 
     const issuesData = await fetchUnansweredIssues(repoTarget, platform);
+    const orgMeta = await getOrgMeta(platform);
     return NextResponse.json({
       issues: issuesData,
+      orgMetaLastUpdated: orgMeta?.lastUpdated?.toISOString() ?? null,
     });
   } catch (error) {
     console.error(error);

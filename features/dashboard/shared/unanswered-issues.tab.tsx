@@ -13,6 +13,13 @@ import { useProjectIssuesStore } from "./issues/store/project-issues.store";
 import { categorizeIssues } from "./issues/services/categorize-issues.service";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { getArchivedIssuesForPlatform } from "./issues/services/archived-issues-api.service";
+import {
+  getCachedData,
+  setCachedData,
+  computeTtlFromLastUpdated,
+} from "@/lib/utils/local-storage-cache";
+
+const ISSUES_CACHE_KEY_PREFIX = "oppia_unanswered_issues";
 
 export default function UnansweredIssuesTab() {
   const [responseData, setResponseData] = useState<{
@@ -49,6 +56,16 @@ export default function UnansweredIssuesTab() {
   const handleClick = async () => {
     if (!hasPlatform) return;
 
+    const cacheKey = `${ISSUES_CACHE_KEY_PREFIX}_${platform}`;
+    const cachedIssues = getCachedData<GitHubIssue[]>(cacheKey);
+
+    if (cachedIssues) {
+      const archivedIssues = await getArchivedIssuesForPlatform(platform);
+      setArchivedIssues(archivedIssues);
+      setResponseData({ issues: cachedIssues });
+      return;
+    }
+
     startLoading();
     try {
       const issuesResponse = await fetch("/api/github/issues", {
@@ -61,14 +78,15 @@ export default function UnansweredIssuesTab() {
 
       const issuesData = (await issuesResponse.json()) as {
         issues: GitHubIssue[];
+        orgMetaLastUpdated: string | null;
       };
 
-      const [archivedIssues, data] = await Promise.all([
-        getArchivedIssuesForPlatform(platform),
-        Promise.resolve(issuesData),
-      ]);
+      const ttl = computeTtlFromLastUpdated(issuesData.orgMetaLastUpdated);
+      setCachedData(cacheKey, issuesData.issues, ttl);
+
+      const archivedIssues = await getArchivedIssuesForPlatform(platform);
       setArchivedIssues(archivedIssues);
-      setResponseData(data);
+      setResponseData(issuesData);
     } finally {
       stopLoading();
     }
