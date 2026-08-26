@@ -19,7 +19,13 @@ import {
   computeTtlFromLastUpdated,
 } from "@/lib/utils/local-storage-cache";
 
-const ISSUES_CACHE_KEY_PREFIX = "oppia_unanswered_issues";
+type CachedOrgMeta = {
+  orgMembers: string[];
+  collaborators: { login: string; permission: string }[];
+  lastUpdated: string;
+};
+
+const ORG_META_CACHE_KEY_PREFIX = "oppia_org_meta";
 
 export default function UnansweredIssuesTab() {
   const [responseData, setResponseData] = useState<{
@@ -56,20 +62,15 @@ export default function UnansweredIssuesTab() {
   const handleClick = async () => {
     if (!hasPlatform) return;
 
-    const cacheKey = `${ISSUES_CACHE_KEY_PREFIX}_${platform}`;
-    const cachedIssues = getCachedData<GitHubIssue[]>(cacheKey);
-
-    if (cachedIssues) {
-      const archivedIssues = await getArchivedIssuesForPlatform(platform);
-      setArchivedIssues(archivedIssues);
-      setResponseData({ issues: cachedIssues });
-      return;
-    }
-
     startLoading();
     try {
+      const cacheKey = `${ORG_META_CACHE_KEY_PREFIX}_${platform}`;
+      const cachedOrgMeta = getCachedData<CachedOrgMeta>(cacheKey);
+
       const issuesResponse = await fetch("/api/github/issues", {
-        cache: "no-store",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgMeta: cachedOrgMeta ?? null }),
       });
 
       if (!issuesResponse.ok) {
@@ -78,11 +79,15 @@ export default function UnansweredIssuesTab() {
 
       const issuesData = (await issuesResponse.json()) as {
         issues: GitHubIssue[];
-        orgMetaLastUpdated: string | null;
+        orgMeta: CachedOrgMeta | null;
       };
 
-      const ttl = computeTtlFromLastUpdated(issuesData.orgMetaLastUpdated);
-      setCachedData(cacheKey, issuesData.issues, ttl);
+      if (issuesData.orgMeta) {
+        const ttl = computeTtlFromLastUpdated(issuesData.orgMeta.lastUpdated);
+        if (ttl > 0) {
+          setCachedData(cacheKey, issuesData.orgMeta, ttl);
+        }
+      }
 
       const archivedIssues = await getArchivedIssuesForPlatform(platform);
       setArchivedIssues(archivedIssues);
