@@ -11,6 +11,7 @@ export const USER_ROLES = [
 export type UserRole = (typeof USER_ROLES)[number];
 
 export const ASSIGNABLE_USER_ROLES: UserRole[] = [
+  "CONTRIBUTOR",
   "TEAM_MEMBER",
   "LEAD_TRAINEE",
   "TEAM_LEAD",
