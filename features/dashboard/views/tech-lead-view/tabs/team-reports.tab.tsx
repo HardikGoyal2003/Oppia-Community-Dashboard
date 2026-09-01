@@ -40,6 +40,10 @@ type TeamReport = {
   };
   lastUpdated: string | Date;
   leads: TeamLead[];
+  members: Array<{
+    uid: string;
+    username: string;
+  }>;
   metrics: Array<{
     capturedAt: string;
     dateKey: string;
@@ -574,7 +578,7 @@ export function TeamReportsTab() {
                 </div>
               </div>
 
-              <div className="grid gap-4 xl:grid-cols-[1.05fr_1.4fr]">
+              <div className="grid gap-4 xl:grid-cols-[1fr_1fr_1.4fr]">
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
                   <h3 className="text-sm font-semibold text-slate-900">
                     Leads
@@ -598,6 +602,30 @@ export function TeamReportsTab() {
                               {getRoleDisplayLabel(lead.role)}
                             </span>
                           </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Members
+                  </h3>
+                  <div className="mt-3 space-y-2">
+                    {report.members.length === 0 ? (
+                      <p className="rounded-xl border border-dashed border-slate-300 bg-white px-3 py-3 text-sm text-slate-500">
+                        No members synced for this team yet.
+                      </p>
+                    ) : (
+                      report.members.map((member) => (
+                        <div
+                          key={member.uid}
+                          className="rounded-xl border border-slate-200 bg-white px-3 py-3"
+                        >
+                          <p className="text-sm font-medium text-slate-900">
+                            @{member.username}
+                          </p>
                         </div>
                       ))
                     )}

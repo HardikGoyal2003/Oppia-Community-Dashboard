@@ -6,6 +6,7 @@ import type {
   TeamGfiCounts,
   TeamLead,
   TeamLeadRole,
+  TeamMember,
 } from "@/lib/domain/teams.types";
 import { fetchGoodFirstIssues } from "@/lib/github/github-gfis.fetcher";
 import type { GitHubGoodFirstIssue } from "@/lib/github/github.types";
@@ -71,16 +72,45 @@ async function getLeadsByTeamId(): Promise<Map<string, TeamLead[]>> {
 }
 
 /**
+ * Builds a lookup of team ids to the current team member users assigned in the users collection.
+ *
+ * @returns The derived members keyed by stable team id.
+ */
+async function getMembersByTeamId(): Promise<Map<string, TeamMember[]>> {
+  const users = await getAllUsers();
+
+  return new Map(
+    TEAM_DEFINITIONS.map((team) => [
+      team.teamId,
+      users
+        .filter(
+          (user) =>
+            user.role === "TEAM_MEMBER" &&
+            user.platform === team.platform &&
+            user.team === team.teamKey &&
+            Boolean(user.githubUsername.trim()),
+        )
+        .map((user) => ({
+          uid: user.id,
+          username: user.githubUsername,
+        })),
+    ]),
+  );
+}
+
+/**
  * Recomputes team-level GFI counts from GitHub and stores them in the teams collection.
  *
  * @returns A summary of the sync outcome.
  */
 export async function syncTeamGfiCounts(): Promise<GfiSyncSummary> {
-  const [webIssues, androidIssues, leadsByTeamId] = await Promise.all([
-    fetchGoodFirstIssues(GITHUB_REPOS.WEB),
-    fetchGoodFirstIssues(GITHUB_REPOS.ANDROID),
-    getLeadsByTeamId(),
-  ]);
+  const [webIssues, androidIssues, leadsByTeamId, membersByTeamId] =
+    await Promise.all([
+      fetchGoodFirstIssues(GITHUB_REPOS.WEB),
+      fetchGoodFirstIssues(GITHUB_REPOS.ANDROID),
+      getLeadsByTeamId(),
+      getMembersByTeamId(),
+    ]);
   const issues = [...webIssues, ...androidIssues];
   const countsByTeam = new Map<string, TeamGfiCounts>(
     TEAM_DEFINITIONS.map((team) => [
@@ -131,6 +161,8 @@ export async function syncTeamGfiCounts(): Promise<GfiSyncSummary> {
         },
         lastUpdated,
         leads: leadsByTeamId.get(team.teamId) ?? existingTeam?.leads ?? [],
+        members:
+          membersByTeamId.get(team.teamId) ?? existingTeam?.members ?? [],
         platform: team.platform,
         teamName: team.teamName,
       });

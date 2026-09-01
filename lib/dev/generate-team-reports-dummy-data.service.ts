@@ -1,7 +1,11 @@
 import { createDailyTeamMetric } from "@/db/team-metrics/daily-team-metrics.db";
 import { upsertTeam } from "@/db/teams/teams.db";
 import { TEAM_DEFINITIONS } from "@/lib/domain/team-definitions";
-import type { TeamGfiCounts, TeamLead } from "@/lib/domain/teams.types";
+import type {
+  TeamGfiCounts,
+  TeamLead,
+  TeamMember,
+} from "@/lib/domain/teams.types";
 import { getIstDateKey } from "@/lib/utils/date.utils";
 
 type DummyDataGenerationSummary = {
@@ -59,6 +63,37 @@ const SAMPLE_LEADS: Record<string, TeamLead[]> = {
       uid: "sample-web-leap-2",
       username: "educator_ally",
     },
+  ],
+};
+
+const SAMPLE_MEMBERS: Record<string, TeamMember[]> = {
+  ANDROID_CLAM: [
+    { uid: "sample-android-clam-m1", username: "android_builder" },
+    { uid: "sample-android-clam-m2", username: "ui_qa" },
+    { uid: "sample-android-clam-m3", username: "kotlin_fan" },
+    { uid: "sample-android-clam-m4", username: "gradle_whiz" },
+  ],
+  ANDROID_DEV_WORKFLOW_INFRA: [
+    { uid: "sample-android-dev-m1", username: "ci_architect" },
+    { uid: "sample-android-dev-m2", username: "release_engineer" },
+  ],
+  WEB_CORE: [
+    { uid: "sample-web-core-m1", username: "core_contributor" },
+    { uid: "sample-web-core-m2", username: "review_helper" },
+    { uid: "sample-web-core-m3", username: "docs_owner" },
+    { uid: "sample-web-core-m4", username: "ts_lover" },
+    { uid: "sample-web-core-m5", username: "test_writer" },
+  ],
+  WEB_DEV_WORKFLOW: [
+    { uid: "sample-web-dev-m1", username: "devops_gal" },
+    { uid: "sample-web-dev-m2", username: "lint_fixer" },
+    { uid: "sample-web-dev-m3", username: "storybook_dev" },
+  ],
+  WEB_LEAP: [
+    { uid: "sample-web-leap-m1", username: "learner_advocate" },
+    { uid: "sample-web-leap-m2", username: "educator_partner" },
+    { uid: "sample-web-leap-m3", username: "curriculum_pal" },
+    { uid: "sample-web-leap-m4", username: "ally_network" },
   ],
 };
 
@@ -141,6 +176,7 @@ export async function generateTeamReportsDummyData(): Promise<DummyDataGeneratio
         gfiCounts: SAMPLE_GFI_COUNTS[team.teamId],
         lastUpdated,
         leads: SAMPLE_LEADS[team.teamId] ?? [],
+        members: SAMPLE_MEMBERS[team.teamId] ?? [],
         platform: team.platform,
         teamName: team.teamName,
       }),

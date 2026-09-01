@@ -80,6 +80,7 @@ Fields:
 - `platform: "WEB" | "ANDROID"`
 - `teamName: string`
 - `leads: Array<{ uid: string, username: string, role: "TEAM_LEAD" | "LEAD_TRAINEE" }>`
+- `members: Array<{ uid: string, username: string }>`
 - `gfiCounts.frontend: number`
 - `gfiCounts.backend: number`
 - `gfiCounts.fullstack: number`
