@@ -53,13 +53,3 @@ export function getErrorCodeMeta(errorCode: string): ErrorCodeMeta {
 
   return FALLBACK_ERROR_CODE_META;
 }
-
-/**
- * Builds the URL for an error page.
- *
- * @param errorCode The error code to navigate to.
- * @returns The `/error/:errorCode` route path.
- */
-export function buildErrorPageUrl(errorCode: ErrorCode): string {
-  return `/error/${errorCode}`;
-}
