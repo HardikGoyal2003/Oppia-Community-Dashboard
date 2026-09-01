@@ -48,7 +48,6 @@ export function LeadCoverage({ leads }: { leads: TeamLead[] }) {
                       <p className="text-sm font-medium text-slate-900">
                         @{lead.username}
                       </p>
-                      <p className="text-xs text-slate-500">Lead</p>
                     </div>
                   </div>
                   <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-600">

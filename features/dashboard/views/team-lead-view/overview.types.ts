@@ -14,6 +14,10 @@ export type TeamReport = {
   };
   lastUpdated: string | Date;
   leads: TeamLead[];
+  members: Array<{
+    uid: string;
+    username: string;
+  }>;
   metrics: Array<{
     capturedAt: string;
     dateKey: string;

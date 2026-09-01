@@ -5,6 +5,7 @@ import type {
   TeamGfiCounts,
   TeamLead,
   TeamLeadRole,
+  TeamMember,
   TeamModel,
 } from "@/lib/domain/teams.types";
 import {
@@ -15,7 +16,6 @@ import {
 export type FirestoreTeam = Omit<TeamModel, "lastUpdated"> & {
   lastUpdated: Timestamp;
 };
-
 /**
  * Validates that a numeric field is present and non-negative.
  *
@@ -97,6 +97,36 @@ function assertFirestoreTeamLeads(
 }
 
 /**
+ * Validates the nested team members array stored on a team document.
+ *
+ * @param members The nested members array candidate.
+ * @returns Nothing. Throws when the nested shape is invalid.
+ */
+function assertFirestoreTeamMembers(
+  members: Array<Record<string, string | undefined>> | null,
+): asserts members is TeamMember[] {
+  if (!Array.isArray(members)) {
+    throw new DbValidationError("members", "Team members must be an array.");
+  }
+
+  for (const member of members) {
+    if (typeof member.uid !== "string" || !member.uid.trim()) {
+      throw new DbValidationError(
+        "members.uid",
+        "Each team member uid must be a non-empty string.",
+      );
+    }
+
+    if (typeof member.username !== "string" || !member.username.trim()) {
+      throw new DbValidationError(
+        "members.username",
+        "Each team member username must be a non-empty string.",
+      );
+    }
+  }
+}
+
+/**
  * Validates the raw Firestore team document shape.
  *
  * @param team The raw Firestore team data.
@@ -120,6 +150,7 @@ function assertFirestoreTeam(
   }
 
   assertFirestoreTeamLeads(team.leads);
+  assertFirestoreTeamMembers(team.members);
   assertFirestoreGfiCounts(team.gfiCounts);
 
   assertTimestamp("Team", "lastUpdated", team.lastUpdated);
@@ -149,6 +180,10 @@ export function normalizeTeamDocument(
       uid: lead.uid,
       username: lead.username,
     })),
+    members: team.members.map((member) => ({
+      uid: member.uid,
+      username: member.username,
+    })),
     platform: team.platform as ContributionPlatform,
     teamName: team.teamName,
   };
@@ -174,6 +209,10 @@ export function serializeTeam(
       role: lead.role,
       uid: lead.uid,
       username: lead.username,
+    })),
+    members: team.members.map((member) => ({
+      uid: member.uid,
+      username: member.username,
     })),
     lastUpdated:
       team.lastUpdated instanceof Timestamp

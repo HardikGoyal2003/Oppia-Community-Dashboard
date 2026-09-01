@@ -79,9 +79,41 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
     team.gfiCounts.backend +
     team.gfiCounts.fullstack +
     team.gfiCounts.uncategorized;
+  const teamLeadCount = team.leads.filter(
+    (lead) => lead.role === "TEAM_LEAD",
+  ).length;
   const traineeLeadCount = team.leads.filter(
     (lead) => lead.role === "LEAD_TRAINEE",
   ).length;
+
+  if (team.members.length < 4) {
+    nextSteps.push({
+      message: `Onboard ${4 - team.members.length} more team member${
+        4 - team.members.length === 1 ? "" : "s"
+      } in this team.`,
+      priority: "high",
+      reason:
+        "Each team should have at least 4 members so the team can sustain review, issue response, and contributor support.",
+    });
+  }
+
+  if (teamLeadCount > 3) {
+    nextSteps.push({
+      message: `Reduce team leads in this team. There are ${teamLeadCount} team leads, but the ideal is at most 3.`,
+      priority: "high",
+      reason:
+        "Too many team leads can create unclear ownership and dilute review responsibility.",
+    });
+  }
+
+  if (traineeLeadCount > 2) {
+    nextSteps.push({
+      message: `Reduce trainee leads in this team. There are ${traineeLeadCount} trainee leads, but the ideal is at most 2.`,
+      priority: "high",
+      reason:
+        "Too many trainee leads can slow onboarding and make lead accountability unclear.",
+    });
+  }
 
   if (team.leads.length < 2) {
     nextSteps.push({

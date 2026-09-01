@@ -124,6 +124,13 @@ export function getTeamLeadActionMessage(message: string): string {
     return "Onboard one trainee lead in your team.";
   }
 
+  if (
+    message.startsWith("Reduce team leads") ||
+    message.startsWith("Reduce trainee leads")
+  ) {
+    return message.replace(/in this team\./, "in your team.");
+  }
+
   if (message.startsWith("Onboard ")) {
     return message.replace(/in this team\.$/, "in your team.");
   }
