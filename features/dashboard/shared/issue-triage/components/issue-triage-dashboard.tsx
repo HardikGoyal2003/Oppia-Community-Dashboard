@@ -33,7 +33,7 @@ export function IssueTriageDashboard() {
   const [selectedIssue, setSelectedIssue] = useState<TriagePrediction | null>(
     null,
   );
-  const [, setStats] = useState<TriageStats | null>(null);
+  const [stats, setStats] = useState<TriageStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
@@ -260,6 +260,43 @@ export function IssueTriageDashboard() {
           </button>
         </div>
       </div>
+
+      {stats && (
+        <div className="grid grid-cols-3 gap-4 border-b bg-white px-6 py-3 sm:grid-cols-6">
+          {[
+            {
+              label: "Total Predicted",
+              value: stats.totalPredicted,
+              color: "bg-gray-500",
+            },
+            {
+              label: "Needs Review",
+              value: stats.pending,
+              color: "bg-yellow-500",
+            },
+            { label: "Accepted", value: stats.accepted, color: "bg-green-500" },
+            { label: "Edited", value: stats.edited, color: "bg-blue-500" },
+            { label: "Rejected", value: stats.rejected, color: "bg-red-500" },
+            {
+              label: "Accuracy",
+              value: `${stats.accuracyRate}%`,
+              color: "bg-purple-500",
+            },
+          ].map((stat) => (
+            <div key={stat.label} className="flex items-center gap-2">
+              <div
+                className={`h-2.5 w-2.5 shrink-0 rounded-full ${stat.color}`}
+              />
+              <div>
+                <p className="text-[11px] font-medium text-gray-500">
+                  {stat.label}
+                </p>
+                <p className="text-sm font-bold text-gray-900">{stat.value}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {successMessage && (
         <div className="flex items-center gap-3 border-b bg-emerald-50 px-6 py-3">
