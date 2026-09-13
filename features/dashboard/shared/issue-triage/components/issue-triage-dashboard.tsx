@@ -6,6 +6,7 @@ import {
   fetchTriageIssues,
   fetchTriageStats,
   submitTriageAction,
+  batchTriageAll,
 } from "../services/issue-triage-api.service";
 import type {
   TriagePrediction,
@@ -39,6 +40,7 @@ export function IssueTriageDashboard() {
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isTriaging, setIsTriaging] = useState(false);
 
   const loadTriagedIssues = useCallback(async () => {
     setIsLoading(true);
@@ -84,6 +86,9 @@ export function IssueTriageDashboard() {
   }, []);
 
   const filteredIssues = issues.filter((issue) => {
+    const pred = issue.prediction;
+    if (!pred || !Array.isArray(pred.labels)) return false;
+
     const matchesSearch =
       searchQuery === "" ||
       issue.issueTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -93,21 +98,19 @@ export function IssueTriageDashboard() {
 
     switch (activeTab) {
       case "bug":
-        return issue.prediction.labels.some((l) =>
-          l.toLowerCase().includes("bug"),
-        );
+        return pred.labels.some((l) => l.toLowerCase().includes("bug"));
       case "feature":
-        return issue.prediction.labels.some(
+        return pred.labels.some(
           (l) =>
             l.toLowerCase().includes("feature") ||
             l.toLowerCase().includes("enhancement"),
         );
       case "leap":
-        return issue.prediction.team === "LEAP";
+        return pred.team === "LEAP";
       case "core":
-        return issue.prediction.team === "CORE";
+        return pred.team === "CORE";
       case "developer-workflow":
-        return issue.prediction.team === "Developer Workflow";
+        return pred.team === "Developer Workflow";
       case "needs-review":
         return issue.status === "pending";
       default:
@@ -159,22 +162,48 @@ export function IssueTriageDashboard() {
     }
   };
 
+  const handleTriageNewIssues = async () => {
+    setIsTriaging(true);
+    setError(null);
+    try {
+      const result = await batchTriageAll();
+      setSuccessMessage(
+        result.triaged > 0
+          ? `Triaged ${result.triaged} new ${
+              result.triaged === 1 ? "issue" : "issues"
+            }${result.failed > 0 ? ` (${result.failed} failed)` : ""}.`
+          : "No new issues to triage — everything is already triaged.",
+      );
+      setTimeout(() => setSuccessMessage(null), 6000);
+      await loadTriagedIssues();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to triage new issues. Check that the AI backend and GitHub are reachable.",
+      );
+      setTimeout(() => setError(null), 6000);
+    } finally {
+      setIsTriaging(false);
+    }
+  };
+
   const tabCounts = {
-    all: issues.length,
+    all: issues.filter((i) => i.prediction?.labels).length,
     bug: issues.filter((i) =>
-      i.prediction.labels.some((l) => l.toLowerCase().includes("bug")),
+      i.prediction?.labels?.some((l) => l.toLowerCase().includes("bug")),
     ).length,
     feature: issues.filter((i) =>
-      i.prediction.labels.some(
+      i.prediction?.labels?.some(
         (l) =>
           l.toLowerCase().includes("feature") ||
           l.toLowerCase().includes("enhancement"),
       ),
     ).length,
-    leap: issues.filter((i) => i.prediction.team === "LEAP").length,
-    core: issues.filter((i) => i.prediction.team === "CORE").length,
+    leap: issues.filter((i) => i.prediction?.team === "LEAP").length,
+    core: issues.filter((i) => i.prediction?.team === "CORE").length,
     "developer-workflow": issues.filter(
-      (i) => i.prediction.team === "Developer Workflow",
+      (i) => i.prediction?.team === "Developer Workflow",
     ).length,
     "needs-review": issues.filter((i) => i.status === "pending").length,
   };
@@ -238,6 +267,27 @@ export function IssueTriageDashboard() {
               className="rounded-lg border border-gray-300 bg-gray-50 py-1.5 pl-9 pr-3 text-sm text-gray-700 placeholder-gray-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 w-64"
             />
           </div>
+          <button
+            onClick={handleTriageNewIssues}
+            disabled={isLoading || isTriaging}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
+            title="Fetch newly opened 'triage needed' issues from GitHub, run AI triage on them, and add them to this list."
+          >
+            <svg
+              className={`h-4 w-4 ${isTriaging ? "animate-spin" : ""}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v1m6 11h2m-6 0a8 8 0 10-8-8 8 8 0 008 8zM12 4v1m6 11h2"
+              />
+            </svg>
+            {isTriaging ? "Triaging new issues..." : "Triage New Issues"}
+          </button>
           <button
             onClick={loadTriagedIssues}
             disabled={isLoading}
@@ -353,7 +403,13 @@ export function IssueTriageDashboard() {
 
             {!isLoading && filteredIssues.length === 0 && (
               <div className="py-20 text-center">
-                <p className="text-sm text-gray-500">No issues found</p>
+                <p className="text-sm font-medium text-gray-700">
+                  No issues found
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Click &quot;Triage New Issues&quot; above to fetch and triage
+                  newly opened GitHub issues.
+                </p>
               </div>
             )}
 

@@ -159,7 +159,7 @@ export const Navbar = ({ leftContent }: { leftContent?: ReactNode }) => {
 
         <div className="flex items-center gap-2">
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+            <DropdownMenuTrigger asChild id="notifications-menu-trigger">
               <Button
                 variant="ghost"
                 size="icon"
@@ -232,7 +232,7 @@ export const Navbar = ({ leftContent }: { leftContent?: ReactNode }) => {
           </DropdownMenu>
 
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+            <DropdownMenuTrigger asChild id="profile-menu-trigger">
               <Button
                 variant="ghost"
                 className="h-10 w-10 rounded-full p-0"

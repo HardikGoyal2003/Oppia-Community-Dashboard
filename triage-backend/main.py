@@ -151,6 +151,7 @@ class TriageResponse(BaseModel):
     confidenceScore: float
     explanation: str
     similarIssues: list[dict]
+    method: Optional[str] = None
 
 
 # ─── Endpoints ────────────────────────────────────────────────────────────
@@ -211,11 +212,11 @@ async def _triage_one(
     reference_issues = verified if verified else similar_issues
 
     # 3. Search for few-shot examples (accepted/edited issues with corrections)
-    few_shot_examples = chroma.search_for_few_shot(embedding, n_results=5)
+    few_shot_examples = chroma.search_for_few_shot(embedding, n_results=3)
 
     # 4. Build context from few-shot examples + similar issues
     context = _build_context(
-        similar_issues=reference_issues[:5],
+        similar_issues=reference_issues[:4],
         few_shot_examples=few_shot_examples,
     )
 
@@ -275,6 +276,7 @@ async def _triage_one(
             }
             for s in reference_issues[:5]
         ],
+        "method": prediction.get("_method", "unknown"),
     }
 
 

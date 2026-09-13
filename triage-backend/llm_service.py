@@ -9,38 +9,41 @@ historical issues as CONTEXT, then decides labels/team/priority itself.
 
 import json
 import re
+import time
 import logging
 
 from config import config
+
+try:
+    import openai as openai_lib
+except ImportError:
+    openai_lib = None
 
 logger = logging.getLogger(__name__)
 
 VALID_TEAMS = config.valid_teams
 
-TRIAGE_SYSTEM_PROMPT_TPL = """You are an expert issue triage assistant for the Oppia open-source project (a free online education platform).
+TRIAGE_SYSTEM_PROMPT_TPL = """You are an expert triage assistant for the Oppia open-source project (a free online education platform).
 
-Your job is to analyze GitHub issues and predict the correct triage labels based on the issue's CONTENT, not its existing labels.
+## Labels
+- Use ONLY real Oppia labels, exact spelling, from: {label_list}
+- labels: the COMPLETE set of labels this issue SHOULD have (including any already on GitHub that are correct).
+- newLabels: the subset NOT yet on GitHub — never repeat "Existing labels", and NEVER suggest 'triage needed'.
+- Bug report → 'bug'; feature request → 'enhancement'.
 
-## How to analyze
-1. Read the issue title and body carefully
-2. Identify the core problem, feature request, or task described
-3. Look for keywords, patterns, and context clues
-4. Consider the impact on learners, creators, and contributors
+## Team routing (critical)
+- Developer Workflow: ALL CI/CD failures, e2e/flaky acceptance tests, build/test failures, tooling, infra, docs. A CI failure stays Developer Workflow even if it touches a learner feature (e.g. a flaky voiceover acceptance test).
+- LEAP: translations/voiceovers, accessibility (a11y, screen readers, WCAG), community/GSoC, localization, product strategy.
+- CORE: everything else — features, bug fixes, UX, performance, lesson player, creator dashboard, classroom, contributor workflow.
+
+Routing examples:
+- "[Acceptance CI Failure] Acceptance (...) 1200000 m/s exceeded" → Developer Workflow, labels: ["bug", "CI breakage", "Flake: Acceptance"]
+- "Screen readers can't navigate the dashboard (WCAG)" → LEAP, labels: ["bug", "a11y", "accessibility"]
 
 ## Response format
-Respond with a JSON object containing:
-- labels: array of label names that SHOULD BE ADDED (not including existing labels). Choose from: {label_list}
-- newLabels: array of ONLY the labels that are NEW and should be added to the issue (exclude existing labels)
-- team: one of {team_list}
-- repository: one of oppia/oppia, oppia/oppia-android, oppia/product-operations, oppia/design
-- cuj: one of Learner Experience, Creator Experience, Translation Review, Community Management, Infrastructure, Onboarding, None
-- goodFirstIssue: boolean (true if the issue is well-scoped and suitable for new contributors)
-- priority: one of critical, high, medium, low
-- severity: one of blocker, major, minor, trivial
-- confidenceScore: number between 0-100
-- explanation: a detailed 2-3 sentence explanation that describes WHY you chose these labels, referencing specific parts of the issue content.
-
-Respond with ONLY valid JSON, no other text."""
+Respond with ONLY valid JSON:
+{{"labels": string[], "newLabels": string[], "team": one of {team_list}, "repository": "oppia/oppia", "cuj": one of Learner Experience, Creator Experience, Translation Review, Community Management, Infrastructure, Onboarding, None, "goodFirstIssue": bool, "priority": critical|high|medium|low, "severity": blocker|major|minor|trivial, "confidenceScore": 0-100, "explanation": string (2-3 sentences)}}
+No other text."""
 
 TRIAGE_USER_PROMPT_TEMPLATE = """Issue Title: {title}
 Issue Description: {body}
@@ -100,7 +103,7 @@ class LLMService:
 
         user_prompt = TRIAGE_USER_PROMPT_TEMPLATE.format(
             title=title,
-            body=body[:2000],
+            body=body[:1400],
             existing_labels=existing_labels_str,
             context=context or "No similar issues found.",
         )
@@ -114,17 +117,44 @@ class LLMService:
         kwargs = {
             "model": self._model,
             "messages": messages,
-            "max_tokens": 512,
+            "max_tokens": 384,
             "temperature": 0.1,
         }
-        try:
-            response = client.chat.completions.create(
-                **kwargs, response_format={"type": "json_object"}
+
+        # Retry on rate limits (429) and transient 5xx errors with backoff —
+        # free-tier Groq quotas are tight and reset on a rolling window, so a
+        # run must pause and wait rather than silently fall back to heuristics.
+        attempts = 0
+        last_err: Exception | None = None
+        for attempt in range(1, 11):
+            attempts = attempt
+            try:
+                response = client.chat.completions.create(
+                    **kwargs, response_format={"type": "json_object"}
+                )
+                break
+            except Exception:
+                # Some models (Ollama/LM Studio, older endpoints) reject
+                # response_format — retry without structured output.
+                try:
+                    response = client.chat.completions.create(**kwargs)
+                    break
+                except Exception as e:
+                    last_err = e
+                    if not self._is_retryable(e):
+                        raise
+                    retry_after = self._retry_after_seconds(e)
+                    delay = retry_after or min(90, 10 * 2 ** (attempt - 1))
+                    logger.warning(
+                        f"LLM rate limit/backoff (attempt {attempt}), "
+                        f"waiting {delay:.0f}s: {str(e)[:120]}"
+                    )
+                    time.sleep(delay)
+        else:
+            raise RuntimeError(
+                f"LLM rate limit persisted after {attempts} attempts: "
+                f"{str(last_err)[:200]}"
             )
-        except Exception:
-            # Some models (Ollama/LM Studio, older endpoints) reject
-            # response_format — retry without structured output.
-            response = client.chat.completions.create(**kwargs)
 
         raw = response.choices[0].message.content
         if not raw:
@@ -135,7 +165,32 @@ class LLMService:
             raise RuntimeError(f"Could not parse LLM JSON response: {raw[:300]}")
 
         self._validate_team(parsed)
+        parsed["_method"] = "llm"
         return parsed
+
+    def _is_retryable(self, e: Exception) -> bool:
+        """True if the LLM error is a transient rate limit / 5xx."""
+        text = str(e)
+        if "429" in text or "rate_limit" in text.lower() or "too many requests" in text.lower():
+            return True
+        if "tokens per day" in text.lower() or "TPD" in text.upper():
+            return True
+        if "500" in text or "502" in text or "503" in text or "529" in text:
+            return True
+        if isinstance(e, (ConnectionError, TimeoutError)):
+            return True
+        if openai_lib is not None:
+            from openai import APIStatusError, APITimeoutError, APIConnectionError, RateLimitError
+            if isinstance(e, (RateLimitError, APIStatusError, APIConnectionError, APITimeoutError)):
+                return True
+        return False
+
+    def _retry_after_seconds(self, e: Exception) -> float | None:
+        """Extract the Retry-After hint from the rate-limit error if present."""
+        match = re.search(r"try again in (\d+(?:\.\d+)?)(?:\s*s(?:econds?)?)?", str(e))
+        if match:
+            return float(match.group(1))
+        return None
 
     def _parse_json_response(self, raw: str) -> dict | None:
         """Try multiple strategies to parse JSON from LLM output."""

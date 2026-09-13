@@ -36,7 +36,7 @@ class Config:
     # ── LLM (OpenAI-compatible provider, default Groq free tier) ──────
     llm_api_key: str = field(default_factory=lambda: os.getenv("LLM_API_KEY") or os.getenv("GROQ_API_KEY", ""))
     llm_base_url: str = field(default_factory=lambda: os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1"))
-    llm_model: str = field(default_factory=lambda: os.getenv("LLM_MODEL", "llama-3.3-70b-versatile"))
+    llm_model: str = field(default_factory=lambda: os.getenv("LLM_MODEL", "qwen/qwen3.8-27b"))
     llm_timeout: float = field(default_factory=lambda: float(os.getenv("LLM_TIMEOUT", "90")))
 
     # ── Embedding (legacy HF config kept for remote embedding fallbacks) ─
@@ -59,13 +59,17 @@ class Config:
     # ── Batch limits ────────────────────────────────────────────────────
     max_batch_size: int = field(default_factory=lambda: int(os.getenv("MAX_BATCH_SIZE", "300")))
 
-    # ── Triage labels (the set of labels the classifier can predict) ────
+    # ── Triage labels (the set of labels the LLM can suggest) ──────────
     triage_labels: set[str] = field(default_factory=lambda: set(
         os.getenv(
             "TRIAGE_LABELS",
-            "bug,enhancement,feature,documentation,good first issue,"
-            "impact-high,impact-medium,impact-low,CI breakage,"
-            "translation,accessibility,performance",
+            "bug,enhancement,CI breakage,good first issue,"
+            "frontend,backend,full-stack,server errors,"
+            "a11y,accessibility,audio-translation,"
+            "Impact: High,Impact: Medium,Impact: Low,"
+            "Work: Low,Work: Medium,Work: High,"
+            "performance,documentation,needs debugging,"
+            "Flake: Acceptance,important",
         ).split(",")
     ))
 

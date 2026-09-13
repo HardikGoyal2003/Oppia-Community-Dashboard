@@ -51,3 +51,7 @@ next-env.d.ts
 __pycache__/
 *.pyc
 chroma_db/
+
+# Triage retriage run artifacts
+triage-backend/retriage_emulator.log
+triage-backend/scripts/.retriage_checkpoint.json
