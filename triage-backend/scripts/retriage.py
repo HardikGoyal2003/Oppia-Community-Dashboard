@@ -81,35 +81,42 @@ def clear_firestore_triage():
 
 
 def store_in_firestore(issue_data):
-    """Store a single triage result in Firestore via REST API."""
+    """Store a single triage result in Firestore via REST API.
+
+    Matches the app schema: prediction fields live in a nested `prediction`
+    map (see AIPrediction in lib/issue-triage/issue-triage.types.ts).
+    """
     doc_id = str(issue_data["issueNumber"])
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     body = {
         "fields": {
             "issueNumber": {"integerValue": str(issue_data["issueNumber"])},
             "issueTitle": {"stringValue": issue_data.get("issueTitle", "")},
             "issueUrl": {"stringValue": issue_data.get("issueUrl", "")},
-            "team": {"stringValue": issue_data.get("team", "CORE")},
-            "labels": {"arrayValue": {"values": [{"stringValue": l} for l in issue_data.get("labels", [])]}},
-            "newLabels": {"arrayValue": {"values": [{"stringValue": l} for l in issue_data.get("newLabels", [])]}},
-            "repository": {"stringValue": issue_data.get("repository", "oppia/oppia")},
-            "cuj": {"stringValue": issue_data.get("cuj", "Learner Experience")},
-            "goodFirstIssue": {"booleanValue": issue_data.get("goodFirstIssue", False)},
-            "priority": {"stringValue": issue_data.get("priority", "medium")},
-            "severity": {"stringValue": issue_data.get("severity", "minor")},
-            "confidenceScore": {"doubleValue": float(issue_data.get("confidenceScore", 0.0))},
-            "explanation": {"stringValue": issue_data.get("explanation", "")},
-            "similarIssues": {"arrayValue": {"values": [
-                {"mapValue": {"fields": {
-                    "number": {"integerValue": str(s.get("number", 0))},
-                    "title": {"stringValue": s.get("title", "")},
-                    "score": {"doubleValue": float(s.get("score", 0.0))},
-                }}}
-                for s in issue_data.get("similarIssues", [])
-            ]}},
+            "prediction": {"mapValue": {"fields": {
+                "labels": {"arrayValue": {"values": [{"stringValue": l} for l in issue_data.get("labels", [])]}},
+                "newLabels": {"arrayValue": {"values": [{"stringValue": l} for l in issue_data.get("newLabels", [])]}},
+                "team": {"stringValue": issue_data.get("team", "CORE")},
+                "repository": {"stringValue": issue_data.get("repository", "oppia/oppia")},
+                "cuj": {"stringValue": issue_data.get("cuj", "Learner Experience")},
+                "goodFirstIssue": {"booleanValue": issue_data.get("goodFirstIssue", False)},
+                "priority": {"stringValue": issue_data.get("priority", "medium")},
+                "severity": {"stringValue": issue_data.get("severity", "minor")},
+                "confidenceScore": {"doubleValue": float(issue_data.get("confidenceScore", 0.0))},
+                "explanation": {"stringValue": issue_data.get("explanation", "")},
+                "similarIssues": {"arrayValue": {"values": [
+                    {"mapValue": {"fields": {
+                        "number": {"integerValue": str(s.get("number", 0))},
+                        "title": {"stringValue": s.get("title", "")},
+                        "score": {"doubleValue": float(s.get("score", 0.0))},
+                    }}}
+                    for s in issue_data.get("similarIssues", [])
+                ]}},
+            }}},
             "existingLabels": {"arrayValue": {"values": [{"stringValue": l} for l in issue_data.get("existingLabels", [])]}},
             "status": {"stringValue": "pending"},
-            "createdAt": {"stringValue": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
-            "updatedAt": {"stringValue": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
+            "createdAt": {"stringValue": now},
+            "updatedAt": {"stringValue": now},
         }
     }
     resp = httpx.patch(f"{FS_BASE}/issueTriage/{doc_id}", json=body, timeout=30)
