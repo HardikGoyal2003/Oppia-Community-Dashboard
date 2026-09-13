@@ -159,12 +159,18 @@ class LLMService:
         existing_labels = existing_labels or []
 
         is_bug = any(kw in text for kw in ["bug", "crash", "error", "broken", "fail", "unexpected"])
-        is_translation = any(kw in text for kw in ["translation", "i18n", "locale", "language"])
+        is_translation = any(
+            kw in text
+            for kw in [
+                "translation", "i18n", "locale", "language", "voiceover",
+                "sign language", "caption", "subtitle",
+            ]
+        )
         is_perf = any(kw in text for kw in ["performance", "slow", "lag", "latency"])
-        is_docs = any(kw in text for kw in ["doc", "readme", "typo", "documentation"])
+        is_docs = bool(re.search(r"\bdoc(s)?\b|documentation|readme|typo", text))
         is_feature = any(kw in text for kw in ["feature", "request", "would like", "please add"])
         is_accessibility = any(kw in text for kw in ["accessibility", "a11y", "screen reader", "wcag", "aria"])
-        is_ci = any(kw in text for kw in ["ci break", "ci failure", "build fail", "test fail", "pipeline"])
+        is_ci = any(kw in text for kw in ["ci break", "ci failure", "build fail", "test fail", "pipeline", "flaky", "github action", "release"])
 
         all_labels = []
         if is_bug:
@@ -188,10 +194,10 @@ class LLMService:
         new_labels = [l for l in all_labels if l not in existing_labels]
 
         team = "CORE"
-        if is_translation:
-            team = "LEAP"
-        elif is_docs or is_ci:
+        if is_docs or is_ci:
             team = "Developer Workflow"
+        elif is_translation or is_accessibility:
+            team = "LEAP"
 
         cuj = "Learner Experience"
         if is_translation:

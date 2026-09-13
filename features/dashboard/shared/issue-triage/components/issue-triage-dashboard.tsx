@@ -511,12 +511,11 @@ function TriageSuggestionPanel({
     reason: "",
   }));
 
-  // In edit mode, use all labels (so user can modify any). In view mode, show only newLabels
-  const displayLabels = isEditing
-    ? editState.labels
-    : pred.newLabels?.length
-      ? pred.newLabels
-      : pred.labels;
+  // In edit mode, use all labels (so user can modify any, including ones
+  // already on GitHub). In view mode, show ONLY newLabels — the labels the
+  // accepted prediction would actually ADD — never the full predicted set
+  // (which may duplicate existing labels and look like duplicate suggestions).
+  const displayLabels = isEditing ? editState.labels : (pred.newLabels ?? []);
 
   const handleAccept = async () => {
     setIsSubmitting(true);

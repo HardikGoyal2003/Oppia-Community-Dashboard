@@ -27,6 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from chroma_service import ChromaService
 from embedding_service import EmbeddingService
+from classifier_service import infer_team
 
 load_dotenv()
 
@@ -118,17 +119,6 @@ def fetch_labeled_issues(
     return all_issues[:max_issues]
 
 
-def infer_team(labels: list[str]) -> str:
-    """Infer team from labels (best effort)."""
-    if "translation" in labels:
-        return "LEAP"
-    if "documentation" in labels:
-        return "Developer Workflow"
-    if "CI breakage" in labels:
-        return "Developer Workflow"
-    return "CORE"
-
-
 def seed_chromadb(
     issues: list[dict],
     chroma: ChromaService,
@@ -156,7 +146,7 @@ def seed_chromadb(
         # Store in ChromaDB
         for issue, embedding in zip(batch, embeddings):
             try:
-                team = infer_team(issue["triage_labels"])
+                team = infer_team(issue["triage_labels"], issue["title"])
                 chroma.add_issue(
                     issue_number=issue["number"],
                     title=issue["title"],

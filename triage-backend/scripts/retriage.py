@@ -13,7 +13,8 @@ import httpx
 
 load_dotenv()
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-load_dotenv(os.path.join(ROOT_DIR, ".env.local"), override=True)
+# Do NOT load .env.local here — it may contain an expired token. The token
+# should be supplied via the real environment or GITHUB_TOKEN="" for unauth.
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 TRIAGE_BACKEND = "http://127.0.0.1:8000"
