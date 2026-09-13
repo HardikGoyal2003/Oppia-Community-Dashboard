@@ -19,6 +19,11 @@ type ImpactCardProps = {
   description: string;
 };
 
+type TechStackCardProps = {
+  category: string;
+  items: string[];
+};
+
 const ROLE_CARDS: RoleCardProps[] = [
   {
     icon: "🌱",
@@ -70,6 +75,35 @@ const JOURNEY_CARDS: JourneyCardProps[] = [
     title: "Grow with the community",
     description:
       "Maintainers can mentor, review progress, and keep everyone aligned.",
+  },
+];
+
+const TECH_STACK: TechStackCardProps[] = [
+  {
+    category: "Frontend",
+    items: [
+      "Next.js (App Router)",
+      "TypeScript",
+      "TailwindCSS",
+      "shadcn/ui",
+      "Zustand",
+    ],
+  },
+  {
+    category: "Backend & Data",
+    items: ["Next.js API Routes", "Firestore", "Python FastAPI"],
+  },
+  {
+    category: "AI Triage",
+    items: [
+      "ChromaDB Vector Store",
+      "sentence-transformers",
+      "LLM-powered triage",
+    ],
+  },
+  {
+    category: "Auth & Infra",
+    items: ["NextAuth", "Octokit / GitHub API", "Vercel"],
   },
 ];
 
@@ -225,6 +259,67 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="px-6 py-24">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-14 text-center">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Built on modern
+              <span className="block text-emerald-700">open-source tech</span>
+            </h2>
+            <p className="mt-4 text-lg text-muted-foreground">
+              A scalable, role-based dashboard powered by the same tooling Oppia
+              contributors already know and use.
+            </p>
+          </div>
+
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            {TECH_STACK.map((stack) => (
+              <TechStackCard
+                key={stack.category}
+                category={stack.category}
+                items={stack.items}
+              />
+            ))}
+          </div>
+
+          <div className="mt-16 grid gap-6 md:grid-cols-2">
+            <Link
+              href="https://github.com/KartikSuryavanshi/Oppia-Community-Dashboard"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center justify-between rounded-xl border bg-background p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl"
+            >
+              <div>
+                <h3 className="text-lg font-semibold">Source Code</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  github.com/KartikSuryavanshi/Oppia-Community-Dashboard
+                </p>
+              </div>
+              <span className="text-2xl transition-transform group-hover:translate-x-1">
+                →
+              </span>
+            </Link>
+
+            <Link
+              href="https://oppia-community-dashboard.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center justify-between rounded-xl border bg-background p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl"
+            >
+              <div>
+                <h3 className="text-lg font-semibold">Live Deployment</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  oppia-community-dashboard.vercel.app
+                </p>
+              </div>
+              <span className="text-2xl transition-transform group-hover:translate-x-1">
+                →
+              </span>
+            </Link>
+          </div>
+        </div>
+      </section>
+
       <section className="relative overflow-hidden px-6 py-24">
         <div className="absolute inset-0 -z-10 bg-linear-to-tr from-emerald-500/25 via-teal-500/25 to-cyan-500/25" />
 
@@ -288,6 +383,25 @@ function ImpactCard({ icon, title, description }: ImpactCardProps) {
       </div>
       <h3 className="text-lg font-semibold">{title}</h3>
       <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+    </div>
+  );
+}
+
+function TechStackCard({ category, items }: TechStackCardProps) {
+  return (
+    <div className="rounded-xl border bg-background p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg">
+      <h3 className="text-lg font-semibold">{category}</h3>
+      <ul className="mt-4 space-y-2">
+        {items.map((item) => (
+          <li
+            key={item}
+            className="flex items-center gap-2 text-sm text-muted-foreground"
+          >
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            {item}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
