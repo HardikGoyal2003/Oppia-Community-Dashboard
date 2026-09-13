@@ -27,7 +27,7 @@ from pydantic import BaseModel
 from chroma_service import ChromaService
 from embedding_service import EmbeddingService
 from llm_service import LLMService
-from classifier_service import LabelClassifier, infer_team
+from classifier_service import infer_team
 from config import config
 
 load_dotenv()
@@ -60,7 +60,6 @@ async def require_api_key(api_key: Optional[str] = Security(_api_key_header)):
 chroma = ChromaService()
 embedder = EmbeddingService()
 llm = LLMService()
-classifier = None  # Initialized after ChromaDB loads
 
 
 @asynccontextmanager
@@ -76,9 +75,6 @@ async def lifespan(app: FastAPI):
     try:
         chroma.initialize()
         logger.info("ChromaDB initialized.")
-        global classifier
-        classifier = LabelClassifier(chroma)
-        logger.info("Label classifier initialized.")
 
         # Guard against embedding-model/DB dimension mismatch: querying a
         # collection seeded with a different model silently returns garbage.
@@ -166,12 +162,13 @@ async def health():
 
 @app.post("/triage", response_model=TriageResponse)
 async def triage_issue(request: TriageRequest, _=Security(require_api_key)):
-    """Run AI triage on a single issue with classifier + LLM.
+    """Run AI triage on a single issue with the LLM as sole predictor.
 
     Pipeline:
     1. Embed the issue text
-    2. kNN classifier predicts labels from historical issues in ChromaDB
-    3. LLM refines predictions using classifier output as context
+    2. Retrieve similar historical issues + few-shot examples from ChromaDB
+       (CONTEXT only — no kNN voting; the LLM makes every decision)
+    3. LLM predicts labels/team/priority from the issue content + context
     4. Compute newLabels (labels to ADD, excluding existing ones)
     5. Store embedding + prediction WITHOUT overwriting seeded ground truth
     """
@@ -203,38 +200,32 @@ async def _triage_one(
     issue_text = f"{title}\n{body[:2000]}"
     embedding = await asyncio.to_thread(embedder.embed, issue_text)
 
-    # 2. Run kNN classifier (uses all issues in ChromaDB)
-    knn_prediction = {}
-    if classifier:
-        try:
-            knn_prediction = await asyncio.to_thread(
-                classifier.predict, embedding, config.knn_default_k
-            )
-            logger.info(
-                f"  kNN prediction: labels={knn_prediction.get('labels')}, "
-                f"team={knn_prediction.get('team')}, "
-                f"confidence={knn_prediction.get('confidenceScore')}%"
-            )
-        except Exception as e:
-            logger.warning(f"  kNN classifier failed: {e}")
+    # 2. Retrieve similar historical issues (CONTEXT only — the LLM decides,
+    #    there is no kNN voting). Prefer reviewer-verified neighbors so the
+    #    model isn't influenced by our own unverified pending predictions.
+    similar_issues = await asyncio.to_thread(chroma.search, embedding, 6)
+    verified = [
+        s for s in similar_issues
+        if s.get("metadata", {}).get("state") in ("accepted", "edited")
+    ]
+    reference_issues = verified if verified else similar_issues
 
-    # 3. Search for few-shot examples (accepted/edited issues)
+    # 3. Search for few-shot examples (accepted/edited issues with corrections)
     few_shot_examples = chroma.search_for_few_shot(embedding, n_results=5)
 
-    # 4. Build context with kNN predictions + few-shot examples
+    # 4. Build context from few-shot examples + similar issues
     context = _build_context(
-        similar_issues=[],
+        similar_issues=reference_issues[:5],
         few_shot_examples=few_shot_examples,
-        knn_prediction=knn_prediction,
     )
 
-    # 5. Ask LLM to refine predictions (blocking HTTP → worker thread)
+    # 5. Ask the LLM to predict (blocking HTTP → worker thread).
     llm_prediction = await asyncio.to_thread(
         llm.predict, title, body, context, existing_labels
     )
 
-    # 6. Merge predictions: classifier is primary, LLM refines
-    prediction = _merge_predictions(knn_prediction, llm_prediction, existing_labels)
+    # 6. The LLM is the sole predictor — no merge step.
+    prediction = llm_prediction
 
     # 7. Compute newLabels: labels to ADD, excluding existing ones and
     #    workflow-only labels that should never be suggested (e.g. "triage
@@ -254,7 +245,7 @@ async def _triage_one(
         embedding=embedding,
         metadata={
             "labels": prediction.get("labels", []),
-            "team": prediction.get("team", ""),
+            "team": _normalize_team(prediction.get("team", "CORE")),
             "priority": prediction.get("priority", ""),
             "severity": prediction.get("severity", ""),
             "cuj": prediction.get("cuj", ""),
@@ -276,7 +267,14 @@ async def _triage_one(
         "severity": prediction.get("severity", "minor"),
         "confidenceScore": prediction.get("confidenceScore", 70.0),
         "explanation": prediction.get("explanation", ""),
-        "similarIssues": knn_prediction.get("similarIssues", []),
+        "similarIssues": [
+            {
+                "number": s["number"],
+                "title": s["title"],
+                "score": round((1 - s.get("distance", 1.0)) * 100, 1),
+            }
+            for s in reference_issues[:5]
+        ],
     }
 
 
@@ -372,32 +370,14 @@ async def get_stats():
 def _build_context(
     similar_issues: list[dict],
     few_shot_examples: list[dict] = None,
-    knn_prediction: dict = None,
 ) -> str:
-    """Build context for the LLM prompt.
+    """Build context for the LLM prompt (CONTEXT ONLY — no votes).
 
     Includes:
-    - kNN classifier predictions (from historical issues in ChromaDB)
     - Few-shot examples from reviewer-verified triage decisions
     - Similar issues for reference
     """
     parts = []
-
-    # kNN classifier predictions from historical data
-    if knn_prediction and knn_prediction.get("_method") == "knn_classifier":
-        labels = knn_prediction.get("labels", [])
-        team = knn_prediction.get("team", "")
-        conf = knn_prediction.get("confidenceScore", 0)
-        parts.append(
-            f"The kNN classifier (trained on {chroma.count()} historical issues) predicts:\n"
-            f"- Labels: {labels}\n"
-            f"- Team: {team}\n"
-            f"- Priority: {knn_prediction.get('priority', 'medium')}\n"
-            f"- Confidence: {conf}%\n"
-            f"Use these as a strong starting point. Refine only if the issue clearly "
-            f"differs from similar historical issues."
-        )
-        parts.append("")
 
     # Few-shot examples from reviewer-verified triage decisions
     if few_shot_examples:
@@ -446,186 +426,6 @@ def _normalize_team(team: str) -> str:
     if team != mapped:
         logger.warning(f"Normalized team '{team}' -> '{mapped}'")
     return mapped
-
-
-def _resolve_team(knn_team: str, llm_team: str) -> str:
-    """Resolve a conflict between the kNN and LLM/heuristic team predictions.
-
-    The kNN team vote is derived from embedding similarity against a CORE-heavy
-    corpus, which conflates feature area with issue type (e.g. lesson-player
-    bugs embed near voiceover issues and get misread as LEAP). The LLM signal —
-    even the heuristic fallback — reads the actual issue text, so it is the
-    primary team source. kNN only wins when the LLM signal is empty.
-    """
-    llm_norm = _normalize_team(llm_team)
-    if llm_norm in config.valid_teams:
-        return llm_norm
-    return _normalize_team(knn_team)
-
-
-def _merge_predictions(knn_pred: dict, llm_pred: dict, existing_labels: list[str] = None) -> dict:
-    """Merge kNN classifier and LLM predictions.
-
-    Strategy:
-    - kNN is the base (trained on historical issues, high recall)
-    - LLM refines (adds context understanding, catches edge cases)
-    - If the LLM fell back to heuristic (no API), trust kNN exclusively
-    - If both are real, weight by confidence tiers as before
-    - newLabels computed: predicted labels excluding existing ones
-    """
-    existing_labels = existing_labels or []
-
-    if not knn_pred or knn_pred.get("_method") != "knn_classifier":
-        # No kNN prediction, use LLM only
-        return llm_pred
-
-    knn_conf = knn_pred.get("confidenceScore", 0)
-    llm_conf = llm_pred.get("confidenceScore", 0)
-    llm_is_fallback = llm_pred.get("_method") == "heuristic_fallback"
-
-    if llm_is_fallback:
-        # LLM unavailable — trust kNN labels, but the team comes from the
-        # content-based heuristic (reads the actual issue text) rather than
-        # embedding similarity, which conflates feature area with issue type.
-        team = _resolve_team(
-            knn_pred.get("team", "CORE"), llm_pred.get("team", "CORE")
-        )
-        similar = knn_pred.get("similarIssues", [])
-        parts = []
-        if similar:
-            top3 = similar[:3]
-            nums = ", ".join(f"#{s['number']}" for s in top3)
-            label_union = sorted({l for s in top3 for l in s.get("labels", [])})
-            if label_union:
-                parts.append(
-                    f"The kNN classifier (over {chroma.count()} historical issues) found "
-                    f"{len(similar)} similar issues ({nums}). Their labels were: "
-                    f"{', '.join(label_union)}. It voted for the predicted labels with "
-                    f"{knn_conf}% confidence."
-                )
-            else:
-                parts.append(
-                    f"The kNN classifier (over {chroma.count()} historical issues) found "
-                    f"{len(similar)} similar issues ({nums}) and voted for the predicted "
-                    f"labels with {knn_conf}% confidence."
-                )
-        else:
-            parts.append(
-                f"The kNN classifier (over {chroma.count()} historical issues) voted for "
-                f"the predicted labels with {knn_conf}% confidence."
-            )
-        parts.append(
-            f"The {team} team was selected as the primary owner because the issue "
-            f"content matches that team's domain."
-        )
-        return {
-            "labels": knn_pred.get("labels", ["bug"]),
-            "team": team,
-            "repository": knn_pred.get("repository") or llm_pred.get("repository", "oppia/oppia"),
-            "cuj": knn_pred.get("cuj") or llm_pred.get("cuj", "Learner Experience"),
-            "goodFirstIssue": knn_pred.get("goodFirstIssue", False),
-            "priority": knn_pred.get("priority", "medium"),
-            "severity": knn_pred.get("severity", "minor"),
-            "confidenceScore": knn_conf,
-            "explanation": " ".join(parts),
-            "labelConfidences": knn_pred.get("labelConfidences", {}),
-        }
-
-    # Both kNN and LLM are real predictions — weight by confidence tiers.
-    high_threshold = config.knn_high_confidence_threshold
-    med_threshold = config.knn_medium_confidence_threshold
-    high_weight = config.knn_high_weight
-    med_weight = config.knn_medium_weight
-    low_weight = config.knn_low_weight
-
-    if knn_conf >= high_threshold:
-        labels = knn_pred.get("labels", llm_pred.get("labels", ["bug"]))
-        team = _resolve_team(
-            knn_pred.get("team", "CORE"), llm_pred.get("team", "CORE")
-        )
-        priority = knn_pred.get("priority", llm_pred.get("priority", "medium"))
-        severity = knn_pred.get("severity", llm_pred.get("severity", "minor"))
-        confidence = round((knn_conf * high_weight) + (llm_conf * (1 - high_weight)), 1)
-    elif knn_conf >= med_threshold:
-        knn_labels = set(knn_pred.get("labels", []))
-        llm_labels = set(llm_pred.get("labels", []))
-        labels = list(knn_labels | llm_labels) if knn_labels and llm_labels else (
-            list(knn_labels) if knn_labels else list(llm_labels)
-        )
-        team = _resolve_team(
-            knn_pred.get("team", "CORE"), llm_pred.get("team", "CORE")
-        )
-        priority = knn_pred.get("priority") if knn_pred.get("priority") else llm_pred.get("priority", "medium")
-        severity = knn_pred.get("severity") if knn_pred.get("severity") else llm_pred.get("severity", "minor")
-        confidence = round((knn_conf * med_weight) + (llm_conf * (1 - med_weight)), 1)
-    else:
-        labels = llm_pred.get("labels", knn_pred.get("labels", ["bug"]))
-        team = _resolve_team(
-            knn_pred.get("team", "CORE"), llm_pred.get("team", "CORE")
-        )
-        priority = llm_pred.get("priority", knn_pred.get("priority", "medium"))
-        severity = llm_pred.get("severity", knn_pred.get("severity", "minor"))
-        confidence = round((knn_conf * low_weight) + (llm_conf * (1 - low_weight)), 1)
-
-    # Compute newLabels: exclude existing labels
-    new_labels = [l for l in labels if l not in existing_labels]
-
-    # Build a detailed explanation combining both sources
-    explanation_parts = []
-
-    # kNN explanation: which neighbors influenced the decision
-    if knn_pred.get("similarIssues"):
-        top_similar = knn_pred["similarIssues"][:3]
-        similar_nums = ", ".join(f"#{s['number']}" for s in top_similar)
-        similar_labels = set()
-        for s in top_similar:
-            # Get labels from similar issues metadata
-            for lbl in s.get("labels", []):
-                similar_labels.add(lbl)
-        if similar_labels:
-            explanation_parts.append(
-                f"The kNN classifier found {len(knn_pred.get('similarIssues', []))} similar issues "
-                f"({similar_nums}) which had labels: {', '.join(sorted(similar_labels))}. "
-                f"The classifier voted for {', '.join(labels)} with {knn_conf}% confidence."
-            )
-        else:
-            explanation_parts.append(
-                f"The kNN classifier found {len(knn_pred.get('similarIssues', []))} similar issues "
-                f"({similar_nums}) and voted for {', '.join(labels)} with {knn_conf}% confidence."
-            )
-
-    # LLM explanation: why the LLM chose these labels
-    llm_explanation = llm_pred.get("explanation", "")
-    if llm_explanation and "Heuristic analysis" not in llm_explanation:
-        explanation_parts.append(f"LLM analysis ({llm_conf}% confidence): {llm_explanation}")
-    elif llm_explanation:
-        explanation_parts.append(llm_explanation)
-
-    # Team assignment reasoning
-    explanation_parts.append(
-        f"The {team} team was selected as the primary owner of this issue."
-    )
-
-    # Final explanation
-    explanation = " ".join(explanation_parts) if explanation_parts else (
-        f"Combined prediction from kNN ({knn_conf}%) and LLM ({llm_conf}%) "
-        f"analysis of the issue content."
-    )
-
-    return {
-        "labels": labels,
-        "newLabels": new_labels,
-        "team": _normalize_team(team),
-        "repository": knn_pred.get("repository") or llm_pred.get("repository", "oppia/oppia"),
-        "cuj": knn_pred.get("cuj") or llm_pred.get("cuj", "Learner Experience"),
-        "goodFirstIssue": knn_pred.get("goodFirstIssue", llm_pred.get("goodFirstIssue", False)),
-        "priority": priority,
-        "severity": severity,
-        "confidenceScore": confidence,
-        "explanation": explanation,
-        "labelConfidences": knn_pred.get("labelConfidences", {}),
-    }
-
 
 async def triage_and_store(request: TriageRequest):
     """Run triage and store results (called in background)."""

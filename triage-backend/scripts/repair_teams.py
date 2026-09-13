@@ -1,6 +1,6 @@
 """Repair ChromaDB team metadata for the issue triage classifier.
 
-1. Delete unverified pending AI predictions (they pollute kNN searches with
+1. Delete unverified pending AI predictions (they pollute semantic search with
    a degenerate CORE team and will be regenerated).
 2. Re-derive `team`/`corrected_team` for seeded (accepted) issues from their
    stored labels + title, mapping legacy vocabulary (Engineering/Docs) into

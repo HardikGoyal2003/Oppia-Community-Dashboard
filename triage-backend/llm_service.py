@@ -1,8 +1,10 @@
 """
 LLM service for generating triage predictions.
 
-Uses huggingface_hub InferenceClient (handles routing and auth automatically)
-with fallback to heuristic prediction if the API is unavailable.
+Uses an OpenAI-compatible chat completions endpoint (default: Groq free
+tier) with fallback to heuristic prediction if the API is unavailable.
+The LLM is the sole predictor — it receives few-shot examples and similar
+historical issues as CONTEXT, then decides labels/team/priority itself.
 """
 
 import json
@@ -50,18 +52,26 @@ Analyze this issue and predict which labels should be ADDED (newLabels) based on
 
 
 class LLMService:
-    """Generates triage predictions using Hugging Face Inference API."""
+    """Generates triage predictions using an OpenAI-compatible provider."""
 
     def __init__(self):
-        self._api_token = config.hf_api_token
-        self._model = config.hf_model_id
+        self._api_key = config.llm_api_key
+        self._model = config.llm_model
+        self._base_url = config.llm_base_url
+        self._timeout = config.llm_timeout
         self._client = None
 
     def _get_client(self):
-        """Lazy-init the InferenceClient."""
+        """Lazy-init the OpenAI-compatible client."""
         if self._client is None:
-            from huggingface_hub import InferenceClient
-            self._client = InferenceClient(token=self._api_token or None)
+            import openai
+            self._client = openai.OpenAI(
+                # A placeholder is fine for local servers (Ollama etc.);
+                # the real key is only required by hosted providers.
+                api_key=self._api_key or "not-set",
+                base_url=self._base_url,
+                timeout=self._timeout,
+            )
         return self._client
 
     def predict(self, title: str, body: str, context: str = "", existing_labels: list[str] = None) -> dict:
@@ -76,7 +86,11 @@ class LLMService:
             return self._fallback_prediction(title, body, existing_labels or [])
 
     def _query_llm(self, title: str, body: str, context: str, existing_labels: list[str]) -> dict:
-        """Query the LLM via Hugging Face Inference API."""
+        """Query the LLM via an OpenAI-compatible chat completions endpoint.
+
+        First tries structured JSON output (response_format); if the model
+        does not support it, retries with plain chat so nothing is lost.
+        """
         existing_labels_str = ", ".join(existing_labels) if existing_labels else "none"
 
         system_prompt = TRIAGE_SYSTEM_PROMPT_TPL.format(
@@ -97,12 +111,20 @@ class LLMService:
         ]
 
         client = self._get_client()
-        response = client.chat_completion(
-            model=self._model,
-            messages=messages,
-            max_tokens=512,
-            temperature=0.1,
-        )
+        kwargs = {
+            "model": self._model,
+            "messages": messages,
+            "max_tokens": 512,
+            "temperature": 0.1,
+        }
+        try:
+            response = client.chat.completions.create(
+                **kwargs, response_format={"type": "json_object"}
+            )
+        except Exception:
+            # Some models (Ollama/LM Studio, older endpoints) reject
+            # response_format — retry without structured output.
+            response = client.chat.completions.create(**kwargs)
 
         raw = response.choices[0].message.content
         if not raw:
