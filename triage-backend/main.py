@@ -2,7 +2,7 @@
 AI-Assisted Issue Triage Backend
 
 FastAPI server that handles:
-- ChromaDB vector storage for issue embeddings
+- Firestore vector store for issue embeddings (native find_nearest search)
 - Semantic search for similar issues
 - LLM-powered triage predictions with few-shot learning
 - Feedback storage for continuous model improvement
@@ -24,7 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security.api_key import APIKeyHeader
 from pydantic import BaseModel
 
-from chroma_service import ChromaService
+from vector_service import VectorService
 from embedding_service import EmbeddingService
 from llm_service import LLMService
 from classifier_service import infer_team
@@ -58,7 +58,7 @@ async def require_api_key(api_key: Optional[str] = Security(_api_key_header)):
     if not api_key or not hmac.compare_digest(api_key, TRIAGE_API_KEY):
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
-chroma = ChromaService()
+vector_store = VectorService()
 embedder = EmbeddingService()
 llm = LLMService()
 
@@ -74,29 +74,22 @@ async def lifespan(app: FastAPI):
         logger.error(f"Could not load embedding model: {e}")
         logger.error("Triage endpoints will return errors until this is fixed.")
     try:
-        chroma.initialize()
-        logger.info("ChromaDB initialized.")
+        vector_store.initialize()
+        logger.info("Firestore vector store initialized.")
 
         # Guard against embedding-model/DB dimension mismatch: querying a
-        # collection seeded with a different model silently returns garbage.
-        if embedder.is_loaded() and chroma.count() > 0:
-            try:
-                peek = chroma.collection.peek(limit=1)
-                stored = peek.get("embeddings")
-                stored_dim = len(stored[0]) if stored is not None and len(stored) > 0 else None
-                if stored_dim and embedder.dimension and stored_dim != embedder.dimension:
-                    raise RuntimeError(
-                        f"Embedding dimension mismatch: ChromaDB was seeded with "
-                        f"{stored_dim}-dim vectors but model "
-                        f"'{embedder.model_name}' produces {embedder.dimension}-dim. "
-                        f"Fix EMBEDDING_MODEL in .env or re-seed the database."
-                    )
-            except RuntimeError:
-                raise
-            except Exception as e:
-                logger.warning(f"Could not verify embedding dimensions: {e}")
+        # store seeded with a different model silently returns garbage.
+        if embedder.is_loaded():
+            stored_dim = vector_store.sample_dimension()
+            if stored_dim and embedder.dimension and stored_dim != embedder.dimension:
+                raise RuntimeError(
+                    f"Embedding dimension mismatch: vector store was seeded with "
+                    f"{stored_dim}-dim vectors but model "
+                    f"'{embedder.model_name}' produces {embedder.dimension}-dim. "
+                    f"Fix EMBEDDING_MODEL in .env or re-seed the database."
+                )
     except Exception as e:
-        logger.error(f"Could not initialize ChromaDB: {e}")
+        logger.error(f"Could not initialize vector store: {e}")
         raise
     yield
     logger.info("Shutting down AI Triage Backend.")
@@ -214,7 +207,7 @@ async def _triage_one(
     # 2. Retrieve similar historical issues (CONTEXT only — the LLM decides,
     #    there is no kNN voting). Prefer reviewer-verified neighbors so the
     #    model isn't influenced by our own unverified pending predictions.
-    similar_issues = await asyncio.to_thread(chroma.search, embedding, 6)
+    similar_issues = await asyncio.to_thread(vector_store.search, embedding, 6)
     verified = [
         s for s in similar_issues
         if s.get("metadata", {}).get("state") in ("accepted", "edited")
@@ -222,7 +215,7 @@ async def _triage_one(
     reference_issues = verified if verified else similar_issues
 
     # 3. Search for few-shot examples (accepted/edited issues with corrections)
-    few_shot_examples = chroma.search_for_few_shot(embedding, n_results=3)
+    few_shot_examples = vector_store.search_for_few_shot(embedding, n_results=3)
 
     # 4. Build context from few-shot examples + similar issues
     context = _build_context(
@@ -249,8 +242,8 @@ async def _triage_one(
     new_labels = [l for l in all_predicted if l not in existing_labels]
     prediction["newLabels"] = new_labels
 
-    # 8. Store embedding in ChromaDB — never overwrite verified ground truth.
-    chroma.add_prediction(
+    # 8. Store embedding in the vector store — never overwrite verified ground truth.
+    vector_store.add_prediction(
         issue_number=issue_number,
         title=title,
         embedding=embedding,
@@ -307,8 +300,8 @@ async def store_feedback(feedback: FeedbackEntry, _=Security(require_api_key)):
     if feedback.reviewerNotes:
         logger.info(f"  Reviewer notes: {feedback.reviewerNotes}")
 
-    # Update ChromaDB with corrected labels so future few-shot examples are accurate
-    chroma.update_feedback(
+    # Update the vector store with corrected labels so future few-shot examples are accurate
+    vector_store.update_feedback(
         issue_number=feedback.issueNumber,
         review_status=feedback.reviewStatus,
         corrected_labels=feedback.correctedLabels,
@@ -370,9 +363,9 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
 
 @app.get("/stats")
 async def get_stats():
-    """Return ChromaDB stats for monitoring the learning loop."""
+    """Return vector store stats for monitoring the learning loop."""
     return {
-        "total_issues_in_chromadb": chroma.count(),
+        "total_issues_in_vector_store": vector_store.count(),
         "status": "ok",
     }
 
@@ -567,10 +560,10 @@ class SeedRequest(BaseModel):
 
 
 @app.post("/seed")
-async def seed_chromadb(
+async def seed_vector_store(
     req: SeedRequest, background_tasks: BackgroundTasks, _=Security(require_api_key)
 ):
-    """Seed ChromaDB with ALL Oppia issues for few-shot learning.
+    """Seed the Firestore vector store with ALL Oppia issues for few-shot learning.
 
     This runs in the background since it takes several minutes (~10k issues).
     """
@@ -589,7 +582,7 @@ async def seed_chromadb(
 
 
 async def _run_seed(github_token: str, max_issues: int):
-    """Background task to seed ChromaDB with ALL Oppia issues (open + closed).
+    """Background task to seed the vector store with ALL Oppia issues (open + closed).
 
     GitHub search API caps at 1000 results per query, so we split by year
     to fetch all ~10k issues.
@@ -597,7 +590,7 @@ async def _run_seed(github_token: str, max_issues: int):
     import httpx as _httpx
     import asyncio
 
-    logger.info(f"Starting ChromaDB seed with up to {max_issues} issues...")
+    logger.info(f"Starting vector store seed with up to {max_issues} issues...")
 
     all_issues = []
     seen_numbers = set()
@@ -711,7 +704,7 @@ async def _run_seed(github_token: str, max_issues: int):
                 try:
                     labels = issue["labels"]
                     team = infer_team(labels, issue["title"])
-                    chroma.add_issue(
+                    vector_store.add_issue(
                         issue_number=issue["number"],
                         title=issue["title"],
                         embedding=embedding,
@@ -719,7 +712,7 @@ async def _run_seed(github_token: str, max_issues: int):
                             "labels": labels[:10],
                             "team": team,
                             "state": "accepted",
-                            "corrected_labels": json.dumps(labels[:10]),
+                            "corrected_labels": labels[:10],
                             "corrected_team": team,
                             "github_state": issue["state"],
                         },
@@ -731,7 +724,7 @@ async def _run_seed(github_token: str, max_issues: int):
             if (i + batch_size) % 500 == 0:
                 logger.info(f"  Progress: {seeded}/{len(issues_with_labels)} seeded")
 
-        logger.info(f"Seed complete: {seeded} issues stored in ChromaDB")
+        logger.info(f"Seed complete: {seeded} issues stored in the vector store")
     except Exception as e:
         logger.error(f"Seed failed during embedding: {e}")
 
