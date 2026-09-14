@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "firebase emulators:exec --only firestore --ui \"next dev\"",
+    "dev": "firebase emulators:exec --only firestore --ui --import=firebase-emulator-export --export-on-exit=firebase-emulator-export \"next dev\"",
     "dev:next": "next dev",
-    "firebase:emulators": "firebase emulators:start --only firestore",
+    "firebase:emulators": "firebase emulators:start --only firestore --import=firebase-emulator-export --export-on-exit=firebase-emulator-export",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",

@@ -34,6 +34,7 @@ yarn-error.log*
 /.firebase
 firebase-debug.log
 firestore-debug.log
+/firebase-emulator-export
 
 # env files (can opt-in for committing if needed)
 .env*
