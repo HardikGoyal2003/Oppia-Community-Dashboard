@@ -21,11 +21,19 @@ logger = logging.getLogger(__name__)
 class Config:
     # ── GitHub ──────────────────────────────────────────────────────────
     github_token: str = field(default_factory=lambda: os.getenv("GITHUB_TOKEN", ""))
+    github_repo: str = field(default_factory=lambda: os.getenv("GITHUB_REPO", "oppia/oppia"))
 
     # ── Firebase ────────────────────────────────────────────────────────
     firebase_client_email: str = field(default_factory=lambda: os.getenv("FIREBASE_CLIENT_EMAIL", ""))
     firebase_private_key: str = field(default_factory=lambda: os.getenv("FIREBASE_PRIVATE_KEY", ""))
     firebase_project_id: str = field(default_factory=lambda: os.getenv("FIREBASE_PROJECT_ID", "demo-oppia-community-dashboard"))
+    # Firestore REST base URL used by the retriage sweep (emulator default,
+    # and the only path that works without service-account credentials).
+    firestore_rest_base: str = field(default_factory=lambda: os.getenv(
+        "FIRESTORE_REST_BASE",
+        "http://127.0.0.1:8080/v1/projects/demo-oppia-community-dashboard/"
+        "databases/(default)/documents",
+    ))
 
     # ── ChromaDB ────────────────────────────────────────────────────────
     chroma_db_path: str = field(default_factory=lambda: os.getenv("CHROMA_DB_PATH", "./chroma_db"))

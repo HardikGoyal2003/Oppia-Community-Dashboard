@@ -28,6 +28,7 @@ from chroma_service import ChromaService
 from embedding_service import EmbeddingService
 from llm_service import LLMService
 from classifier_service import infer_team
+import retriage_service
 from config import config
 
 load_dotenv()
@@ -152,6 +153,15 @@ class TriageResponse(BaseModel):
     explanation: str
     similarIssues: list[dict]
     method: Optional[str] = None
+
+
+class RetriageRequest(BaseModel):
+    """Selects which existing predictions to re-run through the LLM."""
+
+    issueNumbers: Optional[list[int]] = None  # explicit targets (else sweep)
+    staleOnly: bool = True  # skip docs whose prediction is fresh + confident
+    minConfidence: float = 50.0  # confidence cutoff for "stale"
+    commit: bool = True  # write results back to Firestore (False = dry run)
 
 
 # ─── Endpoints ────────────────────────────────────────────────────────────
@@ -368,6 +378,113 @@ async def get_stats():
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────
+
+@app.post("/retriage")
+async def retriage(
+    req: RetriageRequest,
+    background_tasks: BackgroundTasks,
+    _=Security(require_api_key),
+):
+    """Re-run the LLM on issues that already have a Firestore doc.
+
+    The daily cron only triages issues missing from the issueTriage
+    collection. This endpoint closes that gap: it sweeps the existing docs and
+    re-predicts any whose stored prediction is missing, came from the
+    LLM-unavailable heuristic fallback, or fell below `minConfidence`.
+
+    It runs in the background (per-issue LLM calls can be slow). Use
+    `commit: false` for a dry run that reports what WOULD be retriaged.
+    """
+    docs = retriage_service.list_issue_docs()
+
+    if req.issueNumbers is not None:
+        wanted = set(req.issueNumbers)
+        targets = [
+            d for d in docs
+            if d["issueNumber"] in wanted
+        ]
+        missing = wanted - {d["issueNumber"] for d in docs}
+    else:
+        targets = [
+            d for d in docs
+            if retriage_service.needs_retriage(
+                d, stale_only=req.staleOnly, min_confidence=req.minConfidence
+            )
+        ]
+        missing = set()
+
+    skipped = len(docs) - len(targets)
+    dry_run = not req.commit
+
+    if not dry_run and targets:
+        background_tasks.add_task(_run_retriage, targets, req.minConfidence)
+
+    return {
+        "status": "dry_run" if dry_run else "started",
+        "docs": len(docs),
+        "queued": len(targets),
+        "skipped": skipped,
+        "missingDocs": sorted(missing),
+        "minConfidence": req.minConfidence,
+        "sample": [
+            {
+                "issueNumber": d["issueNumber"],
+                "currentPrediction": retriage_service.serialize_prediction(d.get("prediction")),
+            }
+            for d in targets[:5]
+        ],
+    }
+
+
+async def _run_retriage(targets: list[dict], min_confidence: float):
+    """Background task: re-predict each target and PATCH the doc (commit)."""
+    done = 0
+    failed = 0
+    skipped_closed = 0
+    for i, doc in enumerate(targets, 1):
+        num = doc["issueNumber"]
+        try:
+            # Prefer fresh GitHub content so the LLM sees the body (docs only
+            # store title + labels). Skip issues that left the triage queue.
+            gh = retriage_service.fetch_github_issue(num)
+            if gh is not None:
+                gh_labels = [l.lower() for l in gh.get("labels", [])]
+                if gh.get("state") != "open" or "triage needed" not in gh_labels:
+                    logger.info(f"Retriage #{num}: no longer a triage-needed open issue, skipping")
+                    skipped_closed += 1
+                    continue
+                issue_title = gh.get("title") or doc["issueTitle"]
+                issue_body = (gh.get("body") or "")[:2000]
+                existing_labels = gh.get("labels") or doc["existingLabels"]
+            else:
+                issue_title = doc["issueTitle"]
+                issue_url = doc["issueUrl"]
+                issue_body = ""
+                existing_labels = doc["existingLabels"]
+
+            result = await _triage_one(
+                issue_number=num,
+                title=issue_title,
+                body=issue_body,
+                existing_labels=existing_labels,
+            )
+            if not retriage_service.patch_prediction(num, result):
+                logger.error(f"Retriage #{num}: Firestore PATCH failed")
+                failed += 1
+                continue
+            done += 1
+            logger.info(
+                f"Retriage [{i}/{len(targets)}] #{num} OK team={result.get('team','?')} "
+                f"conf={result.get('confidenceScore')} method={result.get('method')}"
+            )
+        except Exception as e:
+            logger.error(f"Retriage #{num}: {type(e).__name__}: {e}")
+            failed += 1
+
+    logger.info(
+        f"Retriage complete: {done} updated, {failed} failed, "
+        f"{skipped_closed} left triage queue /{len(targets)} targets"
+    )
 
 def _build_context(
     similar_issues: list[dict],

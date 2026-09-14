@@ -72,27 +72,20 @@ export async function GET(req: Request) {
     }
     totalOpen = allIssues.length;
 
-    // 2. Filter to only untriaged issues
+    // 2. Filter to only untriaged issues (docs missing entirely from Firestore)
     const triagedIssues = await getAllTriageIssues();
     const triagedNumbers = new Set(triagedIssues.map((i) => i.issueNumber));
     const untriaged = allIssues.filter(
       (issue) => !triagedNumbers.has(issue.number),
     );
 
-    if (untriaged.length === 0) {
-      return NextResponse.json({
-        status: "success",
-        message: "All issues already triaged",
-        totalOpen,
-        untriaged: 0,
-        triaged: 0,
-        failed: 0,
-        durationMs: Date.now() - startTime,
-      });
-    }
+    // 2b. Kick off a background stale-sweep on the backend for issues that
+    //     DO have a doc but whose stored prediction is missing/heuristic/low
+    //     confidence. Runs in the background on the backend (LLM calls are
+    //     slow), so we only bind the queue size here.
+    const queuedRetriage = await triggerRetriageSweep();
 
-    // 3. Triage untriaged issues in batches of 3
-    const BATCH_SIZE = 3;
+    // 3. Triage brand-new issues in batches of 3
     for (let i = 0; i < untriaged.length; i += BATCH_SIZE) {
       const batch = untriaged.slice(i, i + BATCH_SIZE);
       const results = await Promise.allSettled(
@@ -147,13 +140,19 @@ export async function GET(req: Request) {
       failed += results.filter((r) => r.status === "rejected").length;
     }
 
+    const retriageSummary =
+      queuedRetriage === -1
+        ? { error: "sweep failed to start" }
+        : { queued: queuedRetriage };
+
     return NextResponse.json({
       status: "success",
-      message: `Daily triage complete: ${triaged} triaged, ${failed} failed`,
+      message: `Daily triage complete: ${triaged} triaged, ${failed} failed, ${queuedRetriage === -1 ? "stale sweep failed" : `${queuedRetriage} queued for retriage`}`,
       totalOpen,
       untriaged: untriaged.length,
       triaged,
       failed,
+      retriage: retriageSummary,
       durationMs: Date.now() - startTime,
     });
   } catch (error) {
@@ -169,5 +168,34 @@ export async function GET(req: Request) {
       },
       { status: 500 },
     );
+  }
+}
+
+const BATCH_SIZE = 3;
+
+async function triggerRetriageSweep(): Promise<number> {
+  try {
+    const res = await fetch(`${TRIAGE_BACKEND}/retriage`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(TRIAGE_API_KEY ? { "X-API-Key": TRIAGE_API_KEY } : {}),
+      },
+      body: JSON.stringify({ staleOnly: true, minConfidence: 50 }),
+      signal: AbortSignal.timeout(120000),
+    });
+    if (!res.ok) {
+      console.error(
+        "Retriage sweep failed:",
+        res.status,
+        await res.text().catch(() => ""),
+      );
+      return -1;
+    }
+    const data = (await res.json()) as { queued?: number };
+    return data.queued ?? 0;
+  } catch (error) {
+    console.error("Retriage sweep error:", error);
+    return -1;
   }
 }
