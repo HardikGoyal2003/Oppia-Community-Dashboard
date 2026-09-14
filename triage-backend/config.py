@@ -38,6 +38,10 @@ class Config:
     # ── ChromaDB ────────────────────────────────────────────────────────
     chroma_db_path: str = field(default_factory=lambda: os.getenv("CHROMA_DB_PATH", "./chroma_db"))
 
+    # ── Full-corpus seed (all issues open + closed, back to this year) ──
+    seed_year_start: int = field(default_factory=lambda: int(os.getenv("SEED_YEAR_START", "2012")))
+    seed_year_end: int = field(default_factory=lambda: int(os.getenv("SEED_YEAR_END", "2026")))
+
     # ── Embedding model ─────────────────────────────────────────────────
     embedding_model: str = field(default_factory=lambda: os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"))
 
