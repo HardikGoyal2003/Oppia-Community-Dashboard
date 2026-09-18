@@ -37,6 +37,11 @@ export type FetchedTeam = {
   }>;
 };
 
+/**
+ * Fetches all web reviewer sub-teams and their members from GitHub.
+ *
+ * @returns The list of fetched teams with their members.
+ */
 export async function fetchWebReviewerTeams(): Promise<FetchedTeam[]> {
   console.log("Fetching web reviewer teams from GitHub...");
 
@@ -47,7 +52,9 @@ export async function fetchWebReviewerTeams(): Promise<FetchedTeam[]> {
   console.log(`Found ${childTeams.length} web sub-teams.`);
 
   const teamsToFetch = childTeams.filter((t) => !EXCLUDED_SLUGS.has(t.slug));
-  console.log(`Skipping ${childTeams.length - teamsToFetch.length} excluded teams, fetching ${teamsToFetch.length} teams.`);
+  console.log(
+    `Skipping ${childTeams.length - teamsToFetch.length} excluded teams, fetching ${teamsToFetch.length} teams.`,
+  );
 
   const teamsWithMembers: FetchedTeam[] = [];
 

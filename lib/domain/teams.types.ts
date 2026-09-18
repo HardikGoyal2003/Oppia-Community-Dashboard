@@ -8,6 +8,11 @@ export type TeamLead = {
   username: string;
 };
 
+export type TeamMember = {
+  uid: string;
+  username: string;
+};
+
 export type TeamGfiCounts = {
   backend: number;
   frontend: number;
@@ -19,6 +24,7 @@ export type TeamModel = {
   gfiCounts: TeamGfiCounts;
   lastUpdated: Date;
   leads: TeamLead[];
+  members: TeamMember[];
   platform: ContributionPlatform;
   teamName: string;
 };

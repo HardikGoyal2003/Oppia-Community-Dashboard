@@ -1,7 +1,11 @@
 import { createDailyTeamMetric } from "@/db/team-metrics/daily-team-metrics.db";
 import { upsertTeam } from "@/db/teams/teams.db";
 import { TEAM_DEFINITIONS } from "@/lib/domain/team-definitions";
-import type { TeamGfiCounts, TeamLead } from "@/lib/domain/teams.types";
+import type {
+  TeamGfiCounts,
+  TeamLead,
+  TeamMember,
+} from "@/lib/domain/teams.types";
 import { getIstDateKey } from "@/lib/utils/date.utils";
 
 type DummyDataGenerationSummary = {
@@ -62,6 +66,37 @@ const SAMPLE_LEADS: Record<string, TeamLead[]> = {
   ],
 };
 
+const SAMPLE_MEMBERS: Record<string, TeamMember[]> = {
+  ANDROID_CLAM: [
+    { uid: "sample-android-clam-m1", username: "android_builder" },
+    { uid: "sample-android-clam-m2", username: "ui_qa" },
+    { uid: "sample-android-clam-m3", username: "kotlin_fan" },
+    { uid: "sample-android-clam-m4", username: "gradle_whiz" },
+  ],
+  ANDROID_DEV_WORKFLOW_INFRA: [
+    { uid: "sample-android-dev-m1", username: "ci_architect" },
+    { uid: "sample-android-dev-m2", username: "release_engineer" },
+  ],
+  WEB_CORE: [
+    { uid: "sample-web-core-m1", username: "core_contributor" },
+    { uid: "sample-web-core-m2", username: "review_helper" },
+    { uid: "sample-web-core-m3", username: "docs_owner" },
+    { uid: "sample-web-core-m4", username: "ts_lover" },
+    { uid: "sample-web-core-m5", username: "test_writer" },
+  ],
+  WEB_DEV_WORKFLOW: [
+    { uid: "sample-web-dev-m1", username: "devops_gal" },
+    { uid: "sample-web-dev-m2", username: "lint_fixer" },
+    { uid: "sample-web-dev-m3", username: "storybook_dev" },
+  ],
+  WEB_LEAP: [
+    { uid: "sample-web-leap-m1", username: "learner_advocate" },
+    { uid: "sample-web-leap-m2", username: "educator_partner" },
+    { uid: "sample-web-leap-m3", username: "curriculum_pal" },
+    { uid: "sample-web-leap-m4", username: "ally_network" },
+  ],
+};
+
 const SAMPLE_GFI_COUNTS: Record<string, TeamGfiCounts> = {
   ANDROID_CLAM: {
     backend: 1,
@@ -103,6 +138,16 @@ const SAMPLE_UNANSWERED_ISSUES: Record<string, number[]> = {
   WEB_LEAP: [6, 7, 8, 8, 9, 10, 11, 12, 12, 13],
 };
 
+const SAMPLE_MAX_WAITING_DAYS: Record<string, number[]> = {
+  ANDROID_CLAM: [3.2, 2.1, 2.6, 3.0, 3.4, 2.8, 4.1, 3.3, 3.9, 4.2],
+  ANDROID_DEV_WORKFLOW_INFRA: [
+    1.1, 1.4, 1.2, 2.2, 1.8, 2.5, 1.9, 2.3, 2.6, 3.1,
+  ],
+  WEB_CORE: [1.5, 2.0, 2.4, 3.2, 3.6, 3.0, 4.4, 4.1, 4.8, 5.2],
+  WEB_DEV_WORKFLOW: [0.8, 0.9, 1.4, 1.2, 1.7, 2.4, 2.1, 2.9, 2.6, 3.3],
+  WEB_LEAP: [2.1, 2.4, 3.0, 3.3, 3.8, 3.5, 4.2, 4.0, 4.6, 5.1],
+};
+
 /**
  * Builds a deterministic snapshot timestamp for a sample day offset.
  *
@@ -141,6 +186,7 @@ export async function generateTeamReportsDummyData(): Promise<DummyDataGeneratio
         gfiCounts: SAMPLE_GFI_COUNTS[team.teamId],
         lastUpdated,
         leads: SAMPLE_LEADS[team.teamId] ?? [],
+        members: SAMPLE_MEMBERS[team.teamId] ?? [],
         platform: team.platform,
         teamName: team.teamName,
       }),
@@ -151,6 +197,7 @@ export async function generateTeamReportsDummyData(): Promise<DummyDataGeneratio
 
   for (const team of TEAM_DEFINITIONS) {
     const series = SAMPLE_UNANSWERED_ISSUES[team.teamId] ?? [];
+    const waitingSeries = SAMPLE_MAX_WAITING_DAYS[team.teamId] ?? [];
 
     for (const [index, unansweredIssuesCount] of series.entries()) {
       const capturedAt = getFixedIstCaptureDate(series.length - index - 1);
@@ -158,6 +205,7 @@ export async function generateTeamReportsDummyData(): Promise<DummyDataGeneratio
       await createDailyTeamMetric({
         capturedAt,
         dateKey: getIstDateKey(capturedAt),
+        maxWaitingDays: waitingSeries[index] ?? 0,
         platform: team.platform,
         teamId: team.teamId,
         teamName: team.teamName,

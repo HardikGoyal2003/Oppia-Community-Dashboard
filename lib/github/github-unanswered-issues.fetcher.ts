@@ -1,4 +1,5 @@
 import { getOrgMeta } from "@/db/org-meta/org-meta.db";
+import type { OrgMetaRecord } from "@/db/org-meta/org-meta.mapper";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { mapGitHubIssueNodes } from "./github-issues.mapper";
 import {
@@ -13,17 +14,28 @@ import type { GitHubIssue, GitHubRepoTarget } from "./github.types";
  *
  * @param target The GitHub repository to inspect.
  * @param platform Optional platform to fetch cached org meta from Firestore.
+ * @param cachedOrgMeta Optional org meta provided by the client (from localStorage).
  * @returns The filtered unanswered issue nodes for the dashboard.
  */
 export async function fetchUnansweredIssues(
   target: GitHubRepoTarget,
   platform: ContributionPlatform,
+  cachedOrgMeta?: OrgMetaRecord,
 ): Promise<GitHubIssue[]> {
   let orgMembers: Set<string>;
   let collabAll: Set<string>;
   let maintainers: Set<string>;
 
-  if (platform) {
+  if (cachedOrgMeta) {
+    console.log("Using org meta from client cache...");
+    orgMembers = new Set(cachedOrgMeta.orgMembers);
+    collabAll = new Set(cachedOrgMeta.collaborators.map((c) => c.login));
+    maintainers = new Set(
+      cachedOrgMeta.collaborators
+        .filter((c) => ["ADMIN", "MAINTAIN", "WRITE"].includes(c.permission))
+        .map((c) => c.login),
+    );
+  } else if (platform) {
     const cached = await getOrgMeta(platform);
 
     if (cached) {

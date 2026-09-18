@@ -46,3 +46,6 @@ firestore-debug.log
 next-env.d.ts
 
 .codex
+
+# logs
+logs/

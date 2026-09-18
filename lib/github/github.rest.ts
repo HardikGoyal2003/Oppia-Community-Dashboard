@@ -15,6 +15,9 @@ let lastCoreRateLimit: RateLimitSnapshot | null = null;
 /**
  * Captures rate limit headers from a GitHub REST response and stores
  * the latest snapshot for the core rate limit.
+ *
+ * @param res The GitHub REST response to read rate limit headers from.
+ * @returns Nothing.
  */
 function captureRateLimit(res: Response): void {
   const limit = res.headers.get("x-ratelimit-limit");
@@ -36,6 +39,8 @@ function captureRateLimit(res: Response): void {
  * Returns the most recently observed core rate limit snapshot.
  * This is captured from response headers of actual API calls, so it
  * accurately reflects consumed requests.
+ *
+ * @returns The latest core rate limit snapshot, or defaults when unset.
  */
 export function getCoreRateLimit(): RateLimitSnapshot {
   return (
@@ -133,9 +138,7 @@ export async function requestGitHubRest<T>(path: string): Promise<T> {
  * @returns The aggregated array from all pages.
  * @throws {GitHubRestError} When GitHub returns a non-success response.
  */
-export async function requestGitHubRestAll<T>(
-  path: string,
-): Promise<T[]> {
+export async function requestGitHubRestAll<T>(path: string): Promise<T[]> {
   const allItems: T[] = [];
   const separator = path.includes("?") ? "&" : "?";
   let nextUrl: string | null = `${API_URL}${path}${separator}per_page=100`;

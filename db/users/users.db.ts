@@ -156,6 +156,26 @@ export async function getUsersByPlatform(
 }
 
 /**
+ * Retrieves users belonging to a specific team.
+ *
+ * @param teamKey The team key to filter by (e.g. "LEAP", "CORE").
+ * @returns The normalized user models with document ids attached.
+ */
+export async function getUsersByTeam(teamKey: string): Promise<UserRecord[]> {
+  const snap = await usersCollection
+    .where("team", "==", teamKey)
+    .orderBy("createdAt", "desc")
+    .get();
+
+  return snap.docs.map((doc) => {
+    return {
+      id: doc.id,
+      ...normalizeUserDocument(doc.data()),
+    };
+  });
+}
+
+/**
  * Updates the role of an existing user.
  *
  * @param uid The user id to update.

@@ -16,6 +16,8 @@ type GraphQLRateLimit = {
  *
  * Core (REST) → from response headers (always accurate).
  * GraphQL    → from the endpoint body (accurate for GraphQL).
+ *
+ * @returns The current core and GraphQL rate limit snapshots.
  */
 export async function fetchGitHubRateLimit(): Promise<{
   core: import("./github.rest").RateLimitSnapshot;
@@ -23,7 +25,12 @@ export async function fetchGitHubRateLimit(): Promise<{
 }> {
   const core = getCoreRateLimit();
 
-  let graphql: GraphQLRateLimit = { limit: 5000, remaining: 5000, used: 0, reset: 0 };
+  let graphql: GraphQLRateLimit = {
+    limit: 5000,
+    remaining: 5000,
+    used: 0,
+    reset: 0,
+  };
 
   try {
     const data = await requestGitHubRest<{

@@ -8,7 +8,8 @@ import {
   markDataJobRunSucceeded,
 } from "@/db/data-jobs/data-job-runs.db";
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
-import { getAllUsers } from "@/db/users/users.db";
+import { getAllUsers, updateUserRole } from "@/db/users/users.db";
+import { getMembersByTeamId } from "@/lib/teams/sync-team-gfi-counts.service";
 import { DB_PATHS } from "@/db/db-paths";
 import type {
   DataJobDefinition,
@@ -136,7 +137,120 @@ async function backfillArchivedIssues(
   };
 }
 
+/**
+ * Backfills team-report schema fields on existing documents:
+ *   - Adds `members` to team documents that lack it, derived from users
+ *     assigned as TEAM_MEMBER to the matching team.
+ *   - Adds `maxWaitingDays` to daily team metric documents that lack it.
+ *
+ * @param context The data-job execution context.
+ * @returns A summary of the migration results.
+ */
+async function backfillTeamReportSchema(
+  context: DataJobHandlerContext,
+): Promise<DataJobResult> {
+  const db = getAdminFirestore();
+  const membersByTeamId = await getMembersByTeamId();
+
+  let teamsUpdated = 0;
+  let metricsUpdated = 0;
+
+  const teamsSnapshot = await db.collection(DB_PATHS.TEAMS.COLLECTION).get();
+
+  for (const doc of teamsSnapshot.docs) {
+    const data = doc.data();
+
+    if (data.members !== undefined) {
+      continue;
+    }
+
+    teamsUpdated++;
+
+    if (!context.dryRun) {
+      await doc.ref.update({
+        members: membersByTeamId.get(doc.id) ?? [],
+      });
+    }
+  }
+
+  const metricsSnapshot = await db
+    .collection(DB_PATHS.DAILY_TEAM_METRICS.COLLECTION)
+    .get();
+
+  for (const doc of metricsSnapshot.docs) {
+    const data = doc.data();
+
+    if (data.maxWaitingDays !== undefined) {
+      continue;
+    }
+
+    metricsUpdated++;
+
+    if (!context.dryRun) {
+      await doc.ref.update({
+        maxWaitingDays: 0,
+      });
+    }
+  }
+
+  const suffix = context.dryRun ? " (dry run — no changes persisted)" : ".";
+
+  return {
+    summary: `Backfill completed. ${teamsUpdated} team document(s) and ${metricsUpdated} daily team metric document(s) updated${suffix}`,
+  };
+}
+
+/**
+ * Moves users who have a team assignment but still hold the CONTRIBUTOR role
+ * to ALUMNI. These are likely former members whose role was never updated.
+ *
+ * @param context The data-job execution context.
+ * @returns A summary of the cleanup results.
+ */
+async function cleanupTeamContributorsToAlumni(
+  context: DataJobHandlerContext,
+): Promise<DataJobResult> {
+  const users = await getAllUsers();
+  const flaggedUsers = users.filter(
+    (user) => user.team !== null && user.role === "CONTRIBUTOR",
+  );
+
+  if (flaggedUsers.length === 0) {
+    return {
+      summary:
+        "Cleanup completed. No users found with a team assignment and CONTRIBUTOR role.",
+    };
+  }
+
+  let updatedCount = 0;
+
+  for (const user of flaggedUsers) {
+    if (!context.dryRun) {
+      await updateUserRole(user.id, "ALUMNI");
+    }
+    updatedCount++;
+  }
+
+  const suffix = context.dryRun ? " (dry run — no changes persisted)" : ".";
+
+  return {
+    summary: `Cleanup completed. ${updatedCount} user(s) moved from CONTRIBUTOR to ALUMNI${suffix}. Affected users: ${flaggedUsers
+      .slice(0, 10)
+      .map((u) => u.githubUsername)
+      .join(", ")}${flaggedUsers.length > 10 ? "..." : ""}`,
+  };
+}
+
 const DATA_JOB_REGISTRY: RegisteredDataJob[] = [
+  {
+    key: "cleanup_team_contributors_to_alumni",
+    name: "Move Team Contributors to Alumni",
+    description:
+      "Finds users with a team assignment but CONTRIBUTOR role and updates their role to ALUMNI.",
+    kind: "CLEANUP",
+    supportsDryRun: true,
+    handler: cleanupTeamContributorsToAlumni,
+  },
   {
     key: "audit_users_missing_platform",
     name: "Audit Users Missing Platform",
@@ -163,6 +277,15 @@ const DATA_JOB_REGISTRY: RegisteredDataJob[] = [
     kind: "MIGRATION",
     supportsDryRun: true,
     handler: backfillArchivedIssues,
+  },
+  {
+    key: "backfill_team_report_schema",
+    name: "Backfill Team Report Schema",
+    description:
+      "Adds a derived members list to team documents and maxWaitingDays to daily team metric documents.",
+    kind: "MIGRATION",
+    supportsDryRun: true,
+    handler: backfillTeamReportSchema,
   },
 ];
 

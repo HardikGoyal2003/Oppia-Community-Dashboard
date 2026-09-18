@@ -17,6 +17,22 @@ export default async function OverviewPage() {
     redirect("/dashboard");
   }
 
+  if (role === "ALUMNI") {
+    return (
+      <div className="flex min-h-[calc(100vh-6rem)] items-center justify-center">
+        <div className="max-w-xl rounded-lg border bg-white p-6 text-center shadow-sm">
+          <h1 className="mb-2 text-xl font-semibold">
+            Thank you for your contributions!
+          </h1>
+          <p className="text-gray-600">
+            Your account has been moved to Alumni status. If you believe this is
+            a mistake, please reach out to an admin.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (role === "ADMIN" || role === "SUPER_ADMIN") {
     redirect("/dashboard/incoming-requests");
   }
