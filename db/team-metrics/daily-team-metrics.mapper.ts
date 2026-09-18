@@ -12,6 +12,25 @@ export type FirestoreDailyTeamMetric = Omit<DailyTeamMetric, "capturedAt"> & {
 };
 
 /**
+ * Validates that a numeric field is present and non-negative.
+ *
+ * @param value The numeric value candidate.
+ * @param field The Firestore field name being validated.
+ * @returns Nothing. Throws when the value is invalid.
+ */
+function assertNonNegativeNumber(
+  value: number | undefined,
+  field: string,
+): asserts value is number {
+  if (typeof value !== "number" || Number.isNaN(value) || value < 0) {
+    throw new DbValidationError(
+      field,
+      `${field} must be a non-negative number.`,
+    );
+  }
+}
+
+/**
  * Validates the raw Firestore team-metric document shape.
  *
  * @param metric The raw Firestore team metric data.
@@ -55,6 +74,7 @@ function assertFirestoreDailyTeamMetric(
     );
   }
 
+  assertNonNegativeNumber(metric.maxWaitingDays, "maxWaitingDays");
   assertTimestamp("Team metric", "capturedAt", metric.capturedAt);
 }
 
@@ -72,6 +92,7 @@ export function normalizeDailyTeamMetricDocument(
   return {
     capturedAt: normalizeTimestamp(metric.capturedAt),
     dateKey: metric.dateKey,
+    maxWaitingDays: metric.maxWaitingDays,
     platform: metric.platform as ContributionPlatform,
     teamId: metric.teamId,
     teamName: metric.teamName,
@@ -91,6 +112,7 @@ export function serializeDailyTeamMetric(
   return {
     capturedAt: Timestamp.fromDate(metric.capturedAt),
     dateKey: metric.dateKey,
+    maxWaitingDays: metric.maxWaitingDays,
     platform: metric.platform,
     teamId: metric.teamId,
     teamName: metric.teamName,

@@ -17,6 +17,7 @@ export type TeamReport = TeamModel & {
     capturedAt: string;
     dateKey: string;
     unansweredIssuesCount: number;
+    maxWaitingDays: number;
   }>;
   nextSteps: TeamReportNextStep[];
 };
@@ -70,18 +71,45 @@ function getLowGfiDomainShortfalls(gfiCounts: TeamGfiCounts): Array<{
  */
 function getNextSteps(team: TeamReport): TeamReportNextStep[] {
   const nextSteps: TeamReportNextStep[] = [];
-  const recentTrend = team.metrics
-    .slice(-3)
-    .map((metric) => metric.unansweredIssuesCount);
   const lowGfiDomainShortfalls = getLowGfiDomainShortfalls(team.gfiCounts);
   const totalGfiCount =
     team.gfiCounts.frontend +
     team.gfiCounts.backend +
     team.gfiCounts.fullstack +
     team.gfiCounts.uncategorized;
+  const teamLeadCount = team.leads.filter(
+    (lead) => lead.role === "TEAM_LEAD",
+  ).length;
   const traineeLeadCount = team.leads.filter(
     (lead) => lead.role === "LEAD_TRAINEE",
   ).length;
+
+  if (team.members.length < 4) {
+    nextSteps.push({
+      message: "Onboard more team members in this team.",
+      priority: "high",
+      reason:
+        "Each team should have at least 4 members so the team can sustain review, issue response, and contributor support.",
+    });
+  }
+
+  if (teamLeadCount > 3) {
+    nextSteps.push({
+      message: `Reduce team leads in this team. There are ${teamLeadCount} team leads, but the ideal is at most 3.`,
+      priority: "high",
+      reason:
+        "Too many team leads can create unclear ownership and blur accountability.",
+    });
+  }
+
+  if (traineeLeadCount > 2) {
+    nextSteps.push({
+      message: `Reduce trainee leads in this team. There are ${traineeLeadCount} trainee leads, but the ideal is at most 2.`,
+      priority: "high",
+      reason:
+        "Too many trainee leads can slow onboarding and make lead accountability unclear.",
+    });
+  }
 
   if (team.leads.length < 2) {
     nextSteps.push({
@@ -126,16 +154,15 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
     });
   }
 
-  if (
-    recentTrend.length >= 2 &&
-    recentTrend[0] <= recentTrend[recentTrend.length - 1]
-  ) {
+  const latestMaxWaitingDays = team.metrics.at(-1)?.maxWaitingDays ?? 0;
+
+  if (latestMaxWaitingDays > 2) {
     nextSteps.push({
       message:
-        "Ask leads about the team\u2019s issue response performance because unanswered issues are consistently growing.",
+        "Ask leads about the team\u2019s issue response performance because some issues have been waiting too long for a response.",
       priority: "high",
       reason:
-        "A steadily rising (or flat) unanswered issue trend usually signals a support bottleneck that needs attention before it grows further.",
+        "Issues waiting more than 2 days for a response signal a support bottleneck that needs attention.",
     });
   }
 
@@ -178,6 +205,7 @@ export async function getTeamReportsSnapshot(): Promise<TeamReportsSnapshot> {
         capturedAt: metric.capturedAt.toISOString(),
         dateKey: metric.dateKey,
         unansweredIssuesCount: metric.unansweredIssuesCount,
+        maxWaitingDays: metric.maxWaitingDays,
       }));
 
     const report: TeamReport = {

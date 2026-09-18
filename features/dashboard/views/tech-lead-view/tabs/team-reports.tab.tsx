@@ -44,6 +44,7 @@ type TeamReport = {
     capturedAt: string;
     dateKey: string;
     unansweredIssuesCount: number;
+    maxWaitingDays: number;
   }>;
   nextSteps: Array<{
     message: string;

@@ -9,6 +9,7 @@ import {
 } from "@/db/data-jobs/data-job-runs.db";
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { getAllUsers, updateUserRole } from "@/db/users/users.db";
+import { getMembersByTeamId } from "@/lib/teams/sync-team-gfi-counts.service";
 import { DB_PATHS } from "@/db/db-paths";
 import type {
   DataJobDefinition,
@@ -137,6 +138,69 @@ async function backfillArchivedIssues(
 }
 
 /**
+ * Backfills team-report schema fields on existing documents:
+ *   - Adds `members` to team documents that lack it, derived from users
+ *     assigned as TEAM_MEMBER to the matching team.
+ *   - Adds `maxWaitingDays` to daily team metric documents that lack it.
+ *
+ * @param context The data-job execution context.
+ * @returns A summary of the migration results.
+ */
+async function backfillTeamReportSchema(
+  context: DataJobHandlerContext,
+): Promise<DataJobResult> {
+  const db = getAdminFirestore();
+  const membersByTeamId = await getMembersByTeamId();
+
+  let teamsUpdated = 0;
+  let metricsUpdated = 0;
+
+  const teamsSnapshot = await db.collection(DB_PATHS.TEAMS.COLLECTION).get();
+
+  for (const doc of teamsSnapshot.docs) {
+    const data = doc.data();
+
+    if (data.members !== undefined) {
+      continue;
+    }
+
+    teamsUpdated++;
+
+    if (!context.dryRun) {
+      await doc.ref.update({
+        members: membersByTeamId.get(doc.id) ?? [],
+      });
+    }
+  }
+
+  const metricsSnapshot = await db
+    .collection(DB_PATHS.DAILY_TEAM_METRICS.COLLECTION)
+    .get();
+
+  for (const doc of metricsSnapshot.docs) {
+    const data = doc.data();
+
+    if (data.maxWaitingDays !== undefined) {
+      continue;
+    }
+
+    metricsUpdated++;
+
+    if (!context.dryRun) {
+      await doc.ref.update({
+        maxWaitingDays: 0,
+      });
+    }
+  }
+
+  const suffix = context.dryRun ? " (dry run — no changes persisted)" : ".";
+
+  return {
+    summary: `Backfill completed. ${teamsUpdated} team document(s) and ${metricsUpdated} daily team metric document(s) updated${suffix}`,
+  };
+}
+
+/**
  * Moves users who have a team assignment but still hold the CONTRIBUTOR role
  * to ALUMNI. These are likely former members whose role was never updated.
  *
@@ -213,6 +277,15 @@ const DATA_JOB_REGISTRY: RegisteredDataJob[] = [
     kind: "MIGRATION",
     supportsDryRun: true,
     handler: backfillArchivedIssues,
+  },
+  {
+    key: "backfill_team_report_schema",
+    name: "Backfill Team Report Schema",
+    description:
+      "Adds a derived members list to team documents and maxWaitingDays to daily team metric documents.",
+    kind: "MIGRATION",
+    supportsDryRun: true,
+    handler: backfillTeamReportSchema,
   },
 ];
 

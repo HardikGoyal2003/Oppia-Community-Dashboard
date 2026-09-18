@@ -108,9 +108,9 @@ export function getTeamLeadActionMessage(message: string): string {
 
   if (
     message ===
-    "Ask leads about the team\u2019s issue response performance because unanswered issues are consistently growing."
+    "Ask leads about the team\u2019s issue response performance because some issues have been waiting too long for a response."
   ) {
-    return "Review your team\u2019s issue response performance because unanswered issues are consistently growing.";
+    return "Review your team\u2019s issue response performance because some issues have been waiting too long for a response.";
   }
 
   if (
@@ -122,6 +122,13 @@ export function getTeamLeadActionMessage(message: string): string {
 
   if (message === "It is better to onboard one trainee lead in this team.") {
     return "Onboard one trainee lead in your team.";
+  }
+
+  if (
+    message.startsWith("Reduce team leads") ||
+    message.startsWith("Reduce trainee leads")
+  ) {
+    return message.replace(/in this team\./, "in your team.");
   }
 
   if (message.startsWith("Onboard ")) {

@@ -19,8 +19,36 @@ type TeamMetricCaptureSummary = {
     teamId: string;
     teamName: string;
     unansweredIssuesCount: number;
+    maxWaitingDays: number;
   }>;
 };
+
+const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
+
+/**
+ * Computes the maximum number of days any issue has been waiting for a response.
+ *
+ * @param issues The visible unanswered issues for a team.
+ * @param capturedAt The snapshot time.
+ * @returns The max waiting time in days, or 0 when there are no issues.
+ */
+function getMaxWaitingDays(issues: GitHubIssue[], capturedAt: Date): number {
+  if (issues.length === 0) {
+    return 0;
+  }
+
+  const capturedAtMillis = capturedAt.getTime();
+
+  return issues.reduce((max, issue) => {
+    const waitingDays =
+      Math.max(
+        capturedAtMillis - new Date(issue.lastCommentCreatedAt).getTime(),
+        0,
+      ) / DAY_IN_MILLISECONDS;
+
+    return Math.max(max, waitingDays);
+  }, 0);
+}
 
 /**
  * Filters live unanswered issues against archived records and identifies archive rows that should be removed.
@@ -113,15 +141,16 @@ async function capturePlatformTeamMetrics(
   );
 
   const summaries = platformTeams.map((team) => {
-    const unansweredIssuesCount = visibleIssues.filter(
+    const teamIssues = visibleIssues.filter(
       (issue) => issue.linkedProject === team.linkedProject,
-    ).length;
+    );
 
     return {
       platform,
       teamId: team.teamId,
       teamName: team.teamName,
-      unansweredIssuesCount,
+      unansweredIssuesCount: teamIssues.length,
+      maxWaitingDays: getMaxWaitingDays(teamIssues, capturedAt),
     };
   });
 
@@ -130,6 +159,7 @@ async function capturePlatformTeamMetrics(
       createDailyTeamMetric({
         capturedAt,
         dateKey,
+        maxWaitingDays: summary.maxWaitingDays,
         platform: summary.platform,
         teamId: summary.teamId,
         teamName: summary.teamName,
