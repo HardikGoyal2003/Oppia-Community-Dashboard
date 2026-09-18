@@ -9,15 +9,23 @@ import {
 import { getOrgMeta } from "@/db/org-meta/org-meta.db";
 import type { OrgMetaRecord } from "@/db/org-meta/org-meta.mapper";
 
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
 type CachedOrgMeta = {
   orgMembers: string[];
   collaborators: { login: string; permission: string }[];
   lastUpdated: string;
 };
 
-function isValidCachedOrgMeta(data: unknown): data is CachedOrgMeta {
+function isValidCachedOrgMeta(data: JsonValue): data is CachedOrgMeta {
   if (typeof data !== "object" || data === null) return false;
-  const obj = data as Record<string, unknown>;
+  const obj = data as { [key: string]: JsonValue };
   return (
     Array.isArray(obj.orgMembers) &&
     Array.isArray(obj.collaborators) &&

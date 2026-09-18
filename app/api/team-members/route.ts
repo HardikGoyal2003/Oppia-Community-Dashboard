@@ -81,8 +81,7 @@ export async function PATCH(req: Request) {
   if (!isAllowedRole(role as UserRole)) {
     return NextResponse.json(
       {
-        error:
-          "You do not have permission to assign this role.",
+        error: "You do not have permission to assign this role.",
       },
       { status: 403 },
     );
@@ -91,8 +90,7 @@ export async function PATCH(req: Request) {
   if (team && team !== session.user.team) {
     return NextResponse.json(
       {
-        error:
-          "You do not have permission to assign users to another team.",
+        error: "You do not have permission to assign users to another team.",
       },
       { status: 403 },
     );

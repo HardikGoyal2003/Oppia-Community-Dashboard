@@ -135,6 +135,50 @@ Fields:
 - `collaborators: Array<{ login: string, permission: string }>`
 - `lastUpdated: Timestamp`
 
+### `teamReviewers`
+
+Document id:
+
+- platform string (e.g. `WEB`)
+
+Fields:
+
+- `teams: Array<{ teamSlug: string, teamName: string, description: string, members: Array<{ username: string, avatarUrl: string }> }>`
+- `lastUpdated: Timestamp`
+
+### `reviewers`
+
+Document id:
+
+- GitHub login string
+
+Fields:
+
+- `teams: string[]`
+- `pendingReviews: Array<{ prNumber: number, title: string, url: string, assignedAt: string }>`
+- `completedReviews: number`
+- `approvedPrCount: number`
+- `avgReviewTimeHours: number | null`
+- `avgReviewRoundsBeforeApproval: number | null`
+- `avgCommentsPerReview: number | null`
+- `lastUpdated: Timestamp`
+
+### `reviewCycles`
+
+Document id:
+
+- `${reviewerLogin}:${prNumber}:${assignedAt}`
+
+Fields:
+
+- `reviewerLogin: string`
+- `prNumber: number`
+- `prTitle: string`
+- `prUrl: string`
+- `assignedAt: string`
+- `completedAt: string`
+- `durationMs: number`
+
 ## Derived Type Summary
 
 Normalized app-layer models convert Firestore timestamps as follows:
@@ -146,3 +190,5 @@ Normalized app-layer models convert Firestore timestamps as follows:
 - `dailyTeamMetrics.capturedAt -> Date`
 - `dataJobRuns.startedAt -> Date`
 - `dataJobRuns.finishedAt -> Date | null`
+- `teamReviewers.lastUpdated -> Date`
+- `reviewers.lastUpdated -> Date`

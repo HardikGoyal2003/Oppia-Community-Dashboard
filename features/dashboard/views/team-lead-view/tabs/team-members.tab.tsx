@@ -66,9 +66,7 @@ export function TeamMembersTab() {
         setMembers(data);
       } catch (err) {
         setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to load team members.",
+          err instanceof Error ? err.message : "Failed to load team members.",
         );
       } finally {
         setLoading(false);
@@ -142,9 +140,7 @@ export function TeamMembersTab() {
     } catch (error) {
       console.error(error);
       alert(
-        error instanceof Error
-          ? error.message
-          : "Failed to update member.",
+        error instanceof Error ? error.message : "Failed to update member.",
       );
     } finally {
       setUpdatingId(null);

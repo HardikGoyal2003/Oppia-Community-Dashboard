@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import { redirect } from "next/navigation";
 import TeamLeadOverviewTab from "@/features/dashboard/views/team-lead-view/tabs/overview.tab";
-import ContributorOverviewWrapper from "./contributor-overview-wrapper";
+import ContributorOverviewWrapper from "@/features/dashboard/views/contributor-view/components/contributor-overview-wrapper";
 
 export default async function OverviewPage() {
   const session = await getServerSession(authOptions);
