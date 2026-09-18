@@ -76,7 +76,7 @@ async function getLeadsByTeamId(): Promise<Map<string, TeamLead[]>> {
  *
  * @returns The derived members keyed by stable team id.
  */
-async function getMembersByTeamId(): Promise<Map<string, TeamMember[]>> {
+export async function getMembersByTeamId(): Promise<Map<string, TeamMember[]>> {
   const users = await getAllUsers();
 
   return new Map(

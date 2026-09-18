@@ -138,6 +138,16 @@ const SAMPLE_UNANSWERED_ISSUES: Record<string, number[]> = {
   WEB_LEAP: [6, 7, 8, 8, 9, 10, 11, 12, 12, 13],
 };
 
+const SAMPLE_MAX_WAITING_DAYS: Record<string, number[]> = {
+  ANDROID_CLAM: [3.2, 2.1, 2.6, 3.0, 3.4, 2.8, 4.1, 3.3, 3.9, 4.2],
+  ANDROID_DEV_WORKFLOW_INFRA: [
+    1.1, 1.4, 1.2, 2.2, 1.8, 2.5, 1.9, 2.3, 2.6, 3.1,
+  ],
+  WEB_CORE: [1.5, 2.0, 2.4, 3.2, 3.6, 3.0, 4.4, 4.1, 4.8, 5.2],
+  WEB_DEV_WORKFLOW: [0.8, 0.9, 1.4, 1.2, 1.7, 2.4, 2.1, 2.9, 2.6, 3.3],
+  WEB_LEAP: [2.1, 2.4, 3.0, 3.3, 3.8, 3.5, 4.2, 4.0, 4.6, 5.1],
+};
+
 /**
  * Builds a deterministic snapshot timestamp for a sample day offset.
  *
@@ -187,6 +197,7 @@ export async function generateTeamReportsDummyData(): Promise<DummyDataGeneratio
 
   for (const team of TEAM_DEFINITIONS) {
     const series = SAMPLE_UNANSWERED_ISSUES[team.teamId] ?? [];
+    const waitingSeries = SAMPLE_MAX_WAITING_DAYS[team.teamId] ?? [];
 
     for (const [index, unansweredIssuesCount] of series.entries()) {
       const capturedAt = getFixedIstCaptureDate(series.length - index - 1);
@@ -194,6 +205,7 @@ export async function generateTeamReportsDummyData(): Promise<DummyDataGeneratio
       await createDailyTeamMetric({
         capturedAt,
         dateKey: getIstDateKey(capturedAt),
+        maxWaitingDays: waitingSeries[index] ?? 0,
         platform: team.platform,
         teamId: team.teamId,
         teamName: team.teamName,

@@ -101,6 +101,7 @@ Fields:
 - `dateKey: string` **(IST-normalized YYYY-MM-DD reporting day bucket)**
 - `capturedAt: Timestamp`
 - `unansweredIssuesCount: number`
+- `maxWaitingDays: number`
 
 ### `dataJobRuns`
 
