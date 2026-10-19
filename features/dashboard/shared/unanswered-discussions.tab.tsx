@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { DiscussionCard } from "./discussions/components/discussion-card";
 import { DiscussionTabs } from "./discussions/components/discussion-tabs";
+import { EmptyState } from "./empty-state";
 import { GitHubDiscussion } from "@/lib/github/github.types";
 import { LoadingIndicator } from "@/components/layout/loading-indicator";
 import { useLoading } from "@/components/providers/loader-context";
@@ -210,22 +211,24 @@ export default function UnansweredDiscussionsTab() {
               responseData &&
               activeTab === "active" &&
               discussions.active.length === 0 && (
-                <div className="py-20 text-center">
-                  <div className="mx-auto flex w-fit items-center gap-2 rounded-full bg-slate-100 px-4 py-1 text-sm font-medium text-slate-700">
-                    <span>🎉</span>
-                    <span>All discussions cleared</span>
-                  </div>
+                <EmptyState
+                  icon="🎉"
+                  badge="All discussions cleared"
+                  title="Great job, team! 🙌"
+                  description="Big thanks for staying responsive and keeping the Oppia community's discussions active, supported, and moving forward."
+                />
+              )}
 
-                  <p className="mt-5 text-2xl font-semibold tracking-tight text-slate-900">
-                    Great job, team! 🙌
-                  </p>
-
-                  <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-                    Big thanks for staying responsive and keeping the Oppia
-                    community&apos;s discussions active, supported, and moving
-                    forward.
-                  </p>
-                </div>
+            {discussions &&
+              responseData &&
+              activeTab === "archive" &&
+              discussions.archive.length === 0 && (
+                <EmptyState
+                  icon="🗂️"
+                  badge="No archived discussions"
+                  title="Nothing here yet"
+                  description="Discussions you mark as done or archive will show up here, so you can revisit handled conversations later."
+                />
               )}
 
             {discussions &&
