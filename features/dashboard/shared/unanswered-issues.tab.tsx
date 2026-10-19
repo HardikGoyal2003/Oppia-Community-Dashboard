@@ -20,6 +20,9 @@ import {
 } from "@/lib/utils/local-storage-cache";
 import { getErrorCodeMeta } from "@/lib/errors/error-codes";
 import { ErrorCard } from "@/components/error/error-card";
+import { formatDisplayValue } from "@/lib/utils/display.utils";
+import { MonitorSmartphone } from "lucide-react";
+import { cn } from "@/lib/utils/classnames.utils";
 
 type CachedOrgMeta = {
   orgMembers: string[];
@@ -29,6 +32,11 @@ type CachedOrgMeta = {
 
 const ORG_META_CACHE_KEY_PREFIX = "oppia_org_meta";
 const GITHUB_API_UNAVAILABLE_META = getErrorCodeMeta("GITHUB_API_UNAVAILABLE");
+const PLATFORM_OPTIONS: ContributionPlatform[] = ["WEB", "ANDROID"];
+const PLATFORM_REPO_LABEL: Record<ContributionPlatform, string> = {
+  WEB: "oppia/oppia",
+  ANDROID: "oppia/oppia-android",
+};
 
 export default function UnansweredIssuesTab() {
   const [responseData, setResponseData] = useState<{
@@ -46,7 +54,16 @@ export default function UnansweredIssuesTab() {
   const [archivedIssues, setArchivedIssues] = useState<Issue[]>([]);
 
   const { data: session } = useSession();
-  const platform = session?.user?.platform;
+  const sessionPlatform = session?.user?.platform ?? null;
+  const role = session?.user?.role;
+  const isAdmin = role === "ADMIN" || role === "SUPER_ADMIN";
+
+  const [selectedPlatform, setSelectedPlatform] =
+    useState<ContributionPlatform | null>(null);
+
+  const platform = isAdmin
+    ? (selectedPlatform ?? sessionPlatform)
+    : sessionPlatform;
   const hasPlatform = platform !== null && platform !== undefined;
 
   const teamLabelMap: Record<string, string> =
@@ -77,7 +94,10 @@ export default function UnansweredIssuesTab() {
       const issuesResponse = await fetch("/api/github/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orgMeta: cachedOrgMeta ?? null }),
+        body: JSON.stringify({
+          orgMeta: cachedOrgMeta ?? null,
+          platform,
+        }),
       });
 
       if (!issuesResponse.ok) {
@@ -115,6 +135,24 @@ export default function UnansweredIssuesTab() {
     }
   };
 
+  const handlePlatformChange = (nextPlatform: ContributionPlatform) => {
+    if (nextPlatform === platform) return;
+
+    setSelectedPlatform(nextPlatform);
+    setActiveTab("team1");
+    setResponseData(null);
+    setArchivedIssues([]);
+    setFetchError(null);
+    setShowGitHubError(false);
+    setIssues({
+      team1: [],
+      team2: [],
+      team3: [],
+      others: [],
+      archive: [],
+    });
+  };
+
   useEffect(() => {
     if (!responseData || !hasPlatform) return;
 
@@ -139,6 +177,49 @@ export default function UnansweredIssuesTab() {
         </div>
       ) : (
         <>
+          {isAdmin && (
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:px-5">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                  <MonitorSmartphone className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    Contribution platform
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {platform
+                      ? `Viewing unanswered issues from ${PLATFORM_REPO_LABEL[platform]}.`
+                      : "Choose a platform to view unanswered issues."}
+                  </p>
+                </div>
+              </div>
+
+              <div className="inline-flex items-center gap-1 rounded-xl bg-slate-100 p-1">
+                {PLATFORM_OPTIONS.map((option) => {
+                  const isActive = platform === option;
+
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      aria-pressed={isActive}
+                      onClick={() => handlePlatformChange(option)}
+                      className={cn(
+                        "rounded-lg px-4 py-1.5 text-sm font-medium transition-all",
+                        isActive
+                          ? "bg-white text-slate-900 shadow-sm"
+                          : "text-slate-500 hover:text-slate-800",
+                      )}
+                    >
+                      {formatDisplayValue(option)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {hasPlatform && (
             <TeamTabs
               platform={platform as ContributionPlatform}
