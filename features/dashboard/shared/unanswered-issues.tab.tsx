@@ -58,7 +58,6 @@ export default function UnansweredIssuesTab() {
   const role = session?.user?.role;
   const isAdmin = role === "ADMIN" || role === "SUPER_ADMIN";
 
-  // Admins can inspect any platform; fall back to their own until they pick one.
   const [selectedPlatform, setSelectedPlatform] =
     useState<ContributionPlatform | null>(null);
 
