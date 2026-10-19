@@ -41,7 +41,7 @@ function getSidebarItems(role: UserRole): SidebarNavigationItem[] {
           url: "/dashboard/team-reports",
         },
         {
-          name: "Unanswered Issue",
+          name: "Unanswered Issues",
           icon: Bug,
           url: "/dashboard/unanswered-issues",
         },
