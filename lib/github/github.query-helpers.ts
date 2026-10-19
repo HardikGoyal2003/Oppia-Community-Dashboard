@@ -1,6 +1,7 @@
 import { GitHubGraphQLError } from "./github.request";
 import { requestGitHubGraphQL } from "./github.request";
 import type {
+  GitHubDiscussionNode,
   GitHubGoodFirstIssueNode,
   GitHubIssueNode,
   GitHubRepoTarget,
@@ -14,6 +15,11 @@ type GitHubIssuesPage = {
   pageInfo: { hasNextPage: boolean; endCursor: string | null };
 };
 
+type GitHubDiscussionsPage = {
+  nodes: GitHubDiscussionNode[];
+  pageInfo: { hasNextPage: boolean; endCursor: string | null };
+};
+
 type GitHubSearchPage = {
   nodes: GitHubGoodFirstIssueNode[];
   pageInfo: { hasNextPage: boolean; endCursor: string | null };
@@ -22,6 +28,12 @@ type GitHubSearchPage = {
 type IssuesResponse = {
   repository: {
     issues: GitHubIssuesPage;
+  };
+};
+
+type DiscussionsResponse = {
+  repository: {
+    discussions: GitHubDiscussionsPage;
   };
 };
 
@@ -78,6 +90,42 @@ function assertIssuesResponse(response: IssuesResponse): void {
   if (!response.repository.issues.pageInfo) {
     throw new GitHubGraphQLError(
       "GitHub issues response is missing pagination data.",
+      [],
+    );
+  }
+}
+
+/**
+ * Validates that the GitHub discussions response contains the nested structures required by the fetcher.
+ *
+ * @param response The parsed discussions response payload.
+ * @returns Nothing. Throws when the response shape is incomplete.
+ */
+function assertDiscussionsResponse(response: DiscussionsResponse): void {
+  if (!response.repository) {
+    throw new GitHubGraphQLError(
+      "GitHub discussions response is missing repository data.",
+      [],
+    );
+  }
+
+  if (!response.repository.discussions) {
+    throw new GitHubGraphQLError(
+      "GitHub discussions response is missing discussions data.",
+      [],
+    );
+  }
+
+  if (!Array.isArray(response.repository.discussions.nodes)) {
+    throw new GitHubGraphQLError(
+      "GitHub discussions response contains invalid discussion nodes.",
+      [],
+    );
+  }
+
+  if (!response.repository.discussions.pageInfo) {
+    throw new GitHubGraphQLError(
+      "GitHub discussions response is missing pagination data.",
       [],
     );
   }
@@ -205,6 +253,63 @@ export async function fetchRecentIssueNodes(
   }
 
   return issues;
+}
+
+/**
+ * Fetches repository discussions updated within the last 30 days using paginated GraphQL requests.
+ *
+ * @param target The repository to fetch from.
+ * @returns The aggregated recent discussion nodes.
+ */
+export async function fetchRecentDiscussionNodes(
+  target: GitHubRepoTarget,
+): Promise<GitHubDiscussionNode[]> {
+  const discussions: GitHubDiscussionNode[] = [];
+  let cursor: string | null = null;
+  let hasNextPage = true;
+
+  const query = `
+    query($owner: String!, $repo: String!, $cursor: String) {
+      repository(owner: $owner, name: $repo) {
+        discussions(
+          first: 100
+          after: $cursor
+          orderBy: { field: UPDATED_AT, direction: DESC }
+        ) {
+          nodes {
+            number
+            title
+            url
+            createdAt
+            closed
+            author {
+              login
+            }
+          }
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+        }
+      }
+    }
+  `;
+
+  while (hasNextPage) {
+    const data: DiscussionsResponse =
+      await requestGitHubGraphQL<DiscussionsResponse>(query, {
+        owner: target.owner,
+        repo: target.repo,
+        cursor,
+      });
+    assertDiscussionsResponse(data);
+
+    discussions.push(...data.repository.discussions.nodes);
+    hasNextPage = data.repository.discussions.pageInfo.hasNextPage;
+    cursor = data.repository.discussions.pageInfo.endCursor;
+  }
+
+  return discussions;
 }
 
 /**

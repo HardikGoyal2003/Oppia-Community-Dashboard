@@ -1,7 +1,15 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { BarChart3, Bug, Inbox, LayoutDashboard, Map, Users } from "lucide-react";
+import {
+  BarChart3,
+  Bug,
+  Inbox,
+  LayoutDashboard,
+  Map,
+  MessageSquare,
+  Users,
+} from "lucide-react";
 import type { UserRole } from "@/lib/auth/auth.types";
 import { AppSidebar } from "@/components/layout/sidebar/app-sidebar";
 import { Navbar } from "@/components/layout/navbar";
@@ -17,30 +25,82 @@ function getSidebarItems(role: UserRole): SidebarNavigationItem[] {
     case "SUPER_ADMIN":
     case "ADMIN":
       return [
-        { name: "Incoming Requests", icon: Inbox, url: "/dashboard/incoming-requests" },
-        { name: "User Role Manager", icon: Users, url: "/dashboard/user-role-manager" },
-        { name: "Team Reports", icon: BarChart3, url: "/dashboard/team-reports" },
-        { name: "Unanswered Issue", icon: Bug, url: "/dashboard/unanswered-issues" },
+        {
+          name: "Incoming Requests",
+          icon: Inbox,
+          url: "/dashboard/incoming-requests",
+        },
+        {
+          name: "User Role Manager",
+          icon: Users,
+          url: "/dashboard/user-role-manager",
+        },
+        {
+          name: "Team Reports",
+          icon: BarChart3,
+          url: "/dashboard/team-reports",
+        },
+        {
+          name: "Unanswered Issue",
+          icon: Bug,
+          url: "/dashboard/unanswered-issues",
+        },
+        {
+          name: "Unanswered Discussions",
+          icon: MessageSquare,
+          url: "/dashboard/unanswered-discussions",
+        },
       ];
     case "TEAM_LEAD":
       return [
         { name: "Overview", icon: LayoutDashboard, url: "/dashboard/overview" },
-        { name: "Incoming Requests", icon: Inbox, url: "/dashboard/incoming-requests" },
+        {
+          name: "Incoming Requests",
+          icon: Inbox,
+          url: "/dashboard/incoming-requests",
+        },
         { name: "Team Members", icon: Users, url: "/dashboard/team-members" },
-        { name: "Unanswered Issues", icon: Bug, url: "/dashboard/unanswered-issues" },
+        {
+          name: "Unanswered Issues",
+          icon: Bug,
+          url: "/dashboard/unanswered-issues",
+        },
+        {
+          name: "Unanswered Discussions",
+          icon: MessageSquare,
+          url: "/dashboard/unanswered-discussions",
+        },
       ];
     case "LEAD_TRAINEE":
       return [
-        { name: "Unanswered Issues", icon: Bug, url: "/dashboard/unanswered-issues" },
+        {
+          name: "Unanswered Issues",
+          icon: Bug,
+          url: "/dashboard/unanswered-issues",
+        },
+        {
+          name: "Unanswered Discussions",
+          icon: MessageSquare,
+          url: "/dashboard/unanswered-discussions",
+        },
       ];
     case "TEAM_MEMBER":
       return [
         { name: "Overview", icon: LayoutDashboard, url: "/dashboard/overview" },
+        {
+          name: "Unanswered Discussions",
+          icon: MessageSquare,
+          url: "/dashboard/unanswered-discussions",
+        },
       ];
     default:
       return [
         { name: "Overview", icon: LayoutDashboard, url: "/dashboard/overview" },
-        { name: "My Contribution Journey", icon: Map, url: "/dashboard/my-contribution-journey" },
+        {
+          name: "My Contribution Journey",
+          icon: Map,
+          url: "/dashboard/my-contribution-journey",
+        },
       ];
   }
 }
@@ -59,9 +119,7 @@ export function DashboardShell({
       <AppSidebar items={sidebarItems} />
       <SidebarInset>
         <Navbar leftContent={<SidebarTrigger className="-ml-1" />} />
-        <div className="min-h-screen bg-gray-50 px-6 py-10">
-          {children}
-        </div>
+        <div className="min-h-screen bg-gray-50 px-6 py-10">{children}</div>
       </SidebarInset>
     </SidebarProvider>
   );

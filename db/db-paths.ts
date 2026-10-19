@@ -2,6 +2,9 @@ export const DB_PATHS = {
   ARCHIVED_ISSUES: {
     COLLECTION: "archivedIssues",
   },
+  ARCHIVED_DISCUSSIONS: {
+    COLLECTION: "archivedDiscussions",
+  },
   DATA_JOB_RUNS: {
     COLLECTION: "dataJobRuns",
   },

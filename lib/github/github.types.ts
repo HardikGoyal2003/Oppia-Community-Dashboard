@@ -66,3 +66,19 @@ export interface GitHubGoodFirstIssue {
   labels: string[];
   linkedProject: string;
 }
+
+export interface GitHubDiscussionNode {
+  number: number;
+  title: string;
+  url: string;
+  createdAt: string;
+  closed: boolean;
+  author?: GitHubUser;
+}
+
+export interface GitHubDiscussion {
+  discussionNumber: number;
+  discussionUrl: string;
+  discussionTitle: string;
+  lastCommentCreatedAt: string;
+}
