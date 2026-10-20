@@ -7,6 +7,7 @@ import { GitHubIssue } from "@/lib/github/github.types";
 import { LoadingIndicator } from "@/components/layout/loading-indicator";
 import { useLoading } from "@/components/providers/loader-context";
 import { TeamTabs } from "./team-tabs";
+import { EmptyState } from "./empty-state";
 import type { Issue } from "@/lib/domain/issues.types";
 import { CategorizedProjectIssues } from "../dashboard.types";
 import { useProjectIssuesStore } from "./issues/store/project-issues.store";
@@ -255,23 +256,24 @@ export default function UnansweredIssuesTab() {
               responseData &&
               activeTab !== "archive" &&
               issues[activeTab].length === 0 && (
-                <div className="py-20 text-center">
-                  <div className="mx-auto flex w-fit items-center gap-2 rounded-full bg-slate-100 px-4 py-1 text-sm font-medium text-slate-700">
-                    <span>🎉</span>
-                    <span>All issues cleared</span>
-                  </div>
+                <EmptyState
+                  icon="🎉"
+                  badge="All issues cleared"
+                  title={`Great job, ${teamLabelMap[activeTab] || "team"} leads! 🙌`}
+                  description="Big thanks for staying responsive and keeping your team's issue flow healthy. Your consistency is helping keep the Oppia community active, supported, and moving forward."
+                />
+              )}
 
-                  <p className="mt-5 text-2xl font-semibold tracking-tight text-slate-900">
-                    Great job, {teamLabelMap[activeTab] || "team"} leads! 🙌
-                  </p>
-
-                  <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-                    Big thanks for staying responsive and keeping your
-                    team&apos;s issue flow healthy. Your consistency is helping
-                    keep the Oppia community active, supported, and moving
-                    forward.
-                  </p>
-                </div>
+            {issues &&
+              responseData &&
+              activeTab === "archive" &&
+              issues.archive.length === 0 && (
+                <EmptyState
+                  icon="🗂️"
+                  badge="No archived issues"
+                  title="Nothing here yet"
+                  description="Issues your team marks as done or archives will show up here, so you can revisit handled conversations later."
+                />
               )}
 
             {issues &&

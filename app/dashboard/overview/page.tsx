@@ -46,10 +46,10 @@ export default async function OverviewPage() {
       <div className="flex min-h-[calc(100vh-6rem)] items-center justify-center">
         <div className="max-w-xl rounded-lg border bg-white p-6 text-center shadow-sm">
           <h1 className="mb-2 text-xl font-semibold">
-            Team Dashboard Coming Soon 🚧
+            Overview Coming Soon 🚧
           </h1>
           <p className="text-gray-600">
-            We&apos;re working on a dashboard tailored for team members. Stay
+            We&apos;re working on an overview tailored for team members. Stay
             tuned!
           </p>
         </div>
