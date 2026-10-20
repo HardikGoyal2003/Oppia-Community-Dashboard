@@ -93,7 +93,7 @@ The dashboard is initially intended for **internal Oppia maintainers**, but is d
 
 - Action items come from team-report rules (`getNextSteps()` in `lib/team-reports/`, each step carries a stable `ruleKey`) and are persisted by `syncActionItems()` in `lib/action-items/`. Items live at `teams/{teamId}/actionItems/{ruleKey}`.
 - **Status is fully derived — no human writes it.** The sync engine is the only writer: a firing rule creates/refreshes an `OPEN` item; an item whose rule has been silent for `ACTION_ITEM_RESOLVE_AFTER_DAYS` (7) auto-resolves itself. There is no review API and the UI list is read-only.
-- Sync cron: `/api/cron/sync-action-items` (daily 04:30 IST, `CRON_SECRET` bearer). `GET /api/action-items` also syncs on read, so the UI always shows current data.
+- Sync runs as a step inside the digest and escalation crons, and on `GET /api/action-items` — there is no standalone sync cron.
 - Weekly digest cron: `/api/cron/send-action-item-digest` (Mondays 08:30 IST). Sends through registered channels in `lib/notifications/channels/` — in-app bell plus Resend email. Deliveries are idempotent per (week, team, channel) via `notificationDeliveries`.
 - Escalation: `/api/cron/escalate-action-items` runs daily (09:30 IST) but only nudges when an item is due — open, already digest-notified, still detected, and untouched for `ACTION_ITEM_ESCALATION_DAYS` (default 3) since the last nudge. Levels escalate on each boundary; nudges go to leads only. Idempotent per (day, team, channel).
 - **Adding a channel** (Google Chat, Slack, ...): implement `NotificationChannel` from `lib/domain/notifications.types.ts`, register it in `lib/notifications/channels/index.ts`. Nothing else changes.

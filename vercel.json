@@ -13,10 +13,6 @@
       "schedule": "30 21 */3 * *"
     },
     {
-      "path": "/api/cron/sync-action-items",
-      "schedule": "0 23 * * *"
-    },
-    {
       "path": "/api/cron/send-action-item-digest",
       "schedule": "0 3 * * 1"
     },
