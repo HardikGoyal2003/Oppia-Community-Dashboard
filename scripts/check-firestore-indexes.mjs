@@ -10,6 +10,12 @@ const orderByFieldPattern =
   /\.orderBy\(\s*["']([^"']+)["']\s*(?:,\s*["']([^"']+)["'])?/g;
 const queryMethodPattern = /(?:export\s+)?(?:async\s+)?function\s+\w+\s*\([^)]*\)/g;
 
+/**
+ * Recursively lists database-layer files that contain Firestore queries.
+ *
+ * @param {string} directory The directory to search.
+ * @returns {Promise<string[]>} The database-layer file paths.
+ */
 async function getDatabaseFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = [];
@@ -27,6 +33,12 @@ async function getDatabaseFiles(directory) {
   return files;
 }
 
+/**
+ * Splits and normalizes a comma-separated index field list.
+ *
+ * @param {string} fields The comma-separated field list.
+ * @returns {string[]} The normalized field names.
+ */
 function normalizeFields(fields) {
   return fields
     .split(",")
@@ -34,10 +46,23 @@ function normalizeFields(fields) {
     .filter(Boolean);
 }
 
+/**
+ * Builds a stable key for an index definition.
+ *
+ * @param {string} collectionGroup The Firestore collection group.
+ * @param {string[]} fields The ordered index fields.
+ * @returns {string} The index key.
+ */
 function getIndexKey(collectionGroup, fields) {
   return `${collectionGroup}:${fields.join(",")}`;
 }
 
+/**
+ * Indexes the configured Firestore definitions by collection and field order.
+ *
+ * @param indexesDocument The parsed index configuration.
+ * @returns {Map<string, object>} The configured indexes by stable key.
+ */
 function getConfiguredIndexes(indexesDocument) {
   return new Map(
     indexesDocument.indexes.map((index) => [
@@ -50,6 +75,12 @@ function getConfiguredIndexes(indexesDocument) {
   );
 }
 
+/**
+ * Finds source ranges belonging to individual database functions.
+ *
+ * @param {string} source The database source code.
+ * @returns {Array<{start: number, end: number}>} The function source ranges.
+ */
 function getFunctionRanges(source) {
   const matches = [...source.matchAll(queryMethodPattern)];
 
@@ -64,6 +95,13 @@ function getFunctionRanges(source) {
   });
 }
 
+/**
+ * Extracts Firestore index contract tags from a function range.
+ *
+ * @param {string} source The database source code.
+ * @param range The function source range.
+ * @returns {Array<{collectionGroup: string, fields: string[]}>} The declared index contracts.
+ */
 function getIndexTags(source, range) {
   const functionSource = source.slice(range.start, range.end);
   return [...functionSource.matchAll(indexTagPattern)].map((match) => ({
@@ -72,6 +110,13 @@ function getIndexTags(source, range) {
   }));
 }
 
+/**
+ * Extracts filter and ordering fields from a function range.
+ *
+ * @param {string} source The database source code.
+ * @param range The function source range.
+ * @returns {{whereFields: string[], orderByFields: Array<{field: string, direction: string}>}} The query fields.
+ */
 function getQueryFields(source, range) {
   const functionSource = source.slice(range.start, range.end);
   const whereFields = [...functionSource.matchAll(whereFieldPattern)].map(
@@ -87,11 +132,24 @@ function getQueryFields(source, range) {
   return { whereFields, orderByFields };
 }
 
+/**
+ * Formats a source location for a validation error.
+ *
+ * @param {string} filePath The repository-relative file path.
+ * @param {string} source The file source code.
+ * @param {number} offset The source character offset.
+ * @returns {string} The formatted file and line location.
+ */
 function formatLocation(filePath, source, offset) {
   const line = source.slice(0, offset).split("\n").length;
   return `${filePath}:${line}`;
 }
 
+/**
+ * Validates database query contracts against Firestore index configuration.
+ *
+ * @returns {Promise<void>} A promise that resolves after validation completes.
+ */
 async function main() {
   const indexesDocument = JSON.parse(await readFile(indexesPath, "utf8"));
   const configuredIndexes = getConfiguredIndexes(indexesDocument);
