@@ -1,4 +1,4 @@
-name: Firestore indexes
+name: Validate Firestore indexes
 
 on:
   pull_request:
