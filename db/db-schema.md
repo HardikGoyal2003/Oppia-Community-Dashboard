@@ -103,6 +103,54 @@ Fields:
 - `unansweredIssuesCount: number`
 - `maxWaitingDays: number`
 
+### `actionItems`
+
+Document id:
+
+- deterministic `${teamKey}__${ruleKey}` (plus `__${params}` when a rule is parameterized), e.g. `CORE__gfi-shortfall`
+
+Fields:
+
+- `teamId: string` **(team document id like `WEB_CORE`)**
+- `teamKey: string` **(team key on user records like `CORE`)**
+- `teamName: string`
+- `platform: "WEB" | "ANDROID"`
+- `ruleKey: string` **(stable team-report rule identifier)**
+- `params: string | null`
+- `message: string`
+- `priority: "high" | "medium"`
+- `reason: string`
+- `status: "OPEN" | "ACKNOWLEDGED" | "RESOLVED" | "DISMISSED"`
+- `detectedAt: Timestamp`
+- `lastDetectedAt: Timestamp`
+- `acknowledgedAt: Timestamp | null`
+- `resolvedAt: Timestamp | null`
+- `resolvedBy: string | null` **(uid of the resolving user)**
+- `resolutionNote: string | null`
+- `firstNotifiedAt: Timestamp | null`
+- `lastNotifiedAt: Timestamp | null`
+- `notificationCount: number`
+- `createdAt: Timestamp`
+- `updatedAt: Timestamp`
+
+### `notificationDeliveries`
+
+Document id:
+
+- `${kind}__${periodKey}__${teamKey}__${channel}` **(also the idempotency key, e.g. `weekly_action_items_digest__2026-10-19__CORE__EMAIL`)**
+
+Fields:
+
+- `kind: string`
+- `channel: "EMAIL" | "IN_APP"`
+- `teamKey: string`
+- `periodKey: string` **(IST week-start date key for digests)**
+- `recipientUids: string[]`
+- `itemCount: number`
+- `status: "SENT" | "SKIPPED" | "FAILED"`
+- `error: string | null`
+- `recordedAt: Timestamp`
+
 ### `dataJobRuns`
 
 Document id:
@@ -143,6 +191,15 @@ Normalized app-layer models convert Firestore timestamps as follows:
 - `users/{uid}/notifications.createdAt -> Date`
 - `memberAccessRequests.createdAt -> Date`
 - `teams.lastUpdated -> Date`
+- `actionItems.detectedAt -> Date`
+- `actionItems.lastDetectedAt -> Date`
+- `actionItems.acknowledgedAt -> Date | null`
+- `actionItems.resolvedAt -> Date | null`
+- `actionItems.firstNotifiedAt -> Date | null`
+- `actionItems.lastNotifiedAt -> Date | null`
+- `actionItems.createdAt -> Date`
+- `actionItems.updatedAt -> Date`
+- `notificationDeliveries.recordedAt -> Date`
 - `dailyTeamMetrics.capturedAt -> Date`
 - `dataJobRuns.startedAt -> Date`
 - `dataJobRuns.finishedAt -> Date | null`

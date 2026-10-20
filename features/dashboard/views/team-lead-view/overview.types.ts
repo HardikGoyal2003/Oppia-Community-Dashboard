@@ -21,6 +21,8 @@ export type TeamReport = {
     maxWaitingDays: number;
   }>;
   nextSteps: Array<{
+    ruleKey?: string;
+    params?: string;
     message: string;
     priority: "high" | "medium";
     reason: string;

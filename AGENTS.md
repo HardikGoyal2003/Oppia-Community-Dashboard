@@ -27,12 +27,12 @@ The dashboard is initially intended for **internal Oppia maintainers**, but is d
 
 ## Roles & Views
 
-| Role              | View                 |
-| ----------------- | -------------------- |
-| Contributor       | contributor.view.tsx |
-| Team Member       | team-member.view.tsx |
-| Team Lead         | team-lead.view.tsx   |
-| Tech Lead (Admin) | tech-lead.view.tsx   |
+| Role              | View                                             |
+| ----------------- | ------------------------------------------------ |
+| Contributor       | `features/dashboard/views/contributor-view/`     |
+| Team Member       | placeholder in `app/dashboard/overview/page.tsx` |
+| Team Lead         | `features/dashboard/views/team-lead-view/`       |
+| Tech Lead (Admin) | `features/dashboard/views/tech-lead-view/`       |
 
 **Rule:** Never bypass role-based logic.
 
@@ -67,7 +67,10 @@ The dashboard is initially intended for **internal Oppia maintainers**, but is d
 - `lib/firebase/` – Firebase clients (`firebase-admin.ts`, `firebase.client.ts`)
 - `lib/github/` – GitHub fetcher and types
 - `lib/utils/` – helper functions
-- `lib/constants.ts` – global constants
+- `lib/config/` – global constants and env helpers (`lib/constants.ts` no longer exists)
+- `lib/action-items/` – action-item sync/status service (derived from team-report rules)
+- `lib/notifications/` – notification channels (in-app, email) and digest templates
+- `features/dashboard/shared/action-items/` – client types, API service, and hook for action items
 - `components/ui/` – reusable UI primitives
 - `components/layout/sidebar/` – sidebar components, hooks, and store
 - `components/layout/` – other layout components (navbar, loading indicator)
@@ -79,8 +82,20 @@ The dashboard is initially intended for **internal Oppia maintainers**, but is d
 - **users:** id, githubUsername, role, createdAt
 - **archivedIssues:** id, issueNumber, archivedBy, archivedAt
 - **memberRequestAccess:** id, userId, requestedRole, status, createdAt
+- **actionItems:** id (`${teamKey}__${ruleKey}`), teamKey, ruleKey, status (OPEN/ACKNOWLEDGED/RESOLVED/DISMISSED), timestamps
+- **notificationDeliveries:** id (`${kind}__${periodKey}__${teamKey}__${channel}`), status, recipientUids (weekly idempotency log)
 
 **Rule:** Respect structure and roles.
+
+---
+
+## Action Items & Weekly Email Digest
+
+- Action items come from team-report rules (`getNextSteps()` in `lib/team-reports/`, each step carries a stable `ruleKey`) and are persisted by `syncActionItems()` in `lib/action-items/`. `GET /api/action-items` syncs on read, so the UI always shows current data.
+- Lifecycle: team leads acknowledge/resolve/dismiss their own team's items (`PATCH /api/action-items/[id]`); admins can act on any team.
+- Weekly digest cron: `/api/cron/send-action-item-digest` (Mondays 08:30 IST, `CRON_SECRET` bearer). Sends through registered channels in `lib/notifications/channels/` — in-app bell plus Resend email. Deliveries are idempotent per (week, team, channel) via `notificationDeliveries`.
+- **Adding a channel** (Google Chat, Slack, ...): implement `NotificationChannel` from `lib/domain/notifications.types.ts`, register it in `lib/notifications/channels/index.ts`. Nothing else changes.
+- Email env: `RESEND_API_KEY`, `ACTION_ITEMS_EMAIL_FROM`, `NEXT_PUBLIC_APP_URL` (for absolute links); toggles `ACTION_ITEM_EMAIL_ENABLED`, `ACTION_ITEMS_DIGEST_ENABLED`. Set these in `.env.local` yourself; agents must not edit env files.
 
 ---
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   ChartPie,
   Sparkles,
@@ -25,11 +26,24 @@ import { HeroSection } from "../components/hero-section";
 import { StatCards } from "../components/stat-cards";
 import { NextActions } from "../components/next-actions";
 import { LeadCoverage } from "../components/lead-coverage";
+import { useActionItems } from "@/features/dashboard/shared/action-items/hooks/use-action-items.hook";
+import { getActiveActionItems } from "@/features/dashboard/shared/action-items/action-items.utils";
 
 export default function TeamLeadOverviewTab() {
   const [report, setReport] = useState<TeamReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const highlightedItemId = searchParams.get("actionItem");
+  const {
+    items: actionItems,
+    loading: actionItemsLoading,
+    errorMessage: actionItemsError,
+    actionError,
+    busyItemId,
+    reviewItem,
+    reload: reloadActionItems,
+  } = useActionItems();
 
   useEffect(() => {
     async function loadReport() {
@@ -80,7 +94,11 @@ export default function TeamLeadOverviewTab() {
 
   const currentUnansweredIssues = getCurrentUnansweredIssuesCount(report);
   const totalGfis = getTotalGfiCount(report.gfiCounts);
-  const unresolvedActionCount = report.nextSteps.length;
+  const activeActionItems = getActiveActionItems(actionItems);
+  // Fall back to the derived next steps while tracked items are still loading.
+  const unresolvedActionCount = actionItemsLoading
+    ? report.nextSteps.length
+    : activeActionItems.length;
   const status = getStatusSummary(report);
   const variant = getStatusVariant(status.label);
 
@@ -141,8 +159,18 @@ export default function TeamLeadOverviewTab() {
 
       <div className="grid gap-6 xl:grid-cols-[1.3fr_0.9fr]">
         <NextActions
-          nextSteps={report.nextSteps}
-          unresolvedActionCount={unresolvedActionCount}
+          items={activeActionItems}
+          loading={actionItemsLoading}
+          error={actionItemsError}
+          actionError={actionError}
+          busyItemId={busyItemId}
+          highlightedId={highlightedItemId}
+          onReview={(id, status) => {
+            void reviewItem(id, status);
+          }}
+          onRetry={() => {
+            void reloadActionItems();
+          }}
         />
         <LeadCoverage leads={report.leads} />
       </div>

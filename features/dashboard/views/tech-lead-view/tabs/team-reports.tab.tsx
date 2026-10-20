@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Check, Loader2, X } from "lucide-react";
 import {
   Tooltip as UiTooltip,
   TooltipContent,
@@ -23,6 +23,15 @@ import {
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { getRoleDisplayLabel } from "@/lib/auth/role-display";
 import { formatDisplayValue } from "@/lib/utils/display.utils";
+import { useActionItems } from "@/features/dashboard/shared/action-items/hooks/use-action-items.hook";
+import {
+  getActiveActionItemsForTeam,
+  isStaleActionItem,
+} from "@/features/dashboard/shared/action-items/action-items.utils";
+import type {
+  ActionItem,
+  ActionItemReviewStatus,
+} from "@/features/dashboard/shared/action-items/action-items.types";
 
 type TeamLead = {
   role: "TEAM_LEAD" | "LEAD_TRAINEE";
@@ -47,6 +56,7 @@ type TeamReport = {
     maxWaitingDays: number;
   }>;
   nextSteps: Array<{
+    ruleKey?: string;
     message: string;
     priority: "high" | "medium";
     reason: string;
@@ -465,11 +475,170 @@ function AndroidTeamGfiSummary({
   );
 }
 
+function TeamActionItemsPanel({
+  report,
+  items,
+  loading,
+  error,
+  actionError,
+  busyItemId,
+  onReview,
+}: {
+  report: TeamReport;
+  items: ActionItem[];
+  loading: boolean;
+  error: string | null;
+  actionError: string | null;
+  busyItemId: string | null;
+  onReview: (id: string, status: ActionItemReviewStatus) => void;
+}) {
+  const teamItems = getActiveActionItemsForTeam(items, report.id);
+  const isBusy = busyItemId !== null;
+
+  // Falls back to the derived next steps when tracked items are unavailable.
+  const derivedFallback =
+    report.nextSteps.length === 0 ? (
+      <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800">
+        No immediate action flagged for this team.
+      </p>
+    ) : (
+      report.nextSteps.map((step, index) => (
+        <div
+          key={step.message}
+          className={`flex gap-3 rounded-xl px-3 py-3 ${
+            step.priority === "high"
+              ? "border border-red-300 bg-white"
+              : "border border-amber-200 bg-white"
+          }`}
+        >
+          <div
+            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+              step.priority === "high"
+                ? "bg-red-200 text-red-900"
+                : "bg-amber-100 text-amber-800"
+            }`}
+          >
+            {index + 1}
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-slate-800">{step.message}</p>
+            <p className="text-xs leading-5 text-slate-500">{step.reason}</p>
+          </div>
+        </div>
+      ))
+    );
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-slate-900">Action Items</h3>
+        {!loading && !error && teamItems.length > 0 && (
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-800 px-1.5 text-[10px] font-semibold text-white">
+            {teamItems.length}
+          </span>
+        )}
+      </div>
+      <div className="mt-3 space-y-2">
+        {loading ? (
+          <p className="rounded-xl border border-dashed border-slate-300 bg-white px-3 py-3 text-sm text-slate-500">
+            Loading tracked action items…
+          </p>
+        ) : error ? (
+          derivedFallback
+        ) : teamItems.length === 0 ? (
+          <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800">
+            No immediate action flagged for this team.
+          </p>
+        ) : (
+          teamItems.map((item, index) => (
+            <div
+              key={item.id}
+              className={`flex gap-3 rounded-xl px-3 py-3 ${
+                item.priority === "high"
+                  ? "border border-red-300 bg-white"
+                  : "border border-amber-200 bg-white"
+              }`}
+            >
+              <div
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                  item.priority === "high"
+                    ? "bg-red-200 text-red-900"
+                    : "bg-amber-100 text-amber-800"
+                }`}
+              >
+                {index + 1}
+              </div>
+              <div className="min-w-0 flex-1 space-y-1">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <p className="text-sm font-medium text-slate-800">
+                    {item.message}
+                  </p>
+                  {item.status === "ACKNOWLEDGED" && (
+                    <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sky-700">
+                      Acknowledged
+                    </span>
+                  )}
+                  {isStaleActionItem(item) && (
+                    <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-700">
+                      No longer detected
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs leading-5 text-slate-500">
+                  {item.reason}
+                </p>
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    disabled={isBusy}
+                    onClick={() => onReview(item.id, "RESOLVED")}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {busyItemId === item.id ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Check className="h-3 w-3" />
+                    )}
+                    Resolve
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isBusy}
+                    onClick={() => onReview(item.id, "DISMISSED")}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-500 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <X className="h-3 w-3" />
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+
+        {actionError && (
+          <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+            {actionError}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function TeamReportsTab() {
   const [reports, setReports] = useState<TeamReport[]>([]);
   const [platform, setPlatform] = useState<ContributionPlatform>("WEB");
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const {
+    items: actionItems,
+    loading: actionItemsLoading,
+    errorMessage: actionItemsError,
+    actionError,
+    busyItemId,
+    reviewItem,
+  } = useActionItems();
 
   useEffect(() => {
     async function loadReports() {
@@ -605,47 +774,17 @@ export function TeamReportsTab() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    Next Steps
-                  </h3>
-                  <div className="mt-3 space-y-2">
-                    {report.nextSteps.length === 0 ? (
-                      <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800">
-                        No immediate action flagged for this team.
-                      </p>
-                    ) : (
-                      report.nextSteps.map((step, index) => (
-                        <div
-                          key={step.message}
-                          className={`flex gap-3 rounded-xl px-3 py-3 ${
-                            step.priority === "high"
-                              ? "border border-red-300 bg-white"
-                              : "border border-amber-200 bg-white"
-                          }`}
-                        >
-                          <div
-                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-                              step.priority === "high"
-                                ? "bg-red-200 text-red-900"
-                                : "bg-amber-100 text-amber-800"
-                            }`}
-                          >
-                            {index + 1}
-                          </div>
-                          <div className="space-y-1">
-                            <p className="text-sm font-medium text-slate-800">
-                              {step.message}
-                            </p>
-                            <p className="text-xs leading-5 text-slate-500">
-                              {step.reason}
-                            </p>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
+                <TeamActionItemsPanel
+                  report={report}
+                  items={actionItems}
+                  loading={actionItemsLoading}
+                  error={actionItemsError}
+                  actionError={actionError}
+                  busyItemId={busyItemId}
+                  onReview={(id, status) => {
+                    void reviewItem(id, status);
+                  }}
+                />
               </div>
             </div>
           </section>

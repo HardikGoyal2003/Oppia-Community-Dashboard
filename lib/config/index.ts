@@ -15,4 +15,11 @@ export {
 } from "./env";
 export { CONTRIBUTING_DOCS, GITHUB_REPOS } from "./github.constants";
 export { isMaintenanceModeEnabled } from "./maintenance";
+export {
+  getActionItemsEmailFrom,
+  getAppBaseUrl,
+  getResendApiKey,
+  isActionItemEmailEnabled,
+  isActionItemsDigestEnabled,
+} from "./notifications";
 export { ANDROID_TEAMS, WEB_TEAMS } from "./teams.constants";

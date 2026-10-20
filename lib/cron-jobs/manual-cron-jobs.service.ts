@@ -6,6 +6,8 @@ import { LibInvalidStateError } from "@/lib/lib.errors";
 import { captureDailyUnansweredIssueMetrics } from "@/lib/team-metrics/capture-daily-team-metrics.service";
 import { syncTeamGfiCounts } from "@/lib/teams/sync-team-gfi-counts.service";
 import { syncOrgMeta } from "@/lib/org-meta/sync-org-meta.service";
+import { syncActionItems } from "@/lib/action-items/action-items.service";
+import { sendWeeklyActionItemDigest } from "@/lib/notifications/action-item-digest.service";
 
 const CRON_JOBS: CronJobDefinition[] = [
   {
@@ -25,6 +27,18 @@ const CRON_JOBS: CronJobDefinition[] = [
     name: "Sync Org Meta",
     description:
       "Fetch org members and repo collaborators from GitHub and cache them in Firestore for faster unanswered-issues lookups.",
+  },
+  {
+    key: "sync_action_items",
+    name: "Sync Action Items",
+    description:
+      "Derive action items from the current team reports and persist them (creates, refreshes, reopens).",
+  },
+  {
+    key: "send_action_item_digest",
+    name: "Send Action Items Digest",
+    description:
+      "Sync action items and email the weekly digest of open items to each team's leads (respects weekly idempotency).",
   },
 ];
 
@@ -107,6 +121,53 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
           `Org members: ${result.orgMemberCount}.`,
           `Collaborators: ${result.collaboratorCount}.`,
           `Last updated: ${result.lastUpdated}.`,
+        ].join("\n"),
+      };
+    }
+    case "sync_action_items": {
+      const result = await syncActionItems();
+      const finishedAt = new Date();
+
+      return {
+        finishedAt,
+        jobKey: job.key,
+        jobName: job.name,
+        startedAt,
+        summary: [
+          "Cron job completed.",
+          `Synced at: ${finishedAt.toLocaleString("en-IN")}.`,
+          `Detected action items: ${result.detectedCount}.`,
+          `Created: ${result.createdCount}, refreshed: ${result.updatedCount}, reopened: ${result.reopenedCount}.`,
+          `Active (open + acknowledged): ${result.activeCount}.`,
+        ].join("\n"),
+      };
+    }
+    case "send_action_item_digest": {
+      const result = await sendWeeklyActionItemDigest();
+      const finishedAt = new Date();
+
+      return {
+        finishedAt,
+        jobKey: job.key,
+        jobName: job.name,
+        startedAt,
+        summary: [
+          "Cron job completed.",
+          `Digest period (week starting): ${result.periodKey}.`,
+          `Digest enabled: ${result.enabled ? "yes" : "no"}.`,
+          `Teams with active items: ${result.teamsConsidered}.`,
+          `Teams notified: ${result.teamsNotified}.`,
+          ...result.teams.map(
+            (team) =>
+              `${team.teamName}: ${team.itemCount} item(s), ${team.recipientCount} recipient(s) — ${team.channelOutcomes
+                .map((outcome) => `${outcome.channel}: ${outcome.status}`)
+                .join(", ")}.`,
+          ),
+          ...(result.skippedTeamKeys.length > 0
+            ? [
+                `Skipped (no active items or no leads): ${result.skippedTeamKeys.join(", ")}.`,
+              ]
+            : []),
         ].join("\n"),
       };
     }
