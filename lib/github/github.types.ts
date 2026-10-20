@@ -80,5 +80,5 @@ export interface GitHubDiscussion {
   discussionNumber: number;
   discussionUrl: string;
   discussionTitle: string;
-  lastCommentCreatedAt: string;
+  createdAt: string;
 }

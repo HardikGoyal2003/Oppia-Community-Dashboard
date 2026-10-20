@@ -15,7 +15,7 @@ import { getElapsedTimeLabel } from "@/lib/utils/date.utils";
 import Link from "next/link";
 import { CircleCheck } from "lucide-react";
 import { useArchiveDiscussion } from "../hooks/use-archive-discussion.hook";
-import { useMarkDiscussionAsnwered } from "../hooks/use-mark-discussion-answered.hook";
+import { useMarkDiscussionAnswered } from "../hooks/use-mark-discussion-answered.hook";
 
 interface DiscussionCardProps {
   discussion: Discussion;
@@ -27,8 +27,8 @@ export const DiscussionCard = ({
   serialNumber,
 }: DiscussionCardProps) => {
   const archiveDiscussion = useArchiveDiscussion();
-  const discussionAnswered = useMarkDiscussionAsnwered();
-  const waitedForLabel = getElapsedTimeLabel(discussion.lastCommentCreatedAt);
+  const discussionAnswered = useMarkDiscussionAnswered();
+  const waitedForLabel = getElapsedTimeLabel(discussion.createdAt);
 
   return (
     <Card className="w-full flex flex-col sm:flex-row px-4 sm:px-10">

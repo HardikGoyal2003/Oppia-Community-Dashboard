@@ -11,8 +11,7 @@ export type FirestoreArchivedDiscussion = {
   discussionNumber: number;
   discussionUrl: string;
   discussionTitle: string;
-  isArchived?: boolean;
-  lastCommentCreatedAt: Timestamp;
+  createdAt: Timestamp;
   platform: ContributionPlatform;
   archivedBy?: string;
   archivedAt?: Timestamp;
@@ -52,21 +51,7 @@ function assertFirestoreArchivedDiscussion(
     );
   }
 
-  if (
-    discussion.isArchived !== undefined &&
-    typeof discussion.isArchived !== "boolean"
-  ) {
-    throw new DbValidationError(
-      "isArchived",
-      "Archived discussion isArchived must be a boolean.",
-    );
-  }
-
-  assertTimestamp(
-    "Archived discussion",
-    "lastCommentCreatedAt",
-    discussion.lastCommentCreatedAt,
-  );
+  assertTimestamp("Archived discussion", "createdAt", discussion.createdAt);
 
   if (discussion.platform !== "WEB" && discussion.platform !== "ANDROID") {
     throw new DbValidationError(
@@ -104,9 +89,7 @@ function normalizeArchivedDiscussion(
     discussionUrl: discussion.discussionUrl,
     discussionTitle: discussion.discussionTitle,
     isArchived: true,
-    lastCommentCreatedAt: normalizeTimestamp(
-      discussion.lastCommentCreatedAt,
-    ).toISOString(),
+    createdAt: normalizeTimestamp(discussion.createdAt).toISOString(),
     platform: discussion.platform,
     archivedBy: discussion.archivedBy,
     archivedAt: discussion.archivedAt
@@ -145,9 +128,7 @@ export function serializeArchivedDiscussion(
     discussionNumber: discussion.discussionNumber,
     discussionUrl: discussion.discussionUrl,
     discussionTitle: discussion.discussionTitle,
-    lastCommentCreatedAt: Timestamp.fromDate(
-      new Date(discussion.lastCommentCreatedAt),
-    ),
+    createdAt: Timestamp.fromDate(new Date(discussion.createdAt)),
     platform,
     archivedBy,
     archivedAt: Timestamp.now(),

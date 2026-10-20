@@ -10,7 +10,7 @@ function toDiscussion(
     discussionNumber: discussion.discussionNumber,
     discussionUrl: discussion.discussionUrl,
     discussionTitle: discussion.discussionTitle,
-    lastCommentCreatedAt: discussion.lastCommentCreatedAt,
+    createdAt: discussion.createdAt,
     isArchived,
   };
 }

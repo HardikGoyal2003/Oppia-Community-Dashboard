@@ -3,7 +3,7 @@ export interface Discussion {
   discussionUrl: string;
   discussionTitle: string;
   isArchived: boolean;
-  lastCommentCreatedAt: string;
+  createdAt: string;
   archivedBy?: string;
   archivedAt?: string;
 }

@@ -3,7 +3,7 @@
 import type { Discussion } from "@/lib/domain/discussions.types";
 import { useProjectDiscussionsStore } from "../store/project-discussions.store";
 
-export function useMarkDiscussionAsnwered() {
+export function useMarkDiscussionAnswered() {
   const removeDiscussion = useProjectDiscussionsStore(
     (state) => state.removeDiscussion,
   );

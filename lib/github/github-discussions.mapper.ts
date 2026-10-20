@@ -32,7 +32,7 @@ export function mapGitHubDiscussionNodes(
       discussionNumber: discussion.number,
       discussionUrl: discussion.url,
       discussionTitle: discussion.title,
-      lastCommentCreatedAt: discussion.createdAt,
+      createdAt: discussion.createdAt,
     };
   });
 }

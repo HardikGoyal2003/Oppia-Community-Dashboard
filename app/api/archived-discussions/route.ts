@@ -33,7 +33,7 @@ function isDiscussion(
     typeof value.discussionUrl === "string" &&
     typeof value.discussionTitle === "string" &&
     typeof value.isArchived === "boolean" &&
-    typeof value.lastCommentCreatedAt === "string"
+    typeof value.createdAt === "string"
   );
 }
 
