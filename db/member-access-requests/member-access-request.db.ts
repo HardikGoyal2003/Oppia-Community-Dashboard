@@ -65,6 +65,14 @@ export async function getPendingMemberAccessRequestsByPlatform(
  * @param team The optional team key filter. When provided, only requests for
  *             this team are returned.
  * @returns The pending member-access requests sorted by creation time descending.
+ * @firestore-index memberAccessRequests status,createdAt
+ * @firestore-index memberAccessRequests status,platform,createdAt
+ * @firestore-index memberAccessRequests status,role,createdAt
+ * @firestore-index memberAccessRequests status,team,createdAt
+ * @firestore-index memberAccessRequests status,platform,role,createdAt
+ * @firestore-index memberAccessRequests status,platform,team,createdAt
+ * @firestore-index memberAccessRequests status,role,team,createdAt
+ * @firestore-index memberAccessRequests platform,role,status,team,createdAt
  */
 export async function getPendingMemberAccessRequestsByPlatformAndRoles(
   platform?: ContributionPlatform,

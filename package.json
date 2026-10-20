@@ -10,6 +10,7 @@
     "start": "next start",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
+    "check:firestore-indexes": "node scripts/check-firestore-indexes.mjs",
     "prepare": "husky install"
   },
   "lint-staged": {
