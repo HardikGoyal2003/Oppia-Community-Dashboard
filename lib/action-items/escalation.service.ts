@@ -210,10 +210,23 @@ export async function escalateDueActionItems(
 
   for (const [teamKey, teamItems] of dueByTeam) {
     const recipients = await getEscalationRecipientsForTeam(teamKey);
+    const teamEmail = resolveTeamLeadEmail(teamKey);
+    const emailRecipients = teamEmail
+      ? recipients.length > 0
+        ? recipients
+        : [
+            {
+              uid: `team-email:${teamKey}`,
+              email: teamEmail,
+              fullName: teamItems[0].teamName,
+            },
+          ]
+      : recipients;
 
     // No leads to nudge; leave the items untouched so the boundary check
-    // simply retries on the next run.
-    if (recipients.length === 0) {
+    // simply retries on the next run. A configured team inbox is sufficient
+    // for email delivery even when lead user records are not available.
+    if (recipients.length === 0 && !teamEmail) {
       continue;
     }
 
@@ -252,7 +265,7 @@ export async function escalateDueActionItems(
       if (!force) {
         const existingDelivery = await getNotificationDeliveryById(deliveryId);
 
-        if (existingDelivery) {
+        if (existingDelivery?.status === "SENT") {
           channelOutcomes.push({
             channel: channel.key,
             status: "SKIPPED",
@@ -261,6 +274,9 @@ export async function escalateDueActionItems(
           continue;
         }
       }
+
+      const channelRecipients =
+        channel.key === "EMAIL" ? emailRecipients : recipients;
 
       if (!channel.isAvailable()) {
         channelOutcomes.push({
@@ -272,7 +288,7 @@ export async function escalateDueActionItems(
       }
 
       try {
-        const result = await channel.send(recipients, message);
+        const result = await channel.send(channelRecipients, message);
         const failureSummary =
           result.failed.map((failure) => failure.reason).join(" | ") || null;
         const status: NotificationDeliveryStatus =
@@ -352,7 +368,7 @@ export async function escalateDueActionItems(
       teamKey,
       teamName,
       itemCount: teamItems.length,
-      recipientCount: recipients.length,
+      recipientCount: Math.max(recipients.length, teamEmail ? 1 : 0),
       newEscalationLevel,
       channelOutcomes,
     });

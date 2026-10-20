@@ -142,7 +142,10 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
           ...result.teams.map(
             (team) =>
               `${team.teamName}: ${team.itemCount} item(s), ${team.recipientCount} recipient(s) — ${team.channelOutcomes
-                .map((outcome) => `${outcome.channel}: ${outcome.status}`)
+                .map(
+                  (outcome) =>
+                    `${outcome.channel}: ${outcome.status} (${outcome.detail})`,
+                )
                 .join(", ")}.`,
           ),
           ...(result.skippedTeamKeys.length > 0
@@ -172,7 +175,10 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
           ...result.teams.map(
             (team) =>
               `${team.teamName}: ${team.itemCount} item(s) escalated to level ${team.newEscalationLevel}, ${team.recipientCount} recipient(s) — ${team.channelOutcomes
-                .map((outcome) => `${outcome.channel}: ${outcome.status}`)
+                .map(
+                  (outcome) =>
+                    `${outcome.channel}: ${outcome.status} (${outcome.detail})`,
+                )
                 .join(", ")}.`,
           ),
         ].join("\n"),

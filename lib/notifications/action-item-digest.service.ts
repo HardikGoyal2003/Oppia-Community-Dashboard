@@ -174,8 +174,20 @@ export async function sendDailyActionItemDigest(
 
   for (const [teamKey, teamItems] of groupedItems) {
     const recipients = await getDigestRecipientsForTeam(teamKey);
+    const teamEmail = resolveTeamLeadEmail(teamKey);
+    const emailRecipients = teamEmail
+      ? recipients.length > 0
+        ? recipients
+        : [
+            {
+              uid: `team-email:${teamKey}`,
+              email: teamEmail,
+              fullName: teamItems[0].teamName,
+            },
+          ]
+      : recipients;
 
-    if (recipients.length === 0) {
+    if (recipients.length === 0 && !teamEmail) {
       skippedTeamKeys.push(teamKey);
       continue;
     }
@@ -205,7 +217,7 @@ export async function sendDailyActionItemDigest(
       if (!force) {
         const existingDelivery = await getNotificationDeliveryById(deliveryId);
 
-        if (existingDelivery) {
+        if (existingDelivery?.status === "SENT") {
           channelOutcomes.push({
             channel: channel.key,
             status: "SKIPPED",
@@ -214,6 +226,9 @@ export async function sendDailyActionItemDigest(
           continue;
         }
       }
+
+      const channelRecipients =
+        channel.key === "EMAIL" ? emailRecipients : recipients;
 
       if (!channel.isAvailable()) {
         await recordNotificationDelivery({
@@ -238,7 +253,7 @@ export async function sendDailyActionItemDigest(
       }
 
       try {
-        const result = await channel.send(recipients, message);
+        const result = await channel.send(channelRecipients, message);
         const failureSummary =
           result.failed.map((failure) => failure.reason).join(" | ") || null;
         const status: NotificationDeliveryStatus =
@@ -309,7 +324,7 @@ export async function sendDailyActionItemDigest(
       teamKey,
       teamName,
       itemCount: teamItems.length,
-      recipientCount: recipients.length,
+      recipientCount: Math.max(recipients.length, teamEmail ? 1 : 0),
       recipientsWithoutEmail: recipients.filter((recipient) => !recipient.email)
         .length,
       channelOutcomes,
