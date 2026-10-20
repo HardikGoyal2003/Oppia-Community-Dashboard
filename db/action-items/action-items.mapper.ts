@@ -103,13 +103,6 @@ function assertFirestoreActionItem(
 
   assertNonEmptyString(item.ruleKey, "ruleKey");
 
-  if (item.params !== null && typeof item.params !== "string") {
-    throw new DbValidationError(
-      "params",
-      "Action item params must be a string or null.",
-    );
-  }
-
   assertNonEmptyString(item.message, "message");
   assertNonEmptyString(item.reason, "reason");
 
@@ -165,7 +158,6 @@ export function normalizeActionItemDocument(params: {
     teamName: data.teamName,
     platform: data.platform,
     ruleKey: data.ruleKey,
-    params: data.params,
     message: data.message,
     priority: data.priority,
     reason: data.reason,
@@ -202,7 +194,6 @@ export function serializeActionItem(
     teamName: item.teamName,
     platform: item.platform,
     ruleKey: item.ruleKey,
-    params: item.params,
     message: item.message,
     priority: item.priority,
     reason: item.reason,

@@ -8,7 +8,10 @@ import {
 } from "@/db/action-items/action-items.db";
 import { getUsersByTeam } from "@/db/users/users.db";
 import { getAppBaseUrl, isActionItemsDigestEnabled } from "@/lib/config";
-import { resolveLeadEmail } from "@/lib/config/lead-emails";
+import {
+  resolveLeadEmail,
+  resolveTeamLeadEmail,
+} from "@/lib/config/lead-emails";
 import { syncActionItems } from "@/lib/action-items/action-items.service";
 import type {
   ActionItemModel,
@@ -90,7 +93,9 @@ async function getDigestRecipientsForTeam(
     .filter((user) => user.role === "TEAM_LEAD" || user.role === "LEAD_TRAINEE")
     .map((user) => ({
       uid: user.id,
-      email: resolveLeadEmail(user.githubUsername, user.email ?? null),
+      email:
+        resolveTeamLeadEmail(teamKey) ??
+        resolveLeadEmail(user.githubUsername, user.email ?? null),
       fullName: user.fullName?.trim() || user.githubUsername,
     }));
 }

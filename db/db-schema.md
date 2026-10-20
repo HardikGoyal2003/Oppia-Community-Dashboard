@@ -107,7 +107,7 @@ Fields:
 
 Subcollection of `teams`. Document id:
 
-- the rule key (plus a `-`-joined param suffix when a rule is parameterized), e.g. `gfi-shortfall`
+- the stable rule key, e.g. `gfi-shortfall`
 
 Fields:
 
@@ -115,7 +115,6 @@ Fields:
 - `teamName: string`
 - `platform: "WEB" | "ANDROID"`
 - `ruleKey: string` **(stable team-report rule identifier)**
-- `params: string | null`
 - `message: string`
 - `priority: "high" | "medium"`
 - `reason: string`

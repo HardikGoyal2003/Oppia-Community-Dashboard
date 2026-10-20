@@ -13,7 +13,10 @@ import {
   getActionItemEscalationDays,
   isActionItemEscalationEnabled,
 } from "@/lib/config";
-import { resolveLeadEmail } from "@/lib/config/lead-emails";
+import {
+  resolveLeadEmail,
+  resolveTeamLeadEmail,
+} from "@/lib/config/lead-emails";
 import {
   type ActionItemModel,
   type ActionItemSyncSummary,
@@ -97,7 +100,9 @@ async function getEscalationRecipientsForTeam(
     .filter((user) => user.role === "TEAM_LEAD" || user.role === "LEAD_TRAINEE")
     .map((user) => ({
       uid: user.id,
-      email: resolveLeadEmail(user.githubUsername, user.email ?? null),
+      email:
+        resolveTeamLeadEmail(teamKey) ??
+        resolveLeadEmail(user.githubUsername, user.email ?? null),
       fullName: user.fullName?.trim() || user.githubUsername,
     }));
 }

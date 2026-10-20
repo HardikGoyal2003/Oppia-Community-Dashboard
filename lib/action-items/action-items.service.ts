@@ -17,14 +17,10 @@ import { getTeamReportsSnapshot } from "@/lib/team-reports/team-reports.service"
  * one team: the rule key plus any parameter suffix.
  *
  * @param ruleKey The stable rule identifier from the team report.
- * @param params Optional rule parameter.
  * @returns The action item document id.
  */
-export function buildActionItemId(ruleKey: string, params?: string): string {
-  return [ruleKey, params]
-    .filter((part): part is string => Boolean(part))
-    .map((part) => part.trim().replace(/[^A-Za-z0-9_-]+/g, "-"))
-    .join("-");
+export function buildActionItemId(ruleKey: string): string {
+  return ruleKey.trim().replace(/[^A-Za-z0-9_-]+/g, "-");
 }
 
 /**
@@ -84,7 +80,7 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
     const teamKey = getTeamKeyForTeamId(report.id);
 
     for (const step of report.nextSteps) {
-      const id = buildActionItemId(step.ruleKey, step.params);
+      const id = buildActionItemId(step.ruleKey);
       const compositeKey = `${report.id}/${id}`;
       const prior = existingByKey.get(compositeKey);
       touchedKeys.add(compositeKey);
@@ -98,7 +94,6 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
           teamName: report.teamName,
           platform: report.platform,
           ruleKey: step.ruleKey,
-          params: step.params ?? null,
           message: step.message,
           priority: step.priority,
           reason: step.reason,

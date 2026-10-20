@@ -16,7 +16,6 @@ export type ActionItemModel = {
   teamName: string;
   platform: ContributionPlatform;
   ruleKey: string;
-  params: string | null;
   message: string;
   priority: ActionItemPriority;
   reason: string;

@@ -9,7 +9,6 @@ export type ActionItem = {
   teamName: string;
   platform: "WEB" | "ANDROID";
   ruleKey: string;
-  params: string | null;
   message: string;
   priority: "high" | "medium";
   reason: string;

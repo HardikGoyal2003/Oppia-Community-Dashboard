@@ -85,6 +85,8 @@ export const emailNotificationChannel: NotificationChannel = {
       };
     }
 
+    const recipientsByEmail = new Map<string, NotificationRecipient[]>();
+
     for (const recipient of recipients) {
       if (!recipient.email) {
         result.failed.push({
@@ -94,14 +96,30 @@ export const emailNotificationChannel: NotificationChannel = {
         continue;
       }
 
+      const emailRecipients = recipientsByEmail.get(recipient.email);
+
+      if (emailRecipients) {
+        emailRecipients.push(recipient);
+      } else {
+        recipientsByEmail.set(recipient.email, [recipient]);
+      }
+    }
+
+    for (const [email, emailRecipients] of recipientsByEmail) {
       try {
-        await sendEmailToRecipient(recipient.email, message, apiKey);
-        result.deliveredTo.push(recipient.uid);
+        await sendEmailToRecipient(email, message, apiKey);
+        result.deliveredTo.push(
+          ...emailRecipients.map((recipient) => recipient.uid),
+        );
       } catch (error) {
-        result.failed.push({
-          uid: recipient.uid,
-          reason: error instanceof Error ? error.message : "Email send failed.",
-        });
+        const reason =
+          error instanceof Error ? error.message : "Email send failed.";
+        result.failed.push(
+          ...emailRecipients.map((recipient) => ({
+            uid: recipient.uid,
+            reason,
+          })),
+        );
       }
     }
 

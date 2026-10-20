@@ -11,8 +11,6 @@ export type TeamReportNextStep = {
    * persisted action items a deterministic identity across syncs.
    */
   ruleKey: string;
-  /** Optional rule parameter used to disambiguate instances of the same rule. */
-  params?: string;
   message: string;
   priority: "high" | "medium";
   reason: string;

@@ -22,7 +22,6 @@ export type TeamReport = {
   }>;
   nextSteps: Array<{
     ruleKey?: string;
-    params?: string;
     message: string;
     priority: "high" | "medium";
     reason: string;
