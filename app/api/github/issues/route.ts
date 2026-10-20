@@ -26,9 +26,9 @@ function canSelectPlatform(role: string | undefined): boolean {
   return role === "ADMIN" || role === "SUPER_ADMIN";
 }
 
-function isValidCachedOrgMeta(data: unknown): data is CachedOrgMeta {
+function isValidCachedOrgMeta(data: object | null): data is CachedOrgMeta {
   if (typeof data !== "object" || data === null) return false;
-  const obj = data as Record<string, unknown>;
+  const obj = data as Partial<CachedOrgMeta>;
   return (
     Array.isArray(obj.orgMembers) &&
     Array.isArray(obj.collaborators) &&

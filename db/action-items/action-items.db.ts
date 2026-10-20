@@ -195,6 +195,30 @@ export async function upsertActionItems(
 }
 
 /**
+ * Deletes action items whose rules are no longer present in the latest report.
+ *
+ * @param items The stale action items to remove.
+ * @returns A promise that resolves when all batches are committed.
+ */
+export async function deleteActionItems(
+  items: ActionItemModel[],
+): Promise<void> {
+  const writes = items.map((item) =>
+    getActionItemDocumentRef(item.teamId, item.id),
+  );
+
+  for (const chunk of chunkValues(writes, FIRESTORE_BATCH_LIMIT)) {
+    const batch = db.batch();
+
+    for (const ref of chunk) {
+      batch.delete(ref);
+    }
+
+    await batch.commit();
+  }
+}
+
+/**
  * Marks items as notified by the latest digest.
  *
  * @param items The items that were included in a digest.

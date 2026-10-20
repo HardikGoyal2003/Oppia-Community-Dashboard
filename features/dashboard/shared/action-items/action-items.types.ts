@@ -13,10 +13,8 @@ export type ActionItem = {
   message: string;
   priority: "high" | "medium";
   reason: string;
-  status: "OPEN" | "RESOLVED";
   detectedAt: string;
   lastDetectedAt: string;
-  resolvedAt: string | null;
   notificationCount: number;
   escalationLevel: number;
   lastEscalatedAt: string | null;
@@ -28,9 +26,8 @@ export type ActionItemsSyncSummary = {
   detectedCount: number;
   createdCount: number;
   updatedCount: number;
-  reopenedCount: number;
-  resolvedCount: number;
-  activeCount: number;
+  deletedCount: number;
+  currentCount: number;
   syncedAt: string;
 };
 

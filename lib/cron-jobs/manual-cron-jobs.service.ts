@@ -7,7 +7,7 @@ import { captureDailyUnansweredIssueMetrics } from "@/lib/team-metrics/capture-d
 import { syncTeamGfiCounts } from "@/lib/teams/sync-team-gfi-counts.service";
 import { syncOrgMeta } from "@/lib/org-meta/sync-org-meta.service";
 import { escalateDueActionItems } from "@/lib/action-items/escalation.service";
-import { sendWeeklyActionItemDigest } from "@/lib/notifications/action-item-digest.service";
+import { sendDailyActionItemDigest } from "@/lib/notifications/action-item-digest.service";
 
 const CRON_JOBS: CronJobDefinition[] = [
   {
@@ -32,7 +32,7 @@ const CRON_JOBS: CronJobDefinition[] = [
     key: "send_action_item_digest",
     name: "Send Action Items Digest",
     description:
-      "Sync action items and email the weekly digest of open items to each team's leads (respects weekly idempotency).",
+      "Sync action items and send the daily digest of current items to each team's leads (respects daily idempotency).",
   },
   {
     key: "escalate_action_items",
@@ -125,7 +125,7 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
       };
     }
     case "send_action_item_digest": {
-      const result = await sendWeeklyActionItemDigest();
+      const result = await sendDailyActionItemDigest();
       const finishedAt = new Date();
 
       return {
@@ -135,7 +135,7 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
         startedAt,
         summary: [
           "Cron job completed.",
-          `Digest period (week starting): ${result.periodKey}.`,
+          `Digest period (IST date): ${result.periodKey}.`,
           `Digest enabled: ${result.enabled ? "yes" : "no"}.`,
           `Teams with active items: ${result.teamsConsidered}.`,
           `Teams notified: ${result.teamsNotified}.`,

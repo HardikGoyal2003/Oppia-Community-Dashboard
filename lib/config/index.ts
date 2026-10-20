@@ -18,6 +18,7 @@ export { isMaintenanceModeEnabled } from "./maintenance";
 export {
   getActionItemEscalationDays,
   getActionItemsEmailFrom,
+  getActionItemsEmailReplyTo,
   getAppBaseUrl,
   getResendApiKey,
   isActionItemEmailEnabled,

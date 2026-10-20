@@ -119,14 +119,12 @@ Fields:
 - `message: string`
 - `priority: "high" | "medium"`
 - `reason: string`
-- `status: "OPEN" | "RESOLVED"` **(derived by the sync engine; never written by a human)**
 - `detectedAt: Timestamp`
 - `lastDetectedAt: Timestamp`
-- `resolvedAt: Timestamp | null`
 - `firstNotifiedAt: Timestamp | null`
 - `lastNotifiedAt: Timestamp | null`
 - `notificationCount: number`
-- `escalationLevel: number` **(how many escalation nudges were sent; resets on reopen)**
+- `escalationLevel: number` **(how many escalation nudges were sent for this document)**
 - `lastEscalatedAt: Timestamp | null`
 - `createdAt: Timestamp`
 - `updatedAt: Timestamp`
@@ -135,14 +133,15 @@ Fields:
 
 Document id:
 
-- `${kind}__${periodKey}__${teamKey}__${channel}` **(also the idempotency key, e.g. `weekly_action_items_digest__2026-10-19__CORE__EMAIL`)**
+- `${kind}__${periodKey}__${teamKey}__${channel}` **(also the idempotency key, e.g. `daily_action_items_digest__2026-10-19__CORE__EMAIL`)**
 
 Fields:
 
 - `kind: string`
 - `channel: "EMAIL" | "IN_APP"`
 - `teamKey: string`
-- `periodKey: string` **(IST week-start date key for digests)**
+- `periodKey: string` **(IST date key for daily digests)**
+- `actionItemIds: string[]` **(exact action-item document ids included in the delivery)**
 - `recipientUids: string[]`
 - `itemCount: number`
 - `status: "SENT" | "SKIPPED" | "FAILED"`
@@ -192,7 +191,6 @@ Normalized app-layer models convert Firestore timestamps as follows:
 - `actionItems.detectedAt -> Date`
 - `actionItems.lastDetectedAt -> Date`
 - `actionItems.acknowledgedAt -> Date | null`
-- `actionItems.resolvedAt -> Date | null`
 - `actionItems.firstNotifiedAt -> Date | null`
 - `actionItems.lastNotifiedAt -> Date | null`
 - `actionItems.lastEscalatedAt -> Date | null`

@@ -9,14 +9,10 @@ import {
 import { getUsersByTeam } from "@/db/users/users.db";
 import { getAppBaseUrl, isActionItemsDigestEnabled } from "@/lib/config";
 import { resolveLeadEmail } from "@/lib/config/lead-emails";
-import {
-  isActiveActionItem,
-  syncActionItems,
-} from "@/lib/action-items/action-items.service";
-import {
-  ACTION_ITEM_RESOLVE_AFTER_DAYS,
-  type ActionItemModel,
-  type ActionItemSyncSummary,
+import { syncActionItems } from "@/lib/action-items/action-items.service";
+import type {
+  ActionItemModel,
+  ActionItemSyncSummary,
 } from "@/lib/domain/action-items.types";
 import type {
   NotificationChannelKey,
@@ -27,12 +23,10 @@ import {
   buildWeeklyActionItemsDigest,
   type WeeklyDigestItem,
 } from "@/lib/notifications/templates/action-items-weekly-digest";
-import { getIstWeekStartDateKey } from "@/lib/utils/date.utils";
+import { getIstDateKey } from "@/lib/utils/date.utils";
 
-/** Delivery kind recorded for weekly digests. */
-export const WEEKLY_ACTION_ITEMS_DIGEST_KIND = "weekly_action_items_digest";
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
+/** Delivery kind recorded for daily action-item digests. */
+export const DAILY_ACTION_ITEMS_DIGEST_KIND = "daily_action_items_digest";
 
 export type DigestChannelOutcome = {
   channel: NotificationChannelKey;
@@ -66,7 +60,7 @@ export type ActionItemDigestSummary = {
 /**
  * Builds the deterministic delivery id used for idempotency.
  *
- * @param periodKey The IST week-start date key.
+ * @param periodKey The IST date key.
  * @param teamKey The team key.
  * @param channel The notification channel key.
  * @returns The delivery document id.
@@ -76,7 +70,7 @@ function buildDeliveryId(
   teamKey: string,
   channel: NotificationChannelKey,
 ): string {
-  return [WEEKLY_ACTION_ITEMS_DIGEST_KIND, periodKey, teamKey, channel]
+  return [DAILY_ACTION_ITEMS_DIGEST_KIND, periodKey, teamKey, channel]
     .map((part) => part.trim().replace(/[^A-Za-z0-9_-]+/g, "_"))
     .join("__");
 }
@@ -102,7 +96,7 @@ async function getDigestRecipientsForTeam(
 }
 
 /**
- * Groups active action items by team key.
+ * Groups current action items by team key.
  *
  * @param items All persisted action items.
  * @returns Active items keyed by team key.
@@ -113,10 +107,6 @@ function groupActiveItemsByTeam(
   const groups = new Map<string, ActionItemModel[]>();
 
   for (const item of items) {
-    if (!isActiveActionItem(item)) {
-      continue;
-    }
-
     const existing = groups.get(item.teamKey);
 
     if (existing) {
@@ -130,19 +120,19 @@ function groupActiveItemsByTeam(
 }
 
 /**
- * Syncs action items and sends the weekly digest to each team's leads through
- * every registered channel. Delivery is idempotent per (week, team, channel)
+ * Syncs action items and sends the daily digest to each team's leads through
+ * every registered channel. Delivery is idempotent per (day, team, channel)
  * unless `force` is set, so overlapping cron/manual runs never double-send.
  *
  * @param options Optional run options.
  * @returns A summary of the run for cron/control-panel reporting.
  */
-export async function sendWeeklyActionItemDigest(
+export async function sendDailyActionItemDigest(
   options: { force?: boolean } = {},
 ): Promise<ActionItemDigestSummary> {
   const force = options.force ?? false;
   const startedAt = new Date();
-  const periodKey = getIstWeekStartDateKey(startedAt);
+  const periodKey = getIstDateKey(startedAt);
 
   const synced = await syncActionItems();
   const enabled = isActionItemsDigestEnabled();
@@ -186,21 +176,17 @@ export async function sendWeeklyActionItemDigest(
     }
 
     const teamName = teamItems[0].teamName;
-    const now = new Date();
     const digestItems: WeeklyDigestItem[] = teamItems.map((item) => ({
       id: item.id,
       message: item.message,
       reason: item.reason,
       priority: item.priority,
       detectedAt: item.detectedAt,
-      isStale:
-        now.getTime() - item.lastDetectedAt.getTime() >=
-        ACTION_ITEM_RESOLVE_AFTER_DAYS * MS_PER_DAY,
     }));
 
     const message = buildWeeklyActionItemsDigest({
       teamName,
-      weekStartDateKey: periodKey,
+      dateKey: periodKey,
       appBaseUrl,
       items: digestItems,
     });
@@ -218,7 +204,7 @@ export async function sendWeeklyActionItemDigest(
           channelOutcomes.push({
             channel: channel.key,
             status: "SKIPPED",
-            detail: `Already delivered for week ${periodKey}.`,
+            detail: `Already delivered for day ${periodKey}.`,
           });
           continue;
         }
@@ -227,10 +213,11 @@ export async function sendWeeklyActionItemDigest(
       if (!channel.isAvailable()) {
         await recordNotificationDelivery({
           id: deliveryId,
-          kind: WEEKLY_ACTION_ITEMS_DIGEST_KIND,
+          kind: DAILY_ACTION_ITEMS_DIGEST_KIND,
           channel: channel.key,
           teamKey,
           periodKey,
+          actionItemIds: teamItems.map((item) => item.id),
           recipientUids: [],
           itemCount: teamItems.length,
           status: "SKIPPED",
@@ -258,10 +245,11 @@ export async function sendWeeklyActionItemDigest(
 
         await recordNotificationDelivery({
           id: deliveryId,
-          kind: WEEKLY_ACTION_ITEMS_DIGEST_KIND,
+          kind: DAILY_ACTION_ITEMS_DIGEST_KIND,
           channel: channel.key,
           teamKey,
           periodKey,
+          actionItemIds: teamItems.map((item) => item.id),
           recipientUids: result.deliveredTo,
           itemCount: teamItems.length,
           status,
@@ -287,10 +275,11 @@ export async function sendWeeklyActionItemDigest(
 
         await recordNotificationDelivery({
           id: deliveryId,
-          kind: WEEKLY_ACTION_ITEMS_DIGEST_KIND,
+          kind: DAILY_ACTION_ITEMS_DIGEST_KIND,
           channel: channel.key,
           teamKey,
           periodKey,
+          actionItemIds: teamItems.map((item) => item.id),
           recipientUids: [],
           itemCount: teamItems.length,
           status: "FAILED",

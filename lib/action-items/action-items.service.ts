@@ -1,19 +1,15 @@
 import {
+  deleteActionItems,
   getActionItemById,
   getActionItems,
   upsertActionItems,
 } from "@/db/action-items/action-items.db";
 import {
-  ACTION_ITEM_ACTIVE_STATUSES,
-  ACTION_ITEM_RESOLVE_AFTER_DAYS,
   type ActionItemModel,
   type ActionItemSyncSummary,
 } from "@/lib/domain/action-items.types";
 import { TEAM_DEFINITIONS } from "@/lib/domain/team-definitions";
 import { getTeamReportsSnapshot } from "@/lib/team-reports/team-reports.service";
-import { getIstDateKey } from "@/lib/utils/date.utils";
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /**
  * Builds the document id for an action item. Items live at
@@ -59,26 +55,11 @@ export function getTeamIdForKey(teamKey: string): string | null {
 }
 
 /**
- * Whether an item still requires follow-up.
- *
- * @param item The action item to check.
- * @returns True when the item is open.
- */
-export function isActiveActionItem(item: ActionItemModel): boolean {
-  return ACTION_ITEM_ACTIVE_STATUSES.includes(item.status);
-}
-
-/**
  * Derives action items from the current team reports and persists them.
  *
- * The sync engine is the only writer of an item's status:
- *
- * - A firing rule creates an OPEN item, or refreshes `lastDetectedAt` on an
- *   existing one.
- * - A rule that stopped firing is not visited at all, so its item keeps the
- *   last `lastDetectedAt` it was given — that is what marks it as healed.
- * - Once an item has been silent for `ACTION_ITEM_RESOLVE_AFTER_DAYS` it
- *   resolves itself, which also restarts its escalation ladder.
+ * Items are existence-based: a rule present in the latest report is upserted,
+ * while a rule absent from the report is deleted. If it appears again later,
+ * it is created as a new item with a fresh notification history.
  *
  * @returns A summary of what the sync changed.
  */
@@ -97,8 +78,7 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
 
   let createdCount = 0;
   let updatedCount = 0;
-  let reopenedCount = 0;
-  let resolvedCount = 0;
+  let deletedCount = 0;
 
   for (const report of snapshot.reports) {
     const teamKey = getTeamKeyForTeamId(report.id);
@@ -122,10 +102,8 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
           message: step.message,
           priority: step.priority,
           reason: step.reason,
-          status: "OPEN",
           detectedAt: now,
           lastDetectedAt: now,
-          resolvedAt: null,
           firstNotifiedAt: null,
           lastNotifiedAt: null,
           notificationCount: 0,
@@ -137,30 +115,7 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
         continue;
       }
 
-      const daysSinceLastDetected =
-        (now.getTime() - prior.lastDetectedAt.getTime()) / MS_PER_DAY;
-      const wasResolved = prior.status === "RESOLVED";
-      // A rule that fires again after the item resolved is a regression, so
-      // the item reopens with a fresh escalation ladder.
-      const shouldReopen = wasResolved && daysSinceLastDetected >= 1;
-      const alreadyRefreshedToday =
-        getIstDateKey(prior.lastDetectedAt) === getIstDateKey(now);
-      const contentUnchanged =
-        prior.message === step.message &&
-        prior.priority === step.priority &&
-        prior.reason === step.reason &&
-        prior.teamName === report.teamName;
-
-      // Reads trigger syncs, so skip no-op writes to keep Firestore usage low.
-      if (alreadyRefreshedToday && contentUnchanged && !shouldReopen) {
-        continue;
-      }
-
       updatedCount += 1;
-
-      if (shouldReopen) {
-        reopenedCount += 1;
-      }
 
       itemsToUpsert.push({
         ...prior,
@@ -168,72 +123,29 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
         message: step.message,
         priority: step.priority,
         reason: step.reason,
-        status: "OPEN",
-        resolvedAt: null,
-        // A reopened item starts a fresh escalation ladder.
-        escalationLevel: shouldReopen ? 0 : prior.escalationLevel,
-        lastEscalatedAt: shouldReopen ? null : prior.lastEscalatedAt,
         lastDetectedAt: now,
         updatedAt: now,
       });
     }
   }
 
-  // Items whose rule stopped firing are not visited above, so they are
-  // resolved here once they have been silent past the threshold.
-  for (const prior of existingItems) {
+  const staleItems = existingItems.filter((prior) => {
     const compositeKey = `${prior.teamId}/${prior.id}`;
+    return !touchedKeys.has(compositeKey);
+  });
+  deletedCount = staleItems.length;
 
-    if (touchedKeys.has(compositeKey)) {
-      continue;
-    }
-
-    if (prior.status === "RESOLVED") {
-      continue;
-    }
-
-    const daysSinceLastDetected =
-      (now.getTime() - prior.lastDetectedAt.getTime()) / MS_PER_DAY;
-
-    if (daysSinceLastDetected < ACTION_ITEM_RESOLVE_AFTER_DAYS) {
-      continue;
-    }
-
-    resolvedCount += 1;
-
-    itemsToUpsert.push({
-      ...prior,
-      status: "RESOLVED",
-      resolvedAt: now,
-      // A resolved item starts a fresh escalation ladder if it regresses.
-      escalationLevel: 0,
-      lastEscalatedAt: null,
-      updatedAt: now,
-    });
-  }
-
-  await upsertActionItems(itemsToUpsert);
-
-  const finalItems = existingItems.map(
-    (item) =>
-      itemsToUpsert.find(
-        (updated) => updated.id === item.id && updated.teamId === item.teamId,
-      ) ?? item,
-  );
-  const detectedItems = itemsToUpsert.filter(
-    (item) => !existingByKey.has(`${item.teamId}/${item.id}`),
-  );
-  const activeCount =
-    finalItems.filter((item) => isActiveActionItem(item)).length +
-    detectedItems.length;
+  await Promise.all([
+    upsertActionItems(itemsToUpsert),
+    deleteActionItems(staleItems),
+  ]);
 
   return {
     detectedCount: touchedKeys.size,
     createdCount,
     updatedCount,
-    reopenedCount,
-    resolvedCount,
-    activeCount,
+    deletedCount,
+    currentCount: touchedKeys.size,
     syncedAt: now.toISOString(),
   };
 }
@@ -253,8 +165,8 @@ export async function getActionItem(
 }
 
 /**
- * Orders action items for display: active before closed, escalated items
- * first (highest level first), then high priority, then newest detections.
+ * Orders action items for display: escalated items first, then high priority,
+ * then newest detections.
  *
  * @param left The first item.
  * @param right The second item.
@@ -264,15 +176,6 @@ export function compareActionItemsForDisplay(
   left: ActionItemModel,
   right: ActionItemModel,
 ): number {
-  const activeRank = (item: ActionItemModel) =>
-    isActiveActionItem(item) ? 0 : 1;
-
-  const activeDiff = activeRank(left) - activeRank(right);
-
-  if (activeDiff !== 0) {
-    return activeDiff;
-  }
-
   const escalationDiff = right.escalationLevel - left.escalationLevel;
 
   if (escalationDiff !== 0) {

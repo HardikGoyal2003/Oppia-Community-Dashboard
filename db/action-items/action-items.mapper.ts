@@ -3,7 +3,6 @@ import { DbValidationError } from "@/db/db.errors";
 import type {
   ActionItemModel,
   ActionItemPriority,
-  ActionItemStatus,
 } from "@/lib/domain/action-items.types";
 import {
   assertOptionalTimestamp,
@@ -15,7 +14,6 @@ import {
 type TimestampedActionItemFields = {
   detectedAt: Timestamp;
   lastDetectedAt: Timestamp;
-  resolvedAt: Timestamp | null;
   firstNotifiedAt: Timestamp | null;
   lastNotifiedAt: Timestamp | null;
   lastEscalatedAt: Timestamp | null;
@@ -43,8 +41,6 @@ export type FirestoreActionItemEscalationUpdate = {
   escalationLevel: number;
   lastEscalatedAt: Timestamp;
 };
-
-const ACTION_ITEM_STATUSES: readonly ActionItemStatus[] = ["OPEN", "RESOLVED"];
 
 const ACTION_ITEM_PRIORITIES: readonly ActionItemPriority[] = [
   "high",
@@ -124,19 +120,11 @@ function assertFirestoreActionItem(
     );
   }
 
-  if (!ACTION_ITEM_STATUSES.includes(item.status)) {
-    throw new DbValidationError(
-      "status",
-      "Action item status must be OPEN or RESOLVED.",
-    );
-  }
-
   assertNonNegativeNumber(item.notificationCount, "notificationCount");
   assertNonNegativeNumber(item.escalationLevel, "escalationLevel");
 
   assertTimestamp("ActionItem", "detectedAt", item.detectedAt);
   assertTimestamp("ActionItem", "lastDetectedAt", item.lastDetectedAt);
-  assertOptionalTimestamp("ActionItem", "resolvedAt", item.resolvedAt);
   assertOptionalTimestamp(
     "ActionItem",
     "firstNotifiedAt",
@@ -181,10 +169,8 @@ export function normalizeActionItemDocument(params: {
     message: data.message,
     priority: data.priority,
     reason: data.reason,
-    status: data.status,
     detectedAt: normalizeTimestamp(data.detectedAt),
     lastDetectedAt: normalizeTimestamp(data.lastDetectedAt),
-    resolvedAt: data.resolvedAt ? normalizeTimestamp(data.resolvedAt) : null,
     firstNotifiedAt: data.firstNotifiedAt
       ? normalizeTimestamp(data.firstNotifiedAt)
       : null,
@@ -220,10 +206,8 @@ export function serializeActionItem(
     message: item.message,
     priority: item.priority,
     reason: item.reason,
-    status: item.status,
     detectedAt: Timestamp.fromDate(item.detectedAt),
     lastDetectedAt: Timestamp.fromDate(item.lastDetectedAt),
-    resolvedAt: item.resolvedAt ? Timestamp.fromDate(item.resolvedAt) : null,
     firstNotifiedAt: item.firstNotifiedAt
       ? Timestamp.fromDate(item.firstNotifiedAt)
       : null,

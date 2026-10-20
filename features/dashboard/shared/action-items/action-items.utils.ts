@@ -1,50 +1,24 @@
 import type { ActionItem } from "./action-items.types";
-import { ACTION_ITEM_RESOLVE_AFTER_DAYS } from "@/lib/domain/action-items.types";
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-const ACTIVE_STATUSES = new Set(["OPEN"]);
-
 /**
- * Returns the items that still require follow-up.
+ * Returns the current items.
  *
  * @param items The action items to filter.
- * @returns The open items.
+ * @returns The current items.
  */
 export function getActiveActionItems(items: ActionItem[]): ActionItem[] {
-  return items.filter((item) => ACTIVE_STATUSES.has(item.status));
+  return items;
 }
 
 /**
- * Returns the active items for one team.
+ * Returns the current items for one team.
  *
  * @param items The action items to filter.
  * @param teamId The team document id (e.g. `WEB_CORE`).
- * @returns The team's active items.
+ * @returns The team's current items.
  */
 export function getActiveActionItemsForTeam(
   items: ActionItem[],
   teamId: string,
 ): ActionItem[] {
   return getActiveActionItems(items).filter((item) => item.teamId === teamId);
-}
-
-/**
- * Whether the rule behind an item stopped firing recently, meaning the item is
- * probably fixed and will close itself shortly.
- *
- * @param item The action item to check.
- * @param now Optional anchor time for testing.
- * @returns True when the item has not been detected recently.
- */
-export function isStaleActionItem(
-  item: ActionItem,
-  now: Date = new Date(),
-): boolean {
-  const lastDetectedAt = new Date(item.lastDetectedAt);
-
-  return (
-    now.getTime() - lastDetectedAt.getTime() >=
-    ACTION_ITEM_RESOLVE_AFTER_DAYS * MS_PER_DAY
-  );
 }

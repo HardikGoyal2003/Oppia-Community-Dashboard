@@ -50,3 +50,34 @@ export async function recordNotificationDelivery(
     .doc(delivery.id)
     .set(serializeNotificationDelivery(delivery));
 }
+
+/**
+ * Retrieves the most recent delivery of a notification kind for a team.
+ *
+ * @param kind The delivery kind to search for.
+ * @param teamKey The team key.
+ * @returns The latest matching delivery, or null when none exists.
+ */
+export async function getLatestNotificationDelivery(
+  kind: string,
+  teamKey: string,
+): Promise<NotificationDeliveryModel | null> {
+  const snapshot = await notificationDeliveriesCollection.get();
+
+  const deliveries = snapshot.docs
+    .map((doc) =>
+      normalizeNotificationDeliveryDocument({ ...doc.data(), id: doc.id }),
+    )
+    .filter(
+      (delivery) =>
+        delivery.kind === kind &&
+        delivery.teamKey === teamKey &&
+        delivery.status === "SENT",
+    );
+
+  deliveries.sort((left, right) =>
+    right.periodKey.localeCompare(left.periodKey),
+  );
+
+  return deliveries[0] ?? null;
+}

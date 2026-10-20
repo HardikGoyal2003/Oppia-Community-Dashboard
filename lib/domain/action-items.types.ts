@@ -1,27 +1,6 @@
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 
-/**
- * Lifecycle of a tracked action item. The status is derived by the sync engine
- * from the rule's firing state — no human writes it:
- *
- * - OPEN: the rule is currently firing and the team still has to act on it.
- * - RESOLVED: the rule fell silent past the stale threshold, so the item
- *   closed itself.
- */
-export type ActionItemStatus = "OPEN" | "RESOLVED";
-
 export type ActionItemPriority = "high" | "medium";
-
-/** Statuses that still require follow-up and therefore appear in digests. */
-export const ACTION_ITEM_ACTIVE_STATUSES: readonly ActionItemStatus[] = [
-  "OPEN",
-] as const;
-
-/**
- * Days an item's rule must stay silent before the item resolves itself. The
- * same threshold separates a rule that is still firing from one that healed.
- */
-export const ACTION_ITEM_RESOLVE_AFTER_DAYS = 7;
 
 /**
  * A persisted action item derived from a team report rule, stored as
@@ -41,13 +20,10 @@ export type ActionItemModel = {
   message: string;
   priority: ActionItemPriority;
   reason: string;
-  status: ActionItemStatus;
-  /** When the rule was first detected for this id. */
+  /** When the current rule instance was first detected. */
   detectedAt: Date;
-  /** When the rule was last observed firing (stays put after the rule heals). */
+  /** When the rule was most recently observed in the report. */
   lastDetectedAt: Date;
-  /** When the item resolved itself after the rule fell silent. */
-  resolvedAt: Date | null;
   firstNotifiedAt: Date | null;
   lastNotifiedAt: Date | null;
   notificationCount: number;
@@ -64,8 +40,7 @@ export type ActionItemSyncSummary = {
   detectedCount: number;
   createdCount: number;
   updatedCount: number;
-  reopenedCount: number;
-  resolvedCount: number;
-  activeCount: number;
+  deletedCount: number;
+  currentCount: number;
   syncedAt: string;
 };

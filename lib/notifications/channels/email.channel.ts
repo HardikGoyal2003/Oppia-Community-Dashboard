@@ -1,5 +1,6 @@
 import {
   getActionItemsEmailFrom,
+  getActionItemsEmailReplyTo,
   getResendApiKey,
   isActionItemEmailEnabled,
 } from "@/lib/config";
@@ -36,6 +37,7 @@ async function sendEmailToRecipient(
     },
     body: JSON.stringify({
       from: getActionItemsEmailFrom(),
+      reply_to: getActionItemsEmailReplyTo(),
       to: [email],
       subject: message.subject,
       html: message.bodyHtml,

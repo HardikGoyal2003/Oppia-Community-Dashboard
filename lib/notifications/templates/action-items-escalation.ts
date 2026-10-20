@@ -74,14 +74,14 @@ export function buildActionItemsEscalation(
   const levelLabel =
     escalationLevel === 1 ? "first reminder" : `reminder #${escalationLevel}`;
 
-  const subject = `Reminder ${escalationLevel}: ${countLabel} still open for ${teamName}`;
-  const title = `Reminder: ${countLabel} still open for ${teamName}.`;
+  const subject = `Reminder ${escalationLevel}: ${countLabel} still needs attention for ${teamName}`;
+  const title = `Reminder: ${countLabel} still needs attention for ${teamName}.`;
   const deepLinkPath = ACTION_ITEMS_DEEP_LINK_PATH;
 
   const textLines: string[] = [
     `Escalation (${levelLabel}) for ${teamName}`,
     "",
-    `${countLabel} ha${items.length === 1 ? "s" : "ve"} been open for more than ${escalationAfterDays} days without action:`,
+    `${countLabel} ha${items.length === 1 ? "s" : "ve"} remained present for more than ${escalationAfterDays} days without action:`,
     "",
   ];
 
@@ -91,7 +91,7 @@ export function buildActionItemsEscalation(
     );
     textLines.push(`   Why: ${item.reason}`);
     textLines.push(
-      `   First notified ${DATE_FORMAT.format(item.detectedAt)} · open for ${item.daysOpen} day${item.daysOpen === 1 ? "" : "s"}`,
+      `   First notified ${DATE_FORMAT.format(item.detectedAt)} · present for ${item.daysOpen} day${item.daysOpen === 1 ? "" : "s"}`,
     );
     textLines.push(`   ${buildItemLink(appBaseUrl, item.id)}`);
   });
@@ -100,7 +100,7 @@ export function buildActionItemsEscalation(
   textLines.push(
     "Do not reply to this email — updates happen on the dashboard.",
   );
-  textLines.push(`Open the dashboard to resolve or dismiss items:`);
+  textLines.push(`Open the dashboard to work on these items:`);
   textLines.push(`${appBaseUrl}${deepLinkPath}`);
 
   const rowsHtml = items
@@ -115,7 +115,7 @@ export function buildActionItemsEscalation(
             <span style="display:inline-block;background:${badgeColor};color:#ffffff;font-size:10px;font-weight:700;letter-spacing:0.06em;padding:2px 8px;border-radius:999px;">${badgeLabel}</span>
             <p style="margin:8px 0 0;font-size:14px;color:#0f172a;font-weight:600;">${escapeHtml(item.message)}</p>
             <p style="margin:4px 0 0;font-size:13px;color:#475569;">${escapeHtml(item.reason)}</p>
-            <p style="margin:6px 0 0;font-size:12px;color:#94a3b8;">First notified ${DATE_FORMAT.format(item.detectedAt)} · open for ${item.daysOpen} day${item.daysOpen === 1 ? "" : "s"}</p>
+            <p style="margin:6px 0 0;font-size:12px;color:#94a3b8;">First notified ${DATE_FORMAT.format(item.detectedAt)} · present for ${item.daysOpen} day${item.daysOpen === 1 ? "" : "s"}</p>
             <p style="margin:8px 0 0;">
               <a href="${buildItemLink(appBaseUrl, item.id)}" style="font-size:13px;color:#2563eb;font-weight:600;">Open this item →</a>
             </p>
@@ -130,7 +130,7 @@ export function buildActionItemsEscalation(
     <p style="margin:0;font-size:12px;font-weight:700;color:#64748b;letter-spacing:0.1em;text-transform:uppercase;">Oppia Community Dashboard</p>
     <h1 style="margin:8px 0 4px;font-size:20px;color:#0f172a;">Reminder: action items still open</h1>
     <p style="margin:0;font-size:14px;color:#64748b;">${escapeHtml(teamName)} · ${levelLabel}</p>
-    <p style="margin:16px 0 0;font-size:14px;color:#334155;">You have <strong>${countLabel}</strong> that ${items.length === 1 ? "has" : "have"} been open for more than ${escalationAfterDays} days without action. Resolve or dismiss ${items.length === 1 ? "it" : "them"} in the dashboard so this reminder does not repeat.</p>
+    <p style="margin:16px 0 0;font-size:14px;color:#334155;">You have <strong>${countLabel}</strong> that ${items.length === 1 ? "has" : "have"} remained present for more than ${escalationAfterDays} days without action. Work on ${items.length === 1 ? "it" : "them"} in the dashboard so this reminder does not repeat.</p>
     <div style="margin-top:20px;">
       <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
         ${rowsHtml}

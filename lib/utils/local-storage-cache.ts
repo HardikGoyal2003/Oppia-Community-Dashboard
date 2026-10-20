@@ -1,5 +1,11 @@
 const CRON_REFRESH_INTERVAL_MS = 3 * 24 * 60 * 60 * 1000;
 
+/**
+ * Computes the remaining cache lifetime from the last refresh timestamp.
+ *
+ * @param lastUpdatedIso The last refresh timestamp, or null when unavailable.
+ * @returns The remaining cache lifetime in milliseconds.
+ */
 export function computeTtlFromLastUpdated(
   lastUpdatedIso: string | null,
 ): number {
@@ -19,6 +25,12 @@ type CacheEntry<T> = {
   expiresAt: number;
 };
 
+/**
+ * Reads and validates a cached value from local storage.
+ *
+ * @param key The local-storage key.
+ * @returns The cached value, or null when missing or invalid.
+ */
 export function getCachedData<T>(key: string): T | null {
   try {
     const raw = localStorage.getItem(key);
@@ -41,11 +53,15 @@ export function getCachedData<T>(key: string): T | null {
   }
 }
 
-export function setCachedData<T>(
-  key: string,
-  data: T,
-  ttlMs: number,
-): void {
+/**
+ * Stores a value in local storage with an expiry timestamp.
+ *
+ * @param key The local-storage key.
+ * @param data The value to cache.
+ * @param ttlMs The cache lifetime in milliseconds.
+ * @returns Nothing.
+ */
+export function setCachedData<T>(key: string, data: T, ttlMs: number): void {
   try {
     const entry: CacheEntry<T> = {
       data,
@@ -58,6 +74,12 @@ export function setCachedData<T>(
   }
 }
 
+/**
+ * Removes a cached value from local storage.
+ *
+ * @param key The local-storage key.
+ * @returns Nothing.
+ */
 export function clearCachedData(key: string): void {
   try {
     localStorage.removeItem(key);

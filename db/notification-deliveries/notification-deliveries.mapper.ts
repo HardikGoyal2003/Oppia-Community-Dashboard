@@ -83,6 +83,17 @@ function assertFirestoreNotificationDelivery(
   }
 
   if (
+    delivery.actionItemIds !== undefined &&
+    (!Array.isArray(delivery.actionItemIds) ||
+      delivery.actionItemIds.some((id) => typeof id !== "string"))
+  ) {
+    throw new DbValidationError(
+      "actionItemIds",
+      "Delivery actionItemIds must be an array of strings.",
+    );
+  }
+
+  if (
     typeof delivery.itemCount !== "number" ||
     Number.isNaN(delivery.itemCount) ||
     delivery.itemCount < 0
@@ -130,6 +141,9 @@ export function normalizeNotificationDeliveryDocument(
     channel: rawDelivery.channel,
     teamKey: rawDelivery.teamKey,
     periodKey: rawDelivery.periodKey,
+    actionItemIds: Array.isArray(rawDelivery.actionItemIds)
+      ? [...rawDelivery.actionItemIds]
+      : [],
     recipientUids: [...rawDelivery.recipientUids],
     itemCount: rawDelivery.itemCount,
     status: rawDelivery.status,
@@ -153,6 +167,7 @@ export function serializeNotificationDelivery(
     channel: delivery.channel,
     teamKey: delivery.teamKey,
     periodKey: delivery.periodKey,
+    actionItemIds: [...delivery.actionItemIds],
     recipientUids: [...delivery.recipientUids],
     itemCount: delivery.itemCount,
     status: delivery.status,

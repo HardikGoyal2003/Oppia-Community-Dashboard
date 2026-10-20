@@ -24,10 +24,7 @@ import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { getRoleDisplayLabel } from "@/lib/auth/role-display";
 import { formatDisplayValue } from "@/lib/utils/display.utils";
 import { useActionItems } from "@/features/dashboard/shared/action-items/hooks/use-action-items.hook";
-import {
-  getActiveActionItemsForTeam,
-  isStaleActionItem,
-} from "@/features/dashboard/shared/action-items/action-items.utils";
+import { getActiveActionItemsForTeam } from "@/features/dashboard/shared/action-items/action-items.utils";
 import type { ActionItem } from "@/features/dashboard/shared/action-items/action-items.types";
 
 type TeamLead = {
@@ -563,11 +560,6 @@ function TeamActionItemsPanel({
                   <p className="text-sm font-medium text-slate-800">
                     {item.message}
                   </p>
-                  {isStaleActionItem(item) && (
-                    <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-700">
-                      No longer detected
-                    </span>
-                  )}
                   {item.escalationLevel > 0 && (
                     <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-rose-700">
                       Reminder #{item.escalationLevel}
@@ -587,7 +579,7 @@ function TeamActionItemsPanel({
                 </p>
                 <p className="flex items-center gap-1.5 pt-1 text-[11px] text-slate-400">
                   <CheckCircle2 className="h-3 w-3 text-slate-300" />
-                  Closes automatically once the issue is fixed.
+                  Disappears once the issue is fixed.
                 </p>
               </div>
             </div>

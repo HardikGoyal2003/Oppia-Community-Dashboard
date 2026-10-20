@@ -4,6 +4,7 @@ import {
 } from "@/db/action-items/action-items.db";
 import {
   getNotificationDeliveryById,
+  getLatestNotificationDelivery,
   recordNotificationDelivery,
 } from "@/db/notification-deliveries/notification-deliveries.db";
 import { getUsersByTeam } from "@/db/users/users.db";
@@ -14,7 +15,6 @@ import {
 } from "@/lib/config";
 import { resolveLeadEmail } from "@/lib/config/lead-emails";
 import {
-  ACTION_ITEM_RESOLVE_AFTER_DAYS,
   type ActionItemModel,
   type ActionItemSyncSummary,
 } from "@/lib/domain/action-items.types";
@@ -22,15 +22,13 @@ import type {
   NotificationChannelKey,
   NotificationDeliveryStatus,
 } from "@/lib/domain/notifications.types";
-import {
-  isActiveActionItem,
-  syncActionItems,
-} from "@/lib/action-items/action-items.service";
+import { syncActionItems } from "@/lib/action-items/action-items.service";
 import { NOTIFICATION_CHANNELS } from "@/lib/notifications/channels";
 import {
   buildActionItemsEscalation,
   type EscalationItem,
 } from "@/lib/notifications/templates/action-items-escalation";
+import { DAILY_ACTION_ITEMS_DIGEST_KIND } from "@/lib/notifications/action-item-digest.service";
 import { getIstDateKey } from "@/lib/utils/date.utils";
 
 /** Delivery kind recorded for escalation nudges. */
@@ -107,11 +105,9 @@ async function getEscalationRecipientsForTeam(
 /**
  * Whether an item is due for its next escalation nudge.
  *
- * An item escalates when it is still open, was included in at least one digest
- * (so the lead has been informed), no action has landed for
- * `escalationAfterDays` since the last nudge (or first digest), and the rule
- * is still firing — an item whose rule healed is auto-resolved instead of
- * nudged, so it never reaches this point.
+ * An item escalates when it is still present in the latest report, was
+ * included in at least one digest, and no action has landed for
+ * `escalationAfterDays` since the last nudge (or first digest).
  *
  * @param item The action item to check.
  * @param escalationAfterDays The required idle days between nudges.
@@ -123,19 +119,8 @@ export function isActionItemDueForEscalation(
   escalationAfterDays: number,
   now: Date = new Date(),
 ): boolean {
-  if (!isActiveActionItem(item)) {
-    return false;
-  }
-
   // Never nudged about an item the lead has not been told about yet.
   if (item.notificationCount <= 0 || !item.firstNotifiedAt) {
-    return false;
-  }
-
-  // The rule healed: the item is about to auto-resolve, not escalate.
-  const resolveAfterMs = ACTION_ITEM_RESOLVE_AFTER_DAYS * MS_PER_DAY;
-
-  if (now.getTime() - item.lastDetectedAt.getTime() >= resolveAfterMs) {
     return false;
   }
 
@@ -181,21 +166,38 @@ export async function escalateDueActionItems(
 
   const items = await getActionItems();
   const now = new Date();
-  const dueItems = items.filter((item) =>
-    isActionItemDueForEscalation(item, escalationAfterDays, now),
-  );
+  const currentItemsByTeam = new Map<string, ActionItemModel[]>();
 
-  const dueByTeam = new Map<string, ActionItemModel[]>();
-
-  for (const item of dueItems) {
-    const existing = dueByTeam.get(item.teamKey);
+  for (const item of items) {
+    const existing = currentItemsByTeam.get(item.teamKey);
 
     if (existing) {
       existing.push(item);
     } else {
-      dueByTeam.set(item.teamKey, [item]);
+      currentItemsByTeam.set(item.teamKey, [item]);
     }
   }
+
+  const dueByTeam = new Map<string, ActionItemModel[]>();
+
+  for (const [teamKey, teamItems] of currentItemsByTeam) {
+    const latestDigest = await getLatestNotificationDelivery(
+      DAILY_ACTION_ITEMS_DIGEST_KIND,
+      teamKey,
+    );
+    const notifiedItemIds = new Set(latestDigest?.actionItemIds ?? []);
+    const dueItems = teamItems.filter(
+      (item) =>
+        notifiedItemIds.has(item.id) &&
+        isActionItemDueForEscalation(item, escalationAfterDays, now),
+    );
+
+    if (dueItems.length > 0) {
+      dueByTeam.set(teamKey, dueItems);
+    }
+  }
+
+  const dueItems = Array.from(dueByTeam.values()).flat();
 
   const appBaseUrl = getAppBaseUrl();
   const teams: EscalationTeamOutcome[] = [];
@@ -281,6 +283,7 @@ export async function escalateDueActionItems(
           channel: channel.key,
           teamKey,
           periodKey,
+          actionItemIds: teamItems.map((item) => item.id),
           recipientUids: result.deliveredTo,
           itemCount: teamItems.length,
           status,
@@ -310,6 +313,7 @@ export async function escalateDueActionItems(
           channel: channel.key,
           teamKey,
           periodKey,
+          actionItemIds: teamItems.map((item) => item.id),
           recipientUids: [],
           itemCount: teamItems.length,
           status: "FAILED",

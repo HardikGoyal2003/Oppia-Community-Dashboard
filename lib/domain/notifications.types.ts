@@ -46,12 +46,14 @@ export type NotificationDeliveryStatus = "SENT" | "SKIPPED" | "FAILED";
 export type NotificationDeliveryModel = {
   /** `${kind}__${periodKey}__${teamKey}__${channel}` — doubles as idempotency key. */
   id: string;
-  /** Delivery kind, e.g. `weekly_action_items_digest`. */
+  /** Delivery kind, e.g. `daily_action_items_digest`. */
   kind: string;
   channel: NotificationChannelKey;
   teamKey: string;
-  /** Stable period bucket, e.g. the IST week-start date key. */
+  /** Stable period bucket, e.g. the IST date key. */
   periodKey: string;
+  /** Exact action-item document ids included in this delivery. */
+  actionItemIds: string[];
   recipientUids: string[];
   itemCount: number;
   status: NotificationDeliveryStatus;

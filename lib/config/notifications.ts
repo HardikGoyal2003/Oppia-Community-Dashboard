@@ -36,7 +36,20 @@ export function getActionItemsEmailFrom(): string {
 }
 
 /**
- * Returns whether the weekly action item digest cron is enabled.
+ * Returns the reply-to address for action-item emails. The address is intended
+ * to be non-monitored; leads should act from the dashboard instead.
+ *
+ * @returns The configured no-reply address.
+ */
+export function getActionItemsEmailReplyTo(): string {
+  return readEnvWithDefault(
+    "ACTION_ITEMS_EMAIL_REPLY_TO",
+    "no-reply@resend.dev",
+  );
+}
+
+/**
+ * Returns whether the daily action item digest cron is enabled.
  *
  * @returns True unless `ACTION_ITEMS_DIGEST_ENABLED` is set to "false".
  */

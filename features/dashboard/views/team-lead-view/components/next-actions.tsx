@@ -9,7 +9,6 @@ import {
   Sparkles,
 } from "lucide-react";
 import type { ActionItem } from "@/features/dashboard/shared/action-items/action-items.types";
-import { isStaleActionItem } from "@/features/dashboard/shared/action-items/action-items.utils";
 import { getTeamLeadActionMessage } from "../overview.utils";
 
 type NextActionsProps = {
@@ -92,7 +91,6 @@ export function NextActions({
             </div>
           ) : (
             items.map((item, index) => {
-              const isStale = isStaleActionItem(item);
               const isHighlighted = highlightedId === item.id;
 
               return (
@@ -144,11 +142,6 @@ export function NextActions({
                       </p>
 
                       <div className="mt-2 flex flex-wrap items-center gap-2">
-                        {isStale && (
-                          <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-700">
-                            No longer detected
-                          </span>
-                        )}
                         {item.escalationLevel > 0 && (
                           <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-rose-700">
                             Reminder #{item.escalationLevel}
@@ -173,7 +166,7 @@ export function NextActions({
 
                       <p className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400">
                         <CheckCircle2 className="h-3 w-3 text-slate-300" />
-                        This item closes automatically once the issue is fixed.
+                        This item disappears once the issue is fixed.
                       </p>
                     </div>
                   </div>
