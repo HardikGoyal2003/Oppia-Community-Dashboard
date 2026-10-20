@@ -59,6 +59,26 @@ export function getIstDateKeyDaysAgo(days: number): string {
 }
 
 /**
+ * Builds the IST-normalized YYYY-MM-DD date key of the Monday that starts the
+ * week containing the given date. Useful as a stable weekly idempotency bucket.
+ *
+ * @param date The timestamp to anchor the week to.
+ * @returns The Asia/Kolkata date key for the week's Monday.
+ */
+export function getIstWeekStartDateKey(date: Date): string {
+  const [year, month, day] = getIstDateKey(date)
+    .split("-")
+    .map((part) => Number(part));
+
+  const istMidnight = new Date(Date.UTC(year, month - 1, day));
+  const daysSinceMonday = (istMidnight.getUTCDay() + 6) % 7;
+
+  istMidnight.setUTCDate(istMidnight.getUTCDate() - daysSinceMonday);
+
+  return istMidnight.toISOString().slice(0, 10);
+}
+
+/**
  * Formats the elapsed time between now and a past timestamp into a compact label.
  *
  * @param timestamp The earlier timestamp to compare against the current time.

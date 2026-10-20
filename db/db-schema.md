@@ -103,6 +103,50 @@ Fields:
 - `unansweredIssuesCount: number`
 - `maxWaitingDays: number`
 
+### `teams/{teamId}/actionItems`
+
+Subcollection of `teams`. Document id:
+
+- the stable rule key, e.g. `gfi-shortfall`
+
+Fields:
+
+- `teamKey: string` **(team key on user records like `CORE`)**
+- `teamName: string`
+- `platform: "WEB" | "ANDROID"`
+- `ruleKey: string` **(stable team-report rule identifier)**
+- `message: string`
+- `priority: "high" | "medium"`
+- `reason: string`
+- `detectedAt: Timestamp`
+- `lastDetectedAt: Timestamp`
+- `firstNotifiedAt: Timestamp | null`
+- `lastNotifiedAt: Timestamp | null`
+- `notificationCount: number`
+- `escalationLevel: number` **(how many escalation nudges were sent for this document)**
+- `lastEscalatedAt: Timestamp | null`
+- `createdAt: Timestamp`
+- `updatedAt: Timestamp`
+
+### `notificationDeliveries`
+
+Document id:
+
+- `${kind}__${periodKey}__${teamKey}__${channel}` **(also the idempotency key, e.g. `daily_action_items_digest__2026-10-19__CORE__EMAIL`)**
+
+Fields:
+
+- `kind: string`
+- `channel: "EMAIL" | "IN_APP"`
+- `teamKey: string`
+- `periodKey: string` **(IST date key for daily digests)**
+- `actionItemIds: string[]` **(exact action-item document ids included in the delivery)**
+- `recipientUids: string[]`
+- `itemCount: number`
+- `status: "SENT" | "SKIPPED" | "FAILED"`
+- `error: string | null`
+- `recordedAt: Timestamp`
+
 ### `dataJobRuns`
 
 Document id:
@@ -143,6 +187,15 @@ Normalized app-layer models convert Firestore timestamps as follows:
 - `users/{uid}/notifications.createdAt -> Date`
 - `memberAccessRequests.createdAt -> Date`
 - `teams.lastUpdated -> Date`
+- `actionItems.detectedAt -> Date`
+- `actionItems.lastDetectedAt -> Date`
+- `actionItems.acknowledgedAt -> Date | null`
+- `actionItems.firstNotifiedAt -> Date | null`
+- `actionItems.lastNotifiedAt -> Date | null`
+- `actionItems.lastEscalatedAt -> Date | null`
+- `actionItems.createdAt -> Date`
+- `actionItems.updatedAt -> Date`
+- `notificationDeliveries.recordedAt -> Date`
 - `dailyTeamMetrics.capturedAt -> Date`
 - `dataJobRuns.startedAt -> Date`
 - `dataJobRuns.finishedAt -> Date | null`

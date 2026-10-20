@@ -6,6 +6,11 @@ import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { getIstDateKeyDaysAgo } from "@/lib/utils/date.utils";
 
 export type TeamReportNextStep = {
+  /**
+   * Stable identifier for the rule that produced this step. Used to give
+   * persisted action items a deterministic identity across syncs.
+   */
+  ruleKey: string;
   message: string;
   priority: "high" | "medium";
   reason: string;
@@ -86,6 +91,7 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
 
   if (team.members.length < 4) {
     nextSteps.push({
+      ruleKey: "min-members",
       message: "Onboard more team members in this team.",
       priority: "high",
       reason:
@@ -95,6 +101,7 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
 
   if (teamLeadCount > 3) {
     nextSteps.push({
+      ruleKey: "max-team-leads",
       message: `Reduce team leads in this team. There are ${teamLeadCount} team leads, but the ideal is at most 3.`,
       priority: "high",
       reason:
@@ -104,6 +111,7 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
 
   if (traineeLeadCount > 2) {
     nextSteps.push({
+      ruleKey: "max-trainee-leads",
       message: `Reduce trainee leads in this team. There are ${traineeLeadCount} trainee leads, but the ideal is at most 2.`,
       priority: "high",
       reason:
@@ -113,6 +121,7 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
 
   if (team.leads.length < 2) {
     nextSteps.push({
+      ruleKey: "min-leads",
       message: `Onboard ${2 - team.leads.length} more lead${
         2 - team.leads.length === 1 ? "" : "s"
       } in this team.`,
@@ -124,6 +133,7 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
 
   if (traineeLeadCount < 1) {
     nextSteps.push({
+      ruleKey: "trainee-lead-pipeline",
       message: "It is better to onboard one trainee lead in this team.",
       priority: "medium",
       reason:
@@ -133,6 +143,7 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
 
   if (lowGfiDomainShortfalls.length > 0) {
     nextSteps.push({
+      ruleKey: "gfi-shortfall",
       message:
         team.platform === "ANDROID"
           ? `Ask leads to add ${Math.max(15 - totalGfiCount, 1)} more GFI${
@@ -158,6 +169,7 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
 
   if (latestMaxWaitingDays > 2) {
     nextSteps.push({
+      ruleKey: "issue-waiting-days",
       message:
         "Ask leads about the team\u2019s issue response performance because some issues have been waiting too long for a response.",
       priority: "high",
@@ -172,6 +184,7 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
     }
 
     nextSteps.push({
+      ruleKey: "gfi-uncategorized",
       message:
         "Ask leads to categorize uncategorized good first issues into frontend, backend, or fullstack.",
       priority: "medium",
