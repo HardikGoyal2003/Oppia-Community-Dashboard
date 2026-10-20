@@ -183,8 +183,10 @@ function assertFirestoreActionItem(
 export function normalizeActionItemDocument(
   item: FirebaseFirestore.DocumentData & { id: string },
 ): ActionItemModel {
+  // Assert before destructuring: the assertion validates the id field too.
+  assertFirestoreActionItem(item);
+
   const { id, ...rawItem } = item;
-  assertFirestoreActionItem(rawItem);
 
   return {
     id,

@@ -119,8 +119,10 @@ function assertFirestoreNotificationDelivery(
 export function normalizeNotificationDeliveryDocument(
   delivery: FirebaseFirestore.DocumentData & { id: string },
 ): NotificationDeliveryModel {
+  // Assert before destructuring: the assertion validates the id field too.
+  assertFirestoreNotificationDelivery(delivery);
+
   const { id, ...rawDelivery } = delivery;
-  assertFirestoreNotificationDelivery(rawDelivery);
 
   return {
     id,
