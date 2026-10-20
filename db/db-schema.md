@@ -103,15 +103,14 @@ Fields:
 - `unansweredIssuesCount: number`
 - `maxWaitingDays: number`
 
-### `actionItems`
+### `teams/{teamId}/actionItems`
 
-Document id:
+Subcollection of `teams`. Document id:
 
-- deterministic `${teamKey}__${ruleKey}` (plus `__${params}` when a rule is parameterized), e.g. `CORE__gfi-shortfall`
+- the rule key (plus a `-`-joined param suffix when a rule is parameterized), e.g. `gfi-shortfall`
 
 Fields:
 
-- `teamId: string` **(team document id like `WEB_CORE`)**
 - `teamKey: string` **(team key on user records like `CORE`)**
 - `teamName: string`
 - `platform: "WEB" | "ANDROID"`
@@ -130,6 +129,8 @@ Fields:
 - `firstNotifiedAt: Timestamp | null`
 - `lastNotifiedAt: Timestamp | null`
 - `notificationCount: number`
+- `escalationLevel: number` **(how many escalation nudges were sent; resets on reopen)**
+- `lastEscalatedAt: Timestamp | null`
 - `createdAt: Timestamp`
 - `updatedAt: Timestamp`
 
@@ -197,6 +198,7 @@ Normalized app-layer models convert Firestore timestamps as follows:
 - `actionItems.resolvedAt -> Date | null`
 - `actionItems.firstNotifiedAt -> Date | null`
 - `actionItems.lastNotifiedAt -> Date | null`
+- `actionItems.lastEscalatedAt -> Date | null`
 - `actionItems.createdAt -> Date`
 - `actionItems.updatedAt -> Date`
 - `notificationDeliveries.recordedAt -> Date`

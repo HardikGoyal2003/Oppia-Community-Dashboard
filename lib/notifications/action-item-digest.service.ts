@@ -8,13 +8,15 @@ import {
 } from "@/db/action-items/action-items.db";
 import { getUsersByTeam } from "@/db/users/users.db";
 import { getAppBaseUrl, isActionItemsDigestEnabled } from "@/lib/config";
+import { resolveLeadEmail } from "@/lib/config/lead-emails";
 import {
   isActiveActionItem,
   syncActionItems,
 } from "@/lib/action-items/action-items.service";
-import type {
-  ActionItemModel,
-  ActionItemSyncSummary,
+import {
+  ACTION_ITEM_STALE_AFTER_DAYS,
+  type ActionItemModel,
+  type ActionItemSyncSummary,
 } from "@/lib/domain/action-items.types";
 import type {
   NotificationChannelKey,
@@ -29,9 +31,6 @@ import { getIstWeekStartDateKey } from "@/lib/utils/date.utils";
 
 /** Delivery kind recorded for weekly digests. */
 export const WEEKLY_ACTION_ITEMS_DIGEST_KIND = "weekly_action_items_digest";
-
-/** Items undetected for this long are grouped as "please confirm and close". */
-const DIGEST_STALE_AFTER_DAYS = 7;
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -97,7 +96,7 @@ async function getDigestRecipientsForTeam(
     .filter((user) => user.role === "TEAM_LEAD" || user.role === "LEAD_TRAINEE")
     .map((user) => ({
       uid: user.id,
-      email: user.email?.trim() ? user.email.trim() : null,
+      email: resolveLeadEmail(user.githubUsername, user.email ?? null),
       fullName: user.fullName?.trim() || user.githubUsername,
     }));
 }
@@ -197,7 +196,7 @@ export async function sendWeeklyActionItemDigest(
       detectedAt: item.detectedAt,
       isStale:
         now.getTime() - item.lastDetectedAt.getTime() >=
-        DIGEST_STALE_AFTER_DAYS * MS_PER_DAY,
+        ACTION_ITEM_STALE_AFTER_DAYS * MS_PER_DAY,
     }));
 
     const message = buildWeeklyActionItemsDigest({

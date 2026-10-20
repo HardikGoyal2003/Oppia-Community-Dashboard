@@ -490,7 +490,7 @@ function TeamActionItemsPanel({
   error: string | null;
   actionError: string | null;
   busyItemId: string | null;
-  onReview: (id: string, status: ActionItemReviewStatus) => void;
+  onReview: (item: ActionItem, status: ActionItemReviewStatus) => void;
 }) {
   const teamItems = getActiveActionItemsForTeam(items, report.id);
   const isBusy = busyItemId !== null;
@@ -583,6 +583,19 @@ function TeamActionItemsPanel({
                       No longer detected
                     </span>
                   )}
+                  {item.escalationLevel > 0 && (
+                    <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-rose-700">
+                      Reminder #{item.escalationLevel}
+                      {item.lastEscalatedAt
+                        ? ` · ${new Date(
+                            item.lastEscalatedAt,
+                          ).toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                          })}`
+                        : ""}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs leading-5 text-slate-500">
                   {item.reason}
@@ -591,7 +604,7 @@ function TeamActionItemsPanel({
                   <button
                     type="button"
                     disabled={isBusy}
-                    onClick={() => onReview(item.id, "RESOLVED")}
+                    onClick={() => onReview(item, "RESOLVED")}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {busyItemId === item.id ? (
@@ -604,7 +617,7 @@ function TeamActionItemsPanel({
                   <button
                     type="button"
                     disabled={isBusy}
-                    onClick={() => onReview(item.id, "DISMISSED")}
+                    onClick={() => onReview(item, "DISMISSED")}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-500 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <X className="h-3 w-3" />
@@ -781,8 +794,8 @@ export function TeamReportsTab() {
                   error={actionItemsError}
                   actionError={actionError}
                   busyItemId={busyItemId}
-                  onReview={(id, status) => {
-                    void reviewItem(id, status);
+                  onReview={(item, status) => {
+                    void reviewItem(item, status);
                   }}
                 />
               </div>

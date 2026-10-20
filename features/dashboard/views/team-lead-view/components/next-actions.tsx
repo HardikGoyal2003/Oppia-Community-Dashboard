@@ -24,7 +24,7 @@ type NextActionsProps = {
   actionError: string | null;
   busyItemId: string | null;
   highlightedId: string | null;
-  onReview: (id: string, status: ActionItemReviewStatus) => void;
+  onReview: (item: ActionItem, status: ActionItemReviewStatus) => void;
   onRetry: () => void;
 };
 
@@ -197,6 +197,19 @@ export function NextActions({
                             No longer detected
                           </span>
                         )}
+                        {item.escalationLevel > 0 && (
+                          <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-rose-700">
+                            Reminder #{item.escalationLevel}
+                            {item.lastEscalatedAt
+                              ? ` · ${new Date(
+                                  item.lastEscalatedAt,
+                                ).toLocaleDateString("en-IN", {
+                                  day: "numeric",
+                                  month: "short",
+                                })}`
+                              : ""}
+                          </span>
+                        )}
                         <span className="text-[11px] text-slate-400">
                           Detected since{" "}
                           {new Date(item.detectedAt).toLocaleDateString(
@@ -210,7 +223,7 @@ export function NextActions({
                         {item.status === "OPEN" && (
                           <ActionButton
                             disabled={isBusy}
-                            onClick={() => onReview(item.id, "ACKNOWLEDGED")}
+                            onClick={() => onReview(item, "ACKNOWLEDGED")}
                           >
                             {busyItemId === item.id ? (
                               <Loader2 className="h-3 w-3 animate-spin" />
@@ -223,7 +236,7 @@ export function NextActions({
                         <ActionButton
                           tone="primary"
                           disabled={isBusy}
-                          onClick={() => onReview(item.id, "RESOLVED")}
+                          onClick={() => onReview(item, "RESOLVED")}
                         >
                           <Check className="h-3 w-3" />
                           Resolve
@@ -231,7 +244,7 @@ export function NextActions({
                         <ActionButton
                           tone="danger-ghost"
                           disabled={isBusy}
-                          onClick={() => onReview(item.id, "DISMISSED")}
+                          onClick={() => onReview(item, "DISMISSED")}
                         >
                           <X className="h-3 w-3" />
                           Dismiss

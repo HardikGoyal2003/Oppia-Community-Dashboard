@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/send-action-item-digest",
       "schedule": "0 3 * * 1"
+    },
+    {
+      "path": "/api/cron/escalate-action-items",
+      "schedule": "0 4 * * *"
     }
   ]
 }

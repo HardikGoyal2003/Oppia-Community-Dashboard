@@ -124,6 +124,8 @@ export function buildWeeklyActionItemsDigest(
 
   textLines.push(`Open the dashboard to resolve or dismiss items:`);
   textLines.push(`${appBaseUrl}${deepLinkPath}`);
+  textLines.push("");
+  textLines.push("Do not reply to this email — respond on the dashboard.");
 
   const renderListItems = (list: WeeklyDigestItem[]): string =>
     list
@@ -184,7 +186,7 @@ export function buildWeeklyActionItemsDigest(
     <p style="margin:24px 0 0;">
       <a href="${appBaseUrl}${deepLinkPath}" style="display:inline-block;background:#0f172a;color:#ffffff;font-size:14px;font-weight:600;padding:10px 18px;border-radius:10px;text-decoration:none;">Open dashboard overview</a>
     </p>
-    <p style="margin:20px 0 0;font-size:12px;color:#94a3b8;">You receive this digest because you are a lead for this team. Items are tracked on the dashboard — just reply to them there.</p>
+    <p style="margin:20px 0 0;font-size:12px;color:#94a3b8;">Do not reply to this email — respond on the dashboard. You receive this digest because you are a lead for this team; acknowledging or resolving items there keeps next week's digest focused.</p>
   </div>
 </div>`;
 

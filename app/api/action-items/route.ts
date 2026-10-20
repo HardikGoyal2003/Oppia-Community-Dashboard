@@ -3,11 +3,12 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import {
   compareActionItemsForDisplay,
+  getTeamIdForKey,
   syncActionItems,
 } from "@/lib/action-items/action-items.service";
 import {
   getActionItems,
-  getActionItemsByTeamKey,
+  getActionItemsByTeamId,
 } from "@/db/action-items/action-items.db";
 
 function canManageOwnTeamActionItems(role: string): boolean {
@@ -49,8 +50,18 @@ export async function GET(req: Request) {
     let items: Awaited<ReturnType<typeof getActionItems>>;
 
     if (isLead) {
-      // Leads only need their own team's items; the query stays indexed.
-      items = await getActionItemsByTeamKey(team!);
+      // Leads only need their own team's items; the read is scoped to the
+      // team's subcollection.
+      const teamId = getTeamIdForKey(team!);
+
+      if (!teamId) {
+        return NextResponse.json(
+          { error: "Your team assignment is incomplete." },
+          { status: 400 },
+        );
+      }
+
+      items = await getActionItemsByTeamId(teamId);
     } else {
       items = await getActionItems();
 

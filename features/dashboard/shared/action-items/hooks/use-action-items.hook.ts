@@ -50,20 +50,32 @@ export function useActionItems() {
 
   const reviewItem = useCallback(
     async (
-      id: string,
+      item: ActionItem,
       status: ActionItemReviewStatus,
       note?: string,
     ): Promise<void> => {
-      setBusyItemId(id);
+      setBusyItemId(item.id);
       setActionError(null);
 
       try {
-        const updatedItem = await reviewActionItem(id, status, note);
+        const updatedItem = await reviewActionItem(
+          item.teamId,
+          item.id,
+          status,
+          note,
+        );
 
         setItems((previous) =>
           status === "ACKNOWLEDGED"
-            ? previous.map((item) => (item.id === id ? updatedItem : item))
-            : previous.filter((item) => item.id !== id),
+            ? previous.map((existing) =>
+                existing.id === item.id && existing.teamId === item.teamId
+                  ? updatedItem
+                  : existing,
+              )
+            : previous.filter(
+                (existing) =>
+                  !(existing.id === item.id && existing.teamId === item.teamId),
+              ),
         );
       } catch (error) {
         setActionError(

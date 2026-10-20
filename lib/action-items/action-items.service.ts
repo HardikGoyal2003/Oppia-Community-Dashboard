@@ -25,22 +25,19 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 export const ACTION_ITEM_REOPEN_AFTER_DAYS = 14;
 
 /**
- * Builds the deterministic document id for an action item.
+ * Builds the document id for an action item. Items live at
+ * `teams/{teamId}/actionItems/{id}`, so the id only has to be unique within
+ * one team: the rule key plus any parameter suffix.
  *
- * @param teamKey The team key stored on user records.
  * @param ruleKey The stable rule identifier from the team report.
  * @param params Optional rule parameter.
- * @returns The deterministic action item id.
+ * @returns The action item document id.
  */
-export function buildActionItemId(
-  teamKey: string,
-  ruleKey: string,
-  params?: string,
-): string {
-  return [teamKey, ruleKey, params]
+export function buildActionItemId(ruleKey: string, params?: string): string {
+  return [ruleKey, params]
     .filter((part): part is string => Boolean(part))
-    .map((part) => part.trim().replace(/[^A-Za-z0-9_]+/g, "_"))
-    .join("__");
+    .map((part) => part.trim().replace(/[^A-Za-z0-9_-]+/g, "-"))
+    .join("-");
 }
 
 /**
@@ -53,6 +50,20 @@ function getTeamKeyForTeamId(teamId: string): string {
   return (
     TEAM_DEFINITIONS.find((definition) => definition.teamId === teamId)
       ?.teamKey ?? teamId
+  );
+}
+
+/**
+ * Resolves the team document id for a team key stored on user records
+ * (e.g. `CORE` -> `WEB_CORE`).
+ *
+ * @param teamKey The team key stored on user records.
+ * @returns The matching team document id, or null when no definition matches.
+ */
+export function getTeamIdForKey(teamKey: string): string | null {
+  return (
+    TEAM_DEFINITIONS.find((definition) => definition.teamKey === teamKey)
+      ?.teamId ?? null
   );
 }
 
@@ -71,7 +82,8 @@ export function isActiveActionItem(item: ActionItemModel): boolean {
  *
  * New rules become OPEN items; healing rules simply stop refreshing
  * `lastDetectedAt`; closed items reopen only after
- * `ACTION_ITEM_REOPEN_AFTER_DAYS` without a detection.
+ * `ACTION_ITEM_REOPEN_AFTER_DAYS` without a detection. Reopening also resets
+ * the escalation history, so a fresh regression restarts the nudge ladder.
  *
  * @returns A summary of what the sync changed.
  */
@@ -81,7 +93,9 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
     getActionItems(),
   ]);
 
-  const existingById = new Map(existingItems.map((item) => [item.id, item]));
+  const existingById = new Map(
+    existingItems.map((item) => [`${item.teamId}/${item.id}`, item]),
+  );
   const now = new Date();
   const itemsToUpsert: ActionItemModel[] = [];
   const touchedIds = new Set<string>();
@@ -94,8 +108,9 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
     const teamKey = getTeamKeyForTeamId(report.id);
 
     for (const step of report.nextSteps) {
-      const id = buildActionItemId(teamKey, step.ruleKey, step.params);
-      const prior = existingById.get(id);
+      const id = buildActionItemId(step.ruleKey, step.params);
+      const compositeKey = `${report.id}/${id}`;
+      const prior = existingById.get(compositeKey);
       touchedIds.add(id);
 
       if (!prior) {
@@ -121,6 +136,8 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
           firstNotifiedAt: null,
           lastNotifiedAt: null,
           notificationCount: 0,
+          escalationLevel: 0,
+          lastEscalatedAt: null,
           createdAt: now,
           updatedAt: now,
         });
@@ -163,6 +180,9 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
         resolvedAt: shouldReopen ? null : prior.resolvedAt,
         resolvedBy: shouldReopen ? null : prior.resolvedBy,
         resolutionNote: shouldReopen ? null : prior.resolutionNote,
+        // A reopened item starts a fresh escalation ladder.
+        escalationLevel: shouldReopen ? 0 : prior.escalationLevel,
+        lastEscalatedAt: shouldReopen ? null : prior.lastEscalatedAt,
         lastDetectedAt: now,
         updatedAt: now,
       });
@@ -172,10 +192,13 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
   await upsertActionItems(itemsToUpsert);
 
   const finalItems = existingItems.map(
-    (item) => itemsToUpsert.find((updated) => updated.id === item.id) ?? item,
+    (item) =>
+      itemsToUpsert.find(
+        (updated) => updated.id === item.id && updated.teamId === item.teamId,
+      ) ?? item,
   );
   const detectedItems = itemsToUpsert.filter(
-    (item) => !existingById.has(item.id),
+    (item) => !existingById.has(`${item.teamId}/${item.id}`),
   );
   const activeCount =
     finalItems.filter((item) => isActiveActionItem(item)).length +
@@ -192,15 +215,17 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
 }
 
 /**
- * Loads a single action item by id.
+ * Loads a single action item.
  *
- * @param id The deterministic action item id.
+ * @param teamId The team document id (e.g. `WEB_CORE`).
+ * @param itemId The action item document id (the rule key).
  * @returns The action item, or null when it does not exist.
  */
 export async function getActionItem(
-  id: string,
+  teamId: string,
+  itemId: string,
 ): Promise<ActionItemModel | null> {
-  return getActionItemById(id);
+  return getActionItemById(teamId, itemId);
 }
 
 /** The session identity needed to authorize an action item review. */
@@ -235,7 +260,8 @@ export function canReviewActionItem(
 /**
  * Applies a review status transition to an action item.
  *
- * @param id The deterministic action item id.
+ * @param teamId The team document id (e.g. `WEB_CORE`).
+ * @param itemId The action item document id (the rule key).
  * @param status The review status to apply.
  * @param actorUid The uid of the lead or admin performing the transition.
  * @param note Optional resolution or dismissal note.
@@ -243,12 +269,13 @@ export function canReviewActionItem(
  * @throws {DbNotFoundError} When the action item does not exist.
  */
 export async function updateActionItemStatus(
-  id: string,
+  teamId: string,
+  itemId: string,
   status: ActionItemReviewStatus,
   actorUid: string,
   note?: string | null,
 ): Promise<ActionItemModel> {
-  const existing = await getActionItemById(id);
+  const existing = await getActionItemById(teamId, itemId);
 
   if (!existing) {
     throw new DbNotFoundError("ActionItem");
@@ -270,14 +297,14 @@ export async function updateActionItemStatus(
     updatedAt: now,
   };
 
-  await updateActionItemStatusById(id, update);
+  await updateActionItemStatusById(teamId, itemId, update, now);
 
   return { ...existing, ...update };
 }
 
 /**
- * Orders action items for display: active before closed, high priority first,
- * newest detections first.
+ * Orders action items for display: active before closed, escalated items
+ * first (highest level first), then high priority, then newest detections.
  *
  * @param left The first item.
  * @param right The second item.
@@ -294,6 +321,12 @@ export function compareActionItemsForDisplay(
 
   if (activeDiff !== 0) {
     return activeDiff;
+  }
+
+  const escalationDiff = right.escalationLevel - left.escalationLevel;
+
+  if (escalationDiff !== 0) {
+    return escalationDiff;
   }
 
   const priorityRank = (item: ActionItemModel) =>

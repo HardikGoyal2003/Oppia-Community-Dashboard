@@ -30,6 +30,8 @@ export type ActionItem = {
   resolvedBy: string | null;
   resolutionNote: string | null;
   notificationCount: number;
+  escalationLevel: number;
+  lastEscalatedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };

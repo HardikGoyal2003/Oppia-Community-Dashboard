@@ -26,9 +26,15 @@ export const ACTION_ITEM_ACTIVE_STATUSES: readonly ActionItemStatus[] = [
 export type ActionItemReviewStatus = "ACKNOWLEDGED" | "RESOLVED" | "DISMISSED";
 
 /**
- * A persisted action item derived from a team report rule. The document id is
- * deterministic (`${teamKey}__${ruleKey}`) so repeated syncs upsert instead of
- * duplicating.
+ * Items undetected for this long are treated as probably-fixed: digests group
+ * them under "confirm and close" and escalation never nudges about them.
+ */
+export const ACTION_ITEM_STALE_AFTER_DAYS = 7;
+
+/**
+ * A persisted action item derived from a team report rule, stored as
+ * `teams/{teamId}/actionItems/{ruleKey}`. The document id is the stable rule
+ * key, so repeated syncs upsert instead of duplicating.
  */
 export type ActionItemModel = {
   id: string;
@@ -56,6 +62,10 @@ export type ActionItemModel = {
   firstNotifiedAt: Date | null;
   lastNotifiedAt: Date | null;
   notificationCount: number;
+  /** How many escalation nudges have been sent for this item (0 = never). */
+  escalationLevel: number;
+  /** When the most recent escalation nudge was sent; null until first nudged. */
+  lastEscalatedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };

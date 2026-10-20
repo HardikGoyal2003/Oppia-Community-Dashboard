@@ -7,6 +7,7 @@ import { captureDailyUnansweredIssueMetrics } from "@/lib/team-metrics/capture-d
 import { syncTeamGfiCounts } from "@/lib/teams/sync-team-gfi-counts.service";
 import { syncOrgMeta } from "@/lib/org-meta/sync-org-meta.service";
 import { syncActionItems } from "@/lib/action-items/action-items.service";
+import { escalateDueActionItems } from "@/lib/action-items/escalation.service";
 import { sendWeeklyActionItemDigest } from "@/lib/notifications/action-item-digest.service";
 
 const CRON_JOBS: CronJobDefinition[] = [
@@ -39,6 +40,12 @@ const CRON_JOBS: CronJobDefinition[] = [
     name: "Send Action Items Digest",
     description:
       "Sync action items and email the weekly digest of open items to each team's leads (respects weekly idempotency).",
+  },
+  {
+    key: "escalate_action_items",
+    name: "Escalate Action Items",
+    description:
+      "Sync action items and nudge leads about items that have been open without action past the escalation interval (idempotent per day).",
   },
 ];
 
@@ -168,6 +175,31 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
                 `Skipped (no active items or no leads): ${result.skippedTeamKeys.join(", ")}.`,
               ]
             : []),
+        ].join("\n"),
+      };
+    }
+    case "escalate_action_items": {
+      const result = await escalateDueActionItems();
+      const finishedAt = new Date();
+
+      return {
+        finishedAt,
+        jobKey: job.key,
+        jobName: job.name,
+        startedAt,
+        summary: [
+          "Cron job completed.",
+          `Escalation period (IST date): ${result.periodKey}.`,
+          `Escalation enabled: ${result.enabled ? "yes" : "no"}.`,
+          `Escalation interval: ${result.escalationAfterDays} day(s).`,
+          `Items due for escalation: ${result.itemsDueCount}.`,
+          `Teams notified: ${result.teamsNotified}.`,
+          ...result.teams.map(
+            (team) =>
+              `${team.teamName}: ${team.itemCount} item(s) escalated to level ${team.newEscalationLevel}, ${team.recipientCount} recipient(s) — ${team.channelOutcomes
+                .map((outcome) => `${outcome.channel}: ${outcome.status}`)
+                .join(", ")}.`,
+          ),
         ].join("\n"),
       };
     }

@@ -1,4 +1,9 @@
-import { readBooleanEnv, readEnv, readEnvWithDefault } from "./env";
+import {
+  readBooleanEnv,
+  readEnv,
+  readEnvWithDefault,
+  readNumberEnv,
+} from "./env";
 
 /**
  * Returns the Resend API key when configured.
@@ -37,6 +42,24 @@ export function getActionItemsEmailFrom(): string {
  */
 export function isActionItemsDigestEnabled(): boolean {
   return readBooleanEnv("ACTION_ITEMS_DIGEST_ENABLED", true);
+}
+
+/**
+ * Returns whether escalation nudges are enabled.
+ *
+ * @returns True unless `ACTION_ITEM_ESCALATION_ENABLED` is set to "false".
+ */
+export function isActionItemEscalationEnabled(): boolean {
+  return readBooleanEnv("ACTION_ITEM_ESCALATION_ENABLED", true);
+}
+
+/**
+ * Returns how many days must pass without action before an item is escalated.
+ *
+ * @returns The escalation interval in days (default 3).
+ */
+export function getActionItemEscalationDays(): number {
+  return readNumberEnv("ACTION_ITEM_ESCALATION_DAYS", 3);
 }
 
 /**

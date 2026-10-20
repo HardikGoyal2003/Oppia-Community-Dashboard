@@ -1,23 +1,62 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DB_PATHS } from "@/db/db-paths";
-import { getRequiredDocumentSnapshot } from "@/db/utils/document.utils";
 import type { ActionItemModel } from "@/lib/domain/action-items.types";
 import {
   type ActionItemStatusUpdate,
   type FirestoreActionItem,
   normalizeActionItemDocument,
   serializeActionItem,
+  serializeActionItemEscalationUpdate,
   serializeActionItemNotificationUpdate,
   serializeActionItemStatusUpdate,
 } from "./action-items.mapper";
 
 const db = getAdminFirestore();
-export const actionItemsCollection = db.collection(
-  DB_PATHS.ACTION_ITEMS.COLLECTION,
-) as FirebaseFirestore.CollectionReference<FirestoreActionItem>;
+
+/**
+ * Action items live at `teams/{teamId}/actionItems/{ruleKey}`. The collection
+ * group reference supports cross-team reads (admins, digests, escalation).
+ */
+export const actionItemsCollectionGroup: FirebaseFirestore.CollectionGroup<FirestoreActionItem> =
+  db.collectionGroup(
+    DB_PATHS.ACTION_ITEMS.COLLECTION,
+  ) as FirebaseFirestore.CollectionGroup<FirestoreActionItem>;
 
 /** Maximum number of writes committed per Firestore batch. */
 const FIRESTORE_BATCH_LIMIT = 400;
+
+/**
+ * Builds the CollectionReference for one team's action items.
+ *
+ * @param teamId The team document id (e.g. `WEB_CORE`).
+ * @returns The Firestore collection reference.
+ */
+export function getActionItemsCollectionRef(
+  teamId: string,
+): FirebaseFirestore.CollectionReference<FirestoreActionItem> {
+  return db
+    .collection(DB_PATHS.TEAMS.COLLECTION)
+    .doc(teamId)
+    .collection(
+      DB_PATHS.ACTION_ITEMS.COLLECTION,
+    ) as FirebaseFirestore.CollectionReference<FirestoreActionItem>;
+}
+
+/**
+ * Builds the DocumentReference for one action item.
+ *
+ * @param teamId The team document id (e.g. `WEB_CORE`).
+ * @param itemId The action item document id (the rule key).
+ * @returns The Firestore document reference.
+ */
+export function getActionItemDocumentRef(
+  teamId: string,
+  itemId: string,
+): FirebaseFirestore.DocumentReference<FirestoreActionItem> {
+  return getActionItemsCollectionRef(teamId).doc(
+    itemId,
+  ) as FirebaseFirestore.DocumentReference<FirestoreActionItem>;
+}
 
 /**
  * Splits a list into fixed-size chunks so writes stay within batch limits.
@@ -37,31 +76,65 @@ function chunkValues<T>(values: T[], size: number): T[][] {
 }
 
 /**
- * Lists every persisted action item.
+ * Resolves the parent team id from a collection-group document path like
+ * `teams/WEB_CORE/actionItems/gfi-shortfall`.
+ *
+ * @param path The document path.
+ * @returns The team document id.
+ */
+function resolveTeamIdFromPath(path: string): string {
+  const segments = path.split("/");
+  // teams/{teamId}/actionItems/{itemId}
+  return segments[1] ?? "";
+}
+
+/**
+ * Retrieves every tracked action item across all teams (collection group).
  *
  * @returns The normalized action items.
  */
 export async function getActionItems(): Promise<ActionItemModel[]> {
-  const snapshot = await actionItemsCollection.get();
+  const snapshot = await actionItemsCollectionGroup.get();
+
+  return snapshot.docs.map((doc) => {
+    const data = doc.data();
+
+    return normalizeActionItemDocument({
+      id: doc.id,
+      teamId: resolveTeamIdFromPath(doc.ref.path),
+      data,
+    });
+  });
+}
+
+/**
+ * Retrieves the action items belonging to one team.
+ *
+ * @param teamId The team document id (e.g. `WEB_CORE`).
+ * @returns The team's normalized action items.
+ */
+export async function getActionItemsByTeamId(
+  teamId: string,
+): Promise<ActionItemModel[]> {
+  const snapshot = await getActionItemsCollectionRef(teamId).get();
 
   return snapshot.docs.map((doc) =>
-    normalizeActionItemDocument({
-      ...doc.data(),
-      id: doc.id,
-    }),
+    normalizeActionItemDocument({ id: doc.id, teamId, data: doc.data() }),
   );
 }
 
 /**
- * Retrieves an action item by document id.
+ * Retrieves a single action item by its team and document id.
  *
- * @param id The deterministic action item id.
+ * @param teamId The team document id (e.g. `WEB_CORE`).
+ * @param itemId The action item document id (the rule key).
  * @returns The normalized action item, or null when it does not exist.
  */
 export async function getActionItemById(
-  id: string,
+  teamId: string,
+  itemId: string,
 ): Promise<ActionItemModel | null> {
-  const snapshot = await actionItemsCollection.doc(id).get();
+  const snapshot = await getActionItemDocumentRef(teamId, itemId).get();
 
   if (!snapshot.exists) {
     return null;
@@ -73,48 +146,50 @@ export async function getActionItemById(
     return null;
   }
 
-  return normalizeActionItemDocument({ ...data, id: snapshot.id });
+  return normalizeActionItemDocument({ id: snapshot.id, teamId, data });
 }
 
 /**
- * Lists action items for a single team key.
+ * Inserts or updates action items. Document ids are the rule keys within a
+ * team, so repeated syncs upsert instead of duplicating.
  *
- * @param teamKey The team key stored on user records (e.g. "CORE").
- * @returns The normalized action items for the team.
- */
-export async function getActionItemsByTeamKey(
-  teamKey: string,
-): Promise<ActionItemModel[]> {
-  const snapshot = await actionItemsCollection
-    .where("teamKey", "==", teamKey)
-    .get();
-
-  return snapshot.docs.map((doc) =>
-    normalizeActionItemDocument({
-      ...doc.data(),
-      id: doc.id,
-    }),
-  );
-}
-
-/**
- * Creates or replaces action item documents.
- *
- * @param items The normalized action items to persist.
- * @returns A promise that resolves when all writes are committed.
+ * @param items The action items to persist.
+ * @returns A promise that resolves when all batches are committed.
  */
 export async function upsertActionItems(
   items: ActionItemModel[],
 ): Promise<void> {
-  if (items.length === 0) {
-    return;
+  const byTeam = new Map<string, ActionItemModel[]>();
+
+  for (const item of items) {
+    const existing = byTeam.get(item.teamId);
+
+    if (existing) {
+      existing.push(item);
+    } else {
+      byTeam.set(item.teamId, [item]);
+    }
   }
 
-  for (const chunk of chunkValues(items, FIRESTORE_BATCH_LIMIT)) {
-    const batch = actionItemsCollection.firestore.batch();
+  const writes: Array<{
+    ref: FirebaseFirestore.DocumentReference<FirestoreActionItem>;
+    data: FirestoreActionItem;
+  }> = [];
 
-    for (const item of chunk) {
-      batch.set(actionItemsCollection.doc(item.id), serializeActionItem(item));
+  for (const [teamId, teamItems] of byTeam) {
+    for (const item of teamItems) {
+      writes.push({
+        ref: getActionItemDocumentRef(teamId, item.id),
+        data: serializeActionItem(item),
+      });
+    }
+  }
+
+  for (const chunk of chunkValues(writes, FIRESTORE_BATCH_LIMIT)) {
+    const batch = db.batch();
+
+    for (const write of chunk) {
+      batch.set(write.ref, write.data);
     }
 
     await batch.commit();
@@ -122,51 +197,97 @@ export async function upsertActionItems(
 }
 
 /**
- * Applies a review status transition to an existing action item.
+ * Applies a review transition (acknowledge / resolve / dismiss) to one item.
  *
- * @param id The deterministic action item id.
- * @param update The normalized status patch.
- * @returns A promise that resolves when the update has been written.
+ * @param teamId The team document id.
+ * @param itemId The action item document id (the rule key).
+ * @param update The status transition to persist.
+ * @param updatedAt The time of the transition.
+ * @returns A promise that resolves when the update is committed.
  */
 export async function updateActionItemStatusById(
-  id: string,
+  teamId: string,
+  itemId: string,
   update: ActionItemStatusUpdate,
+  updatedAt: Date,
 ): Promise<void> {
-  const docRef = actionItemsCollection.doc(id);
-  await getRequiredDocumentSnapshot("ActionItem", docRef);
-
-  await docRef.update(serializeActionItemStatusUpdate(update));
+  await getActionItemDocumentRef(teamId, itemId).update(
+    serializeActionItemStatusUpdate(update, updatedAt),
+  );
 }
 
 /**
- * Records that a digest included the given action items.
+ * Marks items as notified by the latest digest.
  *
- * @param items The items that were included, with their current notification fields.
- * @param notifiedAt The notification timestamp to persist.
- * @returns A promise that resolves when all notification counters are updated.
+ * @param items The items that were included in a digest.
+ * @param notifiedAt The time the digest was delivered.
+ * @returns A promise that resolves when all batches are committed.
  */
 export async function markActionItemsNotified(
-  items: Array<
-    Pick<ActionItemModel, "id" | "firstNotifiedAt" | "notificationCount">
-  >,
+  items: ActionItemModel[],
   notifiedAt: Date,
 ): Promise<void> {
-  if (items.length === 0) {
-    return;
+  const writes: Array<{
+    ref: FirebaseFirestore.DocumentReference<FirestoreActionItem>;
+    data: Partial<FirestoreActionItem>;
+  }> = [];
+
+  for (const item of items) {
+    writes.push({
+      ref: getActionItemDocumentRef(item.teamId, item.id),
+      data: serializeActionItemNotificationUpdate(
+        item.firstNotifiedAt,
+        notifiedAt,
+        item.notificationCount + 1,
+      ),
+    });
   }
 
-  for (const chunk of chunkValues(items, FIRESTORE_BATCH_LIMIT)) {
-    const batch = actionItemsCollection.firestore.batch();
+  for (const chunk of chunkValues(writes, FIRESTORE_BATCH_LIMIT)) {
+    const batch = db.batch();
 
-    for (const item of chunk) {
-      batch.update(
-        actionItemsCollection.doc(item.id),
-        serializeActionItemNotificationUpdate(
-          item.firstNotifiedAt,
-          notifiedAt,
-          item.notificationCount + 1,
-        ),
-      );
+    for (const write of chunk) {
+      batch.update(write.ref, write.data);
+    }
+
+    await batch.commit();
+  }
+}
+
+/**
+ * Records escalation nudges by bumping each item's escalation level.
+ *
+ * @param updates The per-item escalation updates to persist.
+ * @returns A promise that resolves when all batches are committed.
+ */
+export async function updateActionItemsEscalation(
+  updates: Array<{
+    teamId: string;
+    itemId: string;
+    escalationLevel: number;
+    lastEscalatedAt: Date;
+  }>,
+): Promise<void> {
+  const writes: Array<{
+    ref: FirebaseFirestore.DocumentReference<FirestoreActionItem>;
+    data: Partial<FirestoreActionItem>;
+  }> = [];
+
+  for (const update of updates) {
+    writes.push({
+      ref: getActionItemDocumentRef(update.teamId, update.itemId),
+      data: serializeActionItemEscalationUpdate(
+        update.escalationLevel,
+        update.lastEscalatedAt,
+      ),
+    });
+  }
+
+  for (const chunk of chunkValues(writes, FIRESTORE_BATCH_LIMIT)) {
+    const batch = db.batch();
+
+    for (const write of chunk) {
+      batch.update(write.ref, write.data);
     }
 
     await batch.commit();

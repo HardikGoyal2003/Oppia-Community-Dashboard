@@ -22,11 +22,13 @@ type ActionItemPatchBody = {
 
 /**
  * Applies a review transition (acknowledge / resolve / dismiss) to one action
- * item. Leads may act on their own team's items; admins may override anywhere.
+ * item. Items live at `teams/{teamId}/actionItems/{itemId}`, so the route
+ * carries both segments. Leads may act on their own team's items; admins may
+ * override anywhere.
  */
 export async function PATCH(
   req: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ teamId: string; itemId: string }> },
 ) {
   const session = await getServerSession(authOptions);
 
@@ -34,7 +36,14 @@ export async function PATCH(
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  const { id } = await params;
+  const { teamId, itemId } = await params;
+
+  if (!teamId || !itemId) {
+    return NextResponse.json(
+      { error: "teamId and itemId are required." },
+      { status: 400 },
+    );
+  }
 
   let body: ActionItemPatchBody;
 
@@ -68,7 +77,7 @@ export async function PATCH(
   }
 
   try {
-    const item = await getActionItem(id);
+    const item = await getActionItem(teamId, itemId);
 
     if (!item) {
       return NextResponse.json(
@@ -82,7 +91,8 @@ export async function PATCH(
     }
 
     const updatedItem = await updateActionItemStatus(
-      id,
+      teamId,
+      itemId,
       body.status as ActionItemReviewStatus,
       session.user.id,
       typeof body.note === "string" ? body.note : null,

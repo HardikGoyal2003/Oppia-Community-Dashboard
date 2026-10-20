@@ -19,13 +19,18 @@ type TimestampedActionItemFields = {
   resolvedAt: Timestamp | null;
   firstNotifiedAt: Timestamp | null;
   lastNotifiedAt: Timestamp | null;
+  lastEscalatedAt: Timestamp | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 };
 
+/**
+ * Persisted shape of an action item document. The document id (the rule key)
+ * and the parent team id live in the Firestore path, not in the document body.
+ */
 export type FirestoreActionItem = Omit<
   ActionItemModel,
-  keyof TimestampedActionItemFields
+  "id" | "teamId" | keyof TimestampedActionItemFields
 > &
   TimestampedActionItemFields;
 
@@ -35,7 +40,6 @@ export type ActionItemStatusUpdate = {
   resolvedAt: Date | null;
   resolvedBy: string | null;
   resolutionNote: string | null;
-  updatedAt: Date;
 };
 
 export type FirestoreActionItemStatusUpdate = {
@@ -51,6 +55,11 @@ export type FirestoreActionItemNotificationUpdate = {
   firstNotifiedAt: Timestamp;
   lastNotifiedAt: Timestamp;
   notificationCount: number;
+};
+
+export type FirestoreActionItemEscalationUpdate = {
+  escalationLevel: number;
+  lastEscalatedAt: Timestamp;
 };
 
 const ACTION_ITEM_STATUSES: readonly ActionItemStatus[] = [
@@ -109,8 +118,6 @@ function assertNonNegativeNumber(
 function assertFirestoreActionItem(
   item: FirebaseFirestore.DocumentData,
 ): asserts item is FirestoreActionItem {
-  assertNonEmptyString(item.id, "id");
-  assertNonEmptyString(item.teamId, "teamId");
   assertNonEmptyString(item.teamKey, "teamKey");
   assertNonEmptyString(item.teamName, "teamName");
 
@@ -148,6 +155,7 @@ function assertFirestoreActionItem(
   }
 
   assertNonNegativeNumber(item.notificationCount, "notificationCount");
+  assertNonNegativeNumber(item.escalationLevel, "escalationLevel");
 
   if (item.resolvedBy !== null) {
     assertNonEmptyString(item.resolvedBy, "resolvedBy");
@@ -170,60 +178,72 @@ function assertFirestoreActionItem(
     item.firstNotifiedAt,
   );
   assertOptionalTimestamp("ActionItem", "lastNotifiedAt", item.lastNotifiedAt);
+  assertOptionalTimestamp(
+    "ActionItem",
+    "lastEscalatedAt",
+    item.lastEscalatedAt,
+  );
   assertTimestamp("ActionItem", "createdAt", item.createdAt);
   assertTimestamp("ActionItem", "updatedAt", item.updatedAt);
 }
 
 /**
- * Normalizes raw Firestore action item data into the app model.
+ * Normalizes a raw Firestore action item document into the app model.
  *
- * @param item The raw Firestore action item data with its id.
+ * @param params The document id (rule key), parent team id, and raw data.
  * @returns The normalized action item model.
+ * @throws {DbValidationError} When the document shape is invalid.
  */
-export function normalizeActionItemDocument(
-  item: FirebaseFirestore.DocumentData & { id: string },
-): ActionItemModel {
-  // Assert before destructuring: the assertion validates the id field too.
-  assertFirestoreActionItem(item);
+export function normalizeActionItemDocument(params: {
+  id: string;
+  teamId: string;
+  data: FirebaseFirestore.DocumentData;
+}): ActionItemModel {
+  const { id, teamId, data } = params;
 
-  const { id, ...rawItem } = item;
+  assertNonEmptyString(id, "id");
+  assertNonEmptyString(teamId, "teamId");
+  assertFirestoreActionItem(data);
 
   return {
     id,
-    teamId: rawItem.teamId,
-    teamKey: rawItem.teamKey,
-    teamName: rawItem.teamName,
-    platform: rawItem.platform,
-    ruleKey: rawItem.ruleKey,
-    params: rawItem.params,
-    message: rawItem.message,
-    priority: rawItem.priority,
-    reason: rawItem.reason,
-    status: rawItem.status,
-    detectedAt: normalizeTimestamp(rawItem.detectedAt),
-    lastDetectedAt: normalizeTimestamp(rawItem.lastDetectedAt),
-    acknowledgedAt: rawItem.acknowledgedAt
-      ? normalizeTimestamp(rawItem.acknowledgedAt)
+    teamId,
+    teamKey: data.teamKey,
+    teamName: data.teamName,
+    platform: data.platform,
+    ruleKey: data.ruleKey,
+    params: data.params,
+    message: data.message,
+    priority: data.priority,
+    reason: data.reason,
+    status: data.status,
+    detectedAt: normalizeTimestamp(data.detectedAt),
+    lastDetectedAt: normalizeTimestamp(data.lastDetectedAt),
+    acknowledgedAt: data.acknowledgedAt
+      ? normalizeTimestamp(data.acknowledgedAt)
       : null,
-    resolvedAt: rawItem.resolvedAt
-      ? normalizeTimestamp(rawItem.resolvedAt)
+    resolvedAt: data.resolvedAt ? normalizeTimestamp(data.resolvedAt) : null,
+    resolvedBy: data.resolvedBy,
+    resolutionNote: data.resolutionNote,
+    firstNotifiedAt: data.firstNotifiedAt
+      ? normalizeTimestamp(data.firstNotifiedAt)
       : null,
-    resolvedBy: rawItem.resolvedBy,
-    resolutionNote: rawItem.resolutionNote,
-    firstNotifiedAt: rawItem.firstNotifiedAt
-      ? normalizeTimestamp(rawItem.firstNotifiedAt)
+    lastNotifiedAt: data.lastNotifiedAt
+      ? normalizeTimestamp(data.lastNotifiedAt)
       : null,
-    lastNotifiedAt: rawItem.lastNotifiedAt
-      ? normalizeTimestamp(rawItem.lastNotifiedAt)
+    notificationCount: data.notificationCount,
+    escalationLevel: data.escalationLevel,
+    lastEscalatedAt: data.lastEscalatedAt
+      ? normalizeTimestamp(data.lastEscalatedAt)
       : null,
-    notificationCount: rawItem.notificationCount,
-    createdAt: normalizeTimestamp(rawItem.createdAt),
-    updatedAt: normalizeTimestamp(rawItem.updatedAt),
+    createdAt: normalizeTimestamp(data.createdAt),
+    updatedAt: normalizeTimestamp(data.updatedAt),
   };
 }
 
 /**
- * Serializes a normalized action item for Firestore storage.
+ * Serializes a normalized action item for Firestore storage. The document id
+ * is intentionally omitted — it lives in the document path.
  *
  * @param item The normalized action item payload.
  * @returns The Firestore-ready action item document.
@@ -232,8 +252,6 @@ export function serializeActionItem(
   item: ActionItemModel,
 ): FirestoreActionItem {
   return {
-    id: item.id,
-    teamId: item.teamId,
     teamKey: item.teamKey,
     teamName: item.teamName,
     platform: item.platform,
@@ -258,6 +276,10 @@ export function serializeActionItem(
       ? Timestamp.fromDate(item.lastNotifiedAt)
       : null,
     notificationCount: item.notificationCount,
+    escalationLevel: item.escalationLevel,
+    lastEscalatedAt: item.lastEscalatedAt
+      ? Timestamp.fromDate(item.lastEscalatedAt)
+      : null,
     createdAt: Timestamp.fromDate(item.createdAt),
     updatedAt: Timestamp.fromDate(item.updatedAt),
   };
@@ -267,10 +289,12 @@ export function serializeActionItem(
  * Serializes a status-transition patch for a partial action item update.
  *
  * @param update The normalized status update payload.
+ * @param updatedAt The time of the transition.
  * @returns The Firestore-ready partial update document.
  */
 export function serializeActionItemStatusUpdate(
   update: ActionItemStatusUpdate,
+  updatedAt: Date,
 ): FirestoreActionItemStatusUpdate {
   return {
     status: update.status,
@@ -282,7 +306,7 @@ export function serializeActionItemStatusUpdate(
       : null,
     resolvedBy: update.resolvedBy,
     resolutionNote: update.resolutionNote,
-    updatedAt: Timestamp.fromDate(update.updatedAt),
+    updatedAt: Timestamp.fromDate(updatedAt),
   };
 }
 
@@ -303,5 +327,22 @@ export function serializeActionItemNotificationUpdate(
     firstNotifiedAt: Timestamp.fromDate(previousFirstNotifiedAt ?? notifiedAt),
     lastNotifiedAt: Timestamp.fromDate(notifiedAt),
     notificationCount: nextNotificationCount,
+  };
+}
+
+/**
+ * Serializes the escalation bookkeeping patch for action items after a nudge.
+ *
+ * @param escalationLevel The new escalation level.
+ * @param escalatedAt The time the nudge was sent.
+ * @returns The Firestore-ready partial update document.
+ */
+export function serializeActionItemEscalationUpdate(
+  escalationLevel: number,
+  escalatedAt: Date,
+): FirestoreActionItemEscalationUpdate {
+  return {
+    escalationLevel,
+    lastEscalatedAt: Timestamp.fromDate(escalatedAt),
   };
 }

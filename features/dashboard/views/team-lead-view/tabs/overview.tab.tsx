@@ -165,8 +165,8 @@ export default function TeamLeadOverviewTab() {
           actionError={actionError}
           busyItemId={busyItemId}
           highlightedId={highlightedItemId}
-          onReview={(id, status) => {
-            void reviewItem(id, status);
+          onReview={(item, status) => {
+            void reviewItem(item, status);
           }}
           onRetry={() => {
             void reloadActionItems();
