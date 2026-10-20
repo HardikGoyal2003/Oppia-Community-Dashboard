@@ -119,13 +119,10 @@ Fields:
 - `message: string`
 - `priority: "high" | "medium"`
 - `reason: string`
-- `status: "OPEN" | "ACKNOWLEDGED" | "RESOLVED" | "DISMISSED"`
+- `status: "OPEN" | "RESOLVED"` **(derived by the sync engine; never written by a human)**
 - `detectedAt: Timestamp`
 - `lastDetectedAt: Timestamp`
-- `acknowledgedAt: Timestamp | null`
 - `resolvedAt: Timestamp | null`
-- `resolvedBy: string | null` **(uid of the resolving user)**
-- `resolutionNote: string | null`
 - `firstNotifiedAt: Timestamp | null`
 - `lastNotifiedAt: Timestamp | null`
 - `notificationCount: number`

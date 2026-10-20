@@ -1,17 +1,15 @@
 import type { ActionItem } from "./action-items.types";
-
-/** Items undetected for this long are flagged as "no longer detected". */
-export const ACTION_ITEM_STALE_AFTER_DAYS = 7;
+import { ACTION_ITEM_RESOLVE_AFTER_DAYS } from "@/lib/domain/action-items.types";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-const ACTIVE_STATUSES = new Set(["OPEN", "ACKNOWLEDGED"]);
+const ACTIVE_STATUSES = new Set(["OPEN"]);
 
 /**
  * Returns the items that still require follow-up.
  *
  * @param items The action items to filter.
- * @returns The open and acknowledged items.
+ * @returns The open items.
  */
 export function getActiveActionItems(items: ActionItem[]): ActionItem[] {
   return items.filter((item) => ACTIVE_STATUSES.has(item.status));
@@ -33,7 +31,7 @@ export function getActiveActionItemsForTeam(
 
 /**
  * Whether the rule behind an item stopped firing recently, meaning the item is
- * probably fixed and only needs confirmation.
+ * probably fixed and will close itself shortly.
  *
  * @param item The action item to check.
  * @param now Optional anchor time for testing.
@@ -47,6 +45,6 @@ export function isStaleActionItem(
 
   return (
     now.getTime() - lastDetectedAt.getTime() >=
-    ACTION_ITEM_STALE_AFTER_DAYS * MS_PER_DAY
+    ACTION_ITEM_RESOLVE_AFTER_DAYS * MS_PER_DAY
   );
 }

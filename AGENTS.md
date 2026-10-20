@@ -82,7 +82,7 @@ The dashboard is initially intended for **internal Oppia maintainers**, but is d
 - **users:** id, githubUsername, role, createdAt
 - **archivedIssues:** id, issueNumber, archivedBy, archivedAt
 - **memberRequestAccess:** id, userId, requestedRole, status, createdAt
-- **teams/{teamId}/actionItems:** id (rule key), teamKey, ruleKey, status (OPEN/ACKNOWLEDGED/RESOLVED/DISMISSED), escalationLevel, timestamps
+- **teams/{teamId}/actionItems:** id (rule key), teamKey, ruleKey, status (OPEN/RESOLVED), escalationLevel, timestamps
 - **notificationDeliveries:** id (`${kind}__${periodKey}__${teamKey}__${channel}`), status, recipientUids (weekly/escalation idempotency log)
 
 **Rule:** Respect structure and roles.
@@ -91,10 +91,11 @@ The dashboard is initially intended for **internal Oppia maintainers**, but is d
 
 ## Action Items, Digest & Escalation
 
-- Action items come from team-report rules (`getNextSteps()` in `lib/team-reports/`, each step carries a stable `ruleKey`) and are persisted by `syncActionItems()` in `lib/action-items/`. Items live at `teams/{teamId}/actionItems/{ruleKey}`; `GET /api/action-items` syncs on read, so the UI always shows current data.
-- Lifecycle: team leads acknowledge/resolve/dismiss their own team's items (`PATCH /api/action-items/[teamId]/[itemId]`); admins can act on any team.
-- Weekly digest cron: `/api/cron/send-action-item-digest` (Mondays 08:30 IST, `CRON_SECRET` bearer). Sends through registered channels in `lib/notifications/channels/` — in-app bell plus Resend email. Deliveries are idempotent per (week, team, channel) via `notificationDeliveries`.
-- Escalation: `/api/cron/escalate-action-items` runs daily (09:30 IST) but only nudges when an item is due — active, already digest-notified, still detected, and untouched for `ACTION_ITEM_ESCALATION_DAYS` (default 3) since the last nudge. Levels escalate on each boundary; nudges go to leads only. Idempotent per (day, team, channel).
+- Action items come from team-report rules (`getNextSteps()` in `lib/team-reports/`, each step carries a stable `ruleKey`) and are persisted by `syncActionItems()` in `lib/action-items/`. Items live at `teams/{teamId}/actionItems/{ruleKey}`.
+- **Status is fully derived — no human writes it.** The sync engine is the only writer: a firing rule creates/refreshes an `OPEN` item; an item whose rule has been silent for `ACTION_ITEM_RESOLVE_AFTER_DAYS` (7) auto-resolves itself. There is no review API and the UI list is read-only.
+- Sync cron: `/api/cron/sync-action-items` (daily 04:30 IST, `CRON_SECRET` bearer). `GET /api/action-items` also syncs on read, so the UI always shows current data.
+- Weekly digest cron: `/api/cron/send-action-item-digest` (Mondays 08:30 IST). Sends through registered channels in `lib/notifications/channels/` — in-app bell plus Resend email. Deliveries are idempotent per (week, team, channel) via `notificationDeliveries`.
+- Escalation: `/api/cron/escalate-action-items` runs daily (09:30 IST) but only nudges when an item is due — open, already digest-notified, still detected, and untouched for `ACTION_ITEM_ESCALATION_DAYS` (default 3) since the last nudge. Levels escalate on each boundary; nudges go to leads only. Idempotent per (day, team, channel).
 - **Adding a channel** (Google Chat, Slack, ...): implement `NotificationChannel` from `lib/domain/notifications.types.ts`, register it in `lib/notifications/channels/index.ts`. Nothing else changes.
 - Lead email overrides: `lib/config/lead-emails.ts` maps GitHub username → email for leads whose user record has none.
 - Email env: `RESEND_API_KEY`, `ACTION_ITEMS_EMAIL_FROM`, `NEXT_PUBLIC_APP_URL` (for absolute links); toggles `ACTION_ITEM_EMAIL_ENABLED`, `ACTION_ITEMS_DIGEST_ENABLED`, `ACTION_ITEM_ESCALATION_ENABLED`, `ACTION_ITEM_ESCALATION_DAYS`. Set these in `.env.local` yourself; agents must not edit env files.

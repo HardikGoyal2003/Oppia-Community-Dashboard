@@ -1,12 +1,3 @@
-export type ActionItemStatus =
-  | "OPEN"
-  | "ACKNOWLEDGED"
-  | "RESOLVED"
-  | "DISMISSED";
-
-/** Statuses a reviewer can set through the API. */
-export type ActionItemReviewStatus = Exclude<ActionItemStatus, "OPEN">;
-
 /**
  * Client-side action item shape. Mirrors the API model with dates serialized
  * as ISO strings by JSON.
@@ -22,13 +13,10 @@ export type ActionItem = {
   message: string;
   priority: "high" | "medium";
   reason: string;
-  status: ActionItemStatus;
+  status: "OPEN" | "RESOLVED";
   detectedAt: string;
   lastDetectedAt: string;
-  acknowledgedAt: string | null;
   resolvedAt: string | null;
-  resolvedBy: string | null;
-  resolutionNote: string | null;
   notificationCount: number;
   escalationLevel: number;
   lastEscalatedAt: string | null;
@@ -41,6 +29,7 @@ export type ActionItemsSyncSummary = {
   createdCount: number;
   updatedCount: number;
   reopenedCount: number;
+  resolvedCount: number;
   activeCount: number;
   syncedAt: string;
 };
@@ -49,8 +38,4 @@ export type ActionItemsResponse = {
   items: ActionItem[];
   sync?: ActionItemsSyncSummary;
   generatedAt: string;
-};
-
-export type ReviewActionItemResponse = {
-  item: ActionItem;
 };

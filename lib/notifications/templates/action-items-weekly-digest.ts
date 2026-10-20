@@ -1,7 +1,4 @@
-import type {
-  ActionItemPriority,
-  ActionItemStatus,
-} from "@/lib/domain/action-items.types";
+import type { ActionItemPriority } from "@/lib/domain/action-items.types";
 import type { NotificationMessage } from "@/lib/domain/notifications.types";
 
 /** An action item rendered into the weekly digest. */
@@ -10,9 +7,8 @@ export type WeeklyDigestItem = {
   message: string;
   reason: string;
   priority: ActionItemPriority;
-  status: ActionItemStatus;
   detectedAt: Date;
-  /** True when the underlying rule stopped firing recently; ask to confirm. */
+  /** True when the underlying rule stopped firing recently; closes itself. */
   isStale: boolean;
 };
 
@@ -104,7 +100,7 @@ export function buildWeeklyActionItemsDigest(
       );
       textLines.push(`   Why: ${item.reason}`);
       textLines.push(
-        `   Detected since ${DATE_FORMAT.format(item.detectedAt)} · status: ${item.status.toLowerCase()}`,
+        `   Detected since ${DATE_FORMAT.format(item.detectedAt)}`,
       );
       textLines.push(`   ${buildItemLink(appBaseUrl, item.id)}`);
     });
@@ -133,17 +129,15 @@ export function buildWeeklyActionItemsDigest(
         const isHigh = item.priority === "high";
         const badgeColor = isHigh ? "#dc2626" : "#d97706";
         const badgeLabel = isHigh ? "HIGH" : "MEDIUM";
-        const statusLabel =
-          item.status === "ACKNOWLEDGED" ? " · acknowledged" : "";
         const staleNote = item.isStale
-          ? `<p style="margin:4px 0 0;font-size:12px;color:#b45309;">No longer detected — please confirm and close.</p>`
+          ? `<p style="margin:4px 0 0;font-size:12px;color:#b45309;">No longer detected — this will close itself automatically.</p>`
           : "";
 
         return `
           <tr>
             <td style="padding:12px;border-bottom:1px solid #e2e8f0;vertical-align:top;">
               <span style="display:inline-block;background:${badgeColor};color:#ffffff;font-size:10px;font-weight:700;letter-spacing:0.06em;padding:2px 8px;border-radius:999px;">${badgeLabel}</span>
-              <p style="margin:8px 0 0;font-size:14px;color:#0f172a;font-weight:600;">${escapeHtml(item.message)}${statusLabel}</p>
+              <p style="margin:8px 0 0;font-size:14px;color:#0f172a;font-weight:600;">${escapeHtml(item.message)}</p>
               <p style="margin:4px 0 0;font-size:13px;color:#475569;">${escapeHtml(item.reason)}</p>
               <p style="margin:6px 0 0;font-size:12px;color:#94a3b8;">Detected since ${DATE_FORMAT.format(item.detectedAt)}</p>
               ${staleNote}

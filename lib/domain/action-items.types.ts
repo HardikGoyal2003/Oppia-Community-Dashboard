@@ -1,35 +1,27 @@
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 
 /**
- * Lifecycle of a tracked action item.
+ * Lifecycle of a tracked action item. The status is derived by the sync engine
+ * from the rule's firing state — no human writes it:
  *
- * - OPEN: detected and waiting for a team lead to act.
- * - ACKNOWLEDGED: a lead confirmed they are working on it.
- * - RESOLVED: a lead (or admin) marked the item done.
- * - DISMISSED: a lead (or admin) decided the item does not apply.
+ * - OPEN: the rule is currently firing and the team still has to act on it.
+ * - RESOLVED: the rule fell silent past the stale threshold, so the item
+ *   closed itself.
  */
-export type ActionItemStatus =
-  | "OPEN"
-  | "ACKNOWLEDGED"
-  | "RESOLVED"
-  | "DISMISSED";
+export type ActionItemStatus = "OPEN" | "RESOLVED";
 
 export type ActionItemPriority = "high" | "medium";
 
 /** Statuses that still require follow-up and therefore appear in digests. */
 export const ACTION_ITEM_ACTIVE_STATUSES: readonly ActionItemStatus[] = [
   "OPEN",
-  "ACKNOWLEDGED",
 ] as const;
 
-/** Statuses a reviewer may set through the API (everything except reopening). */
-export type ActionItemReviewStatus = "ACKNOWLEDGED" | "RESOLVED" | "DISMISSED";
-
 /**
- * Items undetected for this long are treated as probably-fixed: digests group
- * them under "confirm and close" and escalation never nudges about them.
+ * Days an item's rule must stay silent before the item resolves itself. The
+ * same threshold separates a rule that is still firing from one that healed.
  */
-export const ACTION_ITEM_STALE_AFTER_DAYS = 7;
+export const ACTION_ITEM_RESOLVE_AFTER_DAYS = 7;
 
 /**
  * A persisted action item derived from a team report rule, stored as
@@ -54,11 +46,8 @@ export type ActionItemModel = {
   detectedAt: Date;
   /** When the rule was last observed firing (stays put after the rule heals). */
   lastDetectedAt: Date;
-  acknowledgedAt: Date | null;
+  /** When the item resolved itself after the rule fell silent. */
   resolvedAt: Date | null;
-  /** uid of the user who resolved or dismissed the item. */
-  resolvedBy: string | null;
-  resolutionNote: string | null;
   firstNotifiedAt: Date | null;
   lastNotifiedAt: Date | null;
   notificationCount: number;
@@ -76,6 +65,7 @@ export type ActionItemSyncSummary = {
   createdCount: number;
   updatedCount: number;
   reopenedCount: number;
+  resolvedCount: number;
   activeCount: number;
   syncedAt: string;
 };

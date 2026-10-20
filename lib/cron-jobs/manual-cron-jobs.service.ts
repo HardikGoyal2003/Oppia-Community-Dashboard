@@ -144,8 +144,8 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
           "Cron job completed.",
           `Synced at: ${finishedAt.toLocaleString("en-IN")}.`,
           `Detected action items: ${result.detectedCount}.`,
-          `Created: ${result.createdCount}, refreshed: ${result.updatedCount}, reopened: ${result.reopenedCount}.`,
-          `Active (open + acknowledged): ${result.activeCount}.`,
+          `Created: ${result.createdCount}, refreshed: ${result.updatedCount}, reopened: ${result.reopenedCount}, auto-resolved: ${result.resolvedCount}.`,
+          `Active (open): ${result.activeCount}.`,
         ].join("\n"),
       };
     }

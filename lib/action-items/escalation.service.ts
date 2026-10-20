@@ -14,7 +14,7 @@ import {
 } from "@/lib/config";
 import { resolveLeadEmail } from "@/lib/config/lead-emails";
 import {
-  ACTION_ITEM_STALE_AFTER_DAYS,
+  ACTION_ITEM_RESOLVE_AFTER_DAYS,
   type ActionItemModel,
   type ActionItemSyncSummary,
 } from "@/lib/domain/action-items.types";
@@ -107,11 +107,11 @@ async function getEscalationRecipientsForTeam(
 /**
  * Whether an item is due for its next escalation nudge.
  *
- * An item escalates when it is still active, was included in at least one
- * digest (so the lead has been informed), no lead action has landed for
+ * An item escalates when it is still open, was included in at least one digest
+ * (so the lead has been informed), no action has landed for
  * `escalationAfterDays` since the last nudge (or first digest), and the rule
- * is still firing — stale items are excluded because they only need a
- * "confirm and close", never a nudge.
+ * is still firing — an item whose rule healed is auto-resolved instead of
+ * nudged, so it never reaches this point.
  *
  * @param item The action item to check.
  * @param escalationAfterDays The required idle days between nudges.
@@ -132,10 +132,10 @@ export function isActionItemDueForEscalation(
     return false;
   }
 
-  // The rule healed: the item only needs confirmation, not a nudge.
-  const staleAfterMs = ACTION_ITEM_STALE_AFTER_DAYS * MS_PER_DAY;
+  // The rule healed: the item is about to auto-resolve, not escalate.
+  const resolveAfterMs = ACTION_ITEM_RESOLVE_AFTER_DAYS * MS_PER_DAY;
 
-  if (now.getTime() - item.lastDetectedAt.getTime() >= staleAfterMs) {
+  if (now.getTime() - item.lastDetectedAt.getTime() >= resolveAfterMs) {
     return false;
   }
 

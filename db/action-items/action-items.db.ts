@@ -2,13 +2,11 @@ import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DB_PATHS } from "@/db/db-paths";
 import type { ActionItemModel } from "@/lib/domain/action-items.types";
 import {
-  type ActionItemStatusUpdate,
   type FirestoreActionItem,
   normalizeActionItemDocument,
   serializeActionItem,
   serializeActionItemEscalationUpdate,
   serializeActionItemNotificationUpdate,
-  serializeActionItemStatusUpdate,
 } from "./action-items.mapper";
 
 const db = getAdminFirestore();
@@ -194,26 +192,6 @@ export async function upsertActionItems(
 
     await batch.commit();
   }
-}
-
-/**
- * Applies a review transition (acknowledge / resolve / dismiss) to one item.
- *
- * @param teamId The team document id.
- * @param itemId The action item document id (the rule key).
- * @param update The status transition to persist.
- * @param updatedAt The time of the transition.
- * @returns A promise that resolves when the update is committed.
- */
-export async function updateActionItemStatusById(
-  teamId: string,
-  itemId: string,
-  update: ActionItemStatusUpdate,
-  updatedAt: Date,
-): Promise<void> {
-  await getActionItemDocumentRef(teamId, itemId).update(
-    serializeActionItemStatusUpdate(update, updatedAt),
-  );
 }
 
 /**

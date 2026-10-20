@@ -1,14 +1,12 @@
-import { DbNotFoundError } from "@/db/db.errors";
 import {
   getActionItemById,
   getActionItems,
-  updateActionItemStatusById,
   upsertActionItems,
 } from "@/db/action-items/action-items.db";
 import {
   ACTION_ITEM_ACTIVE_STATUSES,
+  ACTION_ITEM_RESOLVE_AFTER_DAYS,
   type ActionItemModel,
-  type ActionItemReviewStatus,
   type ActionItemSyncSummary,
 } from "@/lib/domain/action-items.types";
 import { TEAM_DEFINITIONS } from "@/lib/domain/team-definitions";
@@ -16,13 +14,6 @@ import { getTeamReportsSnapshot } from "@/lib/team-reports/team-reports.service"
 import { getIstDateKey } from "@/lib/utils/date.utils";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-/**
- * A resolved or dismissed item reopens when its rule starts firing again after
- * this many days of inactivity, so a regressed metric re-enters the queue while
- * recently-closed items stay closed.
- */
-export const ACTION_ITEM_REOPEN_AFTER_DAYS = 14;
 
 /**
  * Builds the document id for an action item. Items live at
@@ -71,7 +62,7 @@ export function getTeamIdForKey(teamKey: string): string | null {
  * Whether an item still requires follow-up.
  *
  * @param item The action item to check.
- * @returns True when the item is open or acknowledged.
+ * @returns True when the item is open.
  */
 export function isActiveActionItem(item: ActionItemModel): boolean {
   return ACTION_ITEM_ACTIVE_STATUSES.includes(item.status);
@@ -80,10 +71,14 @@ export function isActiveActionItem(item: ActionItemModel): boolean {
 /**
  * Derives action items from the current team reports and persists them.
  *
- * New rules become OPEN items; healing rules simply stop refreshing
- * `lastDetectedAt`; closed items reopen only after
- * `ACTION_ITEM_REOPEN_AFTER_DAYS` without a detection. Reopening also resets
- * the escalation history, so a fresh regression restarts the nudge ladder.
+ * The sync engine is the only writer of an item's status:
+ *
+ * - A firing rule creates an OPEN item, or refreshes `lastDetectedAt` on an
+ *   existing one.
+ * - A rule that stopped firing is not visited at all, so its item keeps the
+ *   last `lastDetectedAt` it was given — that is what marks it as healed.
+ * - Once an item has been silent for `ACTION_ITEM_RESOLVE_AFTER_DAYS` it
+ *   resolves itself, which also restarts its escalation ladder.
  *
  * @returns A summary of what the sync changed.
  */
@@ -93,16 +88,17 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
     getActionItems(),
   ]);
 
-  const existingById = new Map(
+  const existingByKey = new Map(
     existingItems.map((item) => [`${item.teamId}/${item.id}`, item]),
   );
   const now = new Date();
   const itemsToUpsert: ActionItemModel[] = [];
-  const touchedIds = new Set<string>();
+  const touchedKeys = new Set<string>();
 
   let createdCount = 0;
   let updatedCount = 0;
   let reopenedCount = 0;
+  let resolvedCount = 0;
 
   for (const report of snapshot.reports) {
     const teamKey = getTeamKeyForTeamId(report.id);
@@ -110,8 +106,8 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
     for (const step of report.nextSteps) {
       const id = buildActionItemId(step.ruleKey, step.params);
       const compositeKey = `${report.id}/${id}`;
-      const prior = existingById.get(compositeKey);
-      touchedIds.add(id);
+      const prior = existingByKey.get(compositeKey);
+      touchedKeys.add(compositeKey);
 
       if (!prior) {
         createdCount += 1;
@@ -129,10 +125,7 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
           status: "OPEN",
           detectedAt: now,
           lastDetectedAt: now,
-          acknowledgedAt: null,
           resolvedAt: null,
-          resolvedBy: null,
-          resolutionNote: null,
           firstNotifiedAt: null,
           lastNotifiedAt: null,
           notificationCount: 0,
@@ -146,10 +139,10 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
 
       const daysSinceLastDetected =
         (now.getTime() - prior.lastDetectedAt.getTime()) / MS_PER_DAY;
-      const isClosed =
-        prior.status === "RESOLVED" || prior.status === "DISMISSED";
-      const shouldReopen =
-        isClosed && daysSinceLastDetected >= ACTION_ITEM_REOPEN_AFTER_DAYS;
+      const wasResolved = prior.status === "RESOLVED";
+      // A rule that fires again after the item resolved is a regression, so
+      // the item reopens with a fresh escalation ladder.
+      const shouldReopen = wasResolved && daysSinceLastDetected >= 1;
       const alreadyRefreshedToday =
         getIstDateKey(prior.lastDetectedAt) === getIstDateKey(now);
       const contentUnchanged =
@@ -175,11 +168,8 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
         message: step.message,
         priority: step.priority,
         reason: step.reason,
-        status: shouldReopen ? "OPEN" : prior.status,
-        acknowledgedAt: shouldReopen ? null : prior.acknowledgedAt,
-        resolvedAt: shouldReopen ? null : prior.resolvedAt,
-        resolvedBy: shouldReopen ? null : prior.resolvedBy,
-        resolutionNote: shouldReopen ? null : prior.resolutionNote,
+        status: "OPEN",
+        resolvedAt: null,
         // A reopened item starts a fresh escalation ladder.
         escalationLevel: shouldReopen ? 0 : prior.escalationLevel,
         lastEscalatedAt: shouldReopen ? null : prior.lastEscalatedAt,
@@ -187,6 +177,39 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
         updatedAt: now,
       });
     }
+  }
+
+  // Items whose rule stopped firing are not visited above, so they are
+  // resolved here once they have been silent past the threshold.
+  for (const prior of existingItems) {
+    const compositeKey = `${prior.teamId}/${prior.id}`;
+
+    if (touchedKeys.has(compositeKey)) {
+      continue;
+    }
+
+    if (prior.status === "RESOLVED") {
+      continue;
+    }
+
+    const daysSinceLastDetected =
+      (now.getTime() - prior.lastDetectedAt.getTime()) / MS_PER_DAY;
+
+    if (daysSinceLastDetected < ACTION_ITEM_RESOLVE_AFTER_DAYS) {
+      continue;
+    }
+
+    resolvedCount += 1;
+
+    itemsToUpsert.push({
+      ...prior,
+      status: "RESOLVED",
+      resolvedAt: now,
+      // A resolved item starts a fresh escalation ladder if it regresses.
+      escalationLevel: 0,
+      lastEscalatedAt: null,
+      updatedAt: now,
+    });
   }
 
   await upsertActionItems(itemsToUpsert);
@@ -198,17 +221,18 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
       ) ?? item,
   );
   const detectedItems = itemsToUpsert.filter(
-    (item) => !existingById.has(`${item.teamId}/${item.id}`),
+    (item) => !existingByKey.has(`${item.teamId}/${item.id}`),
   );
   const activeCount =
     finalItems.filter((item) => isActiveActionItem(item)).length +
     detectedItems.length;
 
   return {
-    detectedCount: touchedIds.size,
+    detectedCount: touchedKeys.size,
     createdCount,
     updatedCount,
     reopenedCount,
+    resolvedCount,
     activeCount,
     syncedAt: now.toISOString(),
   };
@@ -226,80 +250,6 @@ export async function getActionItem(
   itemId: string,
 ): Promise<ActionItemModel | null> {
   return getActionItemById(teamId, itemId);
-}
-
-/** The session identity needed to authorize an action item review. */
-export type ActionItemActor = {
-  uid: string;
-  role: string;
-  team: string | null;
-};
-
-/**
- * Whether an actor may acknowledge, resolve, or dismiss an item. Leads may act
- * on their own team's items; admins may act on any team (override).
- *
- * @param item The item being reviewed.
- * @param actor The acting user.
- * @returns True when the review is permitted.
- */
-export function canReviewActionItem(
-  item: ActionItemModel,
-  actor: Pick<ActionItemActor, "role" | "team">,
-): boolean {
-  if (actor.role === "ADMIN" || actor.role === "SUPER_ADMIN") {
-    return true;
-  }
-
-  const isOwnTeamLead =
-    actor.role === "TEAM_LEAD" || actor.role === "LEAD_TRAINEE";
-
-  return isOwnTeamLead && Boolean(actor.team) && item.teamKey === actor.team;
-}
-
-/**
- * Applies a review status transition to an action item.
- *
- * @param teamId The team document id (e.g. `WEB_CORE`).
- * @param itemId The action item document id (the rule key).
- * @param status The review status to apply.
- * @param actorUid The uid of the lead or admin performing the transition.
- * @param note Optional resolution or dismissal note.
- * @returns The updated action item.
- * @throws {DbNotFoundError} When the action item does not exist.
- */
-export async function updateActionItemStatus(
-  teamId: string,
-  itemId: string,
-  status: ActionItemReviewStatus,
-  actorUid: string,
-  note?: string | null,
-): Promise<ActionItemModel> {
-  const existing = await getActionItemById(teamId, itemId);
-
-  if (!existing) {
-    throw new DbNotFoundError("ActionItem");
-  }
-
-  const now = new Date();
-  const isClosing = status === "RESOLVED" || status === "DISMISSED";
-  const trimmedNote = note?.trim() ? note.trim() : null;
-
-  const update = {
-    status,
-    acknowledgedAt:
-      status === "ACKNOWLEDGED"
-        ? (existing.acknowledgedAt ?? now)
-        : existing.acknowledgedAt,
-    resolvedAt: isClosing ? now : null,
-    resolvedBy: isClosing ? actorUid : null,
-    resolutionNote: isClosing ? trimmedNote : null,
-    updatedAt: now,
-  };
-
-  await updateActionItemStatusById(teamId, itemId, update, now);
-
-  return { ...existing, ...update };
 }
 
 /**

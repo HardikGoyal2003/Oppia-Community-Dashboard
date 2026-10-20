@@ -39,9 +39,6 @@ export default function TeamLeadOverviewTab() {
     items: actionItems,
     loading: actionItemsLoading,
     errorMessage: actionItemsError,
-    actionError,
-    busyItemId,
-    reviewItem,
     reload: reloadActionItems,
   } = useActionItems();
 
@@ -162,12 +159,7 @@ export default function TeamLeadOverviewTab() {
           items={activeActionItems}
           loading={actionItemsLoading}
           error={actionItemsError}
-          actionError={actionError}
-          busyItemId={busyItemId}
           highlightedId={highlightedItemId}
-          onReview={(item, status) => {
-            void reviewItem(item, status);
-          }}
           onRetry={() => {
             void reloadActionItems();
           }}

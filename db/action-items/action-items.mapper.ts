@@ -15,7 +15,6 @@ import {
 type TimestampedActionItemFields = {
   detectedAt: Timestamp;
   lastDetectedAt: Timestamp;
-  acknowledgedAt: Timestamp | null;
   resolvedAt: Timestamp | null;
   firstNotifiedAt: Timestamp | null;
   lastNotifiedAt: Timestamp | null;
@@ -34,23 +33,6 @@ export type FirestoreActionItem = Omit<
 > &
   TimestampedActionItemFields;
 
-export type ActionItemStatusUpdate = {
-  status: ActionItemModel["status"];
-  acknowledgedAt: Date | null;
-  resolvedAt: Date | null;
-  resolvedBy: string | null;
-  resolutionNote: string | null;
-};
-
-export type FirestoreActionItemStatusUpdate = {
-  status: ActionItemStatus;
-  acknowledgedAt: Timestamp | null;
-  resolvedAt: Timestamp | null;
-  resolvedBy: string | null;
-  resolutionNote: string | null;
-  updatedAt: Timestamp;
-};
-
 export type FirestoreActionItemNotificationUpdate = {
   firstNotifiedAt: Timestamp;
   lastNotifiedAt: Timestamp;
@@ -62,12 +44,7 @@ export type FirestoreActionItemEscalationUpdate = {
   lastEscalatedAt: Timestamp;
 };
 
-const ACTION_ITEM_STATUSES: readonly ActionItemStatus[] = [
-  "OPEN",
-  "ACKNOWLEDGED",
-  "RESOLVED",
-  "DISMISSED",
-];
+const ACTION_ITEM_STATUSES: readonly ActionItemStatus[] = ["OPEN", "RESOLVED"];
 
 const ACTION_ITEM_PRIORITIES: readonly ActionItemPriority[] = [
   "high",
@@ -150,27 +127,15 @@ function assertFirestoreActionItem(
   if (!ACTION_ITEM_STATUSES.includes(item.status)) {
     throw new DbValidationError(
       "status",
-      "Action item status must be OPEN, ACKNOWLEDGED, RESOLVED, or DISMISSED.",
+      "Action item status must be OPEN or RESOLVED.",
     );
   }
 
   assertNonNegativeNumber(item.notificationCount, "notificationCount");
   assertNonNegativeNumber(item.escalationLevel, "escalationLevel");
 
-  if (item.resolvedBy !== null) {
-    assertNonEmptyString(item.resolvedBy, "resolvedBy");
-  }
-
-  if (item.resolutionNote !== null && typeof item.resolutionNote !== "string") {
-    throw new DbValidationError(
-      "resolutionNote",
-      "Action item resolutionNote must be a string or null.",
-    );
-  }
-
   assertTimestamp("ActionItem", "detectedAt", item.detectedAt);
   assertTimestamp("ActionItem", "lastDetectedAt", item.lastDetectedAt);
-  assertOptionalTimestamp("ActionItem", "acknowledgedAt", item.acknowledgedAt);
   assertOptionalTimestamp("ActionItem", "resolvedAt", item.resolvedAt);
   assertOptionalTimestamp(
     "ActionItem",
@@ -219,12 +184,7 @@ export function normalizeActionItemDocument(params: {
     status: data.status,
     detectedAt: normalizeTimestamp(data.detectedAt),
     lastDetectedAt: normalizeTimestamp(data.lastDetectedAt),
-    acknowledgedAt: data.acknowledgedAt
-      ? normalizeTimestamp(data.acknowledgedAt)
-      : null,
     resolvedAt: data.resolvedAt ? normalizeTimestamp(data.resolvedAt) : null,
-    resolvedBy: data.resolvedBy,
-    resolutionNote: data.resolutionNote,
     firstNotifiedAt: data.firstNotifiedAt
       ? normalizeTimestamp(data.firstNotifiedAt)
       : null,
@@ -263,12 +223,7 @@ export function serializeActionItem(
     status: item.status,
     detectedAt: Timestamp.fromDate(item.detectedAt),
     lastDetectedAt: Timestamp.fromDate(item.lastDetectedAt),
-    acknowledgedAt: item.acknowledgedAt
-      ? Timestamp.fromDate(item.acknowledgedAt)
-      : null,
     resolvedAt: item.resolvedAt ? Timestamp.fromDate(item.resolvedAt) : null,
-    resolvedBy: item.resolvedBy,
-    resolutionNote: item.resolutionNote,
     firstNotifiedAt: item.firstNotifiedAt
       ? Timestamp.fromDate(item.firstNotifiedAt)
       : null,
@@ -282,31 +237,6 @@ export function serializeActionItem(
       : null,
     createdAt: Timestamp.fromDate(item.createdAt),
     updatedAt: Timestamp.fromDate(item.updatedAt),
-  };
-}
-
-/**
- * Serializes a status-transition patch for a partial action item update.
- *
- * @param update The normalized status update payload.
- * @param updatedAt The time of the transition.
- * @returns The Firestore-ready partial update document.
- */
-export function serializeActionItemStatusUpdate(
-  update: ActionItemStatusUpdate,
-  updatedAt: Date,
-): FirestoreActionItemStatusUpdate {
-  return {
-    status: update.status,
-    acknowledgedAt: update.acknowledgedAt
-      ? Timestamp.fromDate(update.acknowledgedAt)
-      : null,
-    resolvedAt: update.resolvedAt
-      ? Timestamp.fromDate(update.resolvedAt)
-      : null,
-    resolvedBy: update.resolvedBy,
-    resolutionNote: update.resolutionNote,
-    updatedAt: Timestamp.fromDate(updatedAt),
   };
 }
 

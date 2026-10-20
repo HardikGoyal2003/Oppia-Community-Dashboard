@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, Check, Loader2, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import {
   Tooltip as UiTooltip,
   TooltipContent,
@@ -28,10 +28,7 @@ import {
   getActiveActionItemsForTeam,
   isStaleActionItem,
 } from "@/features/dashboard/shared/action-items/action-items.utils";
-import type {
-  ActionItem,
-  ActionItemReviewStatus,
-} from "@/features/dashboard/shared/action-items/action-items.types";
+import type { ActionItem } from "@/features/dashboard/shared/action-items/action-items.types";
 
 type TeamLead = {
   role: "TEAM_LEAD" | "LEAD_TRAINEE";
@@ -480,20 +477,13 @@ function TeamActionItemsPanel({
   items,
   loading,
   error,
-  actionError,
-  busyItemId,
-  onReview,
 }: {
   report: TeamReport;
   items: ActionItem[];
   loading: boolean;
   error: string | null;
-  actionError: string | null;
-  busyItemId: string | null;
-  onReview: (item: ActionItem, status: ActionItemReviewStatus) => void;
 }) {
   const teamItems = getActiveActionItemsForTeam(items, report.id);
-  const isBusy = busyItemId !== null;
 
   // Falls back to the derived next steps when tracked items are unavailable.
   const derivedFallback =
@@ -573,11 +563,6 @@ function TeamActionItemsPanel({
                   <p className="text-sm font-medium text-slate-800">
                     {item.message}
                   </p>
-                  {item.status === "ACKNOWLEDGED" && (
-                    <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sky-700">
-                      Acknowledged
-                    </span>
-                  )}
                   {isStaleActionItem(item) && (
                     <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-700">
                       No longer detected
@@ -600,39 +585,13 @@ function TeamActionItemsPanel({
                 <p className="text-xs leading-5 text-slate-500">
                   {item.reason}
                 </p>
-                <div className="flex items-center gap-2 pt-1">
-                  <button
-                    type="button"
-                    disabled={isBusy}
-                    onClick={() => onReview(item, "RESOLVED")}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {busyItemId === item.id ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <Check className="h-3 w-3" />
-                    )}
-                    Resolve
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isBusy}
-                    onClick={() => onReview(item, "DISMISSED")}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-500 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <X className="h-3 w-3" />
-                    Dismiss
-                  </button>
-                </div>
+                <p className="flex items-center gap-1.5 pt-1 text-[11px] text-slate-400">
+                  <CheckCircle2 className="h-3 w-3 text-slate-300" />
+                  Closes automatically once the issue is fixed.
+                </p>
               </div>
             </div>
           ))
-        )}
-
-        {actionError && (
-          <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
-            {actionError}
-          </p>
         )}
       </div>
     </div>
@@ -648,9 +607,6 @@ export function TeamReportsTab() {
     items: actionItems,
     loading: actionItemsLoading,
     errorMessage: actionItemsError,
-    actionError,
-    busyItemId,
-    reviewItem,
   } = useActionItems();
 
   useEffect(() => {
@@ -792,11 +748,6 @@ export function TeamReportsTab() {
                   items={actionItems}
                   loading={actionItemsLoading}
                   error={actionItemsError}
-                  actionError={actionError}
-                  busyItemId={busyItemId}
-                  onReview={(item, status) => {
-                    void reviewItem(item, status);
-                  }}
                 />
               </div>
             </div>

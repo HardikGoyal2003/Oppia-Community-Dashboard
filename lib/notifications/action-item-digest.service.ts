@@ -14,7 +14,7 @@ import {
   syncActionItems,
 } from "@/lib/action-items/action-items.service";
 import {
-  ACTION_ITEM_STALE_AFTER_DAYS,
+  ACTION_ITEM_RESOLVE_AFTER_DAYS,
   type ActionItemModel,
   type ActionItemSyncSummary,
 } from "@/lib/domain/action-items.types";
@@ -192,11 +192,10 @@ export async function sendWeeklyActionItemDigest(
       message: item.message,
       reason: item.reason,
       priority: item.priority,
-      status: item.status,
       detectedAt: item.detectedAt,
       isStale:
         now.getTime() - item.lastDetectedAt.getTime() >=
-        ACTION_ITEM_STALE_AFTER_DAYS * MS_PER_DAY,
+        ACTION_ITEM_RESOLVE_AFTER_DAYS * MS_PER_DAY,
     }));
 
     const message = buildWeeklyActionItemsDigest({

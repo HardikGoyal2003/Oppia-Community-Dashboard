@@ -2,18 +2,13 @@
 
 import { useEffect, useRef } from "react";
 import {
-  Check,
   CheckCircle2,
   ListChecks,
   Loader2,
   RefreshCw,
   Sparkles,
-  X,
 } from "lucide-react";
-import type {
-  ActionItem,
-  ActionItemReviewStatus,
-} from "@/features/dashboard/shared/action-items/action-items.types";
+import type { ActionItem } from "@/features/dashboard/shared/action-items/action-items.types";
 import { isStaleActionItem } from "@/features/dashboard/shared/action-items/action-items.utils";
 import { getTeamLeadActionMessage } from "../overview.utils";
 
@@ -21,51 +16,15 @@ type NextActionsProps = {
   items: ActionItem[];
   loading: boolean;
   error: string | null;
-  actionError: string | null;
-  busyItemId: string | null;
   highlightedId: string | null;
-  onReview: (item: ActionItem, status: ActionItemReviewStatus) => void;
   onRetry: () => void;
 };
-
-function ActionButton({
-  children,
-  disabled,
-  onClick,
-  tone = "neutral",
-}: {
-  children: React.ReactNode;
-  disabled: boolean;
-  onClick: () => void;
-  tone?: "neutral" | "primary" | "danger-ghost";
-}) {
-  const toneClasses =
-    tone === "primary"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100"
-      : tone === "danger-ghost"
-        ? "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700"
-        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50";
-
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${toneClasses}`}
-    >
-      {children}
-    </button>
-  );
-}
 
 export function NextActions({
   items,
   loading,
   error,
-  actionError,
-  busyItemId,
   highlightedId,
-  onReview,
   onRetry,
 }: NextActionsProps) {
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -80,7 +39,6 @@ export function NextActions({
   }, [highlightedId, items.length]);
 
   const unresolvedActionCount = items.length;
-  const isBusy = busyItemId !== null;
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -135,7 +93,6 @@ export function NextActions({
           ) : (
             items.map((item, index) => {
               const isStale = isStaleActionItem(item);
-              const isAcknowledged = item.status === "ACKNOWLEDGED";
               const isHighlighted = highlightedId === item.id;
 
               return (
@@ -187,11 +144,6 @@ export function NextActions({
                       </p>
 
                       <div className="mt-2 flex flex-wrap items-center gap-2">
-                        {isAcknowledged && (
-                          <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sky-700">
-                            Acknowledged
-                          </span>
-                        )}
                         {isStale && (
                           <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-700">
                             No longer detected
@@ -219,48 +171,15 @@ export function NextActions({
                         </span>
                       </div>
 
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        {item.status === "OPEN" && (
-                          <ActionButton
-                            disabled={isBusy}
-                            onClick={() => onReview(item, "ACKNOWLEDGED")}
-                          >
-                            {busyItemId === item.id ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <CheckCircle2 className="h-3 w-3" />
-                            )}
-                            Acknowledge
-                          </ActionButton>
-                        )}
-                        <ActionButton
-                          tone="primary"
-                          disabled={isBusy}
-                          onClick={() => onReview(item, "RESOLVED")}
-                        >
-                          <Check className="h-3 w-3" />
-                          Resolve
-                        </ActionButton>
-                        <ActionButton
-                          tone="danger-ghost"
-                          disabled={isBusy}
-                          onClick={() => onReview(item, "DISMISSED")}
-                        >
-                          <X className="h-3 w-3" />
-                          Dismiss
-                        </ActionButton>
-                      </div>
+                      <p className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400">
+                        <CheckCircle2 className="h-3 w-3 text-slate-300" />
+                        This item closes automatically once the issue is fixed.
+                      </p>
                     </div>
                   </div>
                 </div>
               );
             })
-          )}
-
-          {actionError && (
-            <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-medium text-red-700">
-              {actionError}
-            </p>
           )}
         </div>
       </div>
