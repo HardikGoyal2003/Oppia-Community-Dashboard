@@ -15,12 +15,16 @@ export function getResendApiKey(): string | undefined {
 }
 
 /**
- * Returns whether sending action item emails is enabled.
+ * Returns whether outbound email is switched on for this deployment.
  *
- * @returns True unless `ACTION_ITEM_EMAIL_ENABLED` is set to "false".
+ * Email is opt-in: it stays off unless `EMAIL_NOTIFICATIONS_ENABLED` is set to
+ * "true" and a provider key is present. In-app notifications are unaffected,
+ * so the dashboard keeps working without an email provider.
+ *
+ * @returns True only when email delivery has been explicitly enabled.
  */
-export function isActionItemEmailEnabled(): boolean {
-  return readBooleanEnv("ACTION_ITEM_EMAIL_ENABLED", true);
+export function isEmailNotificationsEnabled(): boolean {
+  return readBooleanEnv("EMAIL_NOTIFICATIONS_ENABLED", false);
 }
 
 /**

@@ -21,8 +21,8 @@ export {
   getActionItemsEmailReplyTo,
   getAppBaseUrl,
   getResendApiKey,
-  isActionItemEmailEnabled,
   isActionItemEscalationEnabled,
   isActionItemsDigestEnabled,
+  isEmailNotificationsEnabled,
 } from "./notifications";
 export { ANDROID_TEAMS, WEB_TEAMS } from "./teams.constants";

@@ -2,7 +2,7 @@ import {
   getActionItemsEmailFrom,
   getActionItemsEmailReplyTo,
   getResendApiKey,
-  isActionItemEmailEnabled,
+  isEmailNotificationsEnabled,
 } from "@/lib/config";
 import type {
   NotificationChannel,
@@ -59,7 +59,7 @@ export const emailNotificationChannel: NotificationChannel = {
   key: "EMAIL",
 
   isAvailable(): boolean {
-    return isActionItemEmailEnabled() && Boolean(getResendApiKey());
+    return isEmailNotificationsEnabled() && Boolean(getResendApiKey());
   },
 
   async send(
@@ -73,6 +73,17 @@ export const emailNotificationChannel: NotificationChannel = {
     };
 
     const apiKey = getResendApiKey();
+
+    if (!isEmailNotificationsEnabled()) {
+      return {
+        channel: "EMAIL",
+        deliveredTo: [],
+        failed: recipients.map((recipient) => ({
+          uid: recipient.uid,
+          reason: 'EMAIL_NOTIFICATIONS_ENABLED is not set to "true".',
+        })),
+      };
+    }
 
     if (!apiKey) {
       return {
