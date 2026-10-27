@@ -30,8 +30,6 @@ Key directories:
 - [`db/`](/home/hardik/oppia-leads-dashboard/db) – Firestore access layer
 - [`lib/`](/home/hardik/oppia-leads-dashboard/lib) – domain types, auth, constants, utilities, services
 
-See [docs/notifications-email-setup.md](docs/notifications-email-setup.md) for the email transport setup (Gmail OAuth2 or App Password).
-
 ## ⚡ Live Deployment
 
 Try the live app here:

@@ -2,9 +2,6 @@ import { NextResponse } from "next/server";
 import { readEnv } from "@/lib/config";
 import { escalateDueActionItems } from "@/lib/action-items/escalation.service";
 
-/** SMTP sends can exceed the default function budget on a cold start. */
-export const maxDuration = 60;
-
 function isAuthorizedCronRequest(req: Request): boolean {
   const cronSecret = readEnv("CRON_SECRET");
 

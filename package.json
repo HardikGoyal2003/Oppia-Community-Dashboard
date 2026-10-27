@@ -10,7 +10,6 @@
     "start": "next start",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
-    "gmail:refresh-token": "node scripts/get-gmail-refresh-token.mjs",
     "prepare": "husky install"
   },
   "lint-staged": {
@@ -34,7 +33,6 @@
     "next": "16.0.7",
     "next-auth": "^4.24.13",
     "next-themes": "^0.4.6",
-    "nodemailer": "^7.0.13",
     "octokit": "^5.0.5",
     "radix-ui": "^1.4.3",
     "react": "19.2.0",
@@ -47,7 +45,6 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
-    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
