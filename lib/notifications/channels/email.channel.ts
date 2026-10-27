@@ -1,7 +1,12 @@
+import nodemailer from "nodemailer";
 import {
   getActionItemsEmailFrom,
   getActionItemsEmailReplyTo,
-  getResendApiKey,
+  getSmtpHost,
+  getSmtpPassword,
+  getSmtpPort,
+  getSmtpUser,
+  hasSmtpCredentials,
   isActionItemEmailEnabled,
 } from "@/lib/config";
 import type {
@@ -11,55 +16,104 @@ import type {
   NotificationRecipient,
 } from "@/lib/domain/notifications.types";
 
-const RESEND_API_ENDPOINT = "https://api.resend.com/emails";
+/** Timeout for each SMTP phase so a hung connection cannot stall a cron run. */
+const SMTP_TIMEOUT_MS = 10_000;
 
 /** Truncates provider error bodies so delivery logs stay readable. */
 const MAX_ERROR_DETAIL_LENGTH = 300;
 
+/** Cached transport; reused across warm serverless invocations. */
+let cachedTransport: nodemailer.Transporter | null = null;
+
 /**
- * Sends a single email to one recipient through the Resend REST API.
+ * Gmail shows App Passwords grouped with spaces for readability, but SMTP
+ * expects the 16-character value without them.
+ *
+ * @param password The configured SMTP password.
+ * @param host The SMTP host.
+ * @returns The password to hand to the SMTP server.
+ */
+function normalizeSmtpPassword(password: string, host: string): string {
+  return host === "smtp.gmail.com" ? password.replace(/\s+/g, "") : password;
+}
+
+/**
+ * Builds (or returns) the SMTP transport. Credentials are read lazily so the
+ * channel can report "not configured" without throwing at module load.
+ *
+ * @returns The transport, or null when SMTP is not configured.
+ */
+function getTransport(): nodemailer.Transporter | null {
+  if (!hasSmtpCredentials()) {
+    return null;
+  }
+
+  if (cachedTransport) {
+    return cachedTransport;
+  }
+
+  const port = getSmtpPort();
+  const host = getSmtpHost();
+  const password = getSmtpPassword();
+
+  cachedTransport = nodemailer.createTransport({
+    host,
+    port,
+    // Port 465 uses implicit TLS; 587 upgrades with STARTTLS.
+    secure: port === 465,
+    auth: {
+      user: getSmtpUser(),
+      pass: password ? normalizeSmtpPassword(password, host) : undefined,
+    },
+    connectionTimeout: SMTP_TIMEOUT_MS,
+    greetingTimeout: SMTP_TIMEOUT_MS,
+    socketTimeout: SMTP_TIMEOUT_MS,
+  });
+
+  return cachedTransport;
+}
+
+/**
+ * Sends a single email to one recipient through SMTP.
  *
  * @param email The recipient email address.
  * @param message The rendered message.
- * @param apiKey The Resend API key.
- * @returns Nothing. Throws when the provider rejects the request.
+ * @returns Nothing. Throws when the SMTP server rejects the message.
  */
 async function sendEmailToRecipient(
   email: string,
   message: NotificationMessage,
-  apiKey: string,
 ): Promise<void> {
-  const response = await fetch(RESEND_API_ENDPOINT, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: getActionItemsEmailFrom(),
-      reply_to: getActionItemsEmailReplyTo(),
-      to: [email],
-      subject: message.subject,
-      html: message.bodyHtml,
-      text: message.bodyText,
-    }),
-  });
+  const transport = getTransport();
 
-  if (!response.ok) {
-    const detail = (await response.text()).slice(0, MAX_ERROR_DETAIL_LENGTH);
-    throw new Error(`Resend responded with ${response.status}: ${detail}`);
+  if (!transport) {
+    throw new Error("SMTP credentials are not configured.");
   }
+
+  await transport.sendMail({
+    from: getActionItemsEmailFrom(),
+    replyTo: getActionItemsEmailReplyTo() ?? undefined,
+    to: email,
+    subject: message.subject,
+    text: message.bodyText,
+    html: message.bodyHtml,
+  });
 }
 
 /**
- * Email transport backed by Resend. Each recipient gets an individual email so
- * addresses stay private and failures are attributable per recipient.
+ * Email transport backed by SMTP (Gmail by default). Each recipient gets an
+ * individual email so addresses stay private and failures are attributable per
+ * recipient.
  */
 export const emailNotificationChannel: NotificationChannel = {
   key: "EMAIL",
 
   isAvailable(): boolean {
-    return isActionItemEmailEnabled() && Boolean(getResendApiKey());
+    return (
+      isActionItemEmailEnabled() &&
+      hasSmtpCredentials() &&
+      Boolean(getActionItemsEmailFrom())
+    );
   },
 
   async send(
@@ -72,15 +126,26 @@ export const emailNotificationChannel: NotificationChannel = {
       failed: [],
     };
 
-    const apiKey = getResendApiKey();
+    const transport = getTransport();
 
-    if (!apiKey) {
+    if (!transport) {
       return {
         channel: "EMAIL",
         deliveredTo: [],
         failed: recipients.map((recipient) => ({
           uid: recipient.uid,
-          reason: "RESEND_API_KEY is not configured.",
+          reason: "SMTP_USER / SMTP_PASS are not configured.",
+        })),
+      };
+    }
+
+    if (!getActionItemsEmailFrom()) {
+      return {
+        channel: "EMAIL",
+        deliveredTo: [],
+        failed: recipients.map((recipient) => ({
+          uid: recipient.uid,
+          reason: "ACTION_ITEMS_EMAIL_FROM is not configured.",
         })),
       };
     }
@@ -105,23 +170,31 @@ export const emailNotificationChannel: NotificationChannel = {
       }
     }
 
-    for (const [email, emailRecipients] of recipientsByEmail) {
-      try {
-        await sendEmailToRecipient(email, message, apiKey);
-        result.deliveredTo.push(
-          ...emailRecipients.map((recipient) => recipient.uid),
-        );
-      } catch (error) {
-        const reason =
-          error instanceof Error ? error.message : "Email send failed.";
-        result.failed.push(
-          ...emailRecipients.map((recipient) => ({
-            uid: recipient.uid,
-            reason,
-          })),
-        );
-      }
-    }
+    // Bounded parallelism: teams have a handful of leads, and sending in
+    // parallel keeps the whole run inside the cron function timeout.
+    await Promise.all(
+      Array.from(recipientsByEmail.entries()).map(
+        async ([email, emailRecipients]) => {
+          try {
+            await sendEmailToRecipient(email, message);
+            result.deliveredTo.push(
+              ...emailRecipients.map((recipient) => recipient.uid),
+            );
+          } catch (error) {
+            const rawReason =
+              error instanceof Error ? error.message : "Email send failed.";
+            const reason = rawReason.slice(0, MAX_ERROR_DETAIL_LENGTH);
+
+            result.failed.push(
+              ...emailRecipients.map((recipient) => ({
+                uid: recipient.uid,
+                reason,
+              })),
+            );
+          }
+        },
+      ),
+    );
 
     return result;
   },

@@ -6,12 +6,48 @@ import {
 } from "./env";
 
 /**
- * Returns the Resend API key when configured.
+ * Returns the SMTP host used for outbound email.
  *
- * @returns The Resend API key, or undefined when email is not set up yet.
+ * @returns The SMTP host, defaulting to Gmail.
  */
-export function getResendApiKey(): string | undefined {
-  return readEnv("RESEND_API_KEY");
+export function getSmtpHost(): string {
+  return readEnvWithDefault("SMTP_HOST", "smtp.gmail.com");
+}
+
+/**
+ * Returns the SMTP port used for outbound email.
+ *
+ * @returns The SMTP port, defaulting to 465 (implicit TLS).
+ */
+export function getSmtpPort(): number {
+  return readNumberEnv("SMTP_PORT", 465);
+}
+
+/**
+ * Returns the SMTP username (the full sending email address).
+ *
+ * @returns The SMTP username, or undefined when email is not set up yet.
+ */
+export function getSmtpUser(): string | undefined {
+  return readEnv("SMTP_USER")?.trim() || undefined;
+}
+
+/**
+ * Returns the SMTP password (a Gmail App Password).
+ *
+ * @returns The SMTP password, or undefined when email is not set up yet.
+ */
+export function getSmtpPassword(): string | undefined {
+  return readEnv("SMTP_PASS")?.trim() || undefined;
+}
+
+/**
+ * Returns whether SMTP credentials are configured.
+ *
+ * @returns True when both `SMTP_USER` and `SMTP_PASS` are present.
+ */
+export function hasSmtpCredentials(): boolean {
+  return Boolean(getSmtpUser() && getSmtpPassword());
 }
 
 /**
@@ -24,28 +60,32 @@ export function isActionItemEmailEnabled(): boolean {
 }
 
 /**
- * Returns the verified sender identity used for dashboard emails.
+ * Returns the sender identity used for dashboard emails. Falls back to the
+ * SMTP username so a single dedicated mailbox is enough to start sending.
  *
- * @returns The From header value for outbound emails.
+ * @returns The From header value for outbound emails, or an empty string when
+ *   neither the override nor the SMTP username is configured.
  */
 export function getActionItemsEmailFrom(): string {
-  return readEnvWithDefault(
-    "ACTION_ITEMS_EMAIL_FROM",
-    "Oppia Community Dashboard <onboarding@resend.dev>",
-  );
+  const configuredFrom = readEnv("ACTION_ITEMS_EMAIL_FROM")?.trim();
+
+  if (configuredFrom) {
+    return configuredFrom;
+  }
+
+  const smtpUser = getSmtpUser();
+
+  return smtpUser ? `Oppia Community Dashboard <${smtpUser}>` : "";
 }
 
 /**
- * Returns the reply-to address for action-item emails. The address is intended
- * to be non-monitored; leads should act from the dashboard instead.
+ * Returns the reply-to address for action-item emails. The copy tells leads to
+ * respond on the dashboard, so this is optional.
  *
- * @returns The configured no-reply address.
+ * @returns The configured reply-to address, or null when unset.
  */
-export function getActionItemsEmailReplyTo(): string {
-  return readEnvWithDefault(
-    "ACTION_ITEMS_EMAIL_REPLY_TO",
-    "no-reply@resend.dev",
-  );
+export function getActionItemsEmailReplyTo(): string | null {
+  return readEnv("ACTION_ITEMS_EMAIL_REPLY_TO")?.trim() || null;
 }
 
 /**
