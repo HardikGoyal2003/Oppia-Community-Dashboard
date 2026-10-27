@@ -42,12 +42,64 @@ export function getSmtpPassword(): string | undefined {
 }
 
 /**
- * Returns whether SMTP credentials are configured.
+ * Returns the Google OAuth client id used for Gmail SMTP (XOAUTH2).
+ *
+ * @returns The OAuth client id, or undefined when OAuth2 is not set up.
+ */
+export function getGoogleOAuthClientId(): string | undefined {
+  return readEnv("GOOGLE_OAUTH_CLIENT_ID")?.trim() || undefined;
+}
+
+/**
+ * Returns the Google OAuth client secret used for Gmail SMTP (XOAUTH2).
+ *
+ * @returns The OAuth client secret, or undefined when OAuth2 is not set up.
+ */
+export function getGoogleOAuthClientSecret(): string | undefined {
+  return readEnv("GOOGLE_OAUTH_CLIENT_SECRET")?.trim() || undefined;
+}
+
+/**
+ * Returns the Google OAuth refresh token used for Gmail SMTP (XOAUTH2).
+ *
+ * @returns The refresh token, or undefined when OAuth2 is not set up.
+ */
+export function getGoogleOAuthRefreshToken(): string | undefined {
+  return readEnv("GOOGLE_OAUTH_REFRESH_TOKEN")?.trim() || undefined;
+}
+
+/**
+ * Returns whether App Password credentials are configured.
  *
  * @returns True when both `SMTP_USER` and `SMTP_PASS` are present.
  */
 export function hasSmtpCredentials(): boolean {
   return Boolean(getSmtpUser() && getSmtpPassword());
+}
+
+/**
+ * Returns whether OAuth2 credentials are configured for Gmail SMTP.
+ *
+ * @returns True when the SMTP user and all three OAuth values are present.
+ */
+export function hasGoogleOAuthCredentials(): boolean {
+  return Boolean(
+    getSmtpUser() &&
+    getGoogleOAuthClientId() &&
+    getGoogleOAuthClientSecret() &&
+    getGoogleOAuthRefreshToken(),
+  );
+}
+
+/**
+ * Returns whether any supported SMTP authentication method is configured.
+ * OAuth2 wins when both are present so an App Password can be left in place
+ * during the switch without being used.
+ *
+ * @returns True when an App Password or OAuth2 credentials are available.
+ */
+export function hasEmailCredentials(): boolean {
+  return hasGoogleOAuthCredentials() || hasSmtpCredentials();
 }
 
 /**

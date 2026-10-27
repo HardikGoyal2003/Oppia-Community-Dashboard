@@ -2,11 +2,14 @@ import nodemailer from "nodemailer";
 import {
   getActionItemsEmailFrom,
   getActionItemsEmailReplyTo,
+  getGoogleOAuthClientId,
+  getGoogleOAuthClientSecret,
+  getGoogleOAuthRefreshToken,
   getSmtpHost,
   getSmtpPassword,
   getSmtpPort,
   getSmtpUser,
-  hasSmtpCredentials,
+  hasEmailCredentials,
   isActionItemEmailEnabled,
 } from "@/lib/config";
 import type {
@@ -21,6 +24,17 @@ const SMTP_TIMEOUT_MS = 10_000;
 
 /** Truncates provider error bodies so delivery logs stay readable. */
 const MAX_ERROR_DETAIL_LENGTH = 300;
+
+/** Authentication shapes accepted by nodemailer's SMTP transport. */
+type SmtpAuth =
+  | {
+      type: "OAuth2";
+      user: string;
+      clientId: string;
+      clientSecret: string;
+      refreshToken: string;
+    }
+  | { user: string; pass: string };
 
 /** Cached transport; reused across warm serverless invocations. */
 let cachedTransport: nodemailer.Transporter | null = null;
@@ -38,33 +52,65 @@ function normalizeSmtpPassword(password: string, host: string): string {
 }
 
 /**
+ * Resolves SMTP authentication. OAuth2 is preferred because it is scoped to
+ * sending and survives password changes; an App Password remains supported for
+ * mailboxes that can still create one.
+ *
+ * @returns The authentication options, or null when neither method is set up.
+ */
+function getSmtpAuth(): SmtpAuth | null {
+  const user = getSmtpUser();
+
+  if (!user) {
+    return null;
+  }
+
+  const clientId = getGoogleOAuthClientId();
+  const clientSecret = getGoogleOAuthClientSecret();
+  const refreshToken = getGoogleOAuthRefreshToken();
+
+  // Nodemailer exchanges the refresh token for an access token on demand.
+  if (clientId && clientSecret && refreshToken) {
+    return { type: "OAuth2", user, clientId, clientSecret, refreshToken };
+  }
+
+  const password = getSmtpPassword();
+
+  if (!password) {
+    return null;
+  }
+
+  return {
+    user,
+    pass: normalizeSmtpPassword(password, getSmtpHost()),
+  };
+}
+
+/**
  * Builds (or returns) the SMTP transport. Credentials are read lazily so the
  * channel can report "not configured" without throwing at module load.
  *
  * @returns The transport, or null when SMTP is not configured.
  */
 function getTransport(): nodemailer.Transporter | null {
-  if (!hasSmtpCredentials()) {
-    return null;
-  }
-
   if (cachedTransport) {
     return cachedTransport;
   }
 
+  const auth = getSmtpAuth();
+
+  if (!auth) {
+    return null;
+  }
+
   const port = getSmtpPort();
-  const host = getSmtpHost();
-  const password = getSmtpPassword();
 
   cachedTransport = nodemailer.createTransport({
-    host,
+    host: getSmtpHost(),
     port,
     // Port 465 uses implicit TLS; 587 upgrades with STARTTLS.
     secure: port === 465,
-    auth: {
-      user: getSmtpUser(),
-      pass: password ? normalizeSmtpPassword(password, host) : undefined,
-    },
+    auth,
     connectionTimeout: SMTP_TIMEOUT_MS,
     greetingTimeout: SMTP_TIMEOUT_MS,
     socketTimeout: SMTP_TIMEOUT_MS,
@@ -87,7 +133,9 @@ async function sendEmailToRecipient(
   const transport = getTransport();
 
   if (!transport) {
-    throw new Error("SMTP credentials are not configured.");
+    throw new Error(
+      "SMTP auth is not configured (set SMTP_PASS or the GOOGLE_OAUTH_* values).",
+    );
   }
 
   await transport.sendMail({
@@ -111,7 +159,7 @@ export const emailNotificationChannel: NotificationChannel = {
   isAvailable(): boolean {
     return (
       isActionItemEmailEnabled() &&
-      hasSmtpCredentials() &&
+      hasEmailCredentials() &&
       Boolean(getActionItemsEmailFrom())
     );
   },
@@ -134,7 +182,8 @@ export const emailNotificationChannel: NotificationChannel = {
         deliveredTo: [],
         failed: recipients.map((recipient) => ({
           uid: recipient.uid,
-          reason: "SMTP_USER / SMTP_PASS are not configured.",
+          reason:
+            "Email is not configured. Set SMTP_USER plus either SMTP_PASS or the GOOGLE_OAUTH_* values.",
         })),
       };
     }
