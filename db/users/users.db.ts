@@ -135,6 +135,7 @@ export async function getAllUsers(): Promise<UserRecord[]> {
  *
  * @param platform The optional contribution platform filter.
  * @returns The normalized user models with document ids attached.
+ * @firestore-index users platform,createdAt
  */
 export async function getUsersByPlatform(
   platform?: ContributionPlatform,
@@ -160,6 +161,7 @@ export async function getUsersByPlatform(
  *
  * @param teamKey The team key to filter by (e.g. "LEAP", "CORE").
  * @returns The normalized user models with document ids attached.
+ * @firestore-index users team,createdAt
  */
 export async function getUsersByTeam(teamKey: string): Promise<UserRecord[]> {
   const snap = await usersCollection

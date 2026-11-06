@@ -32,7 +32,7 @@ const eslintConfig = defineConfig([
     },
   },
   {
-    files: ["db/**/*.ts", "lib/**/*.ts"],
+    files: ["db/**/*.ts", "lib/**/*.ts", "scripts/**/*.mjs"],
     plugins: {
       jsdoclocal: requireJsdocPlugin,
     },

@@ -44,6 +44,7 @@ export async function getTeamById(teamId: string): Promise<TeamModel | null> {
  *
  * @param platform The optional contribution platform filter.
  * @returns The normalized teams with their document ids.
+ * @firestore-index teams platform,teamName
  */
 export async function getTeams(
   platform?: ContributionPlatform,
