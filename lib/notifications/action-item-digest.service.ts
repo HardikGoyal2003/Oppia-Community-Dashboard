@@ -26,10 +26,10 @@ import {
   buildWeeklyActionItemsDigest,
   type WeeklyDigestItem,
 } from "@/lib/notifications/templates/action-items-weekly-digest";
-import { getIstDateKey } from "@/lib/utils/date.utils";
+import { getIstDateKey, getIstWeekStartDateKey } from "@/lib/utils/date.utils";
 
-/** Delivery kind recorded for daily action-item digests. */
-export const DAILY_ACTION_ITEMS_DIGEST_KIND = "daily_action_items_digest";
+/** Delivery kind recorded for weekly action-item digests. */
+export const WEEKLY_ACTION_ITEMS_DIGEST_KIND = "weekly_action_items_digest";
 
 export type DigestChannelOutcome = {
   channel: NotificationChannelKey;
@@ -63,7 +63,7 @@ export type ActionItemDigestSummary = {
 /**
  * Builds the deterministic delivery id used for idempotency.
  *
- * @param periodKey The IST date key.
+ * @param periodKey The IST week-start date key.
  * @param teamKey The team key.
  * @param channel The notification channel key.
  * @returns The delivery document id.
@@ -73,7 +73,7 @@ function buildDeliveryId(
   teamKey: string,
   channel: NotificationChannelKey,
 ): string {
-  return [DAILY_ACTION_ITEMS_DIGEST_KIND, periodKey, teamKey, channel]
+  return [WEEKLY_ACTION_ITEMS_DIGEST_KIND, periodKey, teamKey, channel]
     .map((part) => part.trim().replace(/[^A-Za-z0-9_-]+/g, "_"))
     .join("__");
 }
@@ -125,19 +125,19 @@ function groupActiveItemsByTeam(
 }
 
 /**
- * Syncs action items and sends the daily digest to each team's leads through
- * every registered channel. Delivery is idempotent per (day, team, channel)
+ * Syncs action items and sends the weekly digest to each team's leads through
+ * every registered channel. Delivery is idempotent per (week, team, channel)
  * unless `force` is set, so overlapping cron/manual runs never double-send.
  *
  * @param options Optional run options.
  * @returns A summary of the run for cron/control-panel reporting.
  */
-export async function sendDailyActionItemDigest(
+export async function sendWeeklyActionItemDigest(
   options: { force?: boolean } = {},
 ): Promise<ActionItemDigestSummary> {
   const force = options.force ?? false;
   const startedAt = new Date();
-  const periodKey = getIstDateKey(startedAt);
+  const periodKey = getIstWeekStartDateKey(startedAt);
 
   const synced = await syncActionItems();
   const enabled = isActionItemsDigestEnabled();
@@ -199,11 +199,12 @@ export async function sendDailyActionItemDigest(
       reason: item.reason,
       priority: item.priority,
       detectedAt: item.detectedAt,
+      notificationCount: item.notificationCount,
     }));
 
     const message = buildWeeklyActionItemsDigest({
       teamName,
-      dateKey: periodKey,
+      dateKey: getIstDateKey(startedAt),
       appBaseUrl,
       items: digestItems,
     });
@@ -221,7 +222,7 @@ export async function sendDailyActionItemDigest(
           channelOutcomes.push({
             channel: channel.key,
             status: "SKIPPED",
-            detail: `Already delivered for day ${periodKey}.`,
+            detail: `Already delivered for week ${periodKey}.`,
           });
           continue;
         }
@@ -233,7 +234,7 @@ export async function sendDailyActionItemDigest(
       if (!channel.isAvailable()) {
         await recordNotificationDelivery({
           id: deliveryId,
-          kind: DAILY_ACTION_ITEMS_DIGEST_KIND,
+          kind: WEEKLY_ACTION_ITEMS_DIGEST_KIND,
           channel: channel.key,
           teamKey,
           periodKey,
@@ -265,7 +266,7 @@ export async function sendDailyActionItemDigest(
 
         await recordNotificationDelivery({
           id: deliveryId,
-          kind: DAILY_ACTION_ITEMS_DIGEST_KIND,
+          kind: WEEKLY_ACTION_ITEMS_DIGEST_KIND,
           channel: channel.key,
           teamKey,
           periodKey,
@@ -295,7 +296,7 @@ export async function sendDailyActionItemDigest(
 
         await recordNotificationDelivery({
           id: deliveryId,
-          kind: DAILY_ACTION_ITEMS_DIGEST_KIND,
+          kind: WEEKLY_ACTION_ITEMS_DIGEST_KIND,
           channel: channel.key,
           teamKey,
           periodKey,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import {
   Tooltip as UiTooltip,
   TooltipContent,
@@ -560,26 +560,14 @@ function TeamActionItemsPanel({
                   <p className="text-sm font-medium text-slate-800">
                     {item.message}
                   </p>
-                  {item.escalationLevel > 0 && (
+                  {item.notificationCount > 0 && (
                     <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-rose-700">
-                      Reminder #{item.escalationLevel}
-                      {item.lastEscalatedAt
-                        ? ` · ${new Date(
-                            item.lastEscalatedAt,
-                          ).toLocaleDateString("en-IN", {
-                            day: "numeric",
-                            month: "short",
-                          })}`
-                        : ""}
+                      Nudges sent: {item.notificationCount}
                     </span>
                   )}
                 </div>
                 <p className="text-xs leading-5 text-slate-500">
                   {item.reason}
-                </p>
-                <p className="flex items-center gap-1.5 pt-1 text-[11px] text-slate-400">
-                  <CheckCircle2 className="h-3 w-3 text-slate-300" />
-                  Disappears once the issue is fixed.
                 </p>
               </div>
             </div>

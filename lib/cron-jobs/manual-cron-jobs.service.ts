@@ -6,8 +6,7 @@ import { LibInvalidStateError } from "@/lib/lib.errors";
 import { captureDailyUnansweredIssueMetrics } from "@/lib/team-metrics/capture-daily-team-metrics.service";
 import { syncTeamGfiCounts } from "@/lib/teams/sync-team-gfi-counts.service";
 import { syncOrgMeta } from "@/lib/org-meta/sync-org-meta.service";
-import { escalateDueActionItems } from "@/lib/action-items/escalation.service";
-import { sendDailyActionItemDigest } from "@/lib/notifications/action-item-digest.service";
+import { sendWeeklyActionItemDigest } from "@/lib/notifications/action-item-digest.service";
 
 const CRON_JOBS: CronJobDefinition[] = [
   {
@@ -32,13 +31,7 @@ const CRON_JOBS: CronJobDefinition[] = [
     key: "send_action_item_digest",
     name: "Send Action Items Digest",
     description:
-      "Sync action items and send the daily digest of current items to each team's leads (respects daily idempotency).",
-  },
-  {
-    key: "escalate_action_items",
-    name: "Escalate Action Items",
-    description:
-      "Sync action items and nudge leads about items that have been open without action past the escalation interval (idempotent per day).",
+      "Sync action items and send the weekly digest of current items to each team's leads (respects weekly idempotency).",
   },
 ];
 
@@ -125,7 +118,7 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
       };
     }
     case "send_action_item_digest": {
-      const result = await sendDailyActionItemDigest();
+      const result = await sendWeeklyActionItemDigest();
       const finishedAt = new Date();
 
       return {
@@ -135,7 +128,7 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
         startedAt,
         summary: [
           "Cron job completed.",
-          `Digest period (IST date): ${result.periodKey}.`,
+          `Digest period (week starting): ${result.periodKey}.`,
           `Digest enabled: ${result.enabled ? "yes" : "no"}.`,
           `Teams with active items: ${result.teamsConsidered}.`,
           `Teams notified: ${result.teamsNotified}.`,
@@ -153,34 +146,6 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
                 `Skipped (no active items or no leads): ${result.skippedTeamKeys.join(", ")}.`,
               ]
             : []),
-        ].join("\n"),
-      };
-    }
-    case "escalate_action_items": {
-      const result = await escalateDueActionItems();
-      const finishedAt = new Date();
-
-      return {
-        finishedAt,
-        jobKey: job.key,
-        jobName: job.name,
-        startedAt,
-        summary: [
-          "Cron job completed.",
-          `Escalation period (IST date): ${result.periodKey}.`,
-          `Escalation enabled: ${result.enabled ? "yes" : "no"}.`,
-          `Escalation interval: ${result.escalationAfterDays} day(s).`,
-          `Items due for escalation: ${result.itemsDueCount}.`,
-          `Teams notified: ${result.teamsNotified}.`,
-          ...result.teams.map(
-            (team) =>
-              `${team.teamName}: ${team.itemCount} item(s) escalated to level ${team.newEscalationLevel}, ${team.recipientCount} recipient(s) — ${team.channelOutcomes
-                .map(
-                  (outcome) =>
-                    `${outcome.channel}: ${outcome.status} (${outcome.detail})`,
-                )
-                .join(", ")}.`,
-          ),
         ].join("\n"),
       };
     }

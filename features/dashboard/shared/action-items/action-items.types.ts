@@ -10,13 +10,11 @@ export type ActionItem = {
   platform: "WEB" | "ANDROID";
   ruleKey: string;
   message: string;
-  priority: "high" | "medium";
+  priority: "high" | "medium" | "low";
   reason: string;
   detectedAt: string;
   lastDetectedAt: string;
   notificationCount: number;
-  escalationLevel: number;
-  lastEscalatedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };

@@ -16,7 +16,6 @@ type TimestampedActionItemFields = {
   lastDetectedAt: Timestamp;
   firstNotifiedAt: Timestamp | null;
   lastNotifiedAt: Timestamp | null;
-  lastEscalatedAt: Timestamp | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 };
@@ -37,14 +36,10 @@ export type FirestoreActionItemNotificationUpdate = {
   notificationCount: number;
 };
 
-export type FirestoreActionItemEscalationUpdate = {
-  escalationLevel: number;
-  lastEscalatedAt: Timestamp;
-};
-
 const ACTION_ITEM_PRIORITIES: readonly ActionItemPriority[] = [
   "high",
   "medium",
+  "low",
 ];
 
 /**
@@ -109,12 +104,11 @@ function assertFirestoreActionItem(
   if (!ACTION_ITEM_PRIORITIES.includes(item.priority)) {
     throw new DbValidationError(
       "priority",
-      "Action item priority must be high or medium.",
+      "Action item priority must be high, medium, or low.",
     );
   }
 
   assertNonNegativeNumber(item.notificationCount, "notificationCount");
-  assertNonNegativeNumber(item.escalationLevel, "escalationLevel");
 
   assertTimestamp("ActionItem", "detectedAt", item.detectedAt);
   assertTimestamp("ActionItem", "lastDetectedAt", item.lastDetectedAt);
@@ -124,11 +118,6 @@ function assertFirestoreActionItem(
     item.firstNotifiedAt,
   );
   assertOptionalTimestamp("ActionItem", "lastNotifiedAt", item.lastNotifiedAt);
-  assertOptionalTimestamp(
-    "ActionItem",
-    "lastEscalatedAt",
-    item.lastEscalatedAt,
-  );
   assertTimestamp("ActionItem", "createdAt", item.createdAt);
   assertTimestamp("ActionItem", "updatedAt", item.updatedAt);
 }
@@ -170,10 +159,6 @@ export function normalizeActionItemDocument(params: {
       ? normalizeTimestamp(data.lastNotifiedAt)
       : null,
     notificationCount: data.notificationCount,
-    escalationLevel: data.escalationLevel,
-    lastEscalatedAt: data.lastEscalatedAt
-      ? normalizeTimestamp(data.lastEscalatedAt)
-      : null,
     createdAt: normalizeTimestamp(data.createdAt),
     updatedAt: normalizeTimestamp(data.updatedAt),
   };
@@ -206,10 +191,6 @@ export function serializeActionItem(
       ? Timestamp.fromDate(item.lastNotifiedAt)
       : null,
     notificationCount: item.notificationCount,
-    escalationLevel: item.escalationLevel,
-    lastEscalatedAt: item.lastEscalatedAt
-      ? Timestamp.fromDate(item.lastEscalatedAt)
-      : null,
     createdAt: Timestamp.fromDate(item.createdAt),
     updatedAt: Timestamp.fromDate(item.updatedAt),
   };
@@ -232,22 +213,5 @@ export function serializeActionItemNotificationUpdate(
     firstNotifiedAt: Timestamp.fromDate(previousFirstNotifiedAt ?? notifiedAt),
     lastNotifiedAt: Timestamp.fromDate(notifiedAt),
     notificationCount: nextNotificationCount,
-  };
-}
-
-/**
- * Serializes the escalation bookkeeping patch for action items after a nudge.
- *
- * @param escalationLevel The new escalation level.
- * @param escalatedAt The time the nudge was sent.
- * @returns The Firestore-ready partial update document.
- */
-export function serializeActionItemEscalationUpdate(
-  escalationLevel: number,
-  escalatedAt: Date,
-): FirestoreActionItemEscalationUpdate {
-  return {
-    escalationLevel,
-    lastEscalatedAt: Timestamp.fromDate(escalatedAt),
   };
 }

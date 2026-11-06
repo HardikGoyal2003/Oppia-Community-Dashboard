@@ -16,12 +16,10 @@ export {
 export { CONTRIBUTING_DOCS, GITHUB_REPOS } from "./github.constants";
 export { isMaintenanceModeEnabled } from "./maintenance";
 export {
-  getActionItemEscalationDays,
   getActionItemsEmailFrom,
   getActionItemsEmailReplyTo,
   getAppBaseUrl,
   getResendApiKey,
-  isActionItemEscalationEnabled,
   isActionItemsDigestEnabled,
   isEmailNotificationsEnabled,
 } from "./notifications";

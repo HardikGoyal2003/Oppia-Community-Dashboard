@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { readEnv } from "@/lib/config";
-import { sendDailyActionItemDigest } from "@/lib/notifications/action-item-digest.service";
+import { sendWeeklyActionItemDigest } from "@/lib/notifications/action-item-digest.service";
 
 function isAuthorizedCronRequest(req: Request): boolean {
   const cronSecret = readEnv("CRON_SECRET");
@@ -14,7 +14,7 @@ function isAuthorizedCronRequest(req: Request): boolean {
 }
 
 /**
- * Sends the daily action-items digest to team leads. Idempotent per day;
+ * Sends the weekly action-items digest to team leads. Idempotent per week;
  * pass `?force=true` (still requiring CRON_SECRET) to re-send intentionally.
  */
 export async function GET(req: Request) {
@@ -25,7 +25,7 @@ export async function GET(req: Request) {
   const force = new URL(req.url).searchParams.get("force") === "true";
 
   try {
-    const summary = await sendDailyActionItemDigest({ force });
+    const summary = await sendWeeklyActionItemDigest({ force });
     return NextResponse.json(summary);
   } catch (error) {
     console.error(error);

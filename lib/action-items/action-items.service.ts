@@ -102,8 +102,6 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
           firstNotifiedAt: null,
           lastNotifiedAt: null,
           notificationCount: 0,
-          escalationLevel: 0,
-          lastEscalatedAt: null,
           createdAt: now,
           updatedAt: now,
         });
@@ -160,8 +158,7 @@ export async function getActionItem(
 }
 
 /**
- * Orders action items for display: escalated items first, then high priority,
- * then newest detections.
+ * Orders action items for display by priority, then newest detections.
  *
  * @param left The first item.
  * @param right The second item.
@@ -171,14 +168,8 @@ export function compareActionItemsForDisplay(
   left: ActionItemModel,
   right: ActionItemModel,
 ): number {
-  const escalationDiff = right.escalationLevel - left.escalationLevel;
-
-  if (escalationDiff !== 0) {
-    return escalationDiff;
-  }
-
   const priorityRank = (item: ActionItemModel) =>
-    item.priority === "high" ? 0 : 1;
+    item.priority === "high" ? 0 : item.priority === "medium" ? 1 : 2;
   const priorityDiff = priorityRank(left) - priorityRank(right);
 
   if (priorityDiff !== 0) {

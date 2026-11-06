@@ -1,13 +1,14 @@
 import type { ActionItemPriority } from "@/lib/domain/action-items.types";
 import type { NotificationMessage } from "@/lib/domain/notifications.types";
 
-/** An action item rendered into the daily digest. */
+/** An action item rendered into the weekly digest. */
 export type WeeklyDigestItem = {
   id: string;
   message: string;
   reason: string;
   priority: ActionItemPriority;
-  detectedAt: Date;
+  /** Number of earlier digest notifications sent for this item. */
+  notificationCount: number;
 };
 
 export type WeeklyDigestInput = {
@@ -29,10 +30,10 @@ const DATE_FORMAT = new Intl.DateTimeFormat("en-IN", {
 });
 
 /**
- * Escapes HTML special characters so dynamic copy cannot break the layout.
+ * Escapes dynamic copy for the HTML email body.
  *
- * @param value The raw text.
- * @returns The escaped HTML-safe text.
+ * @param value The dynamic text to escape.
+ * @returns HTML-safe text.
  */
 function escapeHtml(value: string): string {
   return value
@@ -44,123 +45,135 @@ function escapeHtml(value: string): string {
 }
 
 /**
- * Formats an IST date key for display.
+ * Formats an IST date key for the email subject.
  *
  * @param dateKey The `YYYY-MM-DD` date key.
- * @returns A human-readable label such as `19 Oct 2026`.
+ * @returns A human-readable date label.
  */
 function formatDateLabel(dateKey: string): string {
   const [year, month, day] = dateKey.split("-").map(Number);
-
   return DATE_FORMAT.format(new Date(Date.UTC(year, month - 1, day)));
 }
 
 /**
- * Builds the absolute deep link for a single action item.
+ * Returns the concise team label used in the greeting.
  *
- * @param appBaseUrl The app base URL.
- * @param itemId The action item id.
- * @returns The full URL that opens the dashboard with the item highlighted.
+ * @param teamName The full team name.
+ * @returns The concise team label.
  */
-function buildItemLink(appBaseUrl: string, itemId: string): string {
-  return `${appBaseUrl}${ACTION_ITEMS_DEEP_LINK_PATH}?actionItem=${encodeURIComponent(itemId)}`;
+function getTeamLabel(teamName: string): string {
+  return teamName
+    .replace(/^\[(web|android)\]\s*/i, "")
+    .replace(/\s+team\b.*$/i, "")
+    .trim();
 }
 
 /**
- * Builds the daily digest message for one team.
+ * Builds the explanation shown when an item is repeated in the digest.
  *
- * @param input The team, period, and items to render.
- * @returns The rendered message ready for any channel.
+ * @param notificationCount Number of earlier weekly digests containing item.
+ * @returns The reminder explanation, or an empty string for new items.
+ */
+function getReminderExplanation(notificationCount: number): string {
+  if (notificationCount === 0) {
+    return "";
+  }
+
+  if (notificationCount === 1) {
+    return "Reminder #1 — This item was included in the previous weekly digest but has not been addressed yet.";
+  }
+
+  return `Reminder #${notificationCount} — This item has been included in the last ${notificationCount} weekly digests but has not been addressed yet.`;
+}
+
+/**
+ * Builds a concise weekly action-item email.
+ *
+ * @param input The team, date, and action items to render.
+ * @returns The rendered notification message.
  */
 export function buildWeeklyActionItemsDigest(
   input: WeeklyDigestInput,
 ): NotificationMessage {
-  const { teamName, dateKey, appBaseUrl, items } = input;
-  const dateLabel = formatDateLabel(dateKey);
-  const countLabel = `${items.length} current action item${items.length === 1 ? "" : "s"}`;
+  const { teamName, appBaseUrl, items } = input;
+  const teamShortLabel = getTeamLabel(teamName);
+  const teamLabel = `${teamShortLabel} Team`;
+  const dateLabel = formatDateLabel(input.dateKey);
+  const countLabel = `${items.length} action item${items.length === 1 ? "" : "s"}`;
+  const attentionMessage = `You have ${countLabel} requiring your attention. Please review and address ${items.length === 1 ? "it" : "them"} in the dashboard as soon as possible.`;
+  const dashboardLink = `${appBaseUrl}${ACTION_ITEMS_DEEP_LINK_PATH}`;
 
-  const subject = `Action items for ${teamName}: ${countLabel} (${dateLabel})`;
-  const title = `${countLabel} for ${teamName}.`;
-  const deepLinkPath = ACTION_ITEMS_DEEP_LINK_PATH;
+  const textLines = [`Hi ${teamShortLabel} leads,`, "", attentionMessage, ""];
 
-  const textLines: string[] = [
-    `Action items for ${teamName} — ${dateLabel}`,
+  const sortedItems = [...items].sort(
+    (left, right) => priorityRank(left.priority) - priorityRank(right.priority),
+  );
+
+  sortedItems.forEach((item) => {
+    const reminderLabel = getReminderExplanation(item.notificationCount);
+    textLines.push(
+      `- [${item.priority.toUpperCase()}] ${item.message}${reminderLabel ? ` (${reminderLabel})` : ""}`,
+    );
+  });
+
+  textLines.push(
     "",
-  ];
+    `Review all action items in the dashboard for a more detailed view: ${dashboardLink}`,
+    "",
+    "Please do not reply to this email. Use the dashboard.",
+    "",
+    "Thanks,",
+    "Hardik",
+  );
 
-  if (items.length > 0) {
-    textLines.push(`Needs action (${items.length}):`);
-    items.forEach((item, index) => {
-      textLines.push(
-        `${index + 1}. [${item.priority.toUpperCase()}] ${item.message}`,
-      );
-      textLines.push(`   Why: ${item.reason}`);
-      textLines.push(
-        `   Detected since ${DATE_FORMAT.format(item.detectedAt)}`,
-      );
-      textLines.push(`   ${buildItemLink(appBaseUrl, item.id)}`);
-    });
-    textLines.push("");
-  }
-
-  textLines.push(`Open the dashboard to work on these items:`);
-  textLines.push(`${appBaseUrl}${deepLinkPath}`);
-  textLines.push("");
-  textLines.push("Do not reply to this email — respond on the dashboard.");
-
-  const renderListItems = (list: WeeklyDigestItem[]): string =>
-    list
-      .map((item) => {
-        const isHigh = item.priority === "high";
-        const badgeColor = isHigh ? "#dc2626" : "#d97706";
-        const badgeLabel = isHigh ? "HIGH" : "MEDIUM";
-        return `
-          <tr>
-            <td style="padding:12px;border-bottom:1px solid #e2e8f0;vertical-align:top;">
-              <span style="display:inline-block;background:${badgeColor};color:#ffffff;font-size:10px;font-weight:700;letter-spacing:0.06em;padding:2px 8px;border-radius:999px;">${badgeLabel}</span>
-              <p style="margin:8px 0 0;font-size:14px;color:#0f172a;font-weight:600;">${escapeHtml(item.message)}</p>
-              <p style="margin:4px 0 0;font-size:13px;color:#475569;">${escapeHtml(item.reason)}</p>
-              <p style="margin:6px 0 0;font-size:12px;color:#94a3b8;">Detected since ${DATE_FORMAT.format(item.detectedAt)}</p>
-              <p style="margin:8px 0 0;">
-                <a href="${buildItemLink(appBaseUrl, item.id)}" style="font-size:13px;color:#2563eb;font-weight:600;">Open this item →</a>
-              </p>
-            </td>
-          </tr>`;
-      })
-      .join("");
-
-  const sectionsHtml: string[] = [];
-
-  if (items.length > 0) {
-    sectionsHtml.push(`
-      <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:0.08em;">Needs action (${items.length})</p>
-      <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
-        ${renderListItems(items)}
-      </table>`);
-  }
+  const htmlItems = sortedItems
+    .map(
+      (item) => `
+        <li style="margin:0 0 14px;">
+          <strong style="color:${priorityColor(item.priority)};">[${item.priority.toUpperCase()}]</strong> ${escapeHtml(item.message)}${getReminderExplanation(item.notificationCount) ? ` <span style="color:#64748b;">(${escapeHtml(getReminderExplanation(item.notificationCount))})</span>` : ""}
+        </li>`,
+    )
+    .join("");
 
   const bodyHtml = `
-<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f8fafc;padding:24px;">
-  <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;padding:28px;">
-    <p style="margin:0;font-size:12px;font-weight:700;color:#64748b;letter-spacing:0.1em;text-transform:uppercase;">Oppia Community Dashboard</p>
-    <h1 style="margin:8px 0 4px;font-size:20px;color:#0f172a;">Action items</h1>
-    <p style="margin:0;font-size:14px;color:#64748b;">${escapeHtml(teamName)} · ${dateLabel}</p>
-    <p style="margin:16px 0 0;font-size:14px;color:#334155;">You have <strong>${countLabel}</strong> waiting for follow-up. Work on these items in the dashboard.</p>
-    <div style="margin-top:20px;">
-      ${sectionsHtml.join("")}
-    </div>
-    <p style="margin:24px 0 0;">
-      <a href="${appBaseUrl}${deepLinkPath}" style="display:inline-block;background:#0f172a;color:#ffffff;font-size:14px;font-weight:600;padding:10px 18px;border-radius:10px;text-decoration:none;">Open dashboard overview</a>
-    </p>
-    <p style="margin:20px 0 0;font-size:12px;color:#94a3b8;">Do not reply to this email — respond on the dashboard. You receive this digest because you are a lead for this team; working on these items there keeps future notifications focused.</p>
-  </div>
+<div style="font-family:Arial,Helvetica,sans-serif;color:#111827;font-size:14px;line-height:1.5;">
+  <p>Hi ${escapeHtml(teamShortLabel)} Leads,</p>
+  <p>${attentionMessage}</p>
+  <ul style="padding-left:22px;">${htmlItems}</ul>
+  <p><a href="${dashboardLink}">Review all action items in the dashboard for a more detailed view.</a></p>
+  <p style="color:#64748b;font-size:12px;">Please do not reply to this email.</p>
+  <p>Thanks,<br>Hardik</p>
 </div>`;
 
   return {
-    subject,
-    title,
+    subject: `${teamLabel}: ${countLabel} need your attention — ${dateLabel}`,
+    title: `${countLabel} need attention for ${teamName}.`,
     bodyText: textLines.join("\n"),
     bodyHtml,
-    deepLinkPath,
+    deepLinkPath: ACTION_ITEMS_DEEP_LINK_PATH,
   };
+}
+
+/**
+ * Returns the sort rank for an action-item priority.
+ *
+ * @param priority The action-item priority.
+ * @returns The priority sort rank.
+ */
+function priorityRank(priority: ActionItemPriority): number {
+  return priority === "high" ? 0 : priority === "medium" ? 1 : 2;
+}
+
+/**
+ * Returns the HTML color for an action-item priority.
+ *
+ * @param priority The action-item priority.
+ * @returns The HTML color.
+ */
+function priorityColor(priority: ActionItemPriority): string {
+  return priority === "high"
+    ? "#dc2626"
+    : priority === "medium"
+      ? "#d97706"
+      : "#64748b";
 }

@@ -23,7 +23,7 @@ export type TeamReport = {
   nextSteps: Array<{
     ruleKey?: string;
     message: string;
-    priority: "high" | "medium";
+    priority: "high" | "medium" | "low";
     reason: string;
   }>;
   platform: "WEB" | "ANDROID";

@@ -1,6 +1,6 @@
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 
-export type ActionItemPriority = "high" | "medium";
+export type ActionItemPriority = "high" | "medium" | "low";
 
 /**
  * A persisted action item derived from a team report rule, stored as
@@ -26,10 +26,6 @@ export type ActionItemModel = {
   firstNotifiedAt: Date | null;
   lastNotifiedAt: Date | null;
   notificationCount: number;
-  /** How many escalation nudges have been sent for this item (0 = never). */
-  escalationLevel: number;
-  /** When the most recent escalation nudge was sent; null until first nudged. */
-  lastEscalatedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };

@@ -1,13 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import {
-  CheckCircle2,
-  ListChecks,
-  Loader2,
-  RefreshCw,
-  Sparkles,
-} from "lucide-react";
+import { ListChecks, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import type { ActionItem } from "@/features/dashboard/shared/action-items/action-items.types";
 import { getTeamLeadActionMessage } from "../overview.utils";
 
@@ -142,17 +136,9 @@ export function NextActions({
                       </p>
 
                       <div className="mt-2 flex flex-wrap items-center gap-2">
-                        {item.escalationLevel > 0 && (
+                        {item.notificationCount > 0 && (
                           <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-rose-700">
-                            Reminder #{item.escalationLevel}
-                            {item.lastEscalatedAt
-                              ? ` · ${new Date(
-                                  item.lastEscalatedAt,
-                                ).toLocaleDateString("en-IN", {
-                                  day: "numeric",
-                                  month: "short",
-                                })}`
-                              : ""}
+                            Nudges sent: {item.notificationCount}
                           </span>
                         )}
                         <span className="text-[11px] text-slate-400">
@@ -163,11 +149,6 @@ export function NextActions({
                           )}
                         </span>
                       </div>
-
-                      <p className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400">
-                        <CheckCircle2 className="h-3 w-3 text-slate-300" />
-                        This item disappears once the issue is fixed.
-                      </p>
                     </div>
                   </div>
                 </div>

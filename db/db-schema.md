@@ -116,15 +116,13 @@ Fields:
 - `platform: "WEB" | "ANDROID"`
 - `ruleKey: string` **(stable team-report rule identifier)**
 - `message: string`
-- `priority: "high" | "medium"`
+- `priority: "high" | "medium" | "low"`
 - `reason: string`
 - `detectedAt: Timestamp`
 - `lastDetectedAt: Timestamp`
 - `firstNotifiedAt: Timestamp | null`
 - `lastNotifiedAt: Timestamp | null`
 - `notificationCount: number`
-- `escalationLevel: number` **(how many escalation nudges were sent for this document)**
-- `lastEscalatedAt: Timestamp | null`
 - `createdAt: Timestamp`
 - `updatedAt: Timestamp`
 
@@ -132,14 +130,14 @@ Fields:
 
 Document id:
 
-- `${kind}__${periodKey}__${teamKey}__${channel}` **(also the idempotency key, e.g. `daily_action_items_digest__2026-10-19__CORE__EMAIL`)**
+- `${kind}__${periodKey}__${teamKey}__${channel}` **(also the idempotency key, e.g. `weekly_action_items_digest__2026-11-02__CORE__EMAIL`)**
 
 Fields:
 
 - `kind: string`
 - `channel: "EMAIL" | "IN_APP"`
 - `teamKey: string`
-- `periodKey: string` **(IST date key for daily digests)**
+- `periodKey: string` **(IST week-start date key for weekly digests)**
 - `actionItemIds: string[]` **(exact action-item document ids included in the delivery)**
 - `recipientUids: string[]`
 - `itemCount: number`
@@ -192,7 +190,6 @@ Normalized app-layer models convert Firestore timestamps as follows:
 - `actionItems.acknowledgedAt -> Date | null`
 - `actionItems.firstNotifiedAt -> Date | null`
 - `actionItems.lastNotifiedAt -> Date | null`
-- `actionItems.lastEscalatedAt -> Date | null`
 - `actionItems.createdAt -> Date`
 - `actionItems.updatedAt -> Date`
 - `notificationDeliveries.recordedAt -> Date`

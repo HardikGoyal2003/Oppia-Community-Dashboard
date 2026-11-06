@@ -1,5 +1,5 @@
 /**
- * Temporary per-lead email overrides for digest and escalation delivery,
+ * Temporary per-lead email overrides for digest delivery,
  * keyed by GitHub username.
  *
  * The dashboard normally uses the email stored on the user's Firestore record
@@ -17,12 +17,19 @@
 export const LEAD_EMAIL_OVERRIDES: Record<string, string> = {};
 
 /** Shared team inboxes used for action-item nudges. */
+// export const TEAM_LEAD_EMAILS: Record<string, string> = {
+//   CLAM: "android-clam-leads@oppia.org",
+//   DEV_WORKFLOW_INFRA: "android-dev-workflow-leads@oppia.org",
+//   LEAP: "web-leap-leads@oppia.org",
+//   CORE: "web-core-leads@oppia.org",
+//   DEV_WORKFLOW: "web-dev-workflow-leads@oppia.org",
+// };
 export const TEAM_LEAD_EMAILS: Record<string, string> = {
-  CLAM: "android-clam-leads@oppia.org",
-  DEV_WORKFLOW_INFRA: "android-dev-workflow-leads@oppia.org",
-  LEAP: "web-leap-leads@oppia.org",
-  CORE: "web-core-leads@oppia.org",
-  DEV_WORKFLOW: "web-dev-workflow-leads@oppia.org",
+  // CLAM: "hardikgoyal1503@gmail.com",
+  // DEV_WORKFLOW_INFRA: "android-dev-workflow-leads@oppia.org",
+  LEAP: "hardikgoyal1503@gmail.com",
+  // CORE: "web-core-leads@oppia.org",
+  // DEV_WORKFLOW: "web-dev-workflow-leads@oppia.org",
 };
 
 /**

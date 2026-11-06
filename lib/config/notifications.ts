@@ -1,9 +1,4 @@
-import {
-  readBooleanEnv,
-  readEnv,
-  readEnvWithDefault,
-  readNumberEnv,
-} from "./env";
+import { readBooleanEnv, readEnv, readEnvWithDefault } from "./env";
 
 /**
  * Returns the Resend API key when configured.
@@ -24,7 +19,7 @@ export function getResendApiKey(): string | undefined {
  * @returns True only when email delivery has been explicitly enabled.
  */
 export function isEmailNotificationsEnabled(): boolean {
-  return readBooleanEnv("EMAIL_NOTIFICATIONS_ENABLED", false);
+  return readBooleanEnv("EMAIL_NOTIFICATIONS_ENABLED", true);
 }
 
 /**
@@ -35,7 +30,7 @@ export function isEmailNotificationsEnabled(): boolean {
 export function getActionItemsEmailFrom(): string {
   return readEnvWithDefault(
     "ACTION_ITEMS_EMAIL_FROM",
-    "Oppia Community Dashboard <onboarding@resend.dev>",
+    "Oppia Community Dashboard <noreply@notifications.oppia-community-dashboard.com>",
   );
 }
 
@@ -48,35 +43,17 @@ export function getActionItemsEmailFrom(): string {
 export function getActionItemsEmailReplyTo(): string {
   return readEnvWithDefault(
     "ACTION_ITEMS_EMAIL_REPLY_TO",
-    "no-reply@resend.dev",
+    "noreply@notifications.oppia-community-dashboard.com",
   );
 }
 
 /**
- * Returns whether the daily action item digest cron is enabled.
+ * Returns whether the weekly action item digest cron is enabled.
  *
  * @returns True unless `ACTION_ITEMS_DIGEST_ENABLED` is set to "false".
  */
 export function isActionItemsDigestEnabled(): boolean {
   return readBooleanEnv("ACTION_ITEMS_DIGEST_ENABLED", true);
-}
-
-/**
- * Returns whether escalation nudges are enabled.
- *
- * @returns True unless `ACTION_ITEM_ESCALATION_ENABLED` is set to "false".
- */
-export function isActionItemEscalationEnabled(): boolean {
-  return readBooleanEnv("ACTION_ITEM_ESCALATION_ENABLED", true);
-}
-
-/**
- * Returns how many days must pass without action before an item is escalated.
- *
- * @returns The escalation interval in days (default 3).
- */
-export function getActionItemEscalationDays(): number {
-  return readNumberEnv("ACTION_ITEM_ESCALATION_DAYS", 3);
 }
 
 /**
@@ -92,11 +69,5 @@ export function getAppBaseUrl(): string {
     return explicitUrl.replace(/\/+$/, "");
   }
 
-  const vercelUrl = readEnv("VERCEL_URL");
-
-  if (vercelUrl) {
-    return `https://${vercelUrl}`;
-  }
-
-  return "";
+  return "http://oppia-community-dashboard.com";
 }

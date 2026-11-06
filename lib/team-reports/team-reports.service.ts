@@ -12,7 +12,7 @@ export type TeamReportNextStep = {
    */
   ruleKey: string;
   message: string;
-  priority: "high" | "medium";
+  priority: "high" | "medium" | "low";
   reason: string;
 };
 
@@ -146,10 +146,10 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
       ruleKey: "gfi-shortfall",
       message:
         team.platform === "ANDROID"
-          ? `Ask leads to add ${Math.max(15 - totalGfiCount, 1)} more GFI${
+          ? `Add ${Math.max(15 - totalGfiCount, 1)} more GFI${
               Math.max(15 - totalGfiCount, 1) === 1 ? "" : "s"
             }.`
-          : `Ask leads to add ${lowGfiDomainShortfalls
+          : `Add ${lowGfiDomainShortfalls
               .map(
                 ({ countNeeded, domain }) =>
                   `${countNeeded} more ${domain} GFI${
@@ -171,7 +171,7 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
     nextSteps.push({
       ruleKey: "issue-waiting-days",
       message:
-        "Ask leads about the team\u2019s issue response performance because some issues have been waiting too long for a response.",
+        "Review the team\u2019s issue response performance because some issues have been waiting too long for a response.",
       priority: "high",
       reason:
         "Issues waiting more than 2 days for a response signal a support bottleneck that needs attention.",
@@ -186,7 +186,7 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
     nextSteps.push({
       ruleKey: "gfi-uncategorized",
       message:
-        "Ask leads to categorize uncategorized good first issues into frontend, backend, or fullstack.",
+        "Categorize uncategorized good first issues into frontend, backend, or fullstack.",
       priority: "medium",
       reason:
         "Categorized good first issues are easier for contributors to discover, choose, and self-select based on their skills.",

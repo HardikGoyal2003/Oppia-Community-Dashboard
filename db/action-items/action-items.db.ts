@@ -5,7 +5,6 @@ import {
   type FirestoreActionItem,
   normalizeActionItemDocument,
   serializeActionItem,
-  serializeActionItemEscalationUpdate,
   serializeActionItemNotificationUpdate,
 } from "./action-items.mapper";
 
@@ -13,7 +12,7 @@ const db = getAdminFirestore();
 
 /**
  * Action items live at `teams/{teamId}/actionItems/{ruleKey}`. The collection
- * group reference supports cross-team reads (admins, digests, escalation).
+ * group reference supports cross-team reads (admins and digests).
  */
 export const actionItemsCollectionGroup: FirebaseFirestore.CollectionGroup<FirestoreActionItem> =
   db.collectionGroup(
@@ -241,46 +240,6 @@ export async function markActionItemsNotified(
         item.firstNotifiedAt,
         notifiedAt,
         item.notificationCount + 1,
-      ),
-    });
-  }
-
-  for (const chunk of chunkValues(writes, FIRESTORE_BATCH_LIMIT)) {
-    const batch = db.batch();
-
-    for (const write of chunk) {
-      batch.update(write.ref, write.data);
-    }
-
-    await batch.commit();
-  }
-}
-
-/**
- * Records escalation nudges by bumping each item's escalation level.
- *
- * @param updates The per-item escalation updates to persist.
- * @returns A promise that resolves when all batches are committed.
- */
-export async function updateActionItemsEscalation(
-  updates: Array<{
-    teamId: string;
-    itemId: string;
-    escalationLevel: number;
-    lastEscalatedAt: Date;
-  }>,
-): Promise<void> {
-  const writes: Array<{
-    ref: FirebaseFirestore.DocumentReference<FirestoreActionItem>;
-    data: Partial<FirestoreActionItem>;
-  }> = [];
-
-  for (const update of updates) {
-    writes.push({
-      ref: getActionItemDocumentRef(update.teamId, update.itemId),
-      data: serializeActionItemEscalationUpdate(
-        update.escalationLevel,
-        update.lastEscalatedAt,
       ),
     });
   }
