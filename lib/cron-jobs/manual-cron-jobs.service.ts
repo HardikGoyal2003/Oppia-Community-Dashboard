@@ -133,7 +133,7 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
           `Teams notified: ${result.teamsNotified}.`,
           ...result.teams.map(
             (team) =>
-              `${team.teamName}: ${team.itemCount} item(s), ${team.recipientCount} recipient(s) — ${team.channelOutcomes
+              `${team.teamKey}: ${team.itemCount} item(s), ${team.recipientCount} recipient(s) — ${team.channelOutcomes
                 .map(
                   (outcome) =>
                     `${outcome.channel}: ${outcome.status} (${outcome.detail})`,

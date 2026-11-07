@@ -11,6 +11,29 @@ import type {
 } from "@/lib/domain/notifications.types";
 
 const RESEND_API_ENDPOINT = "https://api.resend.com/emails";
+const LOCAL_DEVELOPMENT_EMAIL = "hardikgoyal1503@gmail.com";
+
+/**
+ * Redirects local email delivery away from real recipients.
+ *
+ * @param recipients The intended email recipients.
+ * @returns The safe local recipient in development, otherwise the originals.
+ */
+function getSafeEmailRecipients(
+  recipients: NotificationRecipient[],
+): NotificationRecipient[] {
+  if (process.env.NODE_ENV !== "development") {
+    return recipients;
+  }
+
+  return [
+    {
+      uid: "local-development-email",
+      email: LOCAL_DEVELOPMENT_EMAIL,
+      fullName: "Local development recipient",
+    },
+  ];
+}
 
 /** Truncates provider error bodies so delivery logs stay readable. */
 const MAX_ERROR_DETAIL_LENGTH = 300;
@@ -85,8 +108,9 @@ export const emailNotificationChannel: NotificationChannel = {
     }
 
     const recipientsByEmail = new Map<string, NotificationRecipient[]>();
+    const safeRecipients = getSafeEmailRecipients(recipients);
 
-    for (const recipient of recipients) {
+    for (const recipient of safeRecipients) {
       if (!recipient.email) {
         result.failed.push({
           uid: recipient.uid,

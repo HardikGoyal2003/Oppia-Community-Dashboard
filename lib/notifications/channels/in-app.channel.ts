@@ -27,7 +27,7 @@ export const inAppNotificationChannel: NotificationChannel = {
       failed: [],
     };
 
-    const notificationText = `${message.title} Open ${message.deepLinkPath} to review.`;
+    const notificationText = message.title;
 
     for (const recipient of recipients) {
       try {

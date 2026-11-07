@@ -99,6 +99,7 @@ export function buildWeeklyActionItemsDigest(
   const teamLabel = `${teamShortLabel} Team`;
   const dateLabel = formatDateLabel(input.dateKey);
   const countLabel = `${items.length} action item${items.length === 1 ? "" : "s"}`;
+  const addressPronoun = items.length === 1 ? "it" : "them";
   const attentionMessage = `You have ${countLabel} requiring your attention. Please review and address ${items.length === 1 ? "it" : "them"} in the dashboard as soon as possible.`;
   const dashboardLink = `${appBaseUrl}${ACTION_ITEMS_DEEP_LINK_PATH}`;
 
@@ -146,7 +147,7 @@ export function buildWeeklyActionItemsDigest(
 
   return {
     subject: `${teamLabel}: ${countLabel} need your attention — ${dateLabel}`,
-    title: `${countLabel} need attention for ${teamName}.`,
+    title: `You have ${countLabel} requiring your attention for ${teamLabel}. Please review and address ${addressPronoun} in the dashboard.`,
     bodyText: textLines.join("\n"),
     bodyHtml,
     deepLinkPath: ACTION_ITEMS_DEEP_LINK_PATH,
