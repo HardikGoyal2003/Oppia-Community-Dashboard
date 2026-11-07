@@ -89,13 +89,6 @@ function assertFirestoreActionItem(
   assertNonEmptyString(item.teamKey, "teamKey");
   assertNonEmptyString(item.teamName, "teamName");
 
-  if (item.platform !== "WEB" && item.platform !== "ANDROID") {
-    throw new DbValidationError(
-      "platform",
-      "Action item platform must be WEB or ANDROID.",
-    );
-  }
-
   assertNonEmptyString(item.ruleKey, "ruleKey");
 
   assertNonEmptyString(item.message, "message");
@@ -145,7 +138,6 @@ export function normalizeActionItemDocument(params: {
     teamId,
     teamKey: data.teamKey,
     teamName: data.teamName,
-    platform: data.platform,
     ruleKey: data.ruleKey,
     message: data.message,
     priority: data.priority,
@@ -177,7 +169,6 @@ export function serializeActionItem(
   return {
     teamKey: item.teamKey,
     teamName: item.teamName,
-    platform: item.platform,
     ruleKey: item.ruleKey,
     message: item.message,
     priority: item.priority,

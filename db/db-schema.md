@@ -111,10 +111,9 @@ Subcollection of `teams`. Document id:
 
 Fields:
 
-- `teamKey: string` **(team key on user records like `CORE`)**
+- `teamKey: string`
 - `teamName: string`
-- `platform: "WEB" | "ANDROID"`
-- `ruleKey: string` **(stable team-report rule identifier)**
+- `ruleKey: string`
 - `message: string`
 - `priority: "high" | "medium" | "low"`
 - `reason: string`
@@ -187,7 +186,6 @@ Normalized app-layer models convert Firestore timestamps as follows:
 - `teams.lastUpdated -> Date`
 - `actionItems.detectedAt -> Date`
 - `actionItems.lastDetectedAt -> Date`
-- `actionItems.acknowledgedAt -> Date | null`
 - `actionItems.firstNotifiedAt -> Date | null`
 - `actionItems.lastNotifiedAt -> Date | null`
 - `actionItems.createdAt -> Date`

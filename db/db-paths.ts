@@ -15,7 +15,6 @@ export const DB_PATHS = {
     COLLECTION: "memberAccessRequests",
   },
   ACTION_ITEMS: {
-    /** Subcollection name; stored at `teams/{teamId}/actionItems/{ruleKey}`. */
     COLLECTION: "actionItems",
   },
   NOTIFICATION_DELIVERIES: {

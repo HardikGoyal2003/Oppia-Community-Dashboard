@@ -92,7 +92,6 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
           teamId: report.id,
           teamKey,
           teamName: report.teamName,
-          platform: report.platform,
           ruleKey: step.ruleKey,
           message: step.message,
           priority: step.priority,

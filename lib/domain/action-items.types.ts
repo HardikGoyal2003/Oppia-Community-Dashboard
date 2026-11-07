@@ -1,5 +1,3 @@
-import type { ContributionPlatform } from "@/lib/auth/auth.types";
-
 export type ActionItemPriority = "high" | "medium" | "low";
 
 /**
@@ -14,7 +12,6 @@ export type ActionItemModel = {
   /** Team key stored on user records such as `CORE`. */
   teamKey: string;
   teamName: string;
-  platform: ContributionPlatform;
   ruleKey: string;
   message: string;
   priority: ActionItemPriority;

@@ -50,7 +50,7 @@ type TeamReport = {
     maxWaitingDays: number;
   }>;
   nextSteps: Array<{
-    ruleKey?: string;
+    ruleKey: string;
     message: string;
     priority: "high" | "medium";
     reason: string;

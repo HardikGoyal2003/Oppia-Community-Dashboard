@@ -7,7 +7,6 @@ export type ActionItem = {
   teamId: string;
   teamKey: string;
   teamName: string;
-  platform: "WEB" | "ANDROID";
   ruleKey: string;
   message: string;
   priority: "high" | "medium" | "low";
