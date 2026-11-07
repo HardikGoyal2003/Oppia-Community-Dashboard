@@ -103,6 +103,47 @@ Fields:
 - `unansweredIssuesCount: number`
 - `maxWaitingDays: number`
 
+### `teams/{teamId}/actionItems`
+
+Subcollection of `teams`. Document id:
+
+- the stable rule key, e.g. `gfi-shortfall`
+
+Fields:
+
+- `teamKey: string`
+- `teamName: string`
+- `ruleKey: string`
+- `message: string`
+- `priority: "high" | "medium" | "low"`
+- `reason: string`
+- `detectedAt: Timestamp`
+- `lastDetectedAt: Timestamp`
+- `firstNotifiedAt: Timestamp | null`
+- `lastNotifiedAt: Timestamp | null`
+- `notificationCount: number`
+- `createdAt: Timestamp`
+- `updatedAt: Timestamp`
+
+### `notificationDeliveries`
+
+Document id:
+
+- `${kind}__${periodKey}__${teamKey}__${channel}` **(also the idempotency key, e.g. `weekly_action_items_digest__2026-11-02__CORE__EMAIL`)**
+
+Fields:
+
+- `kind: string`
+- `channel: "EMAIL" | "IN_APP"`
+- `teamKey: string`
+- `periodKey: string` **(IST week-start date key for weekly digests)**
+- `actionItemIds: string[]` **(exact action-item document ids included in the delivery)**
+- `recipientUids: string[]`
+- `itemCount: number`
+- `status: "SENT" | "SKIPPED" | "FAILED"`
+- `error: string | null`
+- `recordedAt: Timestamp`
+
 ### `dataJobRuns`
 
 Document id:
@@ -143,6 +184,13 @@ Normalized app-layer models convert Firestore timestamps as follows:
 - `users/{uid}/notifications.createdAt -> Date`
 - `memberAccessRequests.createdAt -> Date`
 - `teams.lastUpdated -> Date`
+- `actionItems.detectedAt -> Date`
+- `actionItems.lastDetectedAt -> Date`
+- `actionItems.firstNotifiedAt -> Date | null`
+- `actionItems.lastNotifiedAt -> Date | null`
+- `actionItems.createdAt -> Date`
+- `actionItems.updatedAt -> Date`
+- `notificationDeliveries.recordedAt -> Date`
 - `dailyTeamMetrics.capturedAt -> Date`
 - `dataJobRuns.startedAt -> Date`
 - `dataJobRuns.finishedAt -> Date | null`

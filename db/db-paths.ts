@@ -14,6 +14,12 @@ export const DB_PATHS = {
   MEMBER_ACCESS_REQUESTS: {
     COLLECTION: "memberAccessRequests",
   },
+  ACTION_ITEMS: {
+    COLLECTION: "actionItems",
+  },
+  NOTIFICATION_DELIVERIES: {
+    COLLECTION: "notificationDeliveries",
+  },
   TEAMS: {
     COLLECTION: "teams",
   },
