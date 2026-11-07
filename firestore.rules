@@ -1,10 +1,18 @@
 rules_version = '2';
 
+// Production rules.
+//
+// Firestore access is server-side only. The application talks to Firestore
+// through the Admin SDK, which bypasses security rules, so client SDK and REST
+// access is denied entirely. Do not relax these rules without adding
+// authentication and per-collection authorization.
+//
+// Local emulator rules live in firestore.emulator.rules and are selected by
+// firebase.emulator.json so they can never be deployed to production.
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Local emulator only: keep development unblocked.
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
   }
 }

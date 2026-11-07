@@ -6,9 +6,9 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "firebase emulators:exec --only firestore --ui \"next dev\"",
+    "dev": "firebase --config firebase.emulator.json emulators:exec --only firestore --ui \"next dev\"",
     "dev:next": "next dev",
-    "firebase:emulators": "firebase emulators:start --only firestore",
+    "firebase:emulators": "firebase --config firebase.emulator.json emulators:start --only firestore",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
