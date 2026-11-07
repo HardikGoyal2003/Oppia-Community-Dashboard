@@ -121,32 +121,6 @@ export async function getActionItemsByTeamId(
 }
 
 /**
- * Retrieves a single action item by its team and document id.
- *
- * @param teamId The team document id (e.g. `WEB_CORE`).
- * @param itemId The action item document id (the rule key).
- * @returns The normalized action item, or null when it does not exist.
- */
-export async function getActionItemById(
-  teamId: string,
-  itemId: string,
-): Promise<ActionItemModel | null> {
-  const snapshot = await getActionItemDocumentRef(teamId, itemId).get();
-
-  if (!snapshot.exists) {
-    return null;
-  }
-
-  const data = snapshot.data();
-
-  if (!data) {
-    return null;
-  }
-
-  return normalizeActionItemDocument({ id: snapshot.id, teamId, data });
-}
-
-/**
  * Inserts or updates action items. Document ids are the rule keys within a
  * team, so repeated syncs upsert instead of duplicating.
  *

@@ -7,11 +7,8 @@ import {
   markActionItemsNotified,
 } from "@/db/action-items/action-items.db";
 import { getUsersByTeam } from "@/db/users/users.db";
-import { getAppBaseUrl, isActionItemsDigestEnabled } from "@/lib/config";
-import {
-  resolveLeadEmail,
-  resolveTeamLeadEmail,
-} from "@/lib/config/lead-emails";
+import { getAppBaseUrl } from "@/lib/config";
+import { resolveTeamLeadEmail } from "@/lib/config/lead-emails";
 import { syncActionItems } from "@/lib/action-items/action-items.service";
 import type {
   ActionItemModel,
@@ -48,7 +45,6 @@ export type DigestTeamOutcome = {
 };
 
 export type ActionItemDigestSummary = {
-  enabled: boolean;
   force: boolean;
   periodKey: string;
   synced: ActionItemSyncSummary;
@@ -93,9 +89,7 @@ async function getDigestRecipientsForTeam(
     .filter((user) => user.role === "TEAM_LEAD" || user.role === "LEAD_TRAINEE")
     .map((user) => ({
       uid: user.id,
-      email:
-        resolveTeamLeadEmail(teamKey) ??
-        resolveLeadEmail(user.githubUsername, user.email ?? null),
+      email: resolveTeamLeadEmail(teamKey) ?? (user.email?.trim() || null),
       fullName: user.fullName?.trim() || user.githubUsername,
     }));
 }
@@ -140,30 +134,16 @@ export async function sendWeeklyActionItemDigest(
   const periodKey = getIstWeekStartDateKey(startedAt);
 
   const synced = await syncActionItems();
-  const enabled = isActionItemsDigestEnabled();
-
   const base: Omit<
     ActionItemDigestSummary,
     "teamsConsidered" | "teamsNotified" | "skippedTeamKeys" | "teams"
   > = {
-    enabled,
     force,
     periodKey,
     synced,
     startedAt: startedAt.toISOString(),
     finishedAt: startedAt.toISOString(),
   };
-
-  if (!enabled) {
-    return {
-      ...base,
-      teamsConsidered: 0,
-      teamsNotified: 0,
-      skippedTeamKeys: [],
-      teams: [],
-      finishedAt: new Date().toISOString(),
-    };
-  }
 
   const items = await getActionItems();
   const groupedItems = groupActiveItemsByTeam(items);

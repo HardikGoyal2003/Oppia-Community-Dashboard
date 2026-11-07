@@ -27,8 +27,6 @@ export const inAppNotificationChannel: NotificationChannel = {
       failed: [],
     };
 
-    // The bell renders plain text, so the message stays on one line with the
-    // dashboard path appended for quick navigation.
     const notificationText = `${message.title} Open ${message.deepLinkPath} to review.`;
 
     for (const recipient of recipients) {

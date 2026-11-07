@@ -7,7 +7,6 @@ export type WeeklyDigestItem = {
   message: string;
   reason: string;
   priority: ActionItemPriority;
-  /** Number of earlier digest notifications sent for this item. */
   notificationCount: number;
 };
 

@@ -31,7 +31,7 @@ const CRON_JOBS: CronJobDefinition[] = [
     key: "send_action_item_digest",
     name: "Send Action Items Digest",
     description:
-      "Sync action items and send the weekly digest of current items to each team's leads (respects weekly idempotency).",
+      "Sync action items and send the weekly digest of current items to each team's leads.",
   },
 ];
 
@@ -129,7 +129,6 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
         summary: [
           "Cron job completed.",
           `Digest period (week starting): ${result.periodKey}.`,
-          `Digest enabled: ${result.enabled ? "yes" : "no"}.`,
           `Teams with active items: ${result.teamsConsidered}.`,
           `Teams notified: ${result.teamsNotified}.`,
           ...result.teams.map(

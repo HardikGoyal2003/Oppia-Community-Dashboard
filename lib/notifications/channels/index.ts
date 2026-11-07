@@ -1,3 +1,7 @@
+/**
+ * @fileoverview Registry of notification transports used by the application.
+ */
+
 import type { NotificationChannel } from "@/lib/domain/notifications.types";
 import { emailNotificationChannel } from "./email.channel";
 import { inAppNotificationChannel } from "./in-app.channel";

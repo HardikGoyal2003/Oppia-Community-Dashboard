@@ -1,4 +1,4 @@
-import { readBooleanEnv, readEnv, readEnvWithDefault } from "./env";
+import { readEnv, readEnvWithDefault } from "./env";
 
 /**
  * Returns the Resend API key when configured.
@@ -7,19 +7,6 @@ import { readBooleanEnv, readEnv, readEnvWithDefault } from "./env";
  */
 export function getResendApiKey(): string | undefined {
   return readEnv("RESEND_API_KEY");
-}
-
-/**
- * Returns whether outbound email is switched on for this deployment.
- *
- * Email is opt-in: it stays off unless `EMAIL_NOTIFICATIONS_ENABLED` is set to
- * "true" and a provider key is present. In-app notifications are unaffected,
- * so the dashboard keeps working without an email provider.
- *
- * @returns True only when email delivery has been explicitly enabled.
- */
-export function isEmailNotificationsEnabled(): boolean {
-  return readBooleanEnv("EMAIL_NOTIFICATIONS_ENABLED", true);
 }
 
 /**
@@ -45,15 +32,6 @@ export function getActionItemsEmailReplyTo(): string {
     "ACTION_ITEMS_EMAIL_REPLY_TO",
     "noreply@notifications.oppia-community-dashboard.com",
   );
-}
-
-/**
- * Returns whether the weekly action item digest cron is enabled.
- *
- * @returns True unless `ACTION_ITEMS_DIGEST_ENABLED` is set to "false".
- */
-export function isActionItemsDigestEnabled(): boolean {
-  return readBooleanEnv("ACTION_ITEMS_DIGEST_ENABLED", true);
 }
 
 /**

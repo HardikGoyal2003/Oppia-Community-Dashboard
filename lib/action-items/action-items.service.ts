@@ -1,6 +1,5 @@
 import {
   deleteActionItems,
-  getActionItemById,
   getActionItems,
   upsertActionItems,
 } from "@/db/action-items/action-items.db";
@@ -140,20 +139,6 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
     currentCount: touchedKeys.size,
     syncedAt: now.toISOString(),
   };
-}
-
-/**
- * Loads a single action item.
- *
- * @param teamId The team document id (e.g. `WEB_CORE`).
- * @param itemId The action item document id (the rule key).
- * @returns The action item, or null when it does not exist.
- */
-export async function getActionItem(
-  teamId: string,
-  itemId: string,
-): Promise<ActionItemModel | null> {
-  return getActionItemById(teamId, itemId);
 }
 
 /**
