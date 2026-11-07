@@ -6,10 +6,17 @@ import { UserRole } from "@/lib/auth/auth.types";
 import { TEAM_LEAD_ASSIGNABLE_ROLES } from "@/lib/auth/roles";
 import { isValidUserRole } from "@/lib/utils/roles.utils";
 import {
+  getUserById,
   getUsersByTeam,
   updateUserRoleAndTeamWithNotificationByUid,
 } from "@/db/users/users.db";
 import { DbNotFoundError, DbValidationError } from "@/db/db.errors";
+
+const TEAM_LEAD_UNMANAGEABLE_ROLES: UserRole[] = [
+  "SUPER_ADMIN",
+  "ADMIN",
+  "TEAM_LEAD",
+];
 
 function canManageTeamMembers(role: UserRole): boolean {
   return role === "TEAM_LEAD" || role === "LEAD_TRAINEE";
@@ -63,15 +70,22 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
+  const { team: callerTeam } = session.user;
+
+  if (!callerTeam) {
+    return NextResponse.json(
+      { error: "You are not assigned to any team." },
+      { status: 400 },
+    );
+  }
+
   const body = await req.json();
   const uid = typeof body.uid === "string" ? body.uid.trim() : "";
   const role = typeof body.role === "string" ? body.role.trim() : "";
-  const team = typeof body.team === "string" ? body.team.trim() : null;
-  const githubUsername =
-    typeof body.githubUsername === "string" ? body.githubUsername.trim() : "";
+  const requestedTeam = typeof body.team === "string" ? body.team.trim() : "";
   const reason = typeof body.reason === "string" ? body.reason.trim() : "";
 
-  if (!uid || !role || !isValidUserRole(role) || !githubUsername || !reason) {
+  if (!uid || !role || !isValidUserRole(role) || !reason) {
     return NextResponse.json(
       { error: "Invalid payload for user update." },
       { status: 400 },
@@ -81,34 +95,57 @@ export async function PATCH(req: Request) {
   if (!isAllowedRole(role as UserRole)) {
     return NextResponse.json(
       {
-        error:
-          "You do not have permission to assign this role.",
+        error: "You do not have permission to assign this role.",
       },
       { status: 403 },
     );
   }
 
-  if (team && team !== session.user.team) {
+  if (requestedTeam && requestedTeam !== callerTeam) {
     return NextResponse.json(
       {
-        error:
-          "You do not have permission to assign users to another team.",
+        error: "You do not have permission to assign users to another team.",
       },
       { status: 403 },
     );
   }
 
   try {
+    const target = await getUserById(uid);
+
+    if (!target) {
+      return NextResponse.json({ error: "User not found." }, { status: 404 });
+    }
+
+    if (target.team !== callerTeam) {
+      return NextResponse.json(
+        {
+          error:
+            "You do not have permission to update users outside your team.",
+        },
+        { status: 403 },
+      );
+    }
+
+    if (TEAM_LEAD_UNMANAGEABLE_ROLES.includes(target.role)) {
+      return NextResponse.json(
+        {
+          error: "You do not have permission to update this user.",
+        },
+        { status: 403 },
+      );
+    }
+
     await updateUserRoleAndTeamWithNotificationByUid(
       uid,
       role as UserRole,
-      team,
-      githubUsername,
+      callerTeam,
+      target.githubUsername,
       getUserAccessUpdatedMessage(
         role as UserRole,
-        team,
+        callerTeam,
         reason,
-        session.user?.githubUsername,
+        session.user.githubUsername,
       ),
     );
   } catch (error) {
