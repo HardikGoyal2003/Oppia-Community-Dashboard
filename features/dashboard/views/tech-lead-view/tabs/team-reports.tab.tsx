@@ -482,7 +482,6 @@ function TeamActionItemsPanel({
 }) {
   const teamItems = getActiveActionItemsForTeam(items, report.id);
 
-  // Falls back to the derived next steps when tracked items are unavailable.
   const derivedFallback =
     report.nextSteps.length === 0 ? (
       <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800">

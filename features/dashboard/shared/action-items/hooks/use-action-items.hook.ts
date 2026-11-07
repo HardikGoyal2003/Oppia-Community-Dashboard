@@ -13,8 +13,6 @@ export function useActionItems() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // No synchronous setState here: the effect-driven initial load must not
-  // schedule renders directly, so state only updates after the fetch resolves.
   const fetchItems = useCallback(async () => {
     try {
       const loadedItems = await fetchActionItems();

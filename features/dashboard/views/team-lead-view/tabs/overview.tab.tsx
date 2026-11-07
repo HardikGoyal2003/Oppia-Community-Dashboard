@@ -92,7 +92,7 @@ export default function TeamLeadOverviewTab() {
   const currentUnansweredIssues = getCurrentUnansweredIssuesCount(report);
   const totalGfis = getTotalGfiCount(report.gfiCounts);
   const activeActionItems = getActiveActionItems(actionItems);
-  // Fall back to the derived next steps while tracked items are still loading.
+
   const unresolvedActionCount = actionItemsLoading
     ? report.nextSteps.length
     : activeActionItems.length;
