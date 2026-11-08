@@ -33,7 +33,7 @@ export function getDailyTeamMetricSnapshotDocId(
  * @returns A promise that resolves when the document has been written.
  */
 export async function createDailyTeamMetric(
-  metric: DailyTeamMetric,
+  metric: Omit<DailyTeamMetric, "schemaVersion">,
 ): Promise<void> {
   await dailyTeamMetricsCollection
     .doc(getDailyTeamMetricSnapshotDocId(metric.teamId, metric.capturedAt))

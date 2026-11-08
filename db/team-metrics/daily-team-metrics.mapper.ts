@@ -6,6 +6,12 @@ import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
+import {
+  SCHEMA_KEYS,
+  assertSchemaVersion,
+  getCurrentSchemaVersion,
+} from "@/db/schema/schema-version";
+import { migrateDocument } from "@/db/schema/schema-migrations";
 
 export type FirestoreDailyTeamMetric = Omit<DailyTeamMetric, "capturedAt"> & {
   capturedAt: Timestamp;
@@ -76,6 +82,7 @@ function assertFirestoreDailyTeamMetric(
 
   assertNonNegativeNumber(metric.maxWaitingDays, "maxWaitingDays");
   assertTimestamp("Team metric", "capturedAt", metric.capturedAt);
+  assertSchemaVersion(SCHEMA_KEYS.DAILY_TEAM_METRICS, metric.schemaVersion);
 }
 
 /**
@@ -87,16 +94,21 @@ function assertFirestoreDailyTeamMetric(
 export function normalizeDailyTeamMetricDocument(
   metric: FirebaseFirestore.DocumentData,
 ): DailyTeamMetric {
-  assertFirestoreDailyTeamMetric(metric);
+  const migratedMetric = migrateDocument(
+    SCHEMA_KEYS.DAILY_TEAM_METRICS,
+    metric,
+  );
+  assertFirestoreDailyTeamMetric(migratedMetric);
 
   return {
-    capturedAt: normalizeTimestamp(metric.capturedAt),
-    dateKey: metric.dateKey,
-    maxWaitingDays: metric.maxWaitingDays,
-    platform: metric.platform as ContributionPlatform,
-    teamId: metric.teamId,
-    teamName: metric.teamName,
-    unansweredIssuesCount: metric.unansweredIssuesCount,
+    capturedAt: normalizeTimestamp(migratedMetric.capturedAt),
+    dateKey: migratedMetric.dateKey,
+    maxWaitingDays: migratedMetric.maxWaitingDays,
+    platform: migratedMetric.platform as ContributionPlatform,
+    teamId: migratedMetric.teamId,
+    teamName: migratedMetric.teamName,
+    unansweredIssuesCount: migratedMetric.unansweredIssuesCount,
+    schemaVersion: migratedMetric.schemaVersion,
   };
 }
 
@@ -107,7 +119,7 @@ export function normalizeDailyTeamMetricDocument(
  * @returns The Firestore-ready team metric document.
  */
 export function serializeDailyTeamMetric(
-  metric: DailyTeamMetric,
+  metric: Omit<DailyTeamMetric, "schemaVersion">,
 ): FirestoreDailyTeamMetric {
   return {
     capturedAt: Timestamp.fromDate(metric.capturedAt),
@@ -117,5 +129,6 @@ export function serializeDailyTeamMetric(
     teamId: metric.teamId,
     teamName: metric.teamName,
     unansweredIssuesCount: metric.unansweredIssuesCount,
+    schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.DAILY_TEAM_METRICS),
   };
 }

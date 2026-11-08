@@ -10,6 +10,12 @@ import {
 } from "@/db/utils/timestamp.utils";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type { MemberAccessRequestStatus } from "@/db/member-access-requests/member-access-request.types";
+import {
+  SCHEMA_KEYS,
+  assertSchemaVersion,
+  getCurrentSchemaVersion,
+} from "@/db/schema/schema-version";
+import { migrateDocument } from "@/db/schema/schema-migrations";
 
 const CONTRIBUTION_PLATFORMS: ContributionPlatform[] = ["WEB", "ANDROID"];
 const MEMBER_ACCESS_REQUEST_STATUSES: MemberAccessRequestStatus[] = [
@@ -84,6 +90,10 @@ function assertFirestoreMemberAccessRequest(
   }
 
   assertTimestamp("Member access request", "createdAt", request.createdAt);
+  assertSchemaVersion(
+    SCHEMA_KEYS.MEMBER_ACCESS_REQUESTS,
+    request.schemaVersion,
+  );
 }
 
 /**
@@ -104,6 +114,7 @@ export function normalizeMemberAccessRequest(
     username: request.username,
     status: request.status,
     createdAt: normalizeTimestamp(request.createdAt),
+    schemaVersion: request.schemaVersion,
   };
 }
 
@@ -116,8 +127,12 @@ export function normalizeMemberAccessRequest(
 export function normalizeMemberAccessRequestDocument(
   request: FirebaseFirestore.DocumentData,
 ): MemberAccessRequestModel {
-  assertFirestoreMemberAccessRequest(request);
-  return normalizeMemberAccessRequest(request);
+  const migratedRequest = migrateDocument(
+    SCHEMA_KEYS.MEMBER_ACCESS_REQUESTS,
+    request,
+  );
+  assertFirestoreMemberAccessRequest(migratedRequest);
+  return normalizeMemberAccessRequest(migratedRequest);
 }
 
 /**
@@ -144,10 +159,11 @@ export function normalizeMemberAccessRequestRecord(
  * @returns The Firestore-ready member-access request document.
  */
 export function serializeMemberAccessRequest(
-  request: MemberAccessRequestModel,
+  request: Omit<MemberAccessRequestModel, "schemaVersion">,
 ): FirestoreMemberAccessRequest {
   return {
     ...request,
     createdAt: Timestamp.fromDate(request.createdAt),
+    schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.MEMBER_ACCESS_REQUESTS),
   };
 }

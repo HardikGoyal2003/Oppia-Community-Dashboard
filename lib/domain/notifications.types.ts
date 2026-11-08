@@ -1,3 +1,5 @@
+import type { SchemaVersioned } from "@/lib/domain/schema.types";
+
 /** Notification transports a message can be delivered through. */
 export type NotificationChannelKey = "EMAIL" | "IN_APP";
 
@@ -43,7 +45,7 @@ export type NotificationChannel = {
 export type NotificationDeliveryStatus = "SENT" | "SKIPPED" | "FAILED";
 
 /** One audited delivery attempt for a (kind, period, team, channel) tuple. */
-export type NotificationDeliveryModel = {
+export type NotificationDeliveryModel = SchemaVersioned & {
   /** `${kind}__${periodKey}__${teamKey}__${channel}` — doubles as idempotency key. */
   id: string;
   /** Delivery kind, e.g. `weekly_action_items_digest`. */

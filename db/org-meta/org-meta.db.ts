@@ -46,7 +46,7 @@ export async function getOrgMeta(
  */
 export async function upsertOrgMeta(
   platform: ContributionPlatform,
-  orgMeta: OrgMetaRecord,
+  orgMeta: Omit<OrgMetaRecord, "schemaVersion">,
 ): Promise<void> {
   await orgMetaCollection.doc(platform).set(serializeOrgMeta(orgMeta));
 }

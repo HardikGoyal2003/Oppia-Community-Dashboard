@@ -6,6 +6,12 @@ import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
+import {
+  SCHEMA_KEYS,
+  assertSchemaVersion,
+  getCurrentSchemaVersion,
+} from "@/db/schema/schema-version";
+import { migrateDocument } from "@/db/schema/schema-migrations";
 
 export type FirestoreArchivedIssue = {
   issueNumber: number;
@@ -17,10 +23,12 @@ export type FirestoreArchivedIssue = {
   platform: ContributionPlatform;
   archivedBy?: string;
   archivedAt?: Timestamp;
+  schemaVersion: number;
 };
 
 export type ArchivedIssueRecord = Issue & {
   platform: ContributionPlatform;
+  schemaVersion: number;
 };
 
 /**
@@ -90,6 +98,8 @@ function assertFirestoreArchivedIssue(
   if (issue.archivedAt !== undefined) {
     assertTimestamp("Archived issue", "archivedAt", issue.archivedAt);
   }
+
+  assertSchemaVersion(SCHEMA_KEYS.ARCHIVED_ISSUES, issue.schemaVersion);
 }
 
 /**
@@ -115,6 +125,7 @@ function normalizeArchivedIssue(
     archivedAt: issue.archivedAt
       ? normalizeTimestamp(issue.archivedAt).toISOString()
       : undefined,
+    schemaVersion: issue.schemaVersion,
   };
 }
 
@@ -127,8 +138,9 @@ function normalizeArchivedIssue(
 export function normalizeArchivedIssueDocument(
   issue: FirebaseFirestore.DocumentData,
 ): ArchivedIssueRecord {
-  assertFirestoreArchivedIssue(issue);
-  return normalizeArchivedIssue(issue);
+  const migratedIssue = migrateDocument(SCHEMA_KEYS.ARCHIVED_ISSUES, issue);
+  assertFirestoreArchivedIssue(migratedIssue);
+  return normalizeArchivedIssue(migratedIssue);
 }
 
 /**
@@ -155,5 +167,6 @@ export function serializeArchivedIssue(
     platform,
     archivedBy,
     archivedAt: Timestamp.now(),
+    schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.ARCHIVED_ISSUES),
   };
 }

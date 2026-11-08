@@ -9,6 +9,12 @@ import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
+import {
+  SCHEMA_KEYS,
+  assertSchemaVersion,
+  getCurrentSchemaVersion,
+} from "@/db/schema/schema-version";
+import { migrateDocument } from "@/db/schema/schema-migrations";
 
 export type FirestoreNotificationDelivery = Omit<
   NotificationDeliveryModel,
@@ -119,6 +125,10 @@ function assertFirestoreNotificationDelivery(
   }
 
   assertTimestamp("NotificationDelivery", "recordedAt", delivery.recordedAt);
+  assertSchemaVersion(
+    SCHEMA_KEYS.NOTIFICATION_DELIVERIES,
+    delivery.schemaVersion,
+  );
 }
 
 /**
@@ -130,10 +140,15 @@ function assertFirestoreNotificationDelivery(
 export function normalizeNotificationDeliveryDocument(
   delivery: FirebaseFirestore.DocumentData & { id: string },
 ): NotificationDeliveryModel {
-  // Assert before destructuring: the assertion validates the id field too.
-  assertFirestoreNotificationDelivery(delivery);
+  const migratedDelivery = migrateDocument(
+    SCHEMA_KEYS.NOTIFICATION_DELIVERIES,
+    delivery,
+  );
 
-  const { id, ...rawDelivery } = delivery;
+  // Assert before destructuring: the assertion validates the id field too.
+  assertFirestoreNotificationDelivery(migratedDelivery);
+
+  const { id, ...rawDelivery } = migratedDelivery;
 
   return {
     id,
@@ -149,6 +164,7 @@ export function normalizeNotificationDeliveryDocument(
     status: rawDelivery.status,
     error: rawDelivery.error,
     recordedAt: normalizeTimestamp(rawDelivery.recordedAt),
+    schemaVersion: rawDelivery.schemaVersion,
   };
 }
 
@@ -159,7 +175,7 @@ export function normalizeNotificationDeliveryDocument(
  * @returns The Firestore-ready notification delivery document.
  */
 export function serializeNotificationDelivery(
-  delivery: NotificationDeliveryModel,
+  delivery: Omit<NotificationDeliveryModel, "schemaVersion">,
 ): FirestoreNotificationDelivery {
   return {
     id: delivery.id,
@@ -173,5 +189,6 @@ export function serializeNotificationDelivery(
     status: delivery.status,
     error: delivery.error,
     recordedAt: Timestamp.fromDate(delivery.recordedAt),
+    schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.NOTIFICATION_DELIVERIES),
   };
 }

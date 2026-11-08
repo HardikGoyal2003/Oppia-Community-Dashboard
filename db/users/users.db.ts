@@ -78,7 +78,7 @@ async function getRequiredUserDocRefByUid(
  */
 export async function createUserIfNotExists(
   uid: string,
-  data: Omit<UserModel, "createdAt">,
+  data: Omit<UserModel, "createdAt" | "schemaVersion">,
 ): Promise<void> {
   assertGithubUsernameForRole(data.githubUsername);
 

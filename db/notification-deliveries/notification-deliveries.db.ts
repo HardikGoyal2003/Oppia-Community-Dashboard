@@ -44,7 +44,7 @@ export async function getNotificationDeliveryById(
  * @returns A promise that resolves when the delivery has been written.
  */
 export async function recordNotificationDelivery(
-  delivery: NotificationDeliveryModel,
+  delivery: Omit<NotificationDeliveryModel, "schemaVersion">,
 ): Promise<void> {
   await notificationDeliveriesCollection
     .doc(delivery.id)

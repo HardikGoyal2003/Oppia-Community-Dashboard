@@ -10,6 +10,12 @@ import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
+import {
+  SCHEMA_KEYS,
+  assertSchemaVersion,
+  getCurrentSchemaVersion,
+} from "@/db/schema/schema-version";
+import { migrateDocument } from "@/db/schema/schema-migrations";
 
 const DATA_JOB_KINDS: DataJobKind[] = [
   "AUDIT",
@@ -106,6 +112,7 @@ function assertFirestoreDataJobRun(
 
   assertTimestamp("Data job run", "startedAt", run.startedAt);
   assertOptionalTimestamp("Data job run", "finishedAt", run.finishedAt);
+  assertSchemaVersion(SCHEMA_KEYS.DATA_JOB_RUNS, run.schemaVersion);
 }
 
 /**
@@ -132,6 +139,7 @@ export function normalizeDataJobRun(
     errorMessage: run.errorMessage,
     startedAt: normalizeTimestamp(run.startedAt),
     finishedAt: run.finishedAt ? normalizeTimestamp(run.finishedAt) : null,
+    schemaVersion: run.schemaVersion,
   };
 }
 
@@ -146,8 +154,9 @@ export function normalizeDataJobRunDocument(
   id: string,
   run: FirebaseFirestore.DocumentData,
 ): DataJobRun {
-  assertFirestoreDataJobRun(run);
-  return normalizeDataJobRun(id, run);
+  const migratedRun = migrateDocument(SCHEMA_KEYS.DATA_JOB_RUNS, run);
+  assertFirestoreDataJobRun(migratedRun);
+  return normalizeDataJobRun(id, migratedRun);
 }
 
 /**
@@ -157,7 +166,7 @@ export function normalizeDataJobRunDocument(
  * @returns The Firestore-ready data-job run document.
  */
 export function serializeDataJobRun(
-  run: Omit<DataJobRun, "id">,
+  run: Omit<DataJobRun, "id" | "schemaVersion">,
 ): FirestoreDataJobRun {
   return {
     jobKey: run.jobKey,
@@ -171,5 +180,6 @@ export function serializeDataJobRun(
     errorMessage: run.errorMessage,
     startedAt: Timestamp.fromDate(run.startedAt),
     finishedAt: run.finishedAt ? Timestamp.fromDate(run.finishedAt) : null,
+    schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.DATA_JOB_RUNS),
   };
 }

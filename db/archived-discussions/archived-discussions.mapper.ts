@@ -6,6 +6,12 @@ import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
+import {
+  SCHEMA_KEYS,
+  assertSchemaVersion,
+  getCurrentSchemaVersion,
+} from "@/db/schema/schema-version";
+import { migrateDocument } from "@/db/schema/schema-migrations";
 
 export type FirestoreArchivedDiscussion = {
   discussionNumber: number;
@@ -15,10 +21,12 @@ export type FirestoreArchivedDiscussion = {
   platform: ContributionPlatform;
   archivedBy?: string;
   archivedAt?: Timestamp;
+  schemaVersion: number;
 };
 
 export type ArchivedDiscussionRecord = Discussion & {
   platform: ContributionPlatform;
+  schemaVersion: number;
 };
 
 /**
@@ -73,6 +81,11 @@ function assertFirestoreArchivedDiscussion(
   if (discussion.archivedAt !== undefined) {
     assertTimestamp("Archived discussion", "archivedAt", discussion.archivedAt);
   }
+
+  assertSchemaVersion(
+    SCHEMA_KEYS.ARCHIVED_DISCUSSIONS,
+    discussion.schemaVersion,
+  );
 }
 
 /**
@@ -95,6 +108,7 @@ function normalizeArchivedDiscussion(
     archivedAt: discussion.archivedAt
       ? normalizeTimestamp(discussion.archivedAt).toISOString()
       : undefined,
+    schemaVersion: discussion.schemaVersion,
   };
 }
 
@@ -107,8 +121,12 @@ function normalizeArchivedDiscussion(
 export function normalizeArchivedDiscussionDocument(
   discussion: FirebaseFirestore.DocumentData,
 ): ArchivedDiscussionRecord {
-  assertFirestoreArchivedDiscussion(discussion);
-  return normalizeArchivedDiscussion(discussion);
+  const migratedDiscussion = migrateDocument(
+    SCHEMA_KEYS.ARCHIVED_DISCUSSIONS,
+    discussion,
+  );
+  assertFirestoreArchivedDiscussion(migratedDiscussion);
+  return normalizeArchivedDiscussion(migratedDiscussion);
 }
 
 /**
@@ -132,5 +150,6 @@ export function serializeArchivedDiscussion(
     platform,
     archivedBy,
     archivedAt: Timestamp.now(),
+    schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.ARCHIVED_DISCUSSIONS),
   };
 }

@@ -5,11 +5,18 @@ import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
+import {
+  SCHEMA_KEYS,
+  assertSchemaVersion,
+  getCurrentSchemaVersion,
+} from "@/db/schema/schema-version";
+import { migrateDocument } from "@/db/schema/schema-migrations";
 
 export type FirestoreNotification = {
   message: string;
   read: boolean;
   createdAt: Timestamp;
+  schemaVersion: number;
 };
 
 /**
@@ -33,6 +40,10 @@ function assertFirestoreNotification(
   }
 
   assertTimestamp("Notification", "createdAt", notification.createdAt);
+  assertSchemaVersion(
+    SCHEMA_KEYS.USER_NOTIFICATIONS,
+    notification.schemaVersion,
+  );
 }
 
 /**
@@ -50,6 +61,7 @@ export function normalizeNotifications(
       message: notification.message,
       read: notification.read,
       createdAt: normalizeTimestamp(notification.createdAt),
+      schemaVersion: notification.schemaVersion,
     };
   });
 }
@@ -64,9 +76,13 @@ export function normalizeNotificationDocument(
   notification: FirebaseFirestore.DocumentData & { id: string },
 ): Notification {
   const { id, ...rawNotification } = notification;
-  assertFirestoreNotification(rawNotification);
+  const migratedNotification = migrateDocument(
+    SCHEMA_KEYS.USER_NOTIFICATIONS,
+    rawNotification,
+  );
+  assertFirestoreNotification(migratedNotification);
 
-  return normalizeNotifications([{ id, ...rawNotification }])[0];
+  return normalizeNotifications([{ id, ...migratedNotification }])[0];
 }
 
 /**
@@ -76,11 +92,12 @@ export function normalizeNotificationDocument(
  * @returns The Firestore-ready notification document.
  */
 export function serializeNotification(
-  notification: Omit<Notification, "id">,
+  notification: Omit<Notification, "id" | "schemaVersion">,
 ): FirestoreNotification {
   return {
     message: notification.message,
     read: notification.read,
     createdAt: Timestamp.fromDate(notification.createdAt),
+    schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.USER_NOTIFICATIONS),
   };
 }

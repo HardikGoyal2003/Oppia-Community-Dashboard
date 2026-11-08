@@ -9,6 +9,12 @@ import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
+import {
+  SCHEMA_KEYS,
+  assertSchemaVersion,
+  getCurrentSchemaVersion,
+} from "@/db/schema/schema-version";
+import { migrateDocument } from "@/db/schema/schema-migrations";
 
 /** Action item fields that are stored as Firestore Timestamps. */
 type TimestampedActionItemFields = {
@@ -113,6 +119,7 @@ function assertFirestoreActionItem(
   assertOptionalTimestamp("ActionItem", "lastNotifiedAt", item.lastNotifiedAt);
   assertTimestamp("ActionItem", "createdAt", item.createdAt);
   assertTimestamp("ActionItem", "updatedAt", item.updatedAt);
+  assertSchemaVersion(SCHEMA_KEYS.ACTION_ITEMS, item.schemaVersion);
 }
 
 /**
@@ -131,28 +138,31 @@ export function normalizeActionItemDocument(params: {
 
   assertNonEmptyString(id, "id");
   assertNonEmptyString(teamId, "teamId");
-  assertFirestoreActionItem(data);
+
+  const migratedData = migrateDocument(SCHEMA_KEYS.ACTION_ITEMS, data);
+  assertFirestoreActionItem(migratedData);
 
   return {
     id,
     teamId,
-    teamKey: data.teamKey,
-    teamName: data.teamName,
-    ruleKey: data.ruleKey,
-    message: data.message,
-    priority: data.priority,
-    reason: data.reason,
-    detectedAt: normalizeTimestamp(data.detectedAt),
-    lastDetectedAt: normalizeTimestamp(data.lastDetectedAt),
-    firstNotifiedAt: data.firstNotifiedAt
-      ? normalizeTimestamp(data.firstNotifiedAt)
+    teamKey: migratedData.teamKey,
+    teamName: migratedData.teamName,
+    ruleKey: migratedData.ruleKey,
+    message: migratedData.message,
+    priority: migratedData.priority,
+    reason: migratedData.reason,
+    detectedAt: normalizeTimestamp(migratedData.detectedAt),
+    lastDetectedAt: normalizeTimestamp(migratedData.lastDetectedAt),
+    firstNotifiedAt: migratedData.firstNotifiedAt
+      ? normalizeTimestamp(migratedData.firstNotifiedAt)
       : null,
-    lastNotifiedAt: data.lastNotifiedAt
-      ? normalizeTimestamp(data.lastNotifiedAt)
+    lastNotifiedAt: migratedData.lastNotifiedAt
+      ? normalizeTimestamp(migratedData.lastNotifiedAt)
       : null,
-    notificationCount: data.notificationCount,
-    createdAt: normalizeTimestamp(data.createdAt),
-    updatedAt: normalizeTimestamp(data.updatedAt),
+    notificationCount: migratedData.notificationCount,
+    createdAt: normalizeTimestamp(migratedData.createdAt),
+    updatedAt: normalizeTimestamp(migratedData.updatedAt),
+    schemaVersion: migratedData.schemaVersion,
   };
 }
 
@@ -164,7 +174,7 @@ export function normalizeActionItemDocument(params: {
  * @returns The Firestore-ready action item document.
  */
 export function serializeActionItem(
-  item: ActionItemModel,
+  item: Omit<ActionItemModel, "schemaVersion">,
 ): FirestoreActionItem {
   return {
     teamKey: item.teamKey,
@@ -184,6 +194,7 @@ export function serializeActionItem(
     notificationCount: item.notificationCount,
     createdAt: Timestamp.fromDate(item.createdAt),
     updatedAt: Timestamp.fromDate(item.updatedAt),
+    schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.ACTION_ITEMS),
   };
 }
 

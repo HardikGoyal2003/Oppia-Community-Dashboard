@@ -8,6 +8,7 @@ import {
   markDataJobRunSucceeded,
 } from "@/db/data-jobs/data-job-runs.db";
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
+import { backfillSchemaVersions } from "@/db/schema/schema-migration-runner";
 import { getAllUsers, updateUserRole } from "@/db/users/users.db";
 import { getMembersByTeamId } from "@/lib/teams/sync-team-gfi-counts.service";
 import { DB_PATHS } from "@/db/db-paths";
@@ -241,6 +242,28 @@ async function cleanupTeamContributorsToAlumni(
   };
 }
 
+/**
+ * Upgrades every stored document to the latest schema version and persists the
+ * migrated document. Unversioned legacy documents are stamped with version 1.
+ *
+ * @param context The data-job execution context.
+ * @returns A summary of the schema backfill results.
+ */
+async function backfillSchemaVersionsJob(
+  context: DataJobHandlerContext,
+): Promise<DataJobResult> {
+  const summary = await backfillSchemaVersions({ dryRun: context.dryRun });
+  const suffix = context.dryRun ? " (dry run — no changes persisted)" : ".";
+  const failureSummary =
+    summary.failedCount > 0
+      ? ` ${summary.failedCount} document(s) could not be migrated.`
+      : "";
+
+  return {
+    summary: `Schema backfill completed. ${summary.migratedCount} of ${summary.scannedCount} document(s) upgraded${suffix}${failureSummary}`,
+  };
+}
+
 const DATA_JOB_REGISTRY: RegisteredDataJob[] = [
   {
     key: "cleanup_team_contributors_to_alumni",
@@ -286,6 +309,15 @@ const DATA_JOB_REGISTRY: RegisteredDataJob[] = [
     kind: "MIGRATION",
     supportsDryRun: true,
     handler: backfillTeamReportSchema,
+  },
+  {
+    key: "backfill_schema_versions",
+    name: "Backfill Schema Versions",
+    description:
+      "Upgrades stored documents to the latest schema version and persists the migrated shape.",
+    kind: "MIGRATION",
+    supportsDryRun: true,
+    handler: backfillSchemaVersionsJob,
   },
 ];
 

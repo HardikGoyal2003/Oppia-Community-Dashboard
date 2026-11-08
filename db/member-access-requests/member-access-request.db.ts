@@ -116,7 +116,10 @@ export async function getPendingMemberAccessRequestsByPlatformAndRoles(
  * @returns A promise that resolves when the request has been persisted.
  */
 export async function submitMemberAccessRequest(
-  request: Omit<MemberAccessRequestModel, "createdAt" | "status">,
+  request: Omit<
+    MemberAccessRequestModel,
+    "createdAt" | "status" | "schemaVersion"
+  >,
 ): Promise<void> {
   const collectionRef = memberAccessRequestsCollection;
   const pendingQuery = collectionRef

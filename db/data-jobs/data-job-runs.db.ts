@@ -20,7 +20,7 @@ const dataJobRunsCollection = db.collection(
  * @returns The created run id.
  */
 export async function createDataJobRun(
-  run: Omit<DataJobRun, "id">,
+  run: Omit<DataJobRun, "id" | "schemaVersion">,
 ): Promise<string> {
   const runRef = dataJobRunsCollection.doc();
 

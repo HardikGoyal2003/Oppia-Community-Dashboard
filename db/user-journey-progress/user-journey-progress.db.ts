@@ -61,7 +61,7 @@ export async function getUserJourneyProgressByUid(
  */
 export async function saveUserJourneyProgressByUid(
   uid: string,
-  progress: UserJourneyProgressModel,
+  progress: Omit<UserJourneyProgressModel, "schemaVersion">,
 ): Promise<void> {
   await userJourneyProgressCollection
     .doc(uid)

@@ -36,7 +36,9 @@ function isValidCachedOrgMeta(data: object | null): data is CachedOrgMeta {
   );
 }
 
-function toOrgMetaRecord(cached: CachedOrgMeta): OrgMetaRecord {
+function toOrgMetaRecord(
+  cached: CachedOrgMeta,
+): Omit<OrgMetaRecord, "schemaVersion"> {
   return {
     orgMembers: cached.orgMembers,
     collaborators: cached.collaborators,
@@ -52,7 +54,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    let clientOrgMeta: OrgMetaRecord | undefined;
+    let clientOrgMeta: Omit<OrgMetaRecord, "schemaVersion"> | undefined;
     let requestedPlatform: ContributionPlatform | null = null;
 
     try {
