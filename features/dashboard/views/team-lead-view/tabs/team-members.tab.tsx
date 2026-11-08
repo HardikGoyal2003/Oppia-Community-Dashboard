@@ -4,9 +4,7 @@ import { useEffect, useState } from "react";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { getKnownRoleDisplayLabel } from "@/lib/auth/role-display";
 import { TEAM_LEAD_ASSIGNABLE_ROLES } from "@/lib/auth/roles";
-import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config";
 import { UserUpdateReasonModal } from "../../tech-lead-view/components/user-update-reason-modal";
-import { formatDisplayValue } from "@/lib/utils/display.utils";
 
 type TeamMember = {
   id: string;
@@ -31,14 +29,6 @@ function getDisplayRole(role: UserRole): UserRole {
 
 function isManagedRole(role: UserRole): boolean {
   return role !== "SUPER_ADMIN" && role !== "ADMIN" && role !== "TEAM_LEAD";
-}
-
-function getTeamsForPlatform(platform: ContributionPlatform | null): string[] {
-  if (platform === "ANDROID") {
-    return Object.keys(ANDROID_TEAMS);
-  }
-
-  return Object.keys(WEB_TEAMS);
 }
 
 export function TeamMembersTab() {
@@ -174,7 +164,6 @@ export function TeamMembersTab() {
                 <th className="p-3 text-left">S.No.</th>
                 <th className="p-3 text-left">Name</th>
                 <th className="p-3 text-left">GitHub Username</th>
-                <th className="p-3 text-left">Team</th>
                 <th className="p-3 text-left">Role</th>
               </tr>
             </thead>
@@ -185,32 +174,6 @@ export function TeamMembersTab() {
                   <td className="p-3">{index + 1}</td>
                   <td className="p-3">{member.fullName}</td>
                   <td className="p-3">{member.githubUsername}</td>
-                  <td className="p-3">
-                    {isManagedRole(member.role) ? (
-                      <select
-                        value={member.team ?? ""}
-                        disabled={updatingId === member.id}
-                        onChange={(e) =>
-                          openUpdateModal(
-                            member,
-                            member.role,
-                            e.target.value || null,
-                          )
-                        }
-                        className="border rounded px-2 py-1 disabled:opacity-50"
-                      >
-                        {getTeamsForPlatform(member.platform).map((team) => (
-                          <option key={team} value={team}>
-                            {formatDisplayValue(team)}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="text-sm">
-                        {formatDisplayValue(member.team)}
-                      </span>
-                    )}
-                  </td>
                   <td className="p-3">
                     {isManagedRole(member.role) ? (
                       <select
