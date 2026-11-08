@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink } from "lucide-react";
+import { Compass, ExternalLink, Lock } from "lucide-react";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { GITHUB_REPOS } from "@/lib/config/github.constants";
 import { cn } from "@/lib/utils/classnames.utils";
@@ -39,27 +39,27 @@ export default function MyContributionJourneyIssueFinder({
   return (
     <div
       className={cn(
-        "mt-8 rounded-2xl border border-slate-200 bg-slate-50/90 p-5",
+        "mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/90",
         isLocked && "opacity-60",
       )}
     >
-      <div className="space-y-2">
+      <div className="border-b border-slate-200/80 bg-white/70 px-5 py-4">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
           Find Your First Issue
         </p>
-        <p className="text-sm leading-6 text-slate-600">
+        <p className="mt-1 text-sm leading-6 text-slate-600">
           Use this mini guide to narrow your search, then jump to the real
           GitHub issue filter.
         </p>
         {isLocked && (
-          <p className="text-xs leading-5 text-slate-500">
+          <p className="mt-1 text-xs leading-5 text-slate-500">
             Unlocks after:{" "}
             <span className="font-medium text-slate-700">{blockingLabel}</span>
           </p>
         )}
       </div>
 
-      <div className="mt-5 grid gap-4 xl:grid-cols-[1.1fr_1.4fr]">
+      <div className="grid gap-4 p-5 xl:grid-cols-[1.35fr_1fr]">
         <div className="rounded-xl border border-slate-200 bg-white px-4 py-4">
           <div className="space-y-3">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
@@ -87,31 +87,40 @@ export default function MyContributionJourneyIssueFinder({
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-4">
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-green-800">
-                Real GitHub filter
-              </span>
+        <div className="flex flex-col justify-between rounded-xl border border-blue-200 bg-[linear-gradient(135deg,#eff6ff_0%,#ffffff_70%)] p-5">
+          <div className="space-y-4">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
+              <Compass className="h-5 w-5" />
+            </span>
+            <div className="space-y-1.5">
+              <p className="text-base font-semibold text-slate-900">
+                Browse open GFIs
+              </p>
+              <p className="text-sm leading-6 text-slate-600">
+                See every unassigned good first issue in one place and find
+                starter work that matches your interests.
+              </p>
             </div>
-            <p className="text-sm leading-6 text-slate-700">
-              Browse unassigned good first issues and find starter work that
-              matches your interests.
-            </p>
+            <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-green-800">
+              Real GitHub filter
+            </span>
+          </div>
+
+          <div className="mt-5">
             {isLocked ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
-                Open GFIs on GitHub
-                <ExternalLink className="h-3.5 w-3.5" />
+              <span className="inline-flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg bg-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-500">
+                <Lock className="h-4 w-4" />
+                Locked
               </span>
             ) : (
               <a
                 href={getGfiLink(platform)}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 transition hover:bg-blue-100"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
               >
                 Open GFIs on GitHub
-                <ExternalLink className="h-3.5 w-3.5" />
+                <ExternalLink className="h-4 w-4" />
               </a>
             )}
           </div>
