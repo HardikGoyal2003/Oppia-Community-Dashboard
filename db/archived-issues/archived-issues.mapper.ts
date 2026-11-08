@@ -21,13 +21,14 @@ export type FirestoreArchivedIssue = {
   lastCommentCreatedAt: Timestamp;
   linkedProject: string;
   platform: ContributionPlatform;
-  archivedBy?: string;
+  archivedBy: string;
   archivedAt?: Timestamp;
   schemaVersion: number;
 };
 
 export type ArchivedIssueRecord = Issue & {
   platform: ContributionPlatform;
+  archivedBy: string;
   schemaVersion: number;
 };
 
@@ -88,7 +89,7 @@ function assertFirestoreArchivedIssue(
     );
   }
 
-  if (issue.archivedBy !== undefined && typeof issue.archivedBy !== "string") {
+  if (typeof issue.archivedBy !== "string") {
     throw new DbValidationError(
       "archivedBy",
       "Archived issue archivedBy must be a string.",
