@@ -102,10 +102,7 @@ Fields:
 - `teamName: string`
 - `leads: Array<{ uid: string, username: string, role: "TEAM_LEAD" | "LEAD_TRAINEE" }>`
 - `members: Array<{ uid: string, username: string }>`
-- `gfiCounts.frontend: number`
-- `gfiCounts.backend: number`
-- `gfiCounts.fullstack: number`
-- `gfiCounts.uncategorized: number`
+- `gfiCount: number`
 - `lastUpdated: Timestamp`
 - `schemaVersion: number`
 

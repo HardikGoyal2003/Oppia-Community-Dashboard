@@ -19,7 +19,7 @@ const CRON_JOBS: CronJobDefinition[] = [
     key: "sync_team_gfi_counts",
     name: "Sync Team GFI Counts",
     description:
-      "Fetch open unassigned good first issues from GitHub and update each team's gfiCounts.",
+      "Fetch open unassigned good first issues from GitHub and update each team's gfiCount.",
   },
   {
     key: "sync_org_meta",

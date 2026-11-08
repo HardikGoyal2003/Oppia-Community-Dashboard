@@ -2,7 +2,6 @@ import { Timestamp } from "firebase-admin/firestore";
 import { DbValidationError } from "@/db/db.errors";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type {
-  TeamGfiCounts,
   TeamLead,
   TeamLeadRole,
   TeamMember,
@@ -42,27 +41,15 @@ function assertNonNegativeNumber(
 }
 
 /**
- * Validates the nested GFI counts object stored on a team document.
+ * Validates the total GFI count stored on a team document.
  *
- * @param gfiCounts The nested gfiCounts object candidate.
- * @returns Nothing. Throws when the nested shape is invalid.
+ * @param gfiCount The total GFI count candidate.
+ * @returns Nothing. Throws when the value is invalid.
  */
-function assertFirestoreGfiCounts(
-  gfiCounts: Record<string, number | undefined> | null,
-): asserts gfiCounts is TeamGfiCounts {
-  if (gfiCounts === null) {
-    throw new DbValidationError(
-      "gfiCounts",
-      "Team gfiCounts must be an object.",
-    );
-  }
-
-  const counts = gfiCounts;
-
-  assertNonNegativeNumber(counts.frontend, "gfiCounts.frontend");
-  assertNonNegativeNumber(counts.backend, "gfiCounts.backend");
-  assertNonNegativeNumber(counts.fullstack, "gfiCounts.fullstack");
-  assertNonNegativeNumber(counts.uncategorized, "gfiCounts.uncategorized");
+function assertFirestoreGfiCount(
+  gfiCount: number | undefined,
+): asserts gfiCount is number {
+  assertNonNegativeNumber(gfiCount, "gfiCount");
 }
 
 /**
@@ -157,7 +144,7 @@ function assertFirestoreTeam(
 
   assertFirestoreTeamLeads(team.leads);
   assertFirestoreTeamMembers(team.members);
-  assertFirestoreGfiCounts(team.gfiCounts);
+  assertFirestoreGfiCount(team.gfiCount);
 
   assertTimestamp("Team", "lastUpdated", team.lastUpdated);
   assertSchemaVersion(SCHEMA_KEYS.TEAMS, team.schemaVersion);
@@ -176,12 +163,7 @@ export function normalizeTeamDocument(
   assertFirestoreTeam(migratedTeam);
 
   return {
-    gfiCounts: {
-      backend: migratedTeam.gfiCounts.backend,
-      frontend: migratedTeam.gfiCounts.frontend,
-      fullstack: migratedTeam.gfiCounts.fullstack,
-      uncategorized: migratedTeam.gfiCounts.uncategorized,
-    },
+    gfiCount: migratedTeam.gfiCount,
     lastUpdated: normalizeTimestamp(migratedTeam.lastUpdated),
     leads: migratedTeam.leads.map((lead) => ({
       role: lead.role as TeamLeadRole,
@@ -210,12 +192,7 @@ export function serializeTeam(
   },
 ): FirestoreTeam {
   return {
-    gfiCounts: {
-      backend: team.gfiCounts.backend,
-      frontend: team.gfiCounts.frontend,
-      fullstack: team.gfiCounts.fullstack,
-      uncategorized: team.gfiCounts.uncategorized,
-    },
+    gfiCount: team.gfiCount,
     leads: team.leads.map((lead) => ({
       role: lead.role,
       uid: lead.uid,

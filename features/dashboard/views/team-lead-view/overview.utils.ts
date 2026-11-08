@@ -4,13 +4,6 @@ import type {
   TeamReport,
 } from "./overview.types";
 
-export const GFI_DOMAIN_COLORS = {
-  backend: "#2563eb",
-  frontend: "#14b8a6",
-  fullstack: "#f59e0b",
-  uncategorized: "#94a3b8",
-} as const;
-
 export const STAT_CARD_STYLES = [
   {
     accent: "from-blue-600 to-blue-400",
@@ -95,12 +88,6 @@ export function getStatusSummary(report: TeamReport): StatusSummary {
   };
 }
 
-export function getTotalGfiCount(counts: TeamReport["gfiCounts"]): number {
-  return (
-    counts.backend + counts.frontend + counts.fullstack + counts.uncategorized
-  );
-}
-
 export function getTeamLeadActionMessage(message: string): string {
   if (message.startsWith("Ask leads to add ")) {
     return message.replace(/^Ask leads to add /, "Add ");
@@ -111,13 +98,6 @@ export function getTeamLeadActionMessage(message: string): string {
     "Ask leads about the team\u2019s issue response performance because some issues have been waiting too long for a response."
   ) {
     return "Review your team\u2019s issue response performance because some issues have been waiting too long for a response.";
-  }
-
-  if (
-    message ===
-    "Ask leads to categorize uncategorized good first issues into frontend, backend, or fullstack."
-  ) {
-    return "Categorize uncategorized good first issues into frontend, backend, or fullstack.";
   }
 
   if (message === "It is better to onboard one trainee lead in this team.") {
