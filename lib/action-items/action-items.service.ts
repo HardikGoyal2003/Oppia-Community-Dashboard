@@ -9,6 +9,10 @@ import {
 } from "@/lib/domain/action-items.types";
 import { TEAM_DEFINITIONS } from "@/lib/domain/team-definitions";
 import { getTeamReportsSnapshot } from "@/lib/team-reports/team-reports.service";
+import {
+  SCHEMA_KEYS,
+  getCurrentSchemaVersion,
+} from "@/db/schema/schema-version";
 
 /**
  * Builds the document id for an action item. Items live at
@@ -102,6 +106,7 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
           notificationCount: 0,
           createdAt: now,
           updatedAt: now,
+          schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.ACTION_ITEMS),
         });
         continue;
       }

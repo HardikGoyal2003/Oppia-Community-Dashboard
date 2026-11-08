@@ -12,6 +12,12 @@ import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
+import {
+  SCHEMA_KEYS,
+  assertSchemaVersion,
+  getCurrentSchemaVersion,
+} from "@/db/schema/schema-version";
+import { migrateDocument } from "@/db/schema/schema-migrations";
 
 export type FirestoreTeam = Omit<TeamModel, "lastUpdated"> & {
   lastUpdated: Timestamp;
@@ -154,6 +160,7 @@ function assertFirestoreTeam(
   assertFirestoreGfiCounts(team.gfiCounts);
 
   assertTimestamp("Team", "lastUpdated", team.lastUpdated);
+  assertSchemaVersion(SCHEMA_KEYS.TEAMS, team.schemaVersion);
 }
 
 /**
@@ -165,27 +172,29 @@ function assertFirestoreTeam(
 export function normalizeTeamDocument(
   team: FirebaseFirestore.DocumentData,
 ): TeamModel {
-  assertFirestoreTeam(team);
+  const migratedTeam = migrateDocument(SCHEMA_KEYS.TEAMS, team);
+  assertFirestoreTeam(migratedTeam);
 
   return {
     gfiCounts: {
-      backend: team.gfiCounts.backend,
-      frontend: team.gfiCounts.frontend,
-      fullstack: team.gfiCounts.fullstack,
-      uncategorized: team.gfiCounts.uncategorized,
+      backend: migratedTeam.gfiCounts.backend,
+      frontend: migratedTeam.gfiCounts.frontend,
+      fullstack: migratedTeam.gfiCounts.fullstack,
+      uncategorized: migratedTeam.gfiCounts.uncategorized,
     },
-    lastUpdated: normalizeTimestamp(team.lastUpdated),
-    leads: team.leads.map((lead) => ({
+    lastUpdated: normalizeTimestamp(migratedTeam.lastUpdated),
+    leads: migratedTeam.leads.map((lead) => ({
       role: lead.role as TeamLeadRole,
       uid: lead.uid,
       username: lead.username,
     })),
-    members: team.members.map((member) => ({
+    members: migratedTeam.members.map((member) => ({
       uid: member.uid,
       username: member.username,
     })),
-    platform: team.platform as ContributionPlatform,
-    teamName: team.teamName,
+    platform: migratedTeam.platform as ContributionPlatform,
+    teamName: migratedTeam.teamName,
+    schemaVersion: migratedTeam.schemaVersion,
   };
 }
 
@@ -196,7 +205,9 @@ export function normalizeTeamDocument(
  * @returns The Firestore-ready team document.
  */
 export function serializeTeam(
-  team: Omit<TeamModel, "lastUpdated"> & { lastUpdated: Date | Timestamp },
+  team: Omit<TeamModel, "lastUpdated" | "schemaVersion"> & {
+    lastUpdated: Date | Timestamp;
+  },
 ): FirestoreTeam {
   return {
     gfiCounts: {
@@ -220,5 +231,6 @@ export function serializeTeam(
         : Timestamp.fromDate(team.lastUpdated),
     platform: team.platform,
     teamName: team.teamName,
+    schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.TEAMS),
   };
 }

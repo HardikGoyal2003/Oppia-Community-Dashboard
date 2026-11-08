@@ -20,6 +20,7 @@ Fields:
 - `team: "LEAP" | "CORE" | "DEV_WORKFLOW" | "CLAM" | "DEV_WORKFLOW_INFRA" | null` **(Can be null when a new user sign-in on the dashboard)**
 - `platform: "WEB" | "ANDROID" | null` **(Can be null when a new user sign-in on the dashboard)**
 - `createdAt: Timestamp`
+- `schemaVersion: number`
 
 Subcollections:
 
@@ -34,6 +35,7 @@ Fields:
 - `message: string`
 - `read: boolean`
 - `createdAt: Timestamp`
+- `schemaVersion: number`
 
 ### `archivedIssues`
 
@@ -51,6 +53,24 @@ Fields:
 - `platform: "WEB" | "ANDROID"`
 - `archivedBy: string`
 - `archivedAt: Timestamp`
+- `schemaVersion: number`
+
+### `archivedDiscussions`
+
+Document id:
+
+- `${platform}_${discussionNumber}`
+
+Fields:
+
+- `discussionNumber: number`
+- `discussionUrl: string`
+- `discussionTitle: string`
+- `createdAt: Timestamp`
+- `platform: "WEB" | "ANDROID"`
+- `archivedBy?: string`
+- `archivedAt?: Timestamp`
+- `schemaVersion: number`
 
 ### `memberAccessRequests`
 
@@ -68,6 +88,7 @@ Fields:
 - `username: string`
 - `status: "PENDING" | "ACCEPTED" | "REJECTED"`
 - `createdAt: Timestamp`
+- `schemaVersion: number`
 
 ### `teams`
 
@@ -86,6 +107,7 @@ Fields:
 - `gfiCounts.fullstack: number`
 - `gfiCounts.uncategorized: number`
 - `lastUpdated: Timestamp`
+- `schemaVersion: number`
 
 ### `dailyTeamMetrics`
 
@@ -102,6 +124,7 @@ Fields:
 - `capturedAt: Timestamp`
 - `unansweredIssuesCount: number`
 - `maxWaitingDays: number`
+- `schemaVersion: number`
 
 ### `teams/{teamId}/actionItems`
 
@@ -124,6 +147,7 @@ Fields:
 - `notificationCount: number`
 - `createdAt: Timestamp`
 - `updatedAt: Timestamp`
+- `schemaVersion: number`
 
 ### `notificationDeliveries`
 
@@ -143,6 +167,7 @@ Fields:
 - `status: "SENT" | "SKIPPED" | "FAILED"`
 - `error: string | null`
 - `recordedAt: Timestamp`
+- `schemaVersion: number`
 
 ### `dataJobRuns`
 
@@ -163,6 +188,7 @@ Fields:
 - `errorMessage: string | null`
 - `startedAt: Timestamp`
 - `finishedAt: Timestamp | null`
+- `schemaVersion: number`
 
 ### `orgMeta`
 
@@ -175,6 +201,22 @@ Fields:
 - `orgMembers: string[]`
 - `collaborators: Array<{ login: string, permission: string }>`
 - `lastUpdated: Timestamp`
+- `schemaVersion: number`
+
+### `userJourneyProgress`
+
+Document id:
+
+- `uid` of the user who owns the journey progress.
+
+Fields:
+
+- `createdAt: Timestamp`
+- `derivedState: Record<string, { completed: boolean, completedAt: Timestamp | null, sourceUrl: string | null }>`
+- `manualProgress: Record<string, { completed: boolean, completedAt: Timestamp | null }>`
+- `platform: "WEB" | "ANDROID"`
+- `updatedAt: Timestamp`
+- `schemaVersion: number`
 
 ## Derived Type Summary
 

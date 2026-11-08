@@ -8,6 +8,12 @@ import { USER_ROLES } from "@/lib/auth/roles";
 import { TEAM_KEYS } from "@/lib/domain/team-definitions";
 import { DbValidationError } from "../db.errors";
 import { assertTimestamp, normalizeTimestamp } from "../utils/timestamp.utils";
+import {
+  SCHEMA_KEYS,
+  assertSchemaVersion,
+  getCurrentSchemaVersion,
+} from "@/db/schema/schema-version";
+import { migrateDocument } from "@/db/schema/schema-migrations";
 
 const CONTRIBUTION_PLATFORMS: ContributionPlatform[] = ["WEB", "ANDROID"];
 
@@ -20,6 +26,7 @@ export type FirestoreUser = {
   team: string | null;
   platform: ContributionPlatform | null;
   createdAt: Timestamp;
+  schemaVersion: number;
 };
 
 /**
@@ -76,6 +83,7 @@ function assertFirestoreUser(
   }
 
   assertTimestamp("User", "createdAt", user.createdAt);
+  assertSchemaVersion(SCHEMA_KEYS.USERS, user.schemaVersion);
 }
 
 /**
@@ -94,6 +102,7 @@ export function normalizeUser(user: FirestoreUser): UserModel {
     team: user.team,
     platform: user.platform,
     createdAt: normalizeTimestamp(user.createdAt),
+    schemaVersion: user.schemaVersion,
   };
 }
 
@@ -106,8 +115,9 @@ export function normalizeUser(user: FirestoreUser): UserModel {
 export function normalizeUserDocument(
   user: FirebaseFirestore.DocumentData,
 ): UserModel {
-  assertFirestoreUser(user);
-  return normalizeUser(user);
+  const migratedUser = migrateDocument(SCHEMA_KEYS.USERS, user);
+  assertFirestoreUser(migratedUser);
+  return normalizeUser(migratedUser);
 }
 
 /**
@@ -117,7 +127,9 @@ export function normalizeUserDocument(
  * @returns The Firestore-ready user document.
  */
 export function serializeUser(
-  user: Omit<UserModel, "createdAt"> & { createdAt: Date | Timestamp },
+  user: Omit<UserModel, "createdAt" | "schemaVersion"> & {
+    createdAt: Date | Timestamp;
+  },
 ): FirestoreUser {
   return {
     email: user.email,
@@ -131,5 +143,6 @@ export function serializeUser(
       user.createdAt instanceof Timestamp
         ? user.createdAt
         : Timestamp.fromDate(user.createdAt),
+    schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.USERS),
   };
 }

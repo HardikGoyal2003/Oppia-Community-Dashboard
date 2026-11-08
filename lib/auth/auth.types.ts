@@ -1,18 +1,19 @@
 import { DefaultSession } from "next-auth";
+import type { SchemaVersioned } from "@/lib/domain/schema.types";
 import type { UserRole } from "./roles";
 
 export type { UserRole } from "./roles";
 
 export type ContributionPlatform = "WEB" | "ANDROID";
 
-export interface Notification {
+export interface Notification extends SchemaVersioned {
   id: string;
   message: string;
   createdAt: Date;
   read: boolean;
 }
 
-export interface UserModel {
+export interface UserModel extends SchemaVersioned {
   email: string;
   fullName: string;
   photoURL: string;

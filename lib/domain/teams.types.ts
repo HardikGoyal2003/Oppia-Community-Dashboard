@@ -1,4 +1,5 @@
 import type { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
+import type { SchemaVersioned } from "@/lib/domain/schema.types";
 
 export type TeamLeadRole = Extract<UserRole, "TEAM_LEAD" | "LEAD_TRAINEE">;
 
@@ -20,7 +21,7 @@ export type TeamGfiCounts = {
   uncategorized: number;
 };
 
-export type TeamModel = {
+export type TeamModel = SchemaVersioned & {
   gfiCounts: TeamGfiCounts;
   lastUpdated: Date;
   leads: TeamLead[];

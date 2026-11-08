@@ -1,3 +1,5 @@
+import type { SchemaVersioned } from "@/lib/domain/schema.types";
+
 export type ActionItemPriority = "high" | "medium" | "low";
 
 /**
@@ -5,7 +7,7 @@ export type ActionItemPriority = "high" | "medium" | "low";
  * `teams/{teamId}/actionItems/{ruleKey}`. The document id is the stable rule
  * key, so repeated syncs upsert instead of duplicating.
  */
-export type ActionItemModel = {
+export type ActionItemModel = SchemaVersioned & {
   id: string;
   /** Team document id such as `WEB_CORE`. */
   teamId: string;

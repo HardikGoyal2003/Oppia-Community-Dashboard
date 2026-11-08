@@ -72,7 +72,7 @@ export async function getTeams(
  */
 export async function upsertTeam(
   teamId: string,
-  team: TeamModel,
+  team: Omit<TeamModel, "schemaVersion">,
 ): Promise<void> {
   await teamsCollection.doc(teamId).set(serializeTeam(team));
 }
