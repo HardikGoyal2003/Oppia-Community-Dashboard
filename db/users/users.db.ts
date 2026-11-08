@@ -6,7 +6,7 @@ import {
 } from "@/lib/auth/auth.types";
 import { Timestamp } from "firebase-admin/firestore";
 import { DB_PATHS } from "../db-paths";
-import { DbValidationError } from "../db.errors";
+import { DbNotFoundError, DbValidationError } from "../db.errors";
 import { getRequiredDocumentRef } from "../utils/document.utils";
 import { getUserNotificationsCollection } from "./notifications/notifications.db";
 import { serializeNotification } from "./notifications/notifications.mapper";
@@ -274,4 +274,96 @@ export async function updateUserRoleAndTeamWithNotificationByUid(
   });
 
   await batch.commit();
+}
+
+/**
+ * Resolves a user document reference inside a transaction and guarantees it exists.
+ *
+ * @param tx The active Firestore transaction.
+ * @param uid The user id to fetch.
+ * @returns The existing user document reference.
+ * @throws {DbNotFoundError} When the user document does not exist.
+ */
+async function getRequiredUserDocRefInTransaction(
+  tx: FirebaseFirestore.Transaction,
+  uid: string,
+): Promise<FirebaseFirestore.DocumentReference> {
+  const userDocRef = usersCollection.doc(uid);
+  const snapshot = await tx.get(userDocRef);
+
+  if (!snapshot.exists) {
+    throw new DbNotFoundError("User");
+  }
+
+  return userDocRef;
+}
+
+/**
+ * Appends a notification to a user inside a transaction.
+ *
+ * @param tx The active Firestore transaction.
+ * @param userDocRef The existing user document reference.
+ * @param message The notification message to append.
+ * @returns Nothing.
+ */
+function appendNotificationInTransaction(
+  tx: FirebaseFirestore.Transaction,
+  userDocRef: FirebaseFirestore.DocumentReference,
+  message: string,
+): void {
+  tx.set(getUserNotificationsCollection(userDocRef).doc(), {
+    ...serializeNotification({
+      message,
+      read: false,
+      createdAt: new Date(),
+    }),
+  });
+}
+
+/**
+ * Updates a user's role and team and appends a notification inside a transaction.
+ *
+ * @param tx The active Firestore transaction.
+ * @param uid The user id to update.
+ * @param role The new role value.
+ * @param team The new team value.
+ * @param githubUsername The GitHub username to persist.
+ * @param message The notification message to append.
+ * @returns A promise that resolves when the writes have been staged in the transaction.
+ */
+export async function updateUserRoleAndTeamWithNotificationInTransaction(
+  tx: FirebaseFirestore.Transaction,
+  uid: string,
+  role: UserRole,
+  team: string | null,
+  githubUsername: string,
+  message: string,
+): Promise<void> {
+  assertGithubUsernameForRole(githubUsername);
+
+  const userDocRef = await getRequiredUserDocRefInTransaction(tx, uid);
+
+  tx.update(userDocRef, {
+    role,
+    team,
+    githubUsername,
+  });
+  appendNotificationInTransaction(tx, userDocRef, message);
+}
+
+/**
+ * Appends a notification to a user inside a transaction.
+ *
+ * @param tx The active Firestore transaction.
+ * @param uid The user id that owns the notification.
+ * @param message The notification message to append.
+ * @returns A promise that resolves when the write has been staged in the transaction.
+ */
+export async function appendUserNotificationInTransaction(
+  tx: FirebaseFirestore.Transaction,
+  uid: string,
+  message: string,
+): Promise<void> {
+  const userDocRef = await getRequiredUserDocRefInTransaction(tx, uid);
+  appendNotificationInTransaction(tx, userDocRef, message);
 }
