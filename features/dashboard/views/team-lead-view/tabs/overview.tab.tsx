@@ -14,10 +14,9 @@ import {
   getCurrentUnansweredIssuesCount,
   getStatusSummary,
   getStatusVariant,
-  getTotalGfiCount,
 } from "../overview.utils";
-import { AndroidTeamGfiSummary } from "../components/android-team-gfi-summary";
-import { TeamLeadGfiDonutSection } from "../components/team-lead-gfi-donut-section";
+import { getTotalGfiCount } from "@/features/dashboard/shared/gfi/gfi.utils";
+import { TeamGfiSummary } from "@/features/dashboard/shared/gfi/team-gfi-summary";
 import { TeamOverviewUnansweredIssuesChart } from "../components/team-overview-unanswered-issues-chart";
 import { OverviewSkeleton } from "../components/overview-skeleton";
 import { ErrorFallback } from "../components/error-fallback";
@@ -169,7 +168,7 @@ export default function TeamLeadOverviewTab() {
 
       {/* Charts Section */}
       <div className="grid gap-6 xl:grid-cols-[1fr_1.1fr]">
-        {/* GFI Breakdown Card */}
+        {/* GFI Count Card */}
         <div className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 bg-gradient-to-r from-white to-slate-50/80 px-6 py-4">
             <div className="flex items-center justify-between">
@@ -178,7 +177,7 @@ export default function TeamLeadOverviewTab() {
                   <ChartPie className="h-4 w-4 shrink-0 text-slate-600" />
                 </div>
                 <h2 className="text-sm font-semibold text-slate-900">
-                  GFI Breakdown
+                  GFI Count
                 </h2>
               </div>
               <span className="shrink-0 text-xs font-medium text-slate-500">
@@ -187,13 +186,10 @@ export default function TeamLeadOverviewTab() {
             </div>
           </div>
           <div className="px-5 py-5">
-            {report.platform === "ANDROID" ? (
-              <AndroidTeamGfiSummary counts={report.gfiCounts} />
-            ) : (
-              <div className="overflow-hidden rounded-xl bg-gradient-to-br from-slate-50/80 via-white to-slate-50/40 p-4 sm:p-6">
-                <TeamLeadGfiDonutSection counts={report.gfiCounts} />
-              </div>
-            )}
+            <TeamGfiSummary
+              counts={report.gfiCounts}
+              platform={report.platform}
+            />
           </div>
         </div>
 

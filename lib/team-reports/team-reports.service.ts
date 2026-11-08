@@ -1,9 +1,12 @@
 import { getDailyTeamMetricsSinceDateKey } from "@/db/team-metrics/daily-team-metrics.db";
 import { getTeams } from "@/db/teams/teams.db";
 import { TEAM_DEFINITIONS } from "@/lib/domain/team-definitions";
-import type { TeamGfiCounts, TeamModel } from "@/lib/domain/teams.types";
+import type { TeamModel } from "@/lib/domain/teams.types";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { getIstDateKeyDaysAgo } from "@/lib/utils/date.utils";
+
+/** Healthy pool size that each team should keep open for new contributors. */
+const MINIMUM_GFI_POOL_SIZE = 15;
 
 export type TeamReportNextStep = {
   /**
@@ -33,42 +36,6 @@ export type TeamReportsSnapshot = {
 };
 
 /**
- * Returns the tracked GFI domains that are below the minimum threshold.
- *
- * @param gfiCounts The current GFI counts for a team.
- * @returns The list of domain shortfalls with required counts.
- */
-function getLowGfiDomainShortfalls(gfiCounts: TeamGfiCounts): Array<{
-  countNeeded: number;
-  domain: string;
-}> {
-  const shortfalls: Array<{ countNeeded: number; domain: string }> = [];
-
-  if (gfiCounts.frontend < 5) {
-    shortfalls.push({
-      countNeeded: 5 - gfiCounts.frontend,
-      domain: "frontend",
-    });
-  }
-
-  if (gfiCounts.backend < 5) {
-    shortfalls.push({
-      countNeeded: 5 - gfiCounts.backend,
-      domain: "backend",
-    });
-  }
-
-  if (gfiCounts.fullstack < 5) {
-    shortfalls.push({
-      countNeeded: 5 - gfiCounts.fullstack,
-      domain: "fullstack",
-    });
-  }
-
-  return shortfalls;
-}
-
-/**
  * Derives recommended next steps for a team report based on staffing, GFI coverage, and trend data.
  *
  * @param team The report to evaluate.
@@ -76,7 +43,6 @@ function getLowGfiDomainShortfalls(gfiCounts: TeamGfiCounts): Array<{
  */
 function getNextSteps(team: TeamReport): TeamReportNextStep[] {
   const nextSteps: TeamReportNextStep[] = [];
-  const lowGfiDomainShortfalls = getLowGfiDomainShortfalls(team.gfiCounts);
   const totalGfiCount =
     team.gfiCounts.frontend +
     team.gfiCounts.backend +
@@ -141,27 +107,15 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
     });
   }
 
-  if (lowGfiDomainShortfalls.length > 0) {
+  if (totalGfiCount < MINIMUM_GFI_POOL_SIZE) {
+    const countNeeded = MINIMUM_GFI_POOL_SIZE - totalGfiCount;
+
     nextSteps.push({
       ruleKey: "gfi-shortfall",
-      message:
-        team.platform === "ANDROID"
-          ? `Add ${Math.max(15 - totalGfiCount, 1)} more GFI${
-              Math.max(15 - totalGfiCount, 1) === 1 ? "" : "s"
-            }.`
-          : `Add ${lowGfiDomainShortfalls
-              .map(
-                ({ countNeeded, domain }) =>
-                  `${countNeeded} more ${domain} GFI${
-                    countNeeded === 1 ? "" : "s"
-                  }`,
-              )
-              .join(", ")}.`,
+      message: `Add ${countNeeded} more GFI${countNeeded === 1 ? "" : "s"}.`,
       priority: "high",
       reason:
-        team.platform === "ANDROID"
-          ? "Android teams should keep a healthy pool of good first issues so new contributors can consistently find starter work."
-          : "Each tracked domain should have at least 5 good first issues so new contributors can find enough well-scoped starter work.",
+        "Each team should keep a healthy pool of good first issues so new contributors can consistently find starter work.",
     });
   }
 
@@ -175,21 +129,6 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
       priority: "high",
       reason:
         "Issues waiting more than 2 days for a response signal a support bottleneck that needs attention.",
-    });
-  }
-
-  if (team.gfiCounts.uncategorized > 0) {
-    if (team.platform === "ANDROID") {
-      return nextSteps;
-    }
-
-    nextSteps.push({
-      ruleKey: "gfi-uncategorized",
-      message:
-        "Categorize uncategorized good first issues into frontend, backend, or fullstack.",
-      priority: "medium",
-      reason:
-        "Categorized good first issues are easier for contributors to discover, choose, and self-select based on their skills.",
     });
   }
 
