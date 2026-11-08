@@ -11,7 +11,6 @@ import { formatDisplayValue } from "@/lib/utils/display.utils";
 type TeamMember = {
   id: string;
   fullName: string;
-  email: string;
   githubUsername: string;
   platform: ContributionPlatform | null;
   role: UserRole;
@@ -66,9 +65,7 @@ export function TeamMembersTab() {
         setMembers(data);
       } catch (err) {
         setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to load team members.",
+          err instanceof Error ? err.message : "Failed to load team members.",
         );
       } finally {
         setLoading(false);
@@ -89,7 +86,7 @@ export function TeamMembersTab() {
 
     setPendingUpdate({
       userId: member.id,
-      userName: member.fullName || member.email,
+      userName: member.fullName || member.githubUsername,
       githubUsername: member.githubUsername,
       role,
       team,
@@ -142,9 +139,7 @@ export function TeamMembersTab() {
     } catch (error) {
       console.error(error);
       alert(
-        error instanceof Error
-          ? error.message
-          : "Failed to update member.",
+        error instanceof Error ? error.message : "Failed to update member.",
       );
     } finally {
       setUpdatingId(null);
@@ -178,7 +173,6 @@ export function TeamMembersTab() {
               <tr>
                 <th className="p-3 text-left">S.No.</th>
                 <th className="p-3 text-left">Name</th>
-                <th className="p-3 text-left">Email</th>
                 <th className="p-3 text-left">GitHub Username</th>
                 <th className="p-3 text-left">Team</th>
                 <th className="p-3 text-left">Role</th>
@@ -190,7 +184,6 @@ export function TeamMembersTab() {
                 <tr key={member.id} className="border-b">
                   <td className="p-3">{index + 1}</td>
                   <td className="p-3">{member.fullName}</td>
-                  <td className="p-3">{member.email}</td>
                   <td className="p-3">{member.githubUsername}</td>
                   <td className="p-3">
                     {isManagedRole(member.role) ? (

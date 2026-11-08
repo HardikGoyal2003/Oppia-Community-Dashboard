@@ -8,6 +8,7 @@ import { isValidUserRole } from "@/lib/utils/roles.utils";
 import {
   getUserById,
   getUsersByTeam,
+  type UserRecord,
   updateUserRoleAndTeamWithNotificationByUid,
 } from "@/db/users/users.db";
 import { DbNotFoundError, DbValidationError } from "@/db/db.errors";
@@ -18,8 +19,33 @@ const TEAM_LEAD_UNMANAGEABLE_ROLES: UserRole[] = [
   "TEAM_LEAD",
 ];
 
+type TeamMemberSummary = Pick<
+  UserRecord,
+  "id" | "fullName" | "githubUsername" | "platform" | "role" | "team"
+>;
+
 function canManageTeamMembers(role: UserRole): boolean {
   return role === "TEAM_LEAD" || role === "LEAD_TRAINEE";
+}
+
+/**
+ * Selects only the member fields required by the team-members UI.
+ *
+ * Email addresses and profile URLs are intentionally excluded because team
+ * leads only need identity and role information to manage their team.
+ *
+ * @param member The full team member record.
+ * @returns The minimal member payload exposed to the client.
+ */
+function toTeamMemberSummary(member: UserRecord): TeamMemberSummary {
+  return {
+    id: member.id,
+    fullName: member.fullName,
+    githubUsername: member.githubUsername,
+    platform: member.platform,
+    role: member.role,
+    team: member.team,
+  };
 }
 
 function isAllowedRole(role: UserRole): boolean {
@@ -59,7 +85,9 @@ export async function GET() {
   }
 
   const allMembers = await getUsersByTeam(session.user.team);
-  const members = allMembers.filter((m) => m.role !== "ALUMNI");
+  const members = allMembers
+    .filter((m) => m.role !== "ALUMNI")
+    .map(toTeamMemberSummary);
   return NextResponse.json(members);
 }
 
