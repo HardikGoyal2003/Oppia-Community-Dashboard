@@ -2,16 +2,6 @@
 
 This document describes the Firestore schema currently enforced by the DB layer.
 
-## Schema Versioning
-
-Every persisted model carries a `schemaVersion: number` field. Serializers write
-the current version on every new document; mappers migrate older documents to
-the current shape before validating them. Documents written before versioning
-existed omit the field and are treated as legacy version `0`.
-
-See [schema-versioning.md](./schema-versioning.md) for the conventions and the
-step-by-step process for evolving a model.
-
 ## Collections
 
 ### `users`
@@ -246,6 +236,3 @@ Normalized app-layer models convert Firestore timestamps as follows:
 - `dailyTeamMetrics.capturedAt -> Date`
 - `dataJobRuns.startedAt -> Date`
 - `dataJobRuns.finishedAt -> Date | null`
-
-Every normalized model also exposes `schemaVersion -> number` after the mapper
-has migrated the stored document to the latest version.
