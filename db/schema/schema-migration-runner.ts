@@ -130,7 +130,9 @@ export async function backfillSchemaVersions(options: {
         const migratedDocument = migrateDocument(target.key, data);
 
         if (!options.dryRun) {
-          await doc.ref.update(migratedDocument);
+          // Use `set` instead of `update` so fields removed by a migration are
+          // actually deleted from the stored document.
+          await doc.ref.set(migratedDocument);
         }
 
         summary.migratedCount += 1;

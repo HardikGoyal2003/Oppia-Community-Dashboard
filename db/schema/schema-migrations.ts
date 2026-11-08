@@ -40,6 +40,52 @@ function addSchemaVersionField(version: number): SchemaMigration {
 }
 
 /**
+ * Builds the migration that collapses the per-domain GFI count object into a
+ * single total GFI count.
+ *
+ * @returns The migration from team schema version 1 to version 2.
+ */
+function collapseTeamGfiCounts(): SchemaMigration {
+  return {
+    toVersion: 2,
+    migrate: (document) => {
+      const rawCounts = document.gfiCounts;
+      const counts =
+        rawCounts !== null && typeof rawCounts === "object"
+          ? (rawCounts as Record<string, number | undefined>)
+          : null;
+      const totalFromCounts = [
+        "backend",
+        "frontend",
+        "fullstack",
+        "uncategorized",
+      ].reduce((sum, field) => {
+        const value = counts?.[field];
+
+        return (
+          sum +
+          (typeof value === "number" && Number.isFinite(value) ? value : 0)
+        );
+      }, 0);
+      const existingTotal =
+        typeof document.gfiCount === "number" &&
+        Number.isFinite(document.gfiCount)
+          ? document.gfiCount
+          : 0;
+      const migratedDocument: FirebaseFirestore.DocumentData = {
+        ...document,
+        gfiCount: counts ? totalFromCounts : existingTotal,
+        schemaVersion: 2,
+      };
+
+      delete migratedDocument.gfiCounts;
+
+      return migratedDocument;
+    },
+  };
+}
+
+/**
  * Ordered migrations for every versioned model.
  *
  * Version 1 is the first versioned shape: it adds `schemaVersion` to documents
@@ -56,7 +102,7 @@ export const SCHEMA_MIGRATIONS: Record<SchemaKey, readonly SchemaMigration[]> =
     [SCHEMA_KEYS.MEMBER_ACCESS_REQUESTS]: [addSchemaVersionField(1)],
     [SCHEMA_KEYS.NOTIFICATION_DELIVERIES]: [addSchemaVersionField(1)],
     [SCHEMA_KEYS.ORG_META]: [addSchemaVersionField(1)],
-    [SCHEMA_KEYS.TEAMS]: [addSchemaVersionField(1)],
+    [SCHEMA_KEYS.TEAMS]: [addSchemaVersionField(1), collapseTeamGfiCounts()],
     [SCHEMA_KEYS.USER_JOURNEY_PROGRESS]: [addSchemaVersionField(1)],
     [SCHEMA_KEYS.USER_NOTIFICATIONS]: [addSchemaVersionField(1)],
     [SCHEMA_KEYS.USERS]: [addSchemaVersionField(1)],

@@ -14,15 +14,8 @@ export type TeamMember = {
   username: string;
 };
 
-export type TeamGfiCounts = {
-  backend: number;
-  frontend: number;
-  fullstack: number;
-  uncategorized: number;
-};
-
 export type TeamModel = SchemaVersioned & {
-  gfiCounts: TeamGfiCounts;
+  gfiCount: number;
   lastUpdated: Date;
   leads: TeamLead[];
   members: TeamMember[];

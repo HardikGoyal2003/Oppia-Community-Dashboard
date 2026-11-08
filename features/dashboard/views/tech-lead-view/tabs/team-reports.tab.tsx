@@ -27,12 +27,7 @@ type TeamLead = {
 
 type TeamReport = {
   id: string;
-  gfiCounts: {
-    backend: number;
-    frontend: number;
-    fullstack: number;
-    uncategorized: number;
-  };
+  gfiCount: number;
   lastUpdated: string | Date;
   leads: TeamLead[];
   metrics: Array<{
@@ -487,7 +482,7 @@ export function TeamReportsTab() {
                 </h3>
                 <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
                   <TeamGfiSummary
-                    counts={report.gfiCounts}
+                    gfiCount={report.gfiCount}
                     platform={report.platform}
                   />
                 </div>

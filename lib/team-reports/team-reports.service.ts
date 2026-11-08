@@ -43,11 +43,7 @@ export type TeamReportsSnapshot = {
  */
 function getNextSteps(team: TeamReport): TeamReportNextStep[] {
   const nextSteps: TeamReportNextStep[] = [];
-  const totalGfiCount =
-    team.gfiCounts.frontend +
-    team.gfiCounts.backend +
-    team.gfiCounts.fullstack +
-    team.gfiCounts.uncategorized;
+  const totalGfiCount = team.gfiCount;
   const teamLeadCount = team.leads.filter(
     (lead) => lead.role === "TEAM_LEAD",
   ).length;

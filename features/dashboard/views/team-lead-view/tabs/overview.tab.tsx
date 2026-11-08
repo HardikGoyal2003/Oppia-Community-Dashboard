@@ -15,7 +15,6 @@ import {
   getStatusSummary,
   getStatusVariant,
 } from "../overview.utils";
-import { getTotalGfiCount } from "@/features/dashboard/shared/gfi/gfi.utils";
 import { TeamGfiSummary } from "@/features/dashboard/shared/gfi/team-gfi-summary";
 import { TeamOverviewUnansweredIssuesChart } from "../components/team-overview-unanswered-issues-chart";
 import { OverviewSkeleton } from "../components/overview-skeleton";
@@ -89,7 +88,7 @@ export default function TeamLeadOverviewTab() {
   }
 
   const currentUnansweredIssues = getCurrentUnansweredIssuesCount(report);
-  const totalGfis = getTotalGfiCount(report.gfiCounts);
+  const totalGfis = report.gfiCount;
   const activeActionItems = getActiveActionItems(actionItems);
 
   const unresolvedActionCount = actionItemsLoading
@@ -187,7 +186,7 @@ export default function TeamLeadOverviewTab() {
           </div>
           <div className="px-5 py-5">
             <TeamGfiSummary
-              counts={report.gfiCounts}
+              gfiCount={report.gfiCount}
               platform={report.platform}
             />
           </div>

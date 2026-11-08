@@ -1,12 +1,7 @@
 "use client";
 
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
-import type { TeamGfiCounts } from "@/lib/domain/teams.types";
-import {
-  getGfiPoolStatusLabel,
-  getTotalGfiCount,
-  MINIMUM_GFI_POOL_SIZE,
-} from "./gfi.utils";
+import { getGfiPoolStatusLabel, MINIMUM_GFI_POOL_SIZE } from "./gfi.utils";
 
 /**
  * Resolves the display name for a contribution platform.
@@ -19,13 +14,13 @@ function getPlatformLabel(platform: ContributionPlatform): string {
 }
 
 export function TeamGfiSummary({
-  counts,
+  gfiCount,
   platform,
 }: {
-  counts: TeamGfiCounts;
+  gfiCount: number;
   platform: ContributionPlatform;
 }) {
-  const total = getTotalGfiCount(counts);
+  const total = gfiCount;
   const progress = Math.min((total / MINIMUM_GFI_POOL_SIZE) * 100, 100);
   const platformLabel = getPlatformLabel(platform);
   const statusLabel = getGfiPoolStatusLabel(total);

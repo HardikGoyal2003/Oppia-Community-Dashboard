@@ -6,12 +6,7 @@ export type TeamLead = {
 
 export type TeamReport = {
   id: string;
-  gfiCounts: {
-    backend: number;
-    frontend: number;
-    fullstack: number;
-    uncategorized: number;
-  };
+  gfiCount: number;
   lastUpdated: string | Date;
   leads: TeamLead[];
   metrics: Array<{
