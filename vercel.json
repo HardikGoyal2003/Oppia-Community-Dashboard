@@ -5,7 +5,7 @@
       "schedule": "30 22 * * *"
     },
     {
-      "path": "/api/cron/sync-team-gfi-counts",
+      "path": "/api/cron/sync-team-data",
       "schedule": "0 0 * * *"
     },
     {

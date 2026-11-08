@@ -4,7 +4,7 @@ import type {
 } from "@/lib/domain/cron-jobs.types";
 import { LibInvalidStateError } from "@/lib/lib.errors";
 import { captureDailyUnansweredIssueMetrics } from "@/lib/team-metrics/capture-daily-team-metrics.service";
-import { syncTeamGfiCounts } from "@/lib/teams/sync-team-gfi-counts.service";
+import { syncTeamData } from "@/lib/teams/sync-team-data.service";
 import { syncOrgMeta } from "@/lib/org-meta/sync-org-meta.service";
 import { sendWeeklyActionItemDigest } from "@/lib/notifications/action-item-digest.service";
 
@@ -16,10 +16,10 @@ const CRON_JOBS: CronJobDefinition[] = [
       "Fetch unanswered issue counts for all configured teams and store a snapshot in dailyTeamMetrics.",
   },
   {
-    key: "sync_team_gfi_counts",
-    name: "Sync Team GFI Counts",
+    key: "sync_team_data",
+    name: "Sync Team Data",
     description:
-      "Fetch open unassigned good first issues from GitHub and update each team's gfiCount.",
+      "Fetch open unassigned good first issues from GitHub, refresh team leads and members, and update each team's gfiCount.",
   },
   {
     key: "sync_org_meta",
@@ -81,8 +81,8 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
         ].join("\n"),
       };
     }
-    case "sync_team_gfi_counts": {
-      const result = await syncTeamGfiCounts();
+    case "sync_team_data": {
+      const result = await syncTeamData();
       const finishedAt = new Date();
 
       return {

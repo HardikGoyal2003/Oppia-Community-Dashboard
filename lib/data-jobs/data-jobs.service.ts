@@ -1,4 +1,3 @@
-import { Timestamp, FieldValue } from "firebase-admin/firestore";
 import { DbNotFoundError } from "@/db/db.errors";
 import {
   createDataJobRun,
@@ -7,11 +6,8 @@ import {
   markDataJobRunFailed,
   markDataJobRunSucceeded,
 } from "@/db/data-jobs/data-job-runs.db";
-import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { backfillSchemaVersions } from "@/db/schema/schema-migration-runner";
 import { getAllUsers, updateUserRole } from "@/db/users/users.db";
-import { getMembersByTeamId } from "@/lib/teams/sync-team-gfi-counts.service";
-import { DB_PATHS } from "@/db/db-paths";
 import type {
   DataJobDefinition,
   DataJobResult,
@@ -83,121 +79,6 @@ async function auditPrivilegedUsersMissingTeam(
             .slice(0, 10)
             .map((user) => user.githubUsername)
             .join(", ")}.`,
-  };
-}
-
-/**
- * Backfills archived issue documents:
- *   - Removes the redundant `isArchived` field
- *   - Adds `archivedBy` and `archivedAt` to legacy records that lack them
- *
- * @param context The data-job execution context.
- * @returns A summary of the migration results.
- */
-async function backfillArchivedIssues(
-  context: DataJobHandlerContext,
-): Promise<DataJobResult> {
-  const db = getAdminFirestore();
-  const snapshot = await db
-    .collection(DB_PATHS.ARCHIVED_ISSUES.COLLECTION)
-    .get();
-
-  let updatedCount = 0;
-
-  for (const doc of snapshot.docs) {
-    const data = doc.data();
-    const updates: Record<string, string | Timestamp | FieldValue> = {};
-
-    if (data.isArchived !== undefined) {
-      updates.isArchived = FieldValue.delete();
-    }
-
-    if (data.archivedBy === undefined) {
-      updates.archivedBy = context.triggeredByGithubUsername;
-    }
-
-    if (data.archivedAt === undefined) {
-      updates.archivedAt = Timestamp.now();
-    }
-
-    if (Object.keys(updates).length === 0) {
-      continue;
-    }
-
-    updatedCount++;
-
-    if (!context.dryRun) {
-      await doc.ref.update(updates);
-    }
-  }
-
-  const suffix = context.dryRun ? " (dry run — no changes persisted)" : ".";
-
-  return {
-    summary: `Backfill completed. ${updatedCount} document(s) updated${suffix}`,
-  };
-}
-
-/**
- * Backfills team-report schema fields on existing documents:
- *   - Adds `members` to team documents that lack it, derived from users
- *     assigned as TEAM_MEMBER to the matching team.
- *   - Adds `maxWaitingDays` to daily team metric documents that lack it.
- *
- * @param context The data-job execution context.
- * @returns A summary of the migration results.
- */
-async function backfillTeamReportSchema(
-  context: DataJobHandlerContext,
-): Promise<DataJobResult> {
-  const db = getAdminFirestore();
-  const membersByTeamId = await getMembersByTeamId();
-
-  let teamsUpdated = 0;
-  let metricsUpdated = 0;
-
-  const teamsSnapshot = await db.collection(DB_PATHS.TEAMS.COLLECTION).get();
-
-  for (const doc of teamsSnapshot.docs) {
-    const data = doc.data();
-
-    if (data.members !== undefined) {
-      continue;
-    }
-
-    teamsUpdated++;
-
-    if (!context.dryRun) {
-      await doc.ref.update({
-        members: membersByTeamId.get(doc.id) ?? [],
-      });
-    }
-  }
-
-  const metricsSnapshot = await db
-    .collection(DB_PATHS.DAILY_TEAM_METRICS.COLLECTION)
-    .get();
-
-  for (const doc of metricsSnapshot.docs) {
-    const data = doc.data();
-
-    if (data.maxWaitingDays !== undefined) {
-      continue;
-    }
-
-    metricsUpdated++;
-
-    if (!context.dryRun) {
-      await doc.ref.update({
-        maxWaitingDays: 0,
-      });
-    }
-  }
-
-  const suffix = context.dryRun ? " (dry run — no changes persisted)" : ".";
-
-  return {
-    summary: `Backfill completed. ${teamsUpdated} team document(s) and ${metricsUpdated} daily team metric document(s) updated${suffix}`,
   };
 }
 
@@ -291,24 +172,6 @@ const DATA_JOB_REGISTRY: RegisteredDataJob[] = [
     kind: "AUDIT",
     supportsDryRun: true,
     handler: auditPrivilegedUsersMissingTeam,
-  },
-  {
-    key: "backfill_archived_issues",
-    name: "Backfill Archived Issues",
-    description:
-      "Removes the redundant isArchived field and adds archivedBy + archivedAt to legacy archived issue documents.",
-    kind: "MIGRATION",
-    supportsDryRun: true,
-    handler: backfillArchivedIssues,
-  },
-  {
-    key: "backfill_team_report_schema",
-    name: "Backfill Team Report Schema",
-    description:
-      "Adds a derived members list to team documents and maxWaitingDays to daily team metric documents.",
-    kind: "MIGRATION",
-    supportsDryRun: true,
-    handler: backfillTeamReportSchema,
   },
   {
     key: "backfill_schema_versions",
