@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { readEnv } from "@/lib/config";
-import { syncTeamGfiCounts } from "@/lib/teams/sync-team-gfi-counts.service";
+import { syncTeamData } from "@/lib/teams/sync-team-data.service";
 
 function isAuthorizedCronRequest(req: Request): boolean {
   const cronSecret = readEnv("CRON_SECRET");
@@ -19,7 +19,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const summary = await syncTeamGfiCounts();
+    const summary = await syncTeamData();
     return NextResponse.json(summary);
   } catch (error) {
     console.error(error);

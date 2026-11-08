@@ -9,7 +9,7 @@ import type {
 } from "@/lib/domain/teams.types";
 import { fetchGoodFirstIssues } from "@/lib/github/github-gfis.fetcher";
 
-type GfiSyncSummary = {
+type TeamDataSyncSummary = {
   skippedIssuesCount: number;
   totalIssuesCount: number;
   updatedTeamsCount: number;
@@ -71,11 +71,12 @@ export async function getMembersByTeamId(): Promise<Map<string, TeamMember[]>> {
 }
 
 /**
- * Recomputes team-level GFI counts from GitHub and stores them in the teams collection.
+ * Refreshes each team's GFI count, leads, members, and metadata from GitHub
+ * and the users collection, then stores the result in the teams collection.
  *
  * @returns A summary of the sync outcome.
  */
-export async function syncTeamGfiCounts(): Promise<GfiSyncSummary> {
+export async function syncTeamData(): Promise<TeamDataSyncSummary> {
   const [webIssues, androidIssues, leadsByTeamId, membersByTeamId] =
     await Promise.all([
       fetchGoodFirstIssues(GITHUB_REPOS.WEB),

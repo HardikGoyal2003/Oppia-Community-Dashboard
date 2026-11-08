@@ -10,7 +10,7 @@ import {
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { backfillSchemaVersions } from "@/db/schema/schema-migration-runner";
 import { getAllUsers, updateUserRole } from "@/db/users/users.db";
-import { getMembersByTeamId } from "@/lib/teams/sync-team-gfi-counts.service";
+import { getMembersByTeamId } from "@/lib/teams/sync-team-data.service";
 import { DB_PATHS } from "@/db/db-paths";
 import type {
   DataJobDefinition,
