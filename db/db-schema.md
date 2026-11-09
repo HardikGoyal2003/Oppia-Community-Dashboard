@@ -178,6 +178,8 @@ Fields:
 - `assignedAt: string`
 - `completedAt: string`
 - `durationMs: number`
+- `reviewRoundsBeforeApproval: number | null`
+- `commentCount: number`
 
 ## Derived Type Summary
 

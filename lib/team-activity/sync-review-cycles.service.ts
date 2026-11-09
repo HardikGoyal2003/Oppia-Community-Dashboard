@@ -17,15 +17,12 @@ type SyncSummary = {
   updatedReviewersCount: number;
 };
 
-/** Number of days of closed PR history to process each run. */
-const CLOSED_PR_LOOKBACK_DAYS = 3;
-
 /**
  * Syncs completed review cycles from GitHub into Firestore.
  *
- * Processes all open PRs + PRs closed within the last
- * `CLOSED_PR_LOOKBACK_DAYS` days, extracts completed cycles from their
- * timelines, and writes:
+ * Processes open PRs updated in the last 24 hours + PRs closed within
+ * the last 24 hours, extracts completed cycles from their timelines,
+ * and writes:
  * - `reviewCycles/{key}` — completed cycles (idempotent merge)
  * - `reviewers/{login}` — recomputes all stats from every stored cycle
  *   record so averages stay consistent even when no new cycles appear.
@@ -37,9 +34,7 @@ const CLOSED_PR_LOOKBACK_DAYS = 3;
  */
 export async function syncReviewCycles(): Promise<SyncSummary> {
   const platform: ContributionPlatform = "WEB";
-  const sinceDate = new Date(
-    Date.now() - CLOSED_PR_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
-  );
+  const sinceDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
   const [openResult, closedResult, teamDoc] = await Promise.all([
     fetchCycleRecords(),

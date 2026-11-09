@@ -628,30 +628,55 @@ async function fetchPRTimelineAndReviews(prNumber: number): Promise<{
 }
 
 /**
- * Fetches all open PRs and extracts completed review cycles (to persist in
- * reviewCycles) and pending cycles (current open assignments).
+ * Fetches open PRs updated in the last day and extracts completed review
+ * cycles (to persist in reviewCycles) and pending cycles (current open
+ * assignments).
  *
- * @returns Completed cycle records and pending cycle info per reviewer.
+ * Uses the GitHub Search API with an `updated:>=` filter so only PRs
+ * with recent activity are processed.
+ *
+ * @returns Completed cycle records, pending cycle info per reviewer, and
+ *   per-PR reviewer stats.
  */
 export async function fetchCycleRecords(): Promise<CycleRecordsResult> {
-  console.log("Fetching cycle records from open PRs...");
+  const sinceDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const sinceDateStr = sinceDate.toISOString().slice(0, 10);
 
-  const prs = await requestGitHubRestAll<GitHubPullResponse>(
-    `/repos/${ORG}/${REPO}/pulls?state=open`,
+  console.log(
+    `Fetching cycle records from open PRs updated since ${sinceDateStr}...`,
+  );
+
+  const searchQuery = `repo:${ORG}/${REPO}+type:pr+state:open+updated:>=${sinceDateStr}`;
+
+  interface SearchResult {
+    items: GitHubPullResponse[];
+    total_count: number;
+  }
+
+  const searchResult = await requestGitHubRest<SearchResult>(
+    `/search/issues?q=${searchQuery}&sort=updated&order=desc&per_page=100`,
+  );
+
+  console.log(
+    `Found ${searchResult.total_count} open PRs updated since ${sinceDateStr}.`,
   );
 
   const completed: CycleRecord[] = [];
   const pending: CycleRecordsResult["pending"] = [];
   const reviewerPRStats: CycleRecordsResult["reviewerPRStats"] = new Map();
 
-  for (const pr of prs) {
-    console.log(`  Processing open PR #${pr.number}...`);
+  for (const item of searchResult.items) {
+    if (!item.pull_request || !item.assignees || item.assignees.length === 0) {
+      continue;
+    }
+
+    console.log(`  Processing open PR #${item.number}...`);
 
     const { timelineEvents, reviews, inlineComments } =
-      await fetchPRTimelineAndReviews(pr.number);
-    const stats = extractReviewerPRStats(pr, reviews, inlineComments);
+      await fetchPRTimelineAndReviews(item.number);
+    const stats = extractReviewerPRStats(item, reviews, inlineComments);
     const result = extractCyclesFromPR(
-      pr,
+      item,
       timelineEvents,
       reviews,
       true,
@@ -663,7 +688,7 @@ export async function fetchCycleRecords(): Promise<CycleRecordsResult> {
 
     for (const [login, prStats] of stats) {
       const byPR = reviewerPRStats.get(login) ?? new Map();
-      byPR.set(pr.number, prStats);
+      byPR.set(item.number, prStats);
       reviewerPRStats.set(login, byPR);
     }
   }
@@ -675,23 +700,17 @@ export async function fetchCycleRecords(): Promise<CycleRecordsResult> {
   return { completed, pending, reviewerPRStats };
 }
 
-/** Max closed PRs to process in a single run to stay within function limits. */
-const MAX_CLOSED_PRS = 20;
-
 /**
- * Fetches PRs closed within the last `sinceDate` days and extracts
- * completed review cycles from their timelines.
+ * Fetches PRs closed within the last `sinceDate` and extracts completed
+ * review cycles from their timelines.
  *
  * Uses the GitHub Search API to fetch only PRs actually closed in the
- * window (not merely updated), and caps processing at `MAX_CLOSED_PRS`
- * to avoid serverless function timeout.
+ * window (not merely updated).
  *
  * @param sinceDate Only PRs closed on or after this date are processed.
- * @returns Completed cycle records.
+ * @returns Completed cycle records and per-PR reviewer stats.
  */
-export async function fetchClosedPRCycleRecords(
-  sinceDate: Date,
-): Promise<{
+export async function fetchClosedPRCycleRecords(sinceDate: Date): Promise<{
   completed: CycleRecord[];
   reviewerPRStats: Map<string, Map<number, ReviewerPRStats>>;
 }> {
@@ -709,11 +728,11 @@ export async function fetchClosedPRCycleRecords(
   }
 
   const searchResult = await requestGitHubRest<SearchResult>(
-    `/search/issues?q=${searchQuery}&sort=updated&order=desc&per_page=${MAX_CLOSED_PRS}`,
+    `/search/issues?q=${searchQuery}&sort=updated&order=desc&per_page=100`,
   );
 
   console.log(
-    `Found ${searchResult.total_count} closed PRs since ${sinceDateStr}, processing up to ${MAX_CLOSED_PRS}.`,
+    `Found ${searchResult.total_count} closed PRs since ${sinceDateStr}.`,
   );
 
   const completed: CycleRecord[] = [];

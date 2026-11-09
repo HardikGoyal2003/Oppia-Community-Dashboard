@@ -11,6 +11,11 @@ import {
   Users,
 } from "lucide-react";
 import type { ReviewerTeamsDocument } from "@/lib/domain/reviewer-teams.types";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type Tab = "individual" | "teams";
 
@@ -125,42 +130,82 @@ function IndividualView({ data }: { data: ReviewerTeamsDocument }) {
             </button>
 
             <div className="flex flex-wrap justify-center gap-4 border-t border-slate-100 px-4 py-3 text-xs">
-              <div className="text-center">
-                <p className="font-semibold text-slate-800">
-                  {member.reviewsDone}
-                </p>
-                <p className="text-slate-500">Done</p>
-              </div>
-              <div className="text-center">
-                <p className="font-semibold text-slate-800">
-                  {member.pendingReviews}
-                </p>
-                <p className="text-slate-500">Pending</p>
-              </div>
-              <div className="text-center">
-                <p className="font-semibold text-slate-800">
-                  {member.avgReviewTimeHours !== null
-                    ? `${Math.floor(member.avgReviewTimeHours / 24)}d ${Math.round(member.avgReviewTimeHours % 24)}h`
-                    : "—"}
-                </p>
-                <p className="text-slate-500">Avg time</p>
-              </div>
-              <div className="text-center">
-                <p className="font-semibold text-slate-800">
-                  {member.avgReviewRoundsBeforeApproval !== null
-                    ? member.avgReviewRoundsBeforeApproval
-                    : "—"}
-                </p>
-                <p className="text-slate-500">Avg rounds</p>
-              </div>
-              <div className="text-center">
-                <p className="font-semibold text-slate-800">
-                  {member.avgCommentsPerReview !== null
-                    ? Math.floor(member.avgCommentsPerReview)
-                    : "—"}
-                </p>
-                <p className="text-slate-500">Avg comments</p>
-              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="text-center">
+                    <p className="font-semibold text-slate-800">
+                      {member.reviewsDone}
+                    </p>
+                    <p className="text-slate-500">Completed</p>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Total number of completed review cycles (assigned → review
+                  submitted or unassigned).
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="text-center">
+                    <p className="font-semibold text-slate-800">
+                      {member.pendingReviews}
+                    </p>
+                    <p className="text-slate-500">Pending</p>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Open PRs currently assigned for review, not yet reviewed or
+                  unassigned.
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="text-center">
+                    <p className="font-semibold text-slate-800">
+                      {member.avgReviewTimeHours !== null
+                        ? `${Math.floor(member.avgReviewTimeHours / 24)}d ${Math.round(member.avgReviewTimeHours % 24)}h`
+                        : "—"}
+                    </p>
+                    <p className="text-slate-500">Avg time</p>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Average time from assignment to review submission or
+                  unassignment, across all completed cycles.
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="text-center">
+                    <p className="font-semibold text-slate-800">
+                      {member.avgReviewRoundsBeforeApproval !== null
+                        ? member.avgReviewRoundsBeforeApproval
+                        : "—"}
+                    </p>
+                    <p className="text-slate-500">Avg rounds</p>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Average number of review submissions before the first
+                  approval, across all PRs that were eventually approved.
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="text-center">
+                    <p className="font-semibold text-slate-800">
+                      {member.avgCommentsPerReview !== null
+                        ? Math.floor(member.avgCommentsPerReview)
+                        : "—"}
+                    </p>
+                    <p className="text-slate-500">Avg comments</p>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Average number of non-empty review bodies plus inline code
+                  comments per completed review cycle.
+                </TooltipContent>
+              </Tooltip>
             </div>
 
             {isExpanded && prs.length > 0 && (

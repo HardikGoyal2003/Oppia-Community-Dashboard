@@ -14,6 +14,7 @@ const EXCLUDED_SLUGS = new Set([
   "oppia-good-first-issue-labelers",
   "web-tech-leads",
   "lace-team-leads",
+  "leap-team-leads",
 ]);
 
 type GitHubTeamResponse = {
