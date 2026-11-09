@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { DiscussionCard } from "./discussions/components/discussion-card";
-import { DiscussionsOverTimeChart } from "./discussions/components/discussions-over-time-chart";
 import { DiscussionTabs } from "./discussions/components/discussion-tabs";
 import { EmptyState } from "./empty-state";
 import { GitHubDiscussion } from "@/lib/github/github.types";
@@ -15,7 +14,6 @@ import { useProjectDiscussionsStore } from "./discussions/store/project-discussi
 import { categorizeDiscussions } from "./discussions/services/categorize-discussions.service";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { getArchivedDiscussionsForPlatform } from "./discussions/services/archived-discussions-api.service";
-import type { DiscussionMetricPoint } from "@/lib/discussion-metrics/discussion-metrics.service";
 import { getErrorCodeMeta } from "@/lib/errors/error-codes";
 import { ErrorCard } from "@/components/error/error-card";
 import { formatDisplayValue } from "@/lib/utils/display.utils";
@@ -57,10 +55,6 @@ export default function UnansweredDiscussionsTab() {
   const [archivedDiscussions, setArchivedDiscussions] = useState<Discussion[]>(
     [],
   );
-
-  const [discussionMetrics, setDiscussionMetrics] = useState<
-    DiscussionMetricPoint[]
-  >([]);
 
   const { data: session } = useSession();
   const sessionPlatform = session?.user?.platform ?? null;
@@ -139,7 +133,6 @@ export default function UnansweredDiscussionsTab() {
     setActiveTab("active");
     setResponseData(null);
     setArchivedDiscussions([]);
-    setDiscussionMetrics([]);
     setFetchError(null);
     setShowGitHubError(false);
     setDiscussions({
@@ -174,44 +167,6 @@ export default function UnansweredDiscussionsTab() {
     platform,
     setDiscussions,
   ]);
-
-  useEffect(() => {
-    if (!hasPlatform || !platform) {
-      return;
-    }
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const response = await fetch(
-          `/api/discussion-metrics?platform=${platform}`,
-          { cache: "no-store" },
-        );
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch discussion metrics.");
-        }
-
-        const data = (await response.json()) as {
-          metrics: DiscussionMetricPoint[];
-        };
-
-        if (!cancelled) {
-          setDiscussionMetrics(data.metrics);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          console.error(error);
-          setDiscussionMetrics([]);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [hasPlatform, platform]);
 
   return (
     <div
@@ -264,17 +219,6 @@ export default function UnansweredDiscussionsTab() {
                   );
                 })}
               </div>
-            </div>
-          )}
-
-          {hasPlatform && (
-            <div className="mb-5">
-              <DiscussionsOverTimeChart
-                metrics={discussionMetrics}
-                platformLabel={
-                  platform ? PLATFORM_REPO_LABEL[platform] : "this platform"
-                }
-              />
             </div>
           )}
 

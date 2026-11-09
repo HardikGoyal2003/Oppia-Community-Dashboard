@@ -26,6 +26,7 @@ import { NextActions } from "../components/next-actions";
 import { LeadCoverage } from "../components/lead-coverage";
 import { useActionItems } from "@/features/dashboard/shared/action-items/hooks/use-action-items.hook";
 import { getActiveActionItems } from "@/features/dashboard/shared/action-items/action-items.utils";
+import { DiscussionsTrendCard } from "@/features/dashboard/shared/discussions/components/discussions-trend-card";
 
 export default function TeamLeadOverviewTab() {
   const [report, setReport] = useState<TeamReport | null>(null);
@@ -219,6 +220,12 @@ export default function TeamLeadOverviewTab() {
           </div>
         </div>
       </div>
+
+      <DiscussionsTrendCard
+        platform={report.platform}
+        title="Unanswered Discussions Over Time"
+        description="Daily unanswered discussion trends for your platform."
+      />
     </div>
   );
 }

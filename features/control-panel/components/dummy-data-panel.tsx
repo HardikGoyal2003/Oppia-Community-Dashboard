@@ -11,15 +11,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+type DummyGeneratorKey = "team_reports" | "discussions";
+
 export function DummyDataPanel() {
-  const [loading, setLoading] = useState(false);
+  const [loadingKey, setLoadingKey] = useState<DummyGeneratorKey | null>(null);
   const [output, setOutput] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const handleGenerate = async () => {
-    setLoading(true);
+  const handleGenerate = async (generatorKey: DummyGeneratorKey) => {
+    setLoadingKey(generatorKey);
     setErrorMessage(null);
     setSuccessMessage(null);
 
@@ -29,9 +31,7 @@ export function DummyDataPanel() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          generatorKey: "team_reports",
-        }),
+        body: JSON.stringify({ generatorKey }),
       });
 
       const data = (await response.json()) as {
@@ -52,7 +52,7 @@ export function DummyDataPanel() {
           : "Failed to generate dummy data.",
       );
     } finally {
-      setLoading(false);
+      setLoadingKey(null);
     }
   };
 
@@ -77,8 +77,9 @@ export function DummyDataPanel() {
       <div>
         <h2 className="text-lg font-semibold text-slate-900">Dummy Data</h2>
         <p className="mt-2 text-sm text-slate-600">
-          Generate deterministic sample team metadata and daily team metric
-          snapshots for local UI development.
+          Generate deterministic sample team metadata, daily team metric
+          snapshots, and daily discussion metric snapshots for local UI
+          development.
         </p>
       </div>
 
@@ -87,16 +88,44 @@ export function DummyDataPanel() {
         <p className="text-sm text-emerald-700">{successMessage}</p>
       )}
 
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <p className="text-sm text-slate-700">
-          This writes sample records for `teams` and `dailyTeamMetrics` so the
-          Team Reports tab has enough data to render charts and recommendations.
-        </p>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm text-slate-700">
+            This writes sample records for `teams` and `dailyTeamMetrics` so the
+            Team Reports tab has enough data to render charts and
+            recommendations.
+          </p>
 
-        <Button className="mt-4" onClick={handleGenerate} disabled={loading}>
-          <DatabaseZap className="mr-2 h-4 w-4" />
-          {loading ? "Generating..." : "Generate Team Reports Dummy Data"}
-        </Button>
+          <Button
+            className="mt-4"
+            onClick={() => handleGenerate("team_reports")}
+            disabled={loadingKey !== null}
+          >
+            <DatabaseZap className="mr-2 h-4 w-4" />
+            {loadingKey === "team_reports"
+              ? "Generating..."
+              : "Generate Team Reports Dummy Data"}
+          </Button>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm text-slate-700">
+            This writes sample records for `dailyDiscussionMetrics` so the
+            Unanswered Discussions tab has enough data to render the
+            discussions-over-time chart.
+          </p>
+
+          <Button
+            className="mt-4"
+            onClick={() => handleGenerate("discussions")}
+            disabled={loadingKey !== null}
+          >
+            <DatabaseZap className="mr-2 h-4 w-4" />
+            {loadingKey === "discussions"
+              ? "Generating..."
+              : "Generate Discussions Dummy Data"}
+          </Button>
+        </div>
       </div>
 
       <Dialog

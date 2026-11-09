@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import { generateTeamReportsDummyData } from "@/lib/dev/generate-team-reports-dummy-data.service";
+import { generateDiscussionMetricsDummyData } from "@/lib/dev/generate-discussion-metrics-dummy-data.service";
 
 type DummyDataRequestBody = {
   generatorKey?: string;
@@ -30,24 +31,34 @@ export async function POST(req: Request) {
   const generatorKey =
     typeof body.generatorKey === "string" ? body.generatorKey.trim() : "";
 
-  if (generatorKey !== "team_reports") {
+  try {
+    if (generatorKey === "team_reports") {
+      const summary = await generateTeamReportsDummyData();
+
+      return NextResponse.json({
+        summary: [
+          "Dummy data generated successfully.",
+          `Teams written: ${summary.teamsWritten}.`,
+          `Daily team metric snapshots written: ${summary.metricsWritten}.`,
+        ].join("\n"),
+      });
+    }
+
+    if (generatorKey === "discussions") {
+      const summary = await generateDiscussionMetricsDummyData();
+
+      return NextResponse.json({
+        summary: [
+          "Dummy data generated successfully.",
+          `Daily discussion metric snapshots written: ${summary.discussionMetricsWritten}.`,
+        ].join("\n"),
+      });
+    }
+
     return NextResponse.json(
       { error: "Unsupported dummy data generator." },
       { status: 400 },
     );
-  }
-
-  try {
-    const summary = await generateTeamReportsDummyData();
-
-    return NextResponse.json({
-      summary: [
-        "Dummy data generated successfully.",
-        `Teams written: ${summary.teamsWritten}.`,
-        `Daily team metric snapshots written: ${summary.metricsWritten}.`,
-        `Daily discussion metric snapshots written: ${summary.discussionMetricsWritten}.`,
-      ].join("\n"),
-    });
   } catch (error) {
     return NextResponse.json(
       {

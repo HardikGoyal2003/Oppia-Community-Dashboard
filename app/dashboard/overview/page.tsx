@@ -2,6 +2,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import { redirect } from "next/navigation";
 import TeamLeadOverviewTab from "@/features/dashboard/views/team-lead-view/tabs/overview.tab";
+import { AdminOverviewTab } from "@/features/dashboard/views/tech-lead-view/tabs/overview.tab";
+import { TeamMemberOverviewTab } from "@/features/dashboard/views/team-member-view/tabs/overview.tab";
 import ContributorOverviewWrapper from "./contributor-overview-wrapper";
 
 export default async function OverviewPage() {
@@ -34,27 +36,15 @@ export default async function OverviewPage() {
   }
 
   if (role === "ADMIN" || role === "SUPER_ADMIN") {
-    redirect("/dashboard/incoming-requests");
+    return <AdminOverviewTab />;
   }
 
-  if (role === "TEAM_LEAD") {
+  if (role === "TEAM_LEAD" || role === "LEAD_TRAINEE") {
     return <TeamLeadOverviewTab />;
   }
 
-  if (role === "LEAD_TRAINEE" || role === "TEAM_MEMBER") {
-    return (
-      <div className="flex min-h-[calc(100vh-6rem)] items-center justify-center">
-        <div className="max-w-xl rounded-lg border bg-white p-6 text-center shadow-sm">
-          <h1 className="mb-2 text-xl font-semibold">
-            Overview Coming Soon 🚧
-          </h1>
-          <p className="text-gray-600">
-            We&apos;re working on an overview tailored for team members. Stay
-            tuned!
-          </p>
-        </div>
-      </div>
-    );
+  if (role === "TEAM_MEMBER") {
+    return <TeamMemberOverviewTab platform={platform} />;
   }
 
   return <ContributorOverviewWrapper platform={platform} />;

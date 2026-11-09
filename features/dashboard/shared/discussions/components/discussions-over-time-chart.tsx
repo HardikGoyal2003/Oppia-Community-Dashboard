@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import {
   Area,
   CartesianGrid,
@@ -12,8 +13,9 @@ import {
 } from "recharts";
 import { MessagesSquare } from "lucide-react";
 import type { DiscussionMetricPoint } from "@/lib/discussion-metrics/discussion-metrics.service";
+import { cn } from "@/lib/utils/classnames.utils";
 
-const CHART_GRADIENT_ID = "unanswered-discussions-gradient";
+const CHART_GRADIENT_ID_PREFIX = "unanswered-discussions-gradient";
 
 type ChartTooltipPayloadItem = {
   value?: number | string;
@@ -74,19 +76,30 @@ function DiscussionChartTooltip({
 export function DiscussionsOverTimeChart({
   metrics,
   platformLabel,
+  title = "Unanswered Discussions Over Time",
+  description,
+  className,
 }: {
   metrics: DiscussionMetricPoint[];
   platformLabel: string;
+  title?: string;
+  description?: string;
+  className?: string;
 }) {
+  const resolvedDescription =
+    description ?? `Daily unanswered discussion trends for ${platformLabel}.`;
+  const gradientId = `${CHART_GRADIENT_ID_PREFIX}-${useId().replace(/:/g, "")}`;
+
   if (metrics.length === 0) {
     return (
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">
-          Unanswered Discussions Over Time
-        </h2>
-        <p className="mt-2 text-sm text-slate-600">
-          Daily unanswered discussion trends for {platformLabel}.
-        </p>
+      <section
+        className={cn(
+          "rounded-2xl border border-slate-200 bg-white p-6 shadow-sm",
+          className,
+        )}
+      >
+        <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+        <p className="mt-2 text-sm text-slate-600">{resolvedDescription}</p>
         <div className="mt-5 flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-6 py-12">
           <MessagesSquare className="mb-3 h-8 w-8 text-slate-300" />
           <p className="text-sm text-slate-500">
@@ -104,29 +117,24 @@ export function DiscussionsOverTimeChart({
   }));
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section
+      className={cn(
+        "rounded-2xl border border-slate-200 bg-white p-6 shadow-sm",
+        className,
+      )}
+    >
       <div>
-        <h2 className="text-lg font-semibold text-slate-900">
-          Unanswered Discussions Over Time
-        </h2>
-        <p className="mt-2 text-sm text-slate-600">
-          Daily unanswered discussion trends for {platformLabel}.
-        </p>
+        <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+        <p className="mt-2 text-sm text-slate-600">{resolvedDescription}</p>
       </div>
       <div className="mt-5 h-72 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={chartData}
-            margin={{ top: 12, right: 8, bottom: 8, left: -16 }}
+            margin={{ top: 12, right: 8, bottom: 8, left: 0 }}
           >
             <defs>
-              <linearGradient
-                id={CHART_GRADIENT_ID}
-                x1="0"
-                y1="0"
-                x2="0"
-                y2="1"
-              >
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#2563eb" stopOpacity={0.12} />
                 <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
               </linearGradient>
@@ -149,13 +157,13 @@ export function DiscussionsOverTimeChart({
               tick={{ fill: "#94a3b8", fontSize: 11 }}
               tickLine={false}
               axisLine={false}
-              width={30}
+              width={40}
             />
             <Tooltip content={<DiscussionChartTooltip />} />
             <Area
               type="monotone"
               dataKey="unansweredDiscussionsCount"
-              fill={`url(#${CHART_GRADIENT_ID})`}
+              fill={`url(#${gradientId})`}
               stroke="none"
             />
             <Line
