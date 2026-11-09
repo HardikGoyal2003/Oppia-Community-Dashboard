@@ -48,6 +48,7 @@ export async function createDailyDiscussionMetric(
  *
  * @param platform The contribution platform to fetch.
  * @param dateKey The inclusive YYYY-MM-DD lower-bound date key.
+ * @firestore-index dailyDiscussionMetrics platform,dateKey
  * @returns The normalized metrics captured since that date key.
  */
 export async function getDailyDiscussionMetricsSinceDateKey(
