@@ -5,6 +5,10 @@
       "schedule": "30 22 * * *"
     },
     {
+      "path": "/api/cron/capture-daily-discussion-metrics",
+      "schedule": "30 22 * * *"
+    },
+    {
       "path": "/api/cron/sync-team-data",
       "schedule": "0 0 * * *"
     },

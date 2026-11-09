@@ -67,13 +67,28 @@ export interface GitHubGoodFirstIssue {
   linkedProject: string;
 }
 
+interface GitHubDiscussionCommentNode {
+  createdAt: string;
+  author?: GitHubUser;
+  replies: {
+    nodes: {
+      createdAt: string;
+      author?: GitHubUser;
+    }[];
+  };
+}
+
 export interface GitHubDiscussionNode {
   number: number;
   title: string;
   url: string;
   createdAt: string;
+  updatedAt: string;
   closed: boolean;
   author?: GitHubUser;
+  comments: {
+    nodes: GitHubDiscussionCommentNode[];
+  };
 }
 
 export interface GitHubDiscussion {
@@ -81,4 +96,5 @@ export interface GitHubDiscussion {
   discussionUrl: string;
   discussionTitle: string;
   createdAt: string;
+  lastCommentCreatedAt: string;
 }

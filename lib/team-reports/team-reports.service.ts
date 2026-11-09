@@ -65,7 +65,7 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
     nextSteps.push({
       ruleKey: "max-team-leads",
       message: `Reduce team leads in this team. There are ${teamLeadCount} team leads, but the ideal is at most 3.`,
-      priority: "high",
+      priority: "medium",
       reason:
         "Too many team leads can create unclear ownership and blur accountability.",
     });
@@ -75,7 +75,7 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
     nextSteps.push({
       ruleKey: "max-trainee-leads",
       message: `Reduce trainee leads in this team. There are ${traineeLeadCount} trainee leads, but the ideal is at most 2.`,
-      priority: "high",
+      priority: "medium",
       reason:
         "Too many trainee leads can slow onboarding and make lead accountability unclear.",
     });

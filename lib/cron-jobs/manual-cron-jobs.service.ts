@@ -4,6 +4,7 @@ import type {
 } from "@/lib/domain/cron-jobs.types";
 import { LibInvalidStateError } from "@/lib/lib.errors";
 import { captureDailyUnansweredIssueMetrics } from "@/lib/team-metrics/capture-daily-team-metrics.service";
+import { captureDailyDiscussionMetrics } from "@/lib/discussion-metrics/capture-daily-discussion-metrics.service";
 import { syncTeamData } from "@/lib/teams/sync-team-data.service";
 import { syncOrgMeta } from "@/lib/org-meta/sync-org-meta.service";
 import { sendWeeklyActionItemDigest } from "@/lib/notifications/action-item-digest.service";
@@ -14,6 +15,12 @@ const CRON_JOBS: CronJobDefinition[] = [
     name: "Capture Daily Team Metrics",
     description:
       "Fetch unanswered issue counts for all configured teams and store a snapshot in dailyTeamMetrics.",
+  },
+  {
+    key: "capture_daily_discussion_metrics",
+    name: "Capture Daily Discussion Metrics",
+    description:
+      "Fetch unanswered discussion counts for each platform and store a snapshot in dailyDiscussionMetrics.",
   },
   {
     key: "sync_team_data",
@@ -77,6 +84,26 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
           ...result.teams.map(
             (team) =>
               `${team.platform} / ${team.teamName}: ${team.unansweredIssuesCount} unanswered issues.`,
+          ),
+        ].join("\n"),
+      };
+    }
+    case "capture_daily_discussion_metrics": {
+      const result = await captureDailyDiscussionMetrics();
+      const finishedAt = new Date();
+
+      return {
+        finishedAt,
+        jobKey: job.key,
+        jobName: job.name,
+        startedAt,
+        summary: [
+          "Cron job completed.",
+          `Captured at: ${finishedAt.toLocaleString("en-IN")}.`,
+          `Date key: ${result.dateKey}.`,
+          ...result.platforms.map(
+            (platformMetric) =>
+              `${platformMetric.platform}: ${platformMetric.unansweredDiscussionsCount} unanswered discussions.`,
           ),
         ].join("\n"),
       };

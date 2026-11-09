@@ -45,6 +45,7 @@ export async function POST(req: Request) {
         "Dummy data generated successfully.",
         `Teams written: ${summary.teamsWritten}.`,
         `Daily team metric snapshots written: ${summary.metricsWritten}.`,
+        `Daily discussion metric snapshots written: ${summary.discussionMetricsWritten}.`,
       ].join("\n"),
     });
   } catch (error) {

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { DiscussionCard } from "./discussions/components/discussion-card";
+import { DiscussionsOverTimeChart } from "./discussions/components/discussions-over-time-chart";
 import { DiscussionTabs } from "./discussions/components/discussion-tabs";
 import { EmptyState } from "./empty-state";
 import { GitHubDiscussion } from "@/lib/github/github.types";
@@ -14,12 +15,25 @@ import { useProjectDiscussionsStore } from "./discussions/store/project-discussi
 import { categorizeDiscussions } from "./discussions/services/categorize-discussions.service";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { getArchivedDiscussionsForPlatform } from "./discussions/services/archived-discussions-api.service";
+import type { DiscussionMetricPoint } from "@/lib/discussion-metrics/discussion-metrics.service";
 import { getErrorCodeMeta } from "@/lib/errors/error-codes";
 import { ErrorCard } from "@/components/error/error-card";
 import { formatDisplayValue } from "@/lib/utils/display.utils";
+import {
+  computeTtlFromLastUpdated,
+  getCachedData,
+  setCachedData,
+} from "@/lib/utils/local-storage-cache";
 import { MonitorSmartphone } from "lucide-react";
 import { cn } from "@/lib/utils/classnames.utils";
 
+type CachedOrgMeta = {
+  orgMembers: string[];
+  collaborators: { login: string; permission: string }[];
+  lastUpdated: string;
+};
+
+const ORG_META_CACHE_KEY_PREFIX = "oppia_org_meta";
 const GITHUB_API_UNAVAILABLE_META = getErrorCodeMeta("GITHUB_API_UNAVAILABLE");
 const PLATFORM_OPTIONS: ContributionPlatform[] = ["WEB", "ANDROID"];
 const PLATFORM_REPO_LABEL: Record<ContributionPlatform, string> = {
@@ -44,6 +58,10 @@ export default function UnansweredDiscussionsTab() {
     [],
   );
 
+  const [discussionMetrics, setDiscussionMetrics] = useState<
+    DiscussionMetricPoint[]
+  >([]);
+
   const { data: session } = useSession();
   const sessionPlatform = session?.user?.platform ?? null;
   const role = session?.user?.role;
@@ -64,10 +82,16 @@ export default function UnansweredDiscussionsTab() {
     setFetchError(null);
     setShowGitHubError(false);
     try {
+      const cacheKey = `${ORG_META_CACHE_KEY_PREFIX}_${platform}`;
+      const cachedOrgMeta = getCachedData<CachedOrgMeta>(cacheKey);
+
       const discussionsResponse = await fetch("/api/github/discussions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ platform }),
+        body: JSON.stringify({
+          orgMeta: cachedOrgMeta ?? null,
+          platform,
+        }),
       });
 
       if (!discussionsResponse.ok) {
@@ -81,7 +105,17 @@ export default function UnansweredDiscussionsTab() {
 
       const discussionsData = (await discussionsResponse.json()) as {
         discussions: GitHubDiscussion[];
+        orgMeta: CachedOrgMeta | null;
       };
+
+      if (discussionsData.orgMeta) {
+        const ttl = computeTtlFromLastUpdated(
+          discussionsData.orgMeta.lastUpdated,
+        );
+        if (ttl > 0) {
+          setCachedData(cacheKey, discussionsData.orgMeta, ttl);
+        }
+      }
 
       const archivedDiscussions =
         await getArchivedDiscussionsForPlatform(platform);
@@ -105,6 +139,7 @@ export default function UnansweredDiscussionsTab() {
     setActiveTab("active");
     setResponseData(null);
     setArchivedDiscussions([]);
+    setDiscussionMetrics([]);
     setFetchError(null);
     setShowGitHubError(false);
     setDiscussions({
@@ -114,14 +149,69 @@ export default function UnansweredDiscussionsTab() {
   };
 
   useEffect(() => {
-    if (!responseData || !hasPlatform) return;
+    if (!responseData || !hasPlatform || !platform) return;
 
-    const categorized = categorizeDiscussions(
-      responseData.discussions,
-      archivedDiscussions,
-    );
-    setDiscussions(categorized);
-  }, [responseData, archivedDiscussions, hasPlatform, setDiscussions]);
+    (async () => {
+      try {
+        const categorized = await categorizeDiscussions(
+          responseData.discussions,
+          archivedDiscussions,
+          platform,
+        );
+        setDiscussions(categorized);
+      } catch (error) {
+        setFetchError(
+          error instanceof Error
+            ? error.message
+            : "Failed to categorize discussions.",
+        );
+      }
+    })();
+  }, [
+    responseData,
+    archivedDiscussions,
+    hasPlatform,
+    platform,
+    setDiscussions,
+  ]);
+
+  useEffect(() => {
+    if (!hasPlatform || !platform) {
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const response = await fetch(
+          `/api/discussion-metrics?platform=${platform}`,
+          { cache: "no-store" },
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch discussion metrics.");
+        }
+
+        const data = (await response.json()) as {
+          metrics: DiscussionMetricPoint[];
+        };
+
+        if (!cancelled) {
+          setDiscussionMetrics(data.metrics);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error(error);
+          setDiscussionMetrics([]);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasPlatform, platform]);
 
   return (
     <div
@@ -174,6 +264,17 @@ export default function UnansweredDiscussionsTab() {
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {hasPlatform && (
+            <div className="mb-5">
+              <DiscussionsOverTimeChart
+                metrics={discussionMetrics}
+                platformLabel={
+                  platform ? PLATFORM_REPO_LABEL[platform] : "this platform"
+                }
+              />
             </div>
           )}
 

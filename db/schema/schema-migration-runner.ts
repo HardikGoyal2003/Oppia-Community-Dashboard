@@ -122,6 +122,11 @@ function buildSchemaCollectionTargets(): SchemaCollectionTarget[] {
       query: db.collection(DB_PATHS.DAILY_TEAM_METRICS.COLLECTION),
     },
     {
+      key: SCHEMA_KEYS.DAILY_DISCUSSION_METRICS,
+      label: DB_PATHS.DAILY_DISCUSSION_METRICS.COLLECTION,
+      query: db.collection(DB_PATHS.DAILY_DISCUSSION_METRICS.COLLECTION),
+    },
+    {
       key: SCHEMA_KEYS.NOTIFICATION_DELIVERIES,
       label: DB_PATHS.NOTIFICATION_DELIVERIES.COLLECTION,
       query: db.collection(DB_PATHS.NOTIFICATION_DELIVERIES.COLLECTION),
