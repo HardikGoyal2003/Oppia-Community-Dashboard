@@ -489,8 +489,8 @@ export function ReviewerReportsTab() {
           No reviewer reports data
         </h3>
         <p className="mt-2 text-sm text-slate-500">
-          Run the &quot;Sync Reviewer Reports&quot; cron job from the control
-          panel to populate this view.
+          Run the &quot;Sync Reviewer Reports&quot; cron job, or generate
+          reviewer dummy data from the control panel to populate this view.
         </p>
       </div>
     );

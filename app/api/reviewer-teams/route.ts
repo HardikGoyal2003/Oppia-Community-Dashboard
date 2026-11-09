@@ -22,7 +22,7 @@ export async function GET() {
     return NextResponse.json(
       {
         error:
-          "No reviewer teams data found. Run the Sync Reviewer Reports cron job first.",
+          "No reviewer teams data found. Run the Sync Reviewer Reports cron job, or generate reviewer dummy data from the control panel.",
       },
       { status: 404 },
     );
