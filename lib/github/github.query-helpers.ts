@@ -267,6 +267,7 @@ export async function fetchRecentDiscussionNodes(
   const discussions: GitHubDiscussionNode[] = [];
   let cursor: string | null = null;
   let hasNextPage = true;
+  const cutoffTime = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
   const query = `
     query($owner: String!, $repo: String!, $cursor: String) {
@@ -281,9 +282,26 @@ export async function fetchRecentDiscussionNodes(
             title
             url
             createdAt
+            updatedAt
             closed
             author {
               login
+            }
+            comments(last: 50) {
+              nodes {
+                createdAt
+                author {
+                  login
+                }
+                replies(last: 10) {
+                  nodes {
+                    createdAt
+                    author {
+                      login
+                    }
+                  }
+                }
+              }
             }
           }
           pageInfo {
@@ -304,9 +322,18 @@ export async function fetchRecentDiscussionNodes(
       });
     assertDiscussionsResponse(data);
 
-    discussions.push(...data.repository.discussions.nodes);
+    const nodes = data.repository.discussions.nodes;
+    discussions.push(...nodes);
     hasNextPage = data.repository.discussions.pageInfo.hasNextPage;
     cursor = data.repository.discussions.pageInfo.endCursor;
+
+    // Discussions are ordered by UPDATED_AT descending, so once the oldest
+    // discussion on a page falls outside the window, every later page will too.
+    const oldestUpdatedAt = nodes.at(-1)?.updatedAt;
+
+    if (oldestUpdatedAt && new Date(oldestUpdatedAt).getTime() < cutoffTime) {
+      break;
+    }
   }
 
   return discussions;

@@ -28,7 +28,9 @@ export const DiscussionCard = ({
 }: DiscussionCardProps) => {
   const archiveDiscussion = useArchiveDiscussion();
   const discussionAnswered = useMarkDiscussionAnswered();
-  const waitedForLabel = getElapsedTimeLabel(discussion.createdAt);
+  const waitedForLabel = getElapsedTimeLabel(
+    discussion.lastCommentCreatedAt ?? discussion.createdAt,
+  );
 
   return (
     <Card className="w-full flex flex-col sm:flex-row px-4 sm:px-10">
@@ -50,7 +52,7 @@ export const DiscussionCard = ({
             <p>{`#${discussion.discussionNumber}`}</p>
             {!discussion.isArchived ? (
               <p className="text-xs text-slate-600">
-                Waiting {waitedForLabel} since opened
+                Waiting {waitedForLabel} since last comment
               </p>
             ) : discussion.archivedBy || discussion.archivedAt ? (
               <p className="text-xs text-slate-500">

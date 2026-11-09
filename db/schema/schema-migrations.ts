@@ -98,6 +98,7 @@ export const SCHEMA_MIGRATIONS: Record<SchemaKey, readonly SchemaMigration[]> =
     [SCHEMA_KEYS.ARCHIVED_DISCUSSIONS]: [addSchemaVersionField(1)],
     [SCHEMA_KEYS.ARCHIVED_ISSUES]: [addSchemaVersionField(1)],
     [SCHEMA_KEYS.DAILY_TEAM_METRICS]: [addSchemaVersionField(1)],
+    [SCHEMA_KEYS.DAILY_DISCUSSION_METRICS]: [addSchemaVersionField(1)],
     [SCHEMA_KEYS.DATA_JOB_RUNS]: [addSchemaVersionField(1)],
     [SCHEMA_KEYS.MEMBER_ACCESS_REQUESTS]: [addSchemaVersionField(1)],
     [SCHEMA_KEYS.NOTIFICATION_DELIVERIES]: [addSchemaVersionField(1)],

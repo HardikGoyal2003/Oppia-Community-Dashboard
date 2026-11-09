@@ -25,6 +25,7 @@ function getSidebarItems(role: UserRole): SidebarNavigationItem[] {
     case "SUPER_ADMIN":
     case "ADMIN":
       return [
+        { name: "Overview", icon: LayoutDashboard, url: "/dashboard/overview" },
         {
           name: "Incoming Requests",
           icon: Inbox,
@@ -73,6 +74,7 @@ function getSidebarItems(role: UserRole): SidebarNavigationItem[] {
       ];
     case "LEAD_TRAINEE":
       return [
+        { name: "Overview", icon: LayoutDashboard, url: "/dashboard/overview" },
         {
           name: "Unanswered Issues",
           icon: Bug,

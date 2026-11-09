@@ -26,6 +26,9 @@ export const DB_PATHS = {
   DAILY_TEAM_METRICS: {
     COLLECTION: "dailyTeamMetrics",
   },
+  DAILY_DISCUSSION_METRICS: {
+    COLLECTION: "dailyDiscussionMetrics",
+  },
   USERS: {
     COLLECTION: "users",
     NOTIFICATIONS_SUBCOLLECTION: "notifications",

@@ -4,6 +4,7 @@ export interface Discussion {
   discussionTitle: string;
   isArchived: boolean;
   createdAt: string;
+  lastCommentCreatedAt?: string;
   archivedBy?: string;
   archivedAt?: string;
 }

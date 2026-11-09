@@ -3,6 +3,7 @@ import { upsertTeam } from "@/db/teams/teams.db";
 import { TEAM_DEFINITIONS } from "@/lib/domain/team-definitions";
 import type { TeamLead, TeamMember } from "@/lib/domain/teams.types";
 import { getIstDateKey } from "@/lib/utils/date.utils";
+import { getFixedIstCaptureDate } from "./dummy-data.utils";
 
 type DummyDataGenerationSummary = {
   metricsWritten: number;
@@ -118,30 +119,6 @@ const SAMPLE_MAX_WAITING_DAYS: Record<string, number[]> = {
   WEB_DEV_WORKFLOW: [0.8, 0.9, 1.4, 1.2, 1.7, 2.4, 2.1, 2.9, 2.6, 3.3],
   WEB_LEAP: [2.1, 2.4, 3.0, 3.3, 3.8, 3.5, 4.2, 4.0, 4.6, 5.1],
 };
-
-/**
- * Builds a deterministic snapshot timestamp for a sample day offset.
- *
- * @param daysAgo The number of days before today to target.
- * @returns The fixed snapshot timestamp for that sample day.
- */
-function getFixedIstCaptureDate(daysAgo: number): Date {
-  const now = new Date();
-  const target = new Date(now);
-  target.setDate(target.getDate() - daysAgo);
-
-  return new Date(
-    Date.UTC(
-      target.getUTCFullYear(),
-      target.getUTCMonth(),
-      target.getUTCDate(),
-      6,
-      30,
-      0,
-      0,
-    ),
-  );
-}
 
 /**
  * Seeds deterministic sample teams and daily team metrics for local chart development.

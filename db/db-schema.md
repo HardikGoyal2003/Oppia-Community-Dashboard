@@ -123,6 +123,20 @@ Fields:
 - `maxWaitingDays: number`
 - `schemaVersion: number`
 
+### `dailyDiscussionMetrics`
+
+Document id:
+
+- `${platform}_${capturedAtMillis}`
+
+Fields:
+
+- `platform: "WEB" | "ANDROID"`
+- `dateKey: string` **(IST-normalized YYYY-MM-DD reporting day bucket)**
+- `capturedAt: Timestamp`
+- `unansweredDiscussionsCount: number`
+- `schemaVersion: number`
+
 ### `teams/{teamId}/actionItems`
 
 Subcollection of `teams`. Document id:
@@ -231,5 +245,6 @@ Normalized app-layer models convert Firestore timestamps as follows:
 - `actionItems.updatedAt -> Date`
 - `notificationDeliveries.recordedAt -> Date`
 - `dailyTeamMetrics.capturedAt -> Date`
+- `dailyDiscussionMetrics.capturedAt -> Date`
 - `dataJobRuns.startedAt -> Date`
 - `dataJobRuns.finishedAt -> Date | null`

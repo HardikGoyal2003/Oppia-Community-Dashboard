@@ -3,10 +3,38 @@ import { getTeams } from "@/db/teams/teams.db";
 import { TEAM_DEFINITIONS } from "@/lib/domain/team-definitions";
 import type { TeamModel } from "@/lib/domain/teams.types";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import { getDiscussionMetricHistory } from "@/lib/discussion-metrics/discussion-metrics.service";
 import { getIstDateKeyDaysAgo } from "@/lib/utils/date.utils";
 
 /** Healthy pool size that each team should keep open for new contributors. */
 const MINIMUM_GFI_POOL_SIZE = 15;
+
+/** Unanswered discussions at or above this count are escalated to high priority. */
+const HIGH_PRIORITY_DISCUSSION_COUNT = 3;
+
+const PLATFORMS: ContributionPlatform[] = ["WEB", "ANDROID"];
+
+type UnansweredDiscussionsByPlatform = Record<ContributionPlatform, number>;
+
+/**
+ * Reads the latest unanswered-discussion count for every platform.
+ *
+ * @returns The current unanswered-discussion count keyed by platform.
+ */
+async function getLatestUnansweredDiscussionsByPlatform(): Promise<UnansweredDiscussionsByPlatform> {
+  const counts = await Promise.all(
+    PLATFORMS.map(async (platform) => {
+      const history = await getDiscussionMetricHistory(platform);
+
+      return [
+        platform,
+        history.at(-1)?.unansweredDiscussionsCount ?? 0,
+      ] as const;
+    }),
+  );
+
+  return Object.fromEntries(counts) as UnansweredDiscussionsByPlatform;
+}
 
 export type TeamReportNextStep = {
   /**
@@ -39,9 +67,13 @@ export type TeamReportsSnapshot = {
  * Derives recommended next steps for a team report based on staffing, GFI coverage, and trend data.
  *
  * @param team The report to evaluate.
+ * @param unansweredDiscussionsCount The latest unanswered-discussion count for the team's platform.
  * @returns The ordered list of recommended next steps.
  */
-function getNextSteps(team: TeamReport): TeamReportNextStep[] {
+function getNextSteps(
+  team: TeamReport,
+  unansweredDiscussionsCount: number,
+): TeamReportNextStep[] {
   const nextSteps: TeamReportNextStep[] = [];
   const totalGfiCount = team.gfiCount;
   const teamLeadCount = team.leads.filter(
@@ -65,7 +97,7 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
     nextSteps.push({
       ruleKey: "max-team-leads",
       message: `Reduce team leads in this team. There are ${teamLeadCount} team leads, but the ideal is at most 3.`,
-      priority: "high",
+      priority: "medium",
       reason:
         "Too many team leads can create unclear ownership and blur accountability.",
     });
@@ -75,7 +107,7 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
     nextSteps.push({
       ruleKey: "max-trainee-leads",
       message: `Reduce trainee leads in this team. There are ${traineeLeadCount} trainee leads, but the ideal is at most 2.`,
-      priority: "high",
+      priority: "medium",
       reason:
         "Too many trainee leads can slow onboarding and make lead accountability unclear.",
     });
@@ -128,6 +160,20 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
     });
   }
 
+  if (unansweredDiscussionsCount > 0) {
+    nextSteps.push({
+      ruleKey: "discussion-response",
+      message:
+        "Ask your team members to respond to unanswered discussions because some have been waiting too long for a reply.",
+      priority:
+        unansweredDiscussionsCount >= HIGH_PRIORITY_DISCUSSION_COUNT
+          ? "high"
+          : "medium",
+      reason:
+        "Unanswered discussions are missed opportunities to engage potential contributors. Timely replies keep the community active and help surface future team members for the codebase.",
+    });
+  }
+
   return nextSteps;
 }
 
@@ -138,9 +184,10 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
  */
 export async function getTeamReportsSnapshot(): Promise<TeamReportsSnapshot> {
   const sinceDateKey = getIstDateKeyDaysAgo(13);
-  const [teams, metrics] = await Promise.all([
+  const [teams, metrics, unansweredDiscussionsByPlatform] = await Promise.all([
     getTeams(),
     getDailyTeamMetricsSinceDateKey(sinceDateKey),
+    getLatestUnansweredDiscussionsByPlatform(),
   ]);
 
   const reports: TeamReport[] = teams.map((team) => {
@@ -164,7 +211,10 @@ export async function getTeamReportsSnapshot(): Promise<TeamReportsSnapshot> {
 
     return {
       ...report,
-      nextSteps: getNextSteps(report),
+      nextSteps: getNextSteps(
+        report,
+        unansweredDiscussionsByPlatform[team.platform],
+      ),
     };
   });
 
