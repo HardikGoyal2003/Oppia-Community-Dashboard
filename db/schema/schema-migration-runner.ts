@@ -12,12 +12,63 @@ type SchemaCollectionTarget = {
   query: FirebaseFirestore.Query;
 };
 
+type MigrationWrite = {
+  ref: FirebaseFirestore.DocumentReference;
+  data: FirebaseFirestore.DocumentData;
+};
+
 /** Summary of a schema-version backfill pass. */
 export type SchemaVersionBackfillSummary = {
   scannedCount: number;
   migratedCount: number;
   failedCount: number;
 };
+
+/**
+ * Number of document writes to keep in flight at once. Sequential writes made
+ * large backfills exceed the 300s serverless execution limit, so writes are
+ * issued concurrently in small groups instead.
+ */
+const WRITE_CONCURRENCY = 50;
+
+/**
+ * Default time budget for a backfill pass. The Vercel function limit is 300s;
+ * leaving a buffer lets the job report partial progress instead of being killed
+ * mid-write and leaving the run stuck in `RUNNING`.
+ */
+const DEFAULT_TIME_BUDGET_MS = 240_000;
+
+/**
+ * Splits a list into fixed-size chunks.
+ *
+ * @param values The values to split.
+ * @param size The maximum chunk size.
+ * @returns The chunked values.
+ */
+function chunkValues<T>(values: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+
+  return chunks;
+}
+
+/**
+ * Builds the error used when a backfill stops early to stay within the
+ * serverless execution limit.
+ *
+ * @param summary The progress made before stopping.
+ * @returns The error describing the partial progress.
+ */
+function buildTimeBudgetError(summary: SchemaVersionBackfillSummary): Error {
+  return new Error(
+    `Schema backfill paused after ${summary.scannedCount} document(s) to stay within the serverless execution limit ` +
+      `(${summary.migratedCount} migrated, ${summary.failedCount} failed). ` +
+      "Re-run the job to continue; documents already at the current schema version are skipped.",
+  );
+}
 
 /**
  * Builds the list of Firestore collections and collection groups that store
@@ -103,21 +154,69 @@ function buildSchemaCollectionTargets(): SchemaCollectionTarget[] {
  *
  * @param options Backfill options.
  * @param options.dryRun When true, scans and reports without writing.
+ * @param options.timeBudgetMs Optional maximum time to spend before pausing.
  * @returns The number of scanned, migrated, and failed documents.
+ * @throws {Error} When the time budget is exhausted before every collection is
+ * scanned. Re-running the job continues where the previous pass stopped because
+ * documents already at the current version are skipped.
  */
 export async function backfillSchemaVersions(options: {
   dryRun: boolean;
+  timeBudgetMs?: number;
 }): Promise<SchemaVersionBackfillSummary> {
   const summary: SchemaVersionBackfillSummary = {
     scannedCount: 0,
     migratedCount: 0,
     failedCount: 0,
   };
+  const deadline =
+    Date.now() + (options.timeBudgetMs ?? DEFAULT_TIME_BUDGET_MS);
+  const pendingWrites: MigrationWrite[] = [];
+
+  /**
+   * Commits the writes collected so far. Writes are issued in small concurrent
+   * groups so a large backfill does not spend one network round trip per
+   * document.
+   *
+   * @returns A promise that resolves when the pending writes are committed.
+   */
+  const flushPendingWrites = async (): Promise<void> => {
+    const writes = pendingWrites.splice(0, pendingWrites.length);
+
+    for (const chunk of chunkValues(writes, WRITE_CONCURRENCY)) {
+      const results = await Promise.allSettled(
+        chunk.map((write) => write.ref.set(write.data)),
+      );
+
+      results.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          summary.migratedCount += 1;
+          return;
+        }
+
+        summary.failedCount += 1;
+        console.error(
+          `Failed to persist migrated document ${chunk[index].ref.path}.`,
+          result.reason,
+        );
+      });
+    }
+  };
 
   for (const target of buildSchemaCollectionTargets()) {
+    if (Date.now() >= deadline) {
+      await flushPendingWrites();
+      throw buildTimeBudgetError(summary);
+    }
+
     const snapshot = await target.query.get();
 
     for (const doc of snapshot.docs) {
+      if (Date.now() >= deadline) {
+        await flushPendingWrites();
+        throw buildTimeBudgetError(summary);
+      }
+
       summary.scannedCount += 1;
 
       try {
@@ -129,13 +228,19 @@ export async function backfillSchemaVersions(options: {
 
         const migratedDocument = migrateDocument(target.key, data);
 
-        if (!options.dryRun) {
-          // Use `set` instead of `update` so fields removed by a migration are
-          // actually deleted from the stored document.
-          await doc.ref.set(migratedDocument);
+        if (options.dryRun) {
+          summary.migratedCount += 1;
+          continue;
         }
 
-        summary.migratedCount += 1;
+        pendingWrites.push({
+          ref: doc.ref,
+          data: migratedDocument,
+        });
+
+        if (pendingWrites.length >= WRITE_CONCURRENCY) {
+          await flushPendingWrites();
+        }
       } catch (error) {
         summary.failedCount += 1;
         console.error(
@@ -145,6 +250,8 @@ export async function backfillSchemaVersions(options: {
       }
     }
   }
+
+  await flushPendingWrites();
 
   return summary;
 }

@@ -18,9 +18,30 @@ export const usersCollection = db.collection(
   DB_PATHS.USERS.COLLECTION,
 ) as FirebaseFirestore.CollectionReference<FirestoreUser>;
 
+/** Maximum number of writes Firestore accepts in a single batch. */
+const FIRESTORE_BATCH_LIMIT = 400;
+
 export type UserRecord = UserModel & {
   id: string;
 };
+
+/**
+ * Splits a list into fixed-size chunks so writes stay within Firestore's batch
+ * limit.
+ *
+ * @param values The values to split.
+ * @param size The maximum chunk size.
+ * @returns The chunked values.
+ */
+function chunkValues<T>(values: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+
+  return chunks;
+}
 
 /**
  * Validates the GitHub username requirement for non-contributor roles.
@@ -193,6 +214,30 @@ export async function updateUserRole(
   await userDocRef.update({
     role,
   });
+}
+
+/**
+ * Updates the role of many users using batched writes.
+ *
+ * This is intended for bulk maintenance jobs where the user documents were
+ * just read, so no per-user existence check is required. Batching keeps the
+ * number of network round trips low enough for serverless execution limits.
+ *
+ * @param updates The user ids and the role to assign to each one.
+ * @returns A promise that resolves when all batches have been committed.
+ */
+export async function updateUserRoles(
+  updates: Array<{ uid: string; role: UserRole }>,
+): Promise<void> {
+  for (const chunk of chunkValues(updates, FIRESTORE_BATCH_LIMIT)) {
+    const batch = usersCollection.firestore.batch();
+
+    for (const { uid, role } of chunk) {
+      batch.update(usersCollection.doc(uid), { role });
+    }
+
+    await batch.commit();
+  }
 }
 
 /**
