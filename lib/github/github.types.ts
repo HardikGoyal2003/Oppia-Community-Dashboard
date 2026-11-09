@@ -67,6 +67,9 @@ export interface GitHubGoodFirstIssue {
   linkedProject: string;
 }
 
+// `author` is nullable in GitHub's GraphQL schema because a comment can outlive
+// its author's account (deleted/suspended users). Consumers use `author?.login`
+// and treat an unknown author as a non-maintainer, so the thread stays visible.
 interface GitHubDiscussionCommentNode {
   createdAt: string;
   author?: GitHubUser;
