@@ -15,6 +15,10 @@ import {
   markManualJourneyItemCompletedByUid,
   saveUserJourneyProgressByUid,
 } from "@/db/user-journey-progress/user-journey-progress.db";
+import {
+  SCHEMA_KEYS,
+  getCurrentSchemaVersion,
+} from "@/db/schema/schema-version";
 
 type ContributorJourneyItemSnapshot = ContributorJourneyChecklistItem & {
   completed: boolean;
@@ -87,6 +91,7 @@ function buildDefaultJourneyProgress(
     ),
     platform,
     updatedAt: new Date(),
+    schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.USER_JOURNEY_PROGRESS),
   };
 }
 

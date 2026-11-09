@@ -1,12 +1,9 @@
 import { createDailyTeamMetric } from "@/db/team-metrics/daily-team-metrics.db";
 import { upsertTeam } from "@/db/teams/teams.db";
 import { TEAM_DEFINITIONS } from "@/lib/domain/team-definitions";
-import type {
-  TeamGfiCounts,
-  TeamLead,
-  TeamMember,
-} from "@/lib/domain/teams.types";
+import type { TeamLead, TeamMember } from "@/lib/domain/teams.types";
 import { getIstDateKey } from "@/lib/utils/date.utils";
+import { getFixedIstCaptureDate } from "./dummy-data.utils";
 
 type DummyDataGenerationSummary = {
   metricsWritten: number;
@@ -97,37 +94,12 @@ const SAMPLE_MEMBERS: Record<string, TeamMember[]> = {
   ],
 };
 
-const SAMPLE_GFI_COUNTS: Record<string, TeamGfiCounts> = {
-  ANDROID_CLAM: {
-    backend: 1,
-    frontend: 4,
-    fullstack: 1,
-    uncategorized: 0,
-  },
-  ANDROID_DEV_WORKFLOW_INFRA: {
-    backend: 3,
-    frontend: 0,
-    fullstack: 2,
-    uncategorized: 1,
-  },
-  WEB_CORE: {
-    backend: 4,
-    frontend: 6,
-    fullstack: 3,
-    uncategorized: 1,
-  },
-  WEB_DEV_WORKFLOW: {
-    backend: 5,
-    frontend: 2,
-    fullstack: 3,
-    uncategorized: 0,
-  },
-  WEB_LEAP: {
-    backend: 2,
-    frontend: 7,
-    fullstack: 2,
-    uncategorized: 1,
-  },
+const SAMPLE_GFI_COUNT: Record<string, number> = {
+  ANDROID_CLAM: 6,
+  ANDROID_DEV_WORKFLOW_INFRA: 6,
+  WEB_CORE: 14,
+  WEB_DEV_WORKFLOW: 10,
+  WEB_LEAP: 12,
 };
 
 const SAMPLE_UNANSWERED_ISSUES: Record<string, number[]> = {
@@ -149,30 +121,6 @@ const SAMPLE_MAX_WAITING_DAYS: Record<string, number[]> = {
 };
 
 /**
- * Builds a deterministic snapshot timestamp for a sample day offset.
- *
- * @param daysAgo The number of days before today to target.
- * @returns The fixed snapshot timestamp for that sample day.
- */
-function getFixedIstCaptureDate(daysAgo: number): Date {
-  const now = new Date();
-  const target = new Date(now);
-  target.setDate(target.getDate() - daysAgo);
-
-  return new Date(
-    Date.UTC(
-      target.getUTCFullYear(),
-      target.getUTCMonth(),
-      target.getUTCDate(),
-      6,
-      30,
-      0,
-      0,
-    ),
-  );
-}
-
-/**
  * Seeds deterministic sample teams and daily team metrics for local chart development.
  *
  * @returns A summary of the written team and metric documents.
@@ -183,7 +131,7 @@ export async function generateTeamReportsDummyData(): Promise<DummyDataGeneratio
   await Promise.all(
     TEAM_DEFINITIONS.map((team) =>
       upsertTeam(team.teamId, {
-        gfiCounts: SAMPLE_GFI_COUNTS[team.teamId],
+        gfiCount: SAMPLE_GFI_COUNT[team.teamId] ?? 0,
         lastUpdated,
         leads: SAMPLE_LEADS[team.teamId] ?? [],
         members: SAMPLE_MEMBERS[team.teamId] ?? [],

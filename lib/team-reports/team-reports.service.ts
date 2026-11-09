@@ -1,13 +1,49 @@
 import { getDailyTeamMetricsSinceDateKey } from "@/db/team-metrics/daily-team-metrics.db";
 import { getTeams } from "@/db/teams/teams.db";
 import { TEAM_DEFINITIONS } from "@/lib/domain/team-definitions";
-import type { TeamGfiCounts, TeamModel } from "@/lib/domain/teams.types";
+import type { TeamModel } from "@/lib/domain/teams.types";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import { getDiscussionMetricHistory } from "@/lib/discussion-metrics/discussion-metrics.service";
 import { getIstDateKeyDaysAgo } from "@/lib/utils/date.utils";
 
+/** Healthy pool size that each team should keep open for new contributors. */
+const MINIMUM_GFI_POOL_SIZE = 15;
+
+/** Unanswered discussions at or above this count are escalated to high priority. */
+const HIGH_PRIORITY_DISCUSSION_COUNT = 3;
+
+const PLATFORMS: ContributionPlatform[] = ["WEB", "ANDROID"];
+
+type UnansweredDiscussionsByPlatform = Record<ContributionPlatform, number>;
+
+/**
+ * Reads the latest unanswered-discussion count for every platform.
+ *
+ * @returns The current unanswered-discussion count keyed by platform.
+ */
+async function getLatestUnansweredDiscussionsByPlatform(): Promise<UnansweredDiscussionsByPlatform> {
+  const counts = await Promise.all(
+    PLATFORMS.map(async (platform) => {
+      const history = await getDiscussionMetricHistory(platform);
+
+      return [
+        platform,
+        history.at(-1)?.unansweredDiscussionsCount ?? 0,
+      ] as const;
+    }),
+  );
+
+  return Object.fromEntries(counts) as UnansweredDiscussionsByPlatform;
+}
+
 export type TeamReportNextStep = {
+  /**
+   * Stable identifier for the rule that produced this step. Used to give
+   * persisted action items a deterministic identity across syncs.
+   */
+  ruleKey: string;
   message: string;
-  priority: "high" | "medium";
+  priority: "high" | "medium" | "low";
   reason: string;
 };
 
@@ -28,55 +64,18 @@ export type TeamReportsSnapshot = {
 };
 
 /**
- * Returns the tracked GFI domains that are below the minimum threshold.
- *
- * @param gfiCounts The current GFI counts for a team.
- * @returns The list of domain shortfalls with required counts.
- */
-function getLowGfiDomainShortfalls(gfiCounts: TeamGfiCounts): Array<{
-  countNeeded: number;
-  domain: string;
-}> {
-  const shortfalls: Array<{ countNeeded: number; domain: string }> = [];
-
-  if (gfiCounts.frontend < 5) {
-    shortfalls.push({
-      countNeeded: 5 - gfiCounts.frontend,
-      domain: "frontend",
-    });
-  }
-
-  if (gfiCounts.backend < 5) {
-    shortfalls.push({
-      countNeeded: 5 - gfiCounts.backend,
-      domain: "backend",
-    });
-  }
-
-  if (gfiCounts.fullstack < 5) {
-    shortfalls.push({
-      countNeeded: 5 - gfiCounts.fullstack,
-      domain: "fullstack",
-    });
-  }
-
-  return shortfalls;
-}
-
-/**
  * Derives recommended next steps for a team report based on staffing, GFI coverage, and trend data.
  *
  * @param team The report to evaluate.
+ * @param unansweredDiscussionsCount The latest unanswered-discussion count for the team's platform.
  * @returns The ordered list of recommended next steps.
  */
-function getNextSteps(team: TeamReport): TeamReportNextStep[] {
+function getNextSteps(
+  team: TeamReport,
+  unansweredDiscussionsCount: number,
+): TeamReportNextStep[] {
   const nextSteps: TeamReportNextStep[] = [];
-  const lowGfiDomainShortfalls = getLowGfiDomainShortfalls(team.gfiCounts);
-  const totalGfiCount =
-    team.gfiCounts.frontend +
-    team.gfiCounts.backend +
-    team.gfiCounts.fullstack +
-    team.gfiCounts.uncategorized;
+  const totalGfiCount = team.gfiCount;
   const teamLeadCount = team.leads.filter(
     (lead) => lead.role === "TEAM_LEAD",
   ).length;
@@ -86,6 +85,7 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
 
   if (team.members.length < 4) {
     nextSteps.push({
+      ruleKey: "min-members",
       message: "Onboard more team members in this team.",
       priority: "high",
       reason:
@@ -95,8 +95,9 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
 
   if (teamLeadCount > 3) {
     nextSteps.push({
+      ruleKey: "max-team-leads",
       message: `Reduce team leads in this team. There are ${teamLeadCount} team leads, but the ideal is at most 3.`,
-      priority: "high",
+      priority: "medium",
       reason:
         "Too many team leads can create unclear ownership and blur accountability.",
     });
@@ -104,8 +105,9 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
 
   if (traineeLeadCount > 2) {
     nextSteps.push({
+      ruleKey: "max-trainee-leads",
       message: `Reduce trainee leads in this team. There are ${traineeLeadCount} trainee leads, but the ideal is at most 2.`,
-      priority: "high",
+      priority: "medium",
       reason:
         "Too many trainee leads can slow onboarding and make lead accountability unclear.",
     });
@@ -113,6 +115,7 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
 
   if (team.leads.length < 2) {
     nextSteps.push({
+      ruleKey: "min-leads",
       message: `Onboard ${2 - team.leads.length} more lead${
         2 - team.leads.length === 1 ? "" : "s"
       } in this team.`,
@@ -124,6 +127,7 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
 
   if (traineeLeadCount < 1) {
     nextSteps.push({
+      ruleKey: "trainee-lead-pipeline",
       message: "It is better to onboard one trainee lead in this team.",
       priority: "medium",
       reason:
@@ -131,26 +135,15 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
     });
   }
 
-  if (lowGfiDomainShortfalls.length > 0) {
+  if (totalGfiCount < MINIMUM_GFI_POOL_SIZE) {
+    const countNeeded = MINIMUM_GFI_POOL_SIZE - totalGfiCount;
+
     nextSteps.push({
-      message:
-        team.platform === "ANDROID"
-          ? `Ask leads to add ${Math.max(15 - totalGfiCount, 1)} more GFI${
-              Math.max(15 - totalGfiCount, 1) === 1 ? "" : "s"
-            }.`
-          : `Ask leads to add ${lowGfiDomainShortfalls
-              .map(
-                ({ countNeeded, domain }) =>
-                  `${countNeeded} more ${domain} GFI${
-                    countNeeded === 1 ? "" : "s"
-                  }`,
-              )
-              .join(", ")}.`,
+      ruleKey: "gfi-shortfall",
+      message: `Add ${countNeeded} more GFI${countNeeded === 1 ? "" : "s"}.`,
       priority: "high",
       reason:
-        team.platform === "ANDROID"
-          ? "Android teams should keep a healthy pool of good first issues so new contributors can consistently find starter work."
-          : "Each tracked domain should have at least 5 good first issues so new contributors can find enough well-scoped starter work.",
+        "Each team should keep a healthy pool of good first issues so new contributors can consistently find starter work.",
     });
   }
 
@@ -158,25 +151,26 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
 
   if (latestMaxWaitingDays > 2) {
     nextSteps.push({
+      ruleKey: "issue-waiting-days",
       message:
-        "Ask leads about the team\u2019s issue response performance because some issues have been waiting too long for a response.",
+        "Review the team\u2019s issue response performance because some issues have been waiting too long for a response.",
       priority: "high",
       reason:
         "Issues waiting more than 2 days for a response signal a support bottleneck that needs attention.",
     });
   }
 
-  if (team.gfiCounts.uncategorized > 0) {
-    if (team.platform === "ANDROID") {
-      return nextSteps;
-    }
-
+  if (unansweredDiscussionsCount > 0) {
     nextSteps.push({
+      ruleKey: "discussion-response",
       message:
-        "Ask leads to categorize uncategorized good first issues into frontend, backend, or fullstack.",
-      priority: "medium",
+        "Ask your team members to respond to unanswered discussions because some have been waiting too long for a reply.",
+      priority:
+        unansweredDiscussionsCount >= HIGH_PRIORITY_DISCUSSION_COUNT
+          ? "high"
+          : "medium",
       reason:
-        "Categorized good first issues are easier for contributors to discover, choose, and self-select based on their skills.",
+        "Unanswered discussions are missed opportunities to engage potential contributors. Timely replies keep the community active and help surface future team members for the codebase.",
     });
   }
 
@@ -190,9 +184,10 @@ function getNextSteps(team: TeamReport): TeamReportNextStep[] {
  */
 export async function getTeamReportsSnapshot(): Promise<TeamReportsSnapshot> {
   const sinceDateKey = getIstDateKeyDaysAgo(13);
-  const [teams, metrics] = await Promise.all([
+  const [teams, metrics, unansweredDiscussionsByPlatform] = await Promise.all([
     getTeams(),
     getDailyTeamMetricsSinceDateKey(sinceDateKey),
+    getLatestUnansweredDiscussionsByPlatform(),
   ]);
 
   const reports: TeamReport[] = teams.map((team) => {
@@ -216,7 +211,10 @@ export async function getTeamReportsSnapshot(): Promise<TeamReportsSnapshot> {
 
     return {
       ...report,
-      nextSteps: getNextSteps(report),
+      nextSteps: getNextSteps(
+        report,
+        unansweredDiscussionsByPlatform[team.platform],
+      ),
     };
   });
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { readEnv } from "@/lib/config";
-import { syncTeamGfiCounts } from "@/lib/teams/sync-team-gfi-counts.service";
+import { sendWeeklyActionItemDigest } from "@/lib/notifications/action-item-digest.service";
 
 function isAuthorizedCronRequest(req: Request): boolean {
   const cronSecret = readEnv("CRON_SECRET");
@@ -13,13 +13,19 @@ function isAuthorizedCronRequest(req: Request): boolean {
   return authorization === `Bearer ${cronSecret}`;
 }
 
+/**
+ * Sends the weekly action-items digest to team leads. Idempotent per week;
+ * pass `?force=true` (still requiring CRON_SECRET) to re-send intentionally.
+ */
 export async function GET(req: Request) {
   if (!isAuthorizedCronRequest(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const force = new URL(req.url).searchParams.get("force") === "true";
+
   try {
-    const summary = await syncTeamGfiCounts();
+    const summary = await sendWeeklyActionItemDigest({ force });
     return NextResponse.json(summary);
   } catch (error) {
     console.error(error);
@@ -29,7 +35,7 @@ export async function GET(req: Request) {
         error:
           error instanceof Error
             ? error.message
-            : "Failed to sync team GFI counts.",
+            : "Failed to send the action items digest.",
       },
       { status: 500 },
     );

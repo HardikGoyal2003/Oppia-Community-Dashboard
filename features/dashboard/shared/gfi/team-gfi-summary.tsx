@@ -1,21 +1,29 @@
 "use client";
 
-import type { TeamReport } from "../overview.types";
-import { getTotalGfiCount } from "../overview.utils";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import { getGfiPoolStatusLabel, MINIMUM_GFI_POOL_SIZE } from "./gfi.utils";
 
-export function AndroidTeamGfiSummary({
-  counts,
+/**
+ * Resolves the display name for a contribution platform.
+ *
+ * @param platform The contribution platform.
+ * @returns The platform name used in the GFI summary copy.
+ */
+function getPlatformLabel(platform: ContributionPlatform): string {
+  return platform === "ANDROID" ? "Android" : "Web";
+}
+
+export function TeamGfiSummary({
+  gfiCount,
+  platform,
 }: {
-  counts: TeamReport["gfiCounts"];
+  gfiCount: number;
+  platform: ContributionPlatform;
 }) {
-  const total = getTotalGfiCount(counts);
-  const progress = Math.min((total / 15) * 100, 100);
-  const statusLabel =
-    total >= 15
-      ? "Healthy pipeline"
-      : total >= 8
-        ? "Needs growth"
-        : "Low stock";
+  const total = gfiCount;
+  const progress = Math.min((total / MINIMUM_GFI_POOL_SIZE) * 100, 100);
+  const platformLabel = getPlatformLabel(platform);
+  const statusLabel = getGfiPoolStatusLabel(total);
 
   return (
     <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(148,163,184,0.14),_transparent_40%),linear-gradient(135deg,_#ffffff_0%,_#f8fafc_55%,_#f1f5f9_100%)] px-5 py-5">
@@ -25,13 +33,13 @@ export function AndroidTeamGfiSummary({
       <div className="relative flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-            Android GFI Pool
+            {platformLabel} GFI Pool
           </p>
           <p className="mt-3 text-4xl font-semibold leading-none text-slate-950">
             {total}
           </p>
           <p className="mt-2 text-sm text-slate-600">
-            Open starter issues available for Android contributors.
+            Open starter issues available for {platformLabel} contributors.
           </p>
         </div>
 
@@ -56,8 +64,8 @@ export function AndroidTeamGfiSummary({
           />
         </div>
         <p className="mt-3 text-sm text-slate-600">
-          Targeting a steady pool of 15+ open good first issues keeps Android
-          onboarding simple and visible.
+          Targeting a steady pool of {MINIMUM_GFI_POOL_SIZE}+ open good first
+          issues keeps {platformLabel} onboarding simple and visible.
         </p>
       </div>
     </div>

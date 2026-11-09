@@ -70,6 +70,7 @@ export async function appendUserNotificationByUid(
  * @param uid The user id to query by.
  * @param status The optional notification status filter.
  * @returns The normalized notifications sorted by creation time descending.
+ * @firestore-index notifications read,createdAt
  */
 export async function getNotificationsByUid(
   uid: string,

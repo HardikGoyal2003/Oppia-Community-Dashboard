@@ -3,13 +3,12 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import { getKnownRoleDisplayLabel } from "@/lib/auth/role-display";
 import {
+  getMemberAccessRequestById,
   getPendingMemberAccessRequestsByPlatformAndRoles,
   PendingMemberAccessRequestError,
   resolveMemberAccessRequest,
   submitMemberAccessRequest,
 } from "@/db/member-access-requests/member-access-request.db";
-import { updateUserRoleAndTeamWithNotificationByUid } from "@/db/users/users.db";
-import { appendUserNotificationByUid } from "@/db/users/notifications/notifications.db";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { isValidUserRole } from "@/lib/utils/roles.utils";
 import {
@@ -182,7 +181,7 @@ export async function PATCH(req: Request) {
   }
 
   try {
-    const request = await resolveMemberAccessRequest(requestId, decision);
+    const request = await getMemberAccessRequestById(requestId);
 
     if (!ADMIN_MANAGEABLE_ROLES.includes(request.role)) {
       return NextResponse.json(
@@ -194,6 +193,8 @@ export async function PATCH(req: Request) {
       );
     }
 
+    let notificationMessage: string;
+
     if (decision === "ACCEPT") {
       if (!isValidUserRole(request.role)) {
         return NextResponse.json(
@@ -202,19 +203,15 @@ export async function PATCH(req: Request) {
         );
       }
 
-      await updateUserRoleAndTeamWithNotificationByUid(
-        request.userId,
-        request.role,
-        request.team,
-        request.username,
-        getPromotionMessage(request.role, request.team),
-      );
+      notificationMessage = getPromotionMessage(request.role, request.team);
     } else {
-      await appendUserNotificationByUid(
-        request.userId,
-        getDeclineMessage(reason, session.user?.githubUsername),
+      notificationMessage = getDeclineMessage(
+        reason,
+        session.user.githubUsername,
       );
     }
+
+    await resolveMemberAccessRequest(requestId, decision, notificationMessage);
   } catch (error) {
     if (error instanceof DbNotFoundError) {
       return NextResponse.json({ error: error.message }, { status: 404 });

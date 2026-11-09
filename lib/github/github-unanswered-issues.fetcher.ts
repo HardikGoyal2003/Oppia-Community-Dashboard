@@ -1,11 +1,8 @@
-import { getOrgMeta } from "@/db/org-meta/org-meta.db";
 import type { OrgMetaRecord } from "@/db/org-meta/org-meta.mapper";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { mapGitHubIssueNodes } from "./github-issues.mapper";
-import {
-  fetchOrgAndCollaboratorAccess,
-  fetchRecentIssueNodes,
-} from "./github.query-helpers";
+import { resolveMaintainerAccess } from "./github-maintainers";
+import { fetchRecentIssueNodes } from "./github.query-helpers";
 import { fetchGitHubRateLimit } from "./github.rate-limit";
 import type { GitHubIssue, GitHubRepoTarget } from "./github.types";
 
@@ -20,63 +17,13 @@ import type { GitHubIssue, GitHubRepoTarget } from "./github.types";
 export async function fetchUnansweredIssues(
   target: GitHubRepoTarget,
   platform: ContributionPlatform,
-  cachedOrgMeta?: OrgMetaRecord,
+  cachedOrgMeta?: Omit<OrgMetaRecord, "schemaVersion">,
 ): Promise<GitHubIssue[]> {
-  let orgMembers: Set<string>;
-  let collabAll: Set<string>;
-  let maintainers: Set<string>;
-
-  if (cachedOrgMeta) {
-    console.log("Using org meta from client cache...");
-    orgMembers = new Set(cachedOrgMeta.orgMembers);
-    collabAll = new Set(cachedOrgMeta.collaborators.map((c) => c.login));
-    maintainers = new Set(
-      cachedOrgMeta.collaborators
-        .filter((c) => ["ADMIN", "MAINTAIN", "WRITE"].includes(c.permission))
-        .map((c) => c.login),
-    );
-  } else if (platform) {
-    const cached = await getOrgMeta(platform);
-
-    if (cached) {
-      console.log("Using cached org meta from Firestore...");
-      orgMembers = new Set(cached.orgMembers);
-      collabAll = new Set(cached.collaborators.map((c) => c.login));
-      maintainers = new Set(
-        cached.collaborators
-          .filter((c) => ["ADMIN", "MAINTAIN", "WRITE"].includes(c.permission))
-          .map((c) => c.login),
-      );
-    } else {
-      console.log("No cached org meta found, falling back to GitHub API...");
-      const fetched = await fetchOrgAndCollaboratorAccess(target);
-      orgMembers = new Set(
-        fetched.organization.membersWithRole.nodes.map((m) => m.login),
-      );
-      const collabEdges = fetched.repository.collaborators.edges;
-      collabAll = new Set(collabEdges.map((e) => e.node.login));
-      maintainers = new Set(
-        collabEdges
-          .filter((e) => ["ADMIN", "MAINTAIN", "WRITE"].includes(e.permission))
-          .map((e) => e.node.login),
-      );
-    }
-  } else {
-    console.log("Fetching collaborators and org members from GitHub...");
-    const orgData = await fetchOrgAndCollaboratorAccess(target);
-    orgMembers = new Set(
-      orgData.organization.membersWithRole.nodes.map((member) => member.login),
-    );
-    const collaborators = orgData.repository.collaborators.edges;
-    collabAll = new Set(collaborators.map((entry) => entry.node.login));
-    maintainers = new Set(
-      collaborators
-        .filter((entry) =>
-          ["ADMIN", "MAINTAIN", "WRITE"].includes(entry.permission),
-        )
-        .map((entry) => entry.node.login),
-    );
-  }
+  const {
+    orgMembers,
+    collaborators: collabAll,
+    maintainers,
+  } = await resolveMaintainerAccess(target, platform, cachedOrgMeta);
 
   console.log(`Org members: ${orgMembers.size}`);
   console.log(`Collaborators: ${collabAll.size}`);

@@ -20,9 +20,7 @@ import MyContributionJourneyBeforeYouStart from "./my-contribution-journey-befor
 import JourneyManualCompletionDialog from "./journey-manual-completion-dialog";
 import JourneyVerificationCard from "./journey-verification-card";
 import JourneyVerificationDialog from "./journey-verification-dialog";
-import MyContributionJourneyIssueFinder, {
-  type GfiDomain,
-} from "./my-contribution-journey-issue-finder";
+import MyContributionJourneyIssueFinder from "./my-contribution-journey-issue-finder";
 import MyContributionJourneyProgressHero from "./my-contribution-journey-progress-hero";
 
 type ContributorJourneyItemSnapshot = ContributorJourneyChecklistItem & {
@@ -65,14 +63,6 @@ type ContributorJourneyVerificationResponse = {
   };
   snapshot: ContributorJourneyResponse;
 };
-
-function getInitialGfiDomain(platform: ContributionPlatform): GfiDomain {
-  if (platform === "ANDROID") {
-    return "LEARNER_FACING";
-  }
-
-  return "FRONTEND";
-}
 
 function sanitizeGithubUrl(url: string): string | null {
   const trimmedUrl = url.trim();
@@ -225,9 +215,6 @@ export default function MyContributionJourneyTab({
   >(null);
   const [verificationMessage, setVerificationMessage] = useState<string | null>(
     null,
-  );
-  const [selectedGfiDomain, setSelectedGfiDomain] = useState<GfiDomain>(() =>
-    getInitialGfiDomain(platform),
   );
   const sanitizedFirstIssueLink = sanitizeGithubUrl(firstIssueLink);
   const sanitizedFirstPrLink = sanitizeGithubUrl(firstPrLink);
@@ -946,12 +933,6 @@ export default function MyContributionJourneyTab({
                                                 }
                                                 isLocked={isActivityPanelLocked}
                                                 platform={platform}
-                                                selectedDomain={
-                                                  selectedGfiDomain
-                                                }
-                                                setSelectedDomain={
-                                                  setSelectedGfiDomain
-                                                }
                                               />
                                             );
                                           })()}

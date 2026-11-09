@@ -2,6 +2,9 @@ export const DB_PATHS = {
   ARCHIVED_ISSUES: {
     COLLECTION: "archivedIssues",
   },
+  ARCHIVED_DISCUSSIONS: {
+    COLLECTION: "archivedDiscussions",
+  },
   DATA_JOB_RUNS: {
     COLLECTION: "dataJobRuns",
   },
@@ -11,11 +14,20 @@ export const DB_PATHS = {
   MEMBER_ACCESS_REQUESTS: {
     COLLECTION: "memberAccessRequests",
   },
+  ACTION_ITEMS: {
+    COLLECTION: "actionItems",
+  },
+  NOTIFICATION_DELIVERIES: {
+    COLLECTION: "notificationDeliveries",
+  },
   TEAMS: {
     COLLECTION: "teams",
   },
   DAILY_TEAM_METRICS: {
     COLLECTION: "dailyTeamMetrics",
+  },
+  DAILY_DISCUSSION_METRICS: {
+    COLLECTION: "dailyDiscussionMetrics",
   },
   USERS: {
     COLLECTION: "users",

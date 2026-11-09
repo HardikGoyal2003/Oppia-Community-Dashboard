@@ -4,6 +4,12 @@ import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
+import {
+  SCHEMA_KEYS,
+  assertSchemaVersion,
+  getCurrentSchemaVersion,
+} from "@/db/schema/schema-version";
+import { migrateDocument } from "@/db/schema/schema-migrations";
 
 export type CollaboratorEntry = {
   login: string;
@@ -14,12 +20,14 @@ export type FirestoreOrgMeta = {
   orgMembers: string[];
   collaborators: CollaboratorEntry[];
   lastUpdated: Timestamp;
+  schemaVersion: number;
 };
 
 export type OrgMetaRecord = {
   orgMembers: string[];
   collaborators: CollaboratorEntry[];
   lastUpdated: Date;
+  schemaVersion: number;
 };
 
 /**
@@ -64,6 +72,7 @@ function assertFirestoreOrgMeta(
   }
 
   assertTimestamp("OrgMeta", "lastUpdated", data.lastUpdated);
+  assertSchemaVersion(SCHEMA_KEYS.ORG_META, data.schemaVersion);
 }
 
 /**
@@ -75,12 +84,14 @@ function assertFirestoreOrgMeta(
 export function normalizeOrgMetaDocument(
   data: FirebaseFirestore.DocumentData,
 ): OrgMetaRecord {
-  assertFirestoreOrgMeta(data);
+  const migratedData = migrateDocument(SCHEMA_KEYS.ORG_META, data);
+  assertFirestoreOrgMeta(migratedData);
 
   return {
-    orgMembers: data.orgMembers,
-    collaborators: data.collaborators,
-    lastUpdated: normalizeTimestamp(data.lastUpdated),
+    orgMembers: migratedData.orgMembers,
+    collaborators: migratedData.collaborators,
+    lastUpdated: normalizeTimestamp(migratedData.lastUpdated),
+    schemaVersion: migratedData.schemaVersion,
   };
 }
 
@@ -91,7 +102,7 @@ export function normalizeOrgMetaDocument(
  * @returns The Firestore-ready org-meta document.
  */
 export function serializeOrgMeta(
-  orgMeta: Omit<OrgMetaRecord, "lastUpdated"> & {
+  orgMeta: Omit<OrgMetaRecord, "lastUpdated" | "schemaVersion"> & {
     lastUpdated: Date | Timestamp;
   },
 ): FirestoreOrgMeta {
@@ -102,5 +113,6 @@ export function serializeOrgMeta(
       orgMeta.lastUpdated instanceof Timestamp
         ? orgMeta.lastUpdated
         : Timestamp.fromDate(orgMeta.lastUpdated),
+    schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.ORG_META),
   };
 }

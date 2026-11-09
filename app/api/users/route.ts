@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   getUsersByPlatform,
+  type UserRecord,
   updateUserRoleAndTeamWithNotificationByUid,
 } from "@/db/users/users.db";
 import { getServerSession } from "next-auth";
@@ -10,8 +11,31 @@ import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { isValidUserRole } from "@/lib/utils/roles.utils";
 import { DbNotFoundError, DbValidationError } from "@/db/db.errors";
 
+type ManagedUser = Pick<
+  UserRecord,
+  "id" | "fullName" | "email" | "githubUsername" | "platform" | "role" | "team"
+>;
+
 function canManageUsers(role: UserRole): boolean {
   return role === "ADMIN" || role === "SUPER_ADMIN";
+}
+
+/**
+ * Selects only the user fields required by the user-role manager UI.
+ *
+ * @param user The full user record.
+ * @returns The minimal user payload exposed to the client.
+ */
+function toManagedUser(user: UserRecord): ManagedUser {
+  return {
+    id: user.id,
+    fullName: user.fullName,
+    email: user.email,
+    githubUsername: user.githubUsername,
+    platform: user.platform,
+    role: user.role,
+    team: user.team,
+  };
 }
 
 function getUserAccessUpdatedMessage(
@@ -47,7 +71,7 @@ export async function GET(req: Request) {
       : undefined;
 
   const users = await getUsersByPlatform(platform);
-  return NextResponse.json(users);
+  return NextResponse.json(users.map(toManagedUser));
 }
 
 export async function PATCH(req: Request) {

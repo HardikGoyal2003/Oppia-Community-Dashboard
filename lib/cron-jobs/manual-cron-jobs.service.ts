@@ -4,11 +4,13 @@ import type {
 } from "@/lib/domain/cron-jobs.types";
 import { LibInvalidStateError } from "@/lib/lib.errors";
 import { captureDailyUnansweredIssueMetrics } from "@/lib/team-metrics/capture-daily-team-metrics.service";
-import { syncTeamGfiCounts } from "@/lib/teams/sync-team-gfi-counts.service";
+import { captureDailyDiscussionMetrics } from "@/lib/discussion-metrics/capture-daily-discussion-metrics.service";
+import { syncTeamData } from "@/lib/teams/sync-team-data.service";
 import { syncOrgMeta } from "@/lib/org-meta/sync-org-meta.service";
 import { syncReviewerTeams } from "@/lib/team-activity/sync-reviewer-teams.service";
 import { syncReviewCycles } from "@/lib/team-activity/sync-review-cycles.service";
 import { syncPendingReviews } from "@/lib/team-activity/sync-pending-reviews.service";
+import { sendWeeklyActionItemDigest } from "@/lib/notifications/action-item-digest.service";
 
 const CRON_JOBS: CronJobDefinition[] = [
   {
@@ -18,10 +20,16 @@ const CRON_JOBS: CronJobDefinition[] = [
       "Fetch unanswered issue counts for all configured teams and store a snapshot in dailyTeamMetrics.",
   },
   {
-    key: "sync_team_gfi_counts",
-    name: "Sync Team GFI Counts",
+    key: "capture_daily_discussion_metrics",
+    name: "Capture Daily Discussion Metrics",
     description:
-      "Fetch open unassigned good first issues from GitHub and update each team's gfiCounts.",
+      "Fetch unanswered discussion counts for each platform and store a snapshot in dailyDiscussionMetrics.",
+  },
+  {
+    key: "sync_team_data",
+    name: "Sync Team Data",
+    description:
+      "Fetch open unassigned good first issues from GitHub, refresh team leads and members, and update each team's gfiCount.",
   },
   {
     key: "sync_org_meta",
@@ -46,6 +54,12 @@ const CRON_JOBS: CronJobDefinition[] = [
     name: "Sync Pending Reviews",
     description:
       "Fetch open PR assignments and update pendingReviews on reviewer docs. Runs daily.",
+  },
+  {
+    key: "send_action_item_digest",
+    name: "Send Action Items Digest",
+    description:
+      "Sync action items and send the weekly digest of current items to each team's leads.",
   },
 ];
 
@@ -95,8 +109,28 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
         ].join("\n"),
       };
     }
-    case "sync_team_gfi_counts": {
-      const result = await syncTeamGfiCounts();
+    case "capture_daily_discussion_metrics": {
+      const result = await captureDailyDiscussionMetrics();
+      const finishedAt = new Date();
+
+      return {
+        finishedAt,
+        jobKey: job.key,
+        jobName: job.name,
+        startedAt,
+        summary: [
+          "Cron job completed.",
+          `Captured at: ${finishedAt.toLocaleString("en-IN")}.`,
+          `Date key: ${result.dateKey}.`,
+          ...result.platforms.map(
+            (platformMetric) =>
+              `${platformMetric.platform}: ${platformMetric.unansweredDiscussionsCount} unanswered discussions.`,
+          ),
+        ].join("\n"),
+      };
+    }
+    case "sync_team_data": {
+      const result = await syncTeamData();
       const finishedAt = new Date();
 
       return {
@@ -181,6 +215,37 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
           `Pending reviews synced: ${result.pendingReviewsCount}.`,
           `Updated reviewers: ${result.updatedReviewersCount}.`,
           `Finished at: ${finishedAt.toLocaleString("en-IN")}.`,
+        ].join("\n"),
+      };
+    }
+    case "send_action_item_digest": {
+      const result = await sendWeeklyActionItemDigest();
+      const finishedAt = new Date();
+
+      return {
+        finishedAt,
+        jobKey: job.key,
+        jobName: job.name,
+        startedAt,
+        summary: [
+          "Cron job completed.",
+          `Digest period (week starting): ${result.periodKey}.`,
+          `Teams with active items: ${result.teamsConsidered}.`,
+          `Teams notified: ${result.teamsNotified}.`,
+          ...result.teams.map(
+            (team) =>
+              `${team.teamKey}: ${team.itemCount} item(s), ${team.recipientCount} recipient(s) — ${team.channelOutcomes
+                .map(
+                  (outcome) =>
+                    `${outcome.channel}: ${outcome.status} (${outcome.detail})`,
+                )
+                .join(", ")}.`,
+          ),
+          ...(result.skippedTeamKeys.length > 0
+            ? [
+                `Skipped (no active items or no leads): ${result.skippedTeamKeys.join(", ")}.`,
+              ]
+            : []),
         ].join("\n"),
       };
     }

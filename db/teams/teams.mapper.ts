@@ -2,7 +2,6 @@ import { Timestamp } from "firebase-admin/firestore";
 import { DbValidationError } from "@/db/db.errors";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type {
-  TeamGfiCounts,
   TeamLead,
   TeamLeadRole,
   TeamMember,
@@ -12,6 +11,12 @@ import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
+import {
+  SCHEMA_KEYS,
+  assertSchemaVersion,
+  getCurrentSchemaVersion,
+} from "@/db/schema/schema-version";
+import { migrateDocument } from "@/db/schema/schema-migrations";
 
 export type FirestoreTeam = Omit<TeamModel, "lastUpdated"> & {
   lastUpdated: Timestamp;
@@ -36,27 +41,15 @@ function assertNonNegativeNumber(
 }
 
 /**
- * Validates the nested GFI counts object stored on a team document.
+ * Validates the total GFI count stored on a team document.
  *
- * @param gfiCounts The nested gfiCounts object candidate.
- * @returns Nothing. Throws when the nested shape is invalid.
+ * @param gfiCount The total GFI count candidate.
+ * @returns Nothing. Throws when the value is invalid.
  */
-function assertFirestoreGfiCounts(
-  gfiCounts: Record<string, number | undefined> | null,
-): asserts gfiCounts is TeamGfiCounts {
-  if (gfiCounts === null) {
-    throw new DbValidationError(
-      "gfiCounts",
-      "Team gfiCounts must be an object.",
-    );
-  }
-
-  const counts = gfiCounts;
-
-  assertNonNegativeNumber(counts.frontend, "gfiCounts.frontend");
-  assertNonNegativeNumber(counts.backend, "gfiCounts.backend");
-  assertNonNegativeNumber(counts.fullstack, "gfiCounts.fullstack");
-  assertNonNegativeNumber(counts.uncategorized, "gfiCounts.uncategorized");
+function assertFirestoreGfiCount(
+  gfiCount: number | undefined,
+): asserts gfiCount is number {
+  assertNonNegativeNumber(gfiCount, "gfiCount");
 }
 
 /**
@@ -151,9 +144,10 @@ function assertFirestoreTeam(
 
   assertFirestoreTeamLeads(team.leads);
   assertFirestoreTeamMembers(team.members);
-  assertFirestoreGfiCounts(team.gfiCounts);
+  assertFirestoreGfiCount(team.gfiCount);
 
   assertTimestamp("Team", "lastUpdated", team.lastUpdated);
+  assertSchemaVersion(SCHEMA_KEYS.TEAMS, team.schemaVersion);
 }
 
 /**
@@ -165,27 +159,24 @@ function assertFirestoreTeam(
 export function normalizeTeamDocument(
   team: FirebaseFirestore.DocumentData,
 ): TeamModel {
-  assertFirestoreTeam(team);
+  const migratedTeam = migrateDocument(SCHEMA_KEYS.TEAMS, team);
+  assertFirestoreTeam(migratedTeam);
 
   return {
-    gfiCounts: {
-      backend: team.gfiCounts.backend,
-      frontend: team.gfiCounts.frontend,
-      fullstack: team.gfiCounts.fullstack,
-      uncategorized: team.gfiCounts.uncategorized,
-    },
-    lastUpdated: normalizeTimestamp(team.lastUpdated),
-    leads: team.leads.map((lead) => ({
+    gfiCount: migratedTeam.gfiCount,
+    lastUpdated: normalizeTimestamp(migratedTeam.lastUpdated),
+    leads: migratedTeam.leads.map((lead) => ({
       role: lead.role as TeamLeadRole,
       uid: lead.uid,
       username: lead.username,
     })),
-    members: team.members.map((member) => ({
+    members: migratedTeam.members.map((member) => ({
       uid: member.uid,
       username: member.username,
     })),
-    platform: team.platform as ContributionPlatform,
-    teamName: team.teamName,
+    platform: migratedTeam.platform as ContributionPlatform,
+    teamName: migratedTeam.teamName,
+    schemaVersion: migratedTeam.schemaVersion,
   };
 }
 
@@ -196,15 +187,12 @@ export function normalizeTeamDocument(
  * @returns The Firestore-ready team document.
  */
 export function serializeTeam(
-  team: Omit<TeamModel, "lastUpdated"> & { lastUpdated: Date | Timestamp },
+  team: Omit<TeamModel, "lastUpdated" | "schemaVersion"> & {
+    lastUpdated: Date | Timestamp;
+  },
 ): FirestoreTeam {
   return {
-    gfiCounts: {
-      backend: team.gfiCounts.backend,
-      frontend: team.gfiCounts.frontend,
-      fullstack: team.gfiCounts.fullstack,
-      uncategorized: team.gfiCounts.uncategorized,
-    },
+    gfiCount: team.gfiCount,
     leads: team.leads.map((lead) => ({
       role: lead.role,
       uid: lead.uid,
@@ -220,5 +208,6 @@ export function serializeTeam(
         : Timestamp.fromDate(team.lastUpdated),
     platform: team.platform,
     teamName: team.teamName,
+    schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.TEAMS),
   };
 }

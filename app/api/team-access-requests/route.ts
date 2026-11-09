@@ -3,11 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import { getKnownRoleDisplayLabel } from "@/lib/auth/role-display";
 import {
+  getMemberAccessRequestById,
   getPendingMemberAccessRequestsByPlatformAndRoles,
   resolveMemberAccessRequest,
 } from "@/db/member-access-requests/member-access-request.db";
-import { updateUserRoleAndTeamWithNotificationByUid } from "@/db/users/users.db";
-import { appendUserNotificationByUid } from "@/db/users/notifications/notifications.db";
 import { UserRole } from "@/lib/auth/auth.types";
 import { isValidUserRole } from "@/lib/utils/roles.utils";
 import {
@@ -101,8 +100,17 @@ export async function PATCH(req: Request) {
     );
   }
 
+  const { team, platform, githubUsername } = session.user;
+
+  if (!team || !platform) {
+    return NextResponse.json(
+      { error: "Your team assignment is incomplete." },
+      { status: 400 },
+    );
+  }
+
   try {
-    const request = await resolveMemberAccessRequest(requestId, decision);
+    const request = await getMemberAccessRequestById(requestId);
 
     if (!TEAM_LEAD_MANAGEABLE_ROLES.includes(request.role)) {
       return NextResponse.json(
@@ -114,7 +122,7 @@ export async function PATCH(req: Request) {
       );
     }
 
-    if (request.team !== session.user!.team) {
+    if (request.team !== team) {
       return NextResponse.json(
         {
           error:
@@ -124,6 +132,18 @@ export async function PATCH(req: Request) {
       );
     }
 
+    if (request.platform !== platform) {
+      return NextResponse.json(
+        {
+          error:
+            "You do not have permission to resolve requests for another platform.",
+        },
+        { status: 403 },
+      );
+    }
+
+    let notificationMessage: string;
+
     if (decision === "ACCEPT") {
       if (!isValidUserRole(request.role)) {
         return NextResponse.json(
@@ -132,19 +152,12 @@ export async function PATCH(req: Request) {
         );
       }
 
-      await updateUserRoleAndTeamWithNotificationByUid(
-        request.userId,
-        request.role,
-        request.team,
-        request.username,
-        getPromotionMessage(request.role, request.team),
-      );
+      notificationMessage = getPromotionMessage(request.role, request.team);
     } else {
-      await appendUserNotificationByUid(
-        request.userId,
-        getDeclineMessage(reason, session.user?.githubUsername),
-      );
+      notificationMessage = getDeclineMessage(reason, githubUsername);
     }
+
+    await resolveMemberAccessRequest(requestId, decision, notificationMessage);
   } catch (error) {
     if (error instanceof DbNotFoundError) {
       return NextResponse.json({ error: error.message }, { status: 404 });

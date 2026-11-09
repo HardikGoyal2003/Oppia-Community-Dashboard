@@ -20,6 +20,7 @@ Fields:
 - `team: "LEAP" | "CORE" | "DEV_WORKFLOW" | "CLAM" | "DEV_WORKFLOW_INFRA" | null` **(Can be null when a new user sign-in on the dashboard)**
 - `platform: "WEB" | "ANDROID" | null` **(Can be null when a new user sign-in on the dashboard)**
 - `createdAt: Timestamp`
+- `schemaVersion: number`
 
 Subcollections:
 
@@ -34,6 +35,7 @@ Fields:
 - `message: string`
 - `read: boolean`
 - `createdAt: Timestamp`
+- `schemaVersion: number`
 
 ### `archivedIssues`
 
@@ -51,6 +53,24 @@ Fields:
 - `platform: "WEB" | "ANDROID"`
 - `archivedBy: string`
 - `archivedAt: Timestamp`
+- `schemaVersion: number`
+
+### `archivedDiscussions`
+
+Document id:
+
+- `${platform}_${discussionNumber}`
+
+Fields:
+
+- `discussionNumber: number`
+- `discussionUrl: string`
+- `discussionTitle: string`
+- `createdAt: Timestamp`
+- `platform: "WEB" | "ANDROID"`
+- `archivedBy?: string`
+- `archivedAt?: Timestamp`
+- `schemaVersion: number`
 
 ### `memberAccessRequests`
 
@@ -68,6 +88,7 @@ Fields:
 - `username: string`
 - `status: "PENDING" | "ACCEPTED" | "REJECTED"`
 - `createdAt: Timestamp`
+- `schemaVersion: number`
 
 ### `teams`
 
@@ -81,11 +102,9 @@ Fields:
 - `teamName: string`
 - `leads: Array<{ uid: string, username: string, role: "TEAM_LEAD" | "LEAD_TRAINEE" }>`
 - `members: Array<{ uid: string, username: string }>`
-- `gfiCounts.frontend: number`
-- `gfiCounts.backend: number`
-- `gfiCounts.fullstack: number`
-- `gfiCounts.uncategorized: number`
+- `gfiCount: number`
 - `lastUpdated: Timestamp`
+- `schemaVersion: number`
 
 ### `dailyTeamMetrics`
 
@@ -102,6 +121,64 @@ Fields:
 - `capturedAt: Timestamp`
 - `unansweredIssuesCount: number`
 - `maxWaitingDays: number`
+- `schemaVersion: number`
+
+### `dailyDiscussionMetrics`
+
+Document id:
+
+- `${platform}_${capturedAtMillis}`
+
+Fields:
+
+- `platform: "WEB" | "ANDROID"`
+- `dateKey: string` **(IST-normalized YYYY-MM-DD reporting day bucket)**
+- `capturedAt: Timestamp`
+- `unansweredDiscussionsCount: number`
+- `schemaVersion: number`
+
+### `teams/{teamId}/actionItems`
+
+Subcollection of `teams`. Document id:
+
+- the stable rule key, e.g. `gfi-shortfall`
+
+Fields:
+
+- `teamKey: string`
+- `teamName: string`
+- `ruleKey: string`
+- `message: string`
+- `priority: "high" | "medium" | "low"`
+- `reason: string`
+- `detectedAt: Timestamp`
+- `lastDetectedAt: Timestamp`
+- `firstNotifiedAt: Timestamp | null`
+- `lastNotifiedAt: Timestamp | null`
+- `notificationCount: number`
+- `createdAt: Timestamp`
+- `updatedAt: Timestamp`
+- `schemaVersion: number`
+
+### `notificationDeliveries`
+
+Document id:
+
+- `${kind}__${periodKey}__${teamKey}__${channel}` **(also the idempotency key, e.g. `weekly_action_items_digest__2026-11-02__CORE__EMAIL`)**
+
+Fields:
+
+- `kind: string`
+- `channel: "EMAIL" | "IN_APP"`
+- `teamKey: string`
+- `periodKey: string` **(IST week-start date key for weekly digests)**
+- `actionItemIds: string[]` **(exact action-item document ids included in the delivery)**
+- `recipientUids: string[]`
+- `itemCount: number`
+- `status: "SENT" | "SKIPPED" | "FAILED"`
+- `error: string | null`
+- `recordedAt: Timestamp`
+- `schemaVersion: number`
 
 ### `dataJobRuns`
 
@@ -122,6 +199,7 @@ Fields:
 - `errorMessage: string | null`
 - `startedAt: Timestamp`
 - `finishedAt: Timestamp | null`
+- `schemaVersion: number`
 
 ### `orgMeta`
 
@@ -134,6 +212,22 @@ Fields:
 - `orgMembers: string[]`
 - `collaborators: Array<{ login: string, permission: string }>`
 - `lastUpdated: Timestamp`
+- `schemaVersion: number`
+
+### `userJourneyProgress`
+
+Document id:
+
+- `uid` of the user who owns the journey progress.
+
+Fields:
+
+- `createdAt: Timestamp`
+- `derivedState: Record<string, { completed: boolean, completedAt: Timestamp | null, sourceUrl: string | null }>`
+- `manualProgress: Record<string, { completed: boolean, completedAt: Timestamp | null }>`
+- `platform: "WEB" | "ANDROID"`
+- `updatedAt: Timestamp`
+- `schemaVersion: number`
 
 ### `teamReviewers`
 
@@ -189,7 +283,15 @@ Normalized app-layer models convert Firestore timestamps as follows:
 - `users/{uid}/notifications.createdAt -> Date`
 - `memberAccessRequests.createdAt -> Date`
 - `teams.lastUpdated -> Date`
+- `actionItems.detectedAt -> Date`
+- `actionItems.lastDetectedAt -> Date`
+- `actionItems.firstNotifiedAt -> Date | null`
+- `actionItems.lastNotifiedAt -> Date | null`
+- `actionItems.createdAt -> Date`
+- `actionItems.updatedAt -> Date`
+- `notificationDeliveries.recordedAt -> Date`
 - `dailyTeamMetrics.capturedAt -> Date`
+- `dailyDiscussionMetrics.capturedAt -> Date`
 - `dataJobRuns.startedAt -> Date`
 - `dataJobRuns.finishedAt -> Date | null`
 - `teamReviewers.lastUpdated -> Date`

@@ -1,28 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle } from "lucide-react";
-import {
-  Tooltip as UiTooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-  CartesianGrid,
-  Cell,
-  Legend,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { getRoleDisplayLabel } from "@/lib/auth/role-display";
 import { formatDisplayValue } from "@/lib/utils/display.utils";
+import { TeamGfiSummary } from "@/features/dashboard/shared/gfi/team-gfi-summary";
+import { PlatformUnansweredIssuesChart } from "@/features/dashboard/shared/team-reports/components/platform-unanswered-issues-chart";
+import { useActionItems } from "@/features/dashboard/shared/action-items/hooks/use-action-items.hook";
+import { getActiveActionItemsForTeam } from "@/features/dashboard/shared/action-items/action-items.utils";
+import type { ActionItem } from "@/features/dashboard/shared/action-items/action-items.types";
 
 type TeamLead = {
   role: "TEAM_LEAD" | "LEAD_TRAINEE";
@@ -32,12 +18,7 @@ type TeamLead = {
 
 type TeamReport = {
   id: string;
-  gfiCounts: {
-    backend: number;
-    frontend: number;
-    fullstack: number;
-    uncategorized: number;
-  };
+  gfiCount: number;
   lastUpdated: string | Date;
   leads: TeamLead[];
   metrics: Array<{
@@ -47,6 +28,7 @@ type TeamReport = {
     maxWaitingDays: number;
   }>;
   nextSteps: Array<{
+    ruleKey: string;
     message: string;
     priority: "high" | "medium";
     reason: string;
@@ -60,406 +42,116 @@ type TeamReportsResponse = {
   reports: TeamReport[];
 };
 
-type ChartTooltipPayloadItem = {
-  color?: string;
-  name?: string;
-  payload?: {
-    capturedAt?: string;
-  };
-  value?: number | string | null;
-};
-
-const TEAM_CHART_COLORS = [
-  "#2563eb",
-  "#06b6d4",
-  "#f59e0b",
-  "#f43f5e",
-  "#10b981",
-  "#8b5cf6",
-];
-
-const GFI_DOMAIN_COLORS = {
-  backend: "#2563eb",
-  frontend: "#14b8a6",
-  fullstack: "#f59e0b",
-  uncategorized: "#94a3b8",
-} as const;
-
-function getChartTeamLabel(teamName: string): string {
+function getReportTeamLabel(teamName: string): string {
   return teamName
     .replace(/^\[(web|android)\]\s*/i, "")
     .replace(/\s+team\b.*$/i, "")
     .trim();
 }
 
-function getReportTeamLabel(teamName: string): string {
-  return getChartTeamLabel(teamName);
-}
-
-function formatChartTickLabel(capturedAtIso: string): string {
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    hour: "2-digit",
-    hour12: true,
-    minute: "2-digit",
-    month: "short",
-    timeZone: "Asia/Kolkata",
-  }).format(new Date(capturedAtIso));
-}
-
-function formatChartTooltipLabel(capturedAtIso: string): string {
-  return new Intl.DateTimeFormat("en-IN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Asia/Kolkata",
-  }).format(new Date(capturedAtIso));
-}
-
-function getPlatformChartData(
-  reports: TeamReport[],
-): Array<Record<string, number | string | null>> {
-  const allCaptureTimes = Array.from(
-    new Set(
-      reports.flatMap((report) =>
-        report.metrics.map((metric) => metric.capturedAt),
-      ),
-    ),
-  ).sort((left, right) => new Date(left).getTime() - new Date(right).getTime());
-
-  return allCaptureTimes.map((capturedAt) => {
-    const row: Record<string, number | string | null> = {
-      capturedAt,
-      capturedAtLabel: formatChartTickLabel(capturedAt),
-    };
-
-    for (const report of reports) {
-      const metric = report.metrics.find(
-        (item) => item.capturedAt === capturedAt,
-      );
-      row[report.id] = metric?.unansweredIssuesCount ?? null;
-    }
-
-    return row;
-  });
-}
-
-function TeamReportsChartTooltip({
-  active,
-  payload,
+function TeamActionItemsPanel({
+  report,
+  items,
+  loading,
+  error,
 }: {
-  active?: boolean;
-  payload?: ChartTooltipPayloadItem[];
+  report: TeamReport;
+  items: ActionItem[];
+  loading: boolean;
+  error: string | null;
 }) {
-  if (!active || !payload || payload.length === 0) {
-    return null;
-  }
+  const teamItems = getActiveActionItemsForTeam(items, report.id);
 
-  const capturedAt = payload[0]?.payload?.capturedAt;
-  const visibleItems = payload.filter(
-    (item) => typeof item.value === "number" && item.name,
-  );
-
-  return (
-    <div className="min-w-52 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-lg">
-      <p className="text-sm font-semibold text-slate-900">
-        {capturedAt ? formatChartTooltipLabel(capturedAt) : "Snapshot"}
+  const derivedFallback =
+    report.nextSteps.length === 0 ? (
+      <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800">
+        No immediate action flagged for this team.
       </p>
-      <div className="mt-2 space-y-2">
-        {visibleItems.map((item) => (
+    ) : (
+      report.nextSteps.map((step, index) => (
+        <div
+          key={step.message}
+          className={`flex gap-3 rounded-xl px-3 py-3 ${
+            step.priority === "high"
+              ? "border border-red-300 bg-white"
+              : "border border-amber-200 bg-white"
+          }`}
+        >
           <div
-            key={`${item.name}-${item.color}`}
-            className="flex items-center justify-between gap-4"
+            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+              step.priority === "high"
+                ? "bg-red-200 text-red-900"
+                : "bg-amber-100 text-amber-800"
+            }`}
           >
-            <div className="flex items-center gap-2">
-              <span
-                className="h-3 w-3 rounded-sm"
-                style={{ backgroundColor: item.color ?? "#94a3b8" }}
-              />
-              <span className="text-sm text-slate-700">{item.name}</span>
-            </div>
-            <span className="text-sm font-semibold text-slate-900">
-              {item.value}
-            </span>
+            {index + 1}
           </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function PlatformUnansweredIssuesChart({ reports }: { reports: TeamReport[] }) {
-  const chartData = getPlatformChartData(reports);
-
-  if (reports.length === 0) {
-    return null;
-  }
-
-  if (chartData.length === 0) {
-    return (
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">
-              Unanswered Issues Over Time
-            </h2>
-            <p className="mt-2 text-sm text-slate-600">
-              Compare unanswered issue counts across all{" "}
-              {formatDisplayValue(reports[0].platform)} teams.
-            </p>
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-slate-800">{step.message}</p>
+            <p className="text-xs leading-5 text-slate-500">{step.reason}</p>
           </div>
         </div>
-        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-sm text-slate-500">
-            No daily team metrics captured yet for this platform.
-          </p>
-        </div>
-      </section>
+      ))
     );
-  }
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">
-            Unanswered Issues Over Time
-          </h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Compare unanswered issue counts across all{" "}
-            {formatDisplayValue(reports[0].platform)} teams.
+    <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-slate-900">Action Items</h3>
+        {!loading && !error && teamItems.length > 0 && (
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-800 px-1.5 text-[10px] font-semibold text-white">
+            {teamItems.length}
+          </span>
+        )}
+      </div>
+      <div className="mt-3 space-y-2">
+        {loading ? (
+          <p className="rounded-xl border border-dashed border-slate-300 bg-white px-3 py-3 text-sm text-slate-500">
+            Loading tracked action items…
           </p>
-        </div>
-        <p className="text-xs text-slate-500">Last 14 days</p>
-      </div>
-
-      <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <div className="h-72 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={chartData}
-              margin={{ top: 12, right: 12, bottom: 12, left: 0 }}
+        ) : error ? (
+          derivedFallback
+        ) : teamItems.length === 0 ? (
+          <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800">
+            No immediate action flagged for this team.
+          </p>
+        ) : (
+          teamItems.map((item, index) => (
+            <div
+              key={item.id}
+              className={`flex gap-3 rounded-xl px-3 py-3 ${
+                item.priority === "high"
+                  ? "border border-red-300 bg-white"
+                  : "border border-amber-200 bg-white"
+              }`}
             >
-              <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" />
-              <XAxis
-                dataKey="capturedAtLabel"
-                tick={{ fill: "#64748b", fontSize: 12 }}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                allowDecimals={false}
-                tick={{ fill: "#64748b", fontSize: 12 }}
-                tickLine={false}
-                axisLine={false}
-              />
-              <Tooltip content={<TeamReportsChartTooltip />} />
-              <Legend
-                formatter={(value) => (
-                  <span className="ml-2 mr-5 inline-block text-sm font-medium text-slate-700">
-                    {value}
-                  </span>
-                )}
-                iconType="square"
-                wrapperStyle={{ paddingTop: "16px" }}
-              />
-              {reports.map((report, index) => (
-                <Line
-                  key={report.id}
-                  type="monotone"
-                  connectNulls={false}
-                  dataKey={report.id}
-                  name={getChartTeamLabel(report.teamName)}
-                  stroke={TEAM_CHART_COLORS[index % TEAM_CHART_COLORS.length]}
-                  strokeWidth={2}
-                  activeDot={{ r: 5 }}
-                  dot={{ r: 3, strokeWidth: 0 }}
-                  legendType="square"
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function TeamGfiDonutChart({ counts }: { counts: TeamReport["gfiCounts"] }) {
-  const data = [
-    {
-      color: GFI_DOMAIN_COLORS.frontend,
-      key: "frontend",
-      label: "Frontend",
-      value: counts.frontend,
-    },
-    {
-      color: GFI_DOMAIN_COLORS.backend,
-      key: "backend",
-      label: "Backend",
-      value: counts.backend,
-    },
-    {
-      color: GFI_DOMAIN_COLORS.fullstack,
-      key: "fullstack",
-      label: "Fullstack",
-      value: counts.fullstack,
-    },
-    {
-      color: GFI_DOMAIN_COLORS.uncategorized,
-      key: "uncategorized",
-      label: "Uncategorized",
-      value: counts.uncategorized,
-    },
-  ];
-  const total = data.reduce((sum, item) => sum + item.value, 0);
-  const chartData =
-    total === 0
-      ? [{ color: "#e2e8f0", key: "empty", label: "No GFIs", value: 1 }]
-      : data;
-
-  return (
-    <div className="grid gap-5 lg:grid-cols-[220px_1fr] lg:items-center">
-      <div className="mx-auto h-52 w-full max-w-[220px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={chartData}
-              dataKey="value"
-              innerRadius={58}
-              outerRadius={84}
-              paddingAngle={total === 0 ? 0 : 3}
-              strokeWidth={0}
-            >
-              {chartData.map((item) => (
-                <Cell key={item.key} fill={item.color} />
-              ))}
-            </Pie>
-            <text
-              x="50%"
-              y="47%"
-              textAnchor="middle"
-              className="fill-slate-400 text-[11px] uppercase tracking-[0.16em]"
-            >
-              Total GFIs
-            </text>
-            <text
-              x="50%"
-              y="58%"
-              textAnchor="middle"
-              className="fill-slate-900 text-[28px] font-semibold"
-            >
-              {total}
-            </text>
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        {data.map((item) => (
-          <div
-            key={item.key}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-3"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <span
-                  className="h-3.5 w-3.5 rounded-sm"
-                  style={{ backgroundColor: item.color }}
-                />
-                <p className="text-sm font-medium text-slate-700">
-                  {item.label}
-                </p>
-                {item.key !== "uncategorized" && item.value < 5 && (
-                  <UiTooltip>
-                    <TooltipTrigger asChild>
-                      <span className="inline-flex">
-                        <AlertTriangle
-                          className="h-4 w-4 text-red-500"
-                          aria-label={`${item.label} has fewer than 5 good first issues`}
-                        />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>
-                        Each domain should have at least 5 good first issues.
-                      </p>
-                    </TooltipContent>
-                  </UiTooltip>
-                )}
+              <div
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                  item.priority === "high"
+                    ? "bg-red-200 text-red-900"
+                    : "bg-amber-100 text-amber-800"
+                }`}
+              >
+                {index + 1}
               </div>
-              <p className="text-lg font-semibold text-slate-900">
-                {item.value}
-              </p>
+              <div className="min-w-0 flex-1 space-y-1">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <p className="text-sm font-medium text-slate-800">
+                    {item.message}
+                  </p>
+                  {item.notificationCount > 0 && (
+                    <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-rose-700">
+                      Nudges sent: {item.notificationCount}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs leading-5 text-slate-500">
+                  {item.reason}
+                </p>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function getTotalGfiCount(counts: TeamReport["gfiCounts"]): number {
-  return (
-    counts.backend + counts.frontend + counts.fullstack + counts.uncategorized
-  );
-}
-
-function AndroidTeamGfiSummary({
-  counts,
-}: {
-  counts: TeamReport["gfiCounts"];
-}) {
-  const total = getTotalGfiCount(counts);
-  const progress = Math.min((total / 15) * 100, 100);
-  const statusLabel =
-    total >= 15
-      ? "Healthy pipeline"
-      : total >= 8
-        ? "Needs growth"
-        : "Low stock";
-
-  return (
-    <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(148,163,184,0.14),_transparent_40%),linear-gradient(135deg,_#ffffff_0%,_#f8fafc_55%,_#f1f5f9_100%)] px-6 py-6">
-      <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-slate-200/50 blur-2xl" />
-      <div className="absolute -bottom-10 left-8 h-24 w-24 rounded-full bg-sky-100/50 blur-2xl" />
-
-      <div className="relative flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-            Android GFI Pool
-          </p>
-          <p className="mt-3 text-5xl font-semibold leading-none text-slate-950">
-            {total}
-          </p>
-          <p className="mt-2 text-sm text-slate-600">
-            Open starter issues available for Android contributors.
-          </p>
-        </div>
-
-        <span className="rounded-full border border-white/80 bg-white/75 px-3 py-1 text-xs font-medium text-slate-700 shadow-sm backdrop-blur">
-          {statusLabel}
-        </span>
-      </div>
-
-      <div className="relative mt-6 rounded-2xl border border-white/70 bg-white/80 p-4 backdrop-blur-sm">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-            Coverage Progress
-          </p>
-          <p className="text-sm font-medium text-slate-700">
-            {progress.toFixed(0)}%
-          </p>
-        </div>
-        <div className="mt-3 h-3 overflow-hidden rounded-full bg-slate-200/80">
-          <div
-            className="h-full rounded-full bg-[linear-gradient(90deg,_#334155_0%,_#0f172a_100%)] transition-all"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        <p className="mt-3 text-sm text-slate-600">
-          Targeting a steady pool of 15+ open good first issues keeps Android
-          onboarding simple and visible.
-        </p>
+          ))
+        )}
       </div>
     </div>
   );
@@ -470,6 +162,11 @@ export function TeamReportsTab() {
   const [platform, setPlatform] = useState<ContributionPlatform>("WEB");
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const {
+    items: actionItems,
+    loading: actionItemsLoading,
+    errorMessage: actionItemsError,
+  } = useActionItems();
 
   useEffect(() => {
     async function loadReports() {
@@ -562,16 +259,13 @@ export function TeamReportsTab() {
             <div className="space-y-6 px-6 py-6">
               <div>
                 <h3 className="text-sm font-semibold text-slate-900">
-                  {report.platform === "ANDROID"
-                    ? "GFI Count"
-                    : "GFI Breakdown"}
+                  GFI Count
                 </h3>
                 <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-                  {report.platform === "ANDROID" ? (
-                    <AndroidTeamGfiSummary counts={report.gfiCounts} />
-                  ) : (
-                    <TeamGfiDonutChart counts={report.gfiCounts} />
-                  )}
+                  <TeamGfiSummary
+                    gfiCount={report.gfiCount}
+                    platform={report.platform}
+                  />
                 </div>
               </div>
 
@@ -605,47 +299,12 @@ export function TeamReportsTab() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    Next Steps
-                  </h3>
-                  <div className="mt-3 space-y-2">
-                    {report.nextSteps.length === 0 ? (
-                      <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800">
-                        No immediate action flagged for this team.
-                      </p>
-                    ) : (
-                      report.nextSteps.map((step, index) => (
-                        <div
-                          key={step.message}
-                          className={`flex gap-3 rounded-xl px-3 py-3 ${
-                            step.priority === "high"
-                              ? "border border-red-300 bg-white"
-                              : "border border-amber-200 bg-white"
-                          }`}
-                        >
-                          <div
-                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-                              step.priority === "high"
-                                ? "bg-red-200 text-red-900"
-                                : "bg-amber-100 text-amber-800"
-                            }`}
-                          >
-                            {index + 1}
-                          </div>
-                          <div className="space-y-1">
-                            <p className="text-sm font-medium text-slate-800">
-                              {step.message}
-                            </p>
-                            <p className="text-xs leading-5 text-slate-500">
-                              {step.reason}
-                            </p>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
+                <TeamActionItemsPanel
+                  report={report}
+                  items={actionItems}
+                  loading={actionItemsLoading}
+                  error={actionItemsError}
+                />
               </div>
             </div>
           </section>

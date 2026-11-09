@@ -7,6 +7,7 @@ import {
   Inbox,
   LayoutDashboard,
   Map,
+  MessageSquare,
   Shield,
   Users,
 } from "lucide-react";
@@ -25,6 +26,7 @@ function getSidebarItems(role: UserRole): SidebarNavigationItem[] {
     case "SUPER_ADMIN":
     case "ADMIN":
       return [
+        { name: "Overview", icon: LayoutDashboard, url: "/dashboard/overview" },
         {
           name: "Incoming Requests",
           icon: Inbox,
@@ -46,9 +48,14 @@ function getSidebarItems(role: UserRole): SidebarNavigationItem[] {
           url: "/dashboard/reviewer-teams",
         },
         {
-          name: "Unanswered Issue",
+          name: "Unanswered Issues",
           icon: Bug,
           url: "/dashboard/unanswered-issues",
+        },
+        {
+          name: "Unanswered Discussions",
+          icon: MessageSquare,
+          url: "/dashboard/unanswered-discussions",
         },
       ];
     case "TEAM_LEAD":
@@ -65,18 +72,34 @@ function getSidebarItems(role: UserRole): SidebarNavigationItem[] {
           icon: Bug,
           url: "/dashboard/unanswered-issues",
         },
+        {
+          name: "Unanswered Discussions",
+          icon: MessageSquare,
+          url: "/dashboard/unanswered-discussions",
+        },
       ];
     case "LEAD_TRAINEE":
       return [
+        { name: "Overview", icon: LayoutDashboard, url: "/dashboard/overview" },
         {
           name: "Unanswered Issues",
           icon: Bug,
           url: "/dashboard/unanswered-issues",
         },
+        {
+          name: "Unanswered Discussions",
+          icon: MessageSquare,
+          url: "/dashboard/unanswered-discussions",
+        },
       ];
     case "TEAM_MEMBER":
       return [
         { name: "Overview", icon: LayoutDashboard, url: "/dashboard/overview" },
+        {
+          name: "Unanswered Discussions",
+          icon: MessageSquare,
+          url: "/dashboard/unanswered-discussions",
+        },
       ];
     default:
       return [

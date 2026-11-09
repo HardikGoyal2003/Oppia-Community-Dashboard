@@ -6,12 +6,7 @@ export type TeamLead = {
 
 export type TeamReport = {
   id: string;
-  gfiCounts: {
-    backend: number;
-    frontend: number;
-    fullstack: number;
-    uncategorized: number;
-  };
+  gfiCount: number;
   lastUpdated: string | Date;
   leads: TeamLead[];
   metrics: Array<{
@@ -21,8 +16,9 @@ export type TeamReport = {
     maxWaitingDays: number;
   }>;
   nextSteps: Array<{
+    ruleKey: string;
     message: string;
-    priority: "high" | "medium";
+    priority: "high" | "medium" | "low";
     reason: string;
   }>;
   platform: "WEB" | "ANDROID";

@@ -1,7 +1,15 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DB_PATHS } from "@/db/db-paths";
-import { DbInvalidStateError } from "@/db/db.errors";
-import { getRequiredTransactionDocumentSnapshot } from "@/db/utils/document.utils";
+import { DbInvalidStateError, DbValidationError } from "@/db/db.errors";
+import {
+  getRequiredDocumentSnapshot,
+  getRequiredTransactionDocumentSnapshot,
+} from "@/db/utils/document.utils";
+import {
+  appendUserNotificationInTransaction,
+  updateUserRoleAndTeamWithNotificationInTransaction,
+} from "@/db/users/users.db";
+import { isValidUserRole } from "@/lib/utils/roles.utils";
 import {
   type FirestoreMemberAccessRequest,
   normalizeMemberAccessRequestDocument,
@@ -65,6 +73,14 @@ export async function getPendingMemberAccessRequestsByPlatform(
  * @param team The optional team key filter. When provided, only requests for
  *             this team are returned.
  * @returns The pending member-access requests sorted by creation time descending.
+ * @firestore-index memberAccessRequests status,createdAt
+ * @firestore-index memberAccessRequests status,platform,createdAt
+ * @firestore-index memberAccessRequests status,role,createdAt
+ * @firestore-index memberAccessRequests status,team,createdAt
+ * @firestore-index memberAccessRequests status,platform,role,createdAt
+ * @firestore-index memberAccessRequests status,platform,team,createdAt
+ * @firestore-index memberAccessRequests status,role,team,createdAt
+ * @firestore-index memberAccessRequests platform,role,status,team,createdAt
  */
 export async function getPendingMemberAccessRequestsByPlatformAndRoles(
   platform?: ContributionPlatform,
@@ -100,7 +116,10 @@ export async function getPendingMemberAccessRequestsByPlatformAndRoles(
  * @returns A promise that resolves when the request has been persisted.
  */
 export async function submitMemberAccessRequest(
-  request: Omit<MemberAccessRequestModel, "createdAt" | "status">,
+  request: Omit<
+    MemberAccessRequestModel,
+    "createdAt" | "status" | "schemaVersion"
+  >,
 ): Promise<void> {
   const collectionRef = memberAccessRequestsCollection;
   const pendingQuery = collectionRef
@@ -131,15 +150,39 @@ export async function submitMemberAccessRequest(
 }
 
 /**
+ * Retrieves a member-access request by document id without modifying it.
+ *
+ * @param requestId The member-access request document id.
+ * @returns The normalized request record.
+ * @throws {DbNotFoundError} When the request document does not exist.
+ */
+export async function getMemberAccessRequestById(
+  requestId: string,
+): Promise<MemberAccessRequestRecord> {
+  const requestRef = memberAccessRequestsCollection.doc(requestId);
+  const snapshot = await getRequiredDocumentSnapshot(
+    "Member access request",
+    requestRef,
+  );
+
+  return normalizeMemberAccessRequestRecord(snapshot.id, snapshot.data()!);
+}
+
+/**
  * Resolves the pending member-access request for a request id.
+ *
+ * The request status, user role/team, and notification are written in one
+ * transaction so an authorized decision either commits fully or not at all.
  *
  * @param requestId The member-access request document id.
  * @param decision The resolution decision to apply.
+ * @param notificationMessage The notification to append to the requester.
  * @returns The normalized request record that was resolved.
  */
 export async function resolveMemberAccessRequest(
   requestId: string,
   decision: MemberAccessDecision,
+  notificationMessage: string,
 ): Promise<MemberAccessRequestRecord> {
   const requestRef = memberAccessRequestsCollection.doc(requestId);
 
@@ -159,6 +202,27 @@ export async function resolveMemberAccessRequest(
       throw new DbInvalidStateError(
         "Member access request",
         "Member access request is no longer pending.",
+      );
+    }
+
+    if (decision === "ACCEPT") {
+      if (!isValidUserRole(request.role)) {
+        throw new DbValidationError("role", "Invalid role in request.");
+      }
+
+      await updateUserRoleAndTeamWithNotificationInTransaction(
+        tx,
+        request.userId,
+        request.role,
+        request.team,
+        request.username,
+        notificationMessage,
+      );
+    } else {
+      await appendUserNotificationInTransaction(
+        tx,
+        request.userId,
+        notificationMessage,
       );
     }
 

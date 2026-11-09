@@ -1,4 +1,5 @@
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import type { SchemaVersioned } from "@/lib/domain/schema.types";
 
 export const DERIVED_JOURNEY_KEYS = [
   "FIRST_ISSUE_CLAIMED",
@@ -30,7 +31,7 @@ export type DerivedProgressState = {
   sourceUrl: string | null;
 };
 
-export type UserJourneyProgressModel = {
+export type UserJourneyProgressModel = SchemaVersioned & {
   createdAt: Date;
   derivedState: Record<DerivedJourneyKey, DerivedProgressState>;
   manualProgress: Record<string, ManualProgressState>;

@@ -11,6 +11,12 @@ import type {
 } from "@/lib/domain/contributor-journey.types";
 import { DERIVED_JOURNEY_KEYS } from "@/lib/domain/contributor-journey.types";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import {
+  SCHEMA_KEYS,
+  assertSchemaVersion,
+  getCurrentSchemaVersion,
+} from "@/db/schema/schema-version";
+import { migrateDocument } from "@/db/schema/schema-migrations";
 
 type FirestoreManualProgressState = {
   completed: boolean;
@@ -29,6 +35,7 @@ export type FirestoreUserJourneyProgress = {
   manualProgress: Record<string, FirestoreManualProgressState>;
   platform: ContributionPlatform;
   updatedAt: Timestamp;
+  schemaVersion: number;
 };
 
 const CONTRIBUTION_PLATFORMS: ContributionPlatform[] = ["WEB", "ANDROID"];
@@ -184,6 +191,10 @@ function assertFirestoreUserJourneyProgress(
 
   assertTimestamp("Journey progress", "createdAt", progress.createdAt);
   assertTimestamp("Journey progress", "updatedAt", progress.updatedAt);
+  assertSchemaVersion(
+    SCHEMA_KEYS.USER_JOURNEY_PROGRESS,
+    progress.schemaVersion,
+  );
 }
 
 /**
@@ -230,24 +241,29 @@ function normalizeDerivedProgressState(
 export function normalizeUserJourneyProgressDocument(
   progress: FirebaseFirestore.DocumentData,
 ): UserJourneyProgressModel {
-  assertFirestoreUserJourneyProgress(progress);
+  const migratedProgress = migrateDocument(
+    SCHEMA_KEYS.USER_JOURNEY_PROGRESS,
+    progress,
+  );
+  assertFirestoreUserJourneyProgress(migratedProgress);
 
   return {
-    createdAt: normalizeTimestamp(progress.createdAt),
+    createdAt: normalizeTimestamp(migratedProgress.createdAt),
     derivedState: Object.fromEntries(
       DERIVED_JOURNEY_KEYS.map((key) => [
         key,
-        normalizeDerivedProgressState(progress.derivedState[key]),
+        normalizeDerivedProgressState(migratedProgress.derivedState[key]),
       ]),
     ) as UserJourneyProgressModel["derivedState"],
     manualProgress: Object.fromEntries(
-      Object.entries(progress.manualProgress).map(([itemId, state]) => [
+      Object.entries(migratedProgress.manualProgress).map(([itemId, state]) => [
         itemId,
         normalizeManualProgressState(state),
       ]),
     ),
-    platform: progress.platform,
-    updatedAt: normalizeTimestamp(progress.updatedAt),
+    platform: migratedProgress.platform,
+    updatedAt: normalizeTimestamp(migratedProgress.updatedAt),
+    schemaVersion: migratedProgress.schemaVersion,
   };
 }
 
@@ -293,7 +309,7 @@ export function serializeDerivedProgressState(
  * @returns The Firestore-ready journey progress document.
  */
 export function serializeUserJourneyProgress(
-  progress: UserJourneyProgressModel,
+  progress: Omit<UserJourneyProgressModel, "schemaVersion">,
 ): FirestoreUserJourneyProgress {
   return {
     createdAt: Timestamp.fromDate(progress.createdAt),
@@ -311,5 +327,6 @@ export function serializeUserJourneyProgress(
     ),
     platform: progress.platform,
     updatedAt: Timestamp.fromDate(progress.updatedAt),
+    schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.USER_JOURNEY_PROGRESS),
   };
 }

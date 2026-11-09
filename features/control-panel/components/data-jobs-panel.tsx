@@ -27,6 +27,55 @@ type DataJobsResponse = {
   runs: DataJobRun[];
 };
 
+/**
+ * Reads a response body as JSON without throwing when the server returns a
+ * non-JSON error page (for example, a Vercel timeout HTML response).
+ *
+ * @param response The fetch response to parse.
+ * @returns The parsed JSON body, or null when the body is empty or not JSON.
+ */
+async function parseJsonResponse<T>(response: Response): Promise<T | null> {
+  const body = await response.text();
+
+  if (!body) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(body) as T;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Builds a user-facing error message from a failed response.
+ *
+ * @param response The failed fetch response.
+ * @param data The parsed response body, when it was valid JSON.
+ * @param fallback The message to use when the body has no error text.
+ * @returns The error message to display.
+ */
+function getResponseErrorMessage<T extends object>(
+  response: Response,
+  data: T | null,
+  fallback: string,
+): string {
+  if (data !== null && "error" in data) {
+    const error = data.error;
+
+    if (typeof error === "string" && error.trim()) {
+      return error;
+    }
+  }
+
+  if (response.status === 504) {
+    return "The server timed out before the job finished. Refresh the page to check the latest run.";
+  }
+
+  return `${fallback} (HTTP ${response.status}).`;
+}
+
 function formatTimestamp(value: string | Date | null): string {
   if (!value) {
     return "Not finished";
@@ -74,12 +123,14 @@ export function DataJobsPanel() {
       const response = await fetch("/api/data-jobs", {
         cache: "no-store",
       });
+      const data = await parseJsonResponse<DataJobsResponse>(response);
 
-      if (!response.ok) {
-        throw new Error("Failed to load data jobs.");
+      if (!response.ok || !data) {
+        throw new Error(
+          getResponseErrorMessage(response, data, "Failed to load data jobs."),
+        );
       }
 
-      const data = (await response.json()) as DataJobsResponse;
       setJobs(data.jobs);
       setRuns(data.runs);
       setSelectedJobKey(
@@ -106,12 +157,17 @@ export function DataJobsPanel() {
         const response = await fetch("/api/data-jobs", {
           cache: "no-store",
         });
+        const data = await parseJsonResponse<DataJobsResponse>(response);
 
-        if (!response.ok) {
-          throw new Error("Failed to load data jobs.");
+        if (!response.ok || !data) {
+          throw new Error(
+            getResponseErrorMessage(
+              response,
+              data,
+              "Failed to load data jobs.",
+            ),
+          );
         }
-
-        const data = (await response.json()) as DataJobsResponse;
 
         if (cancelled) {
           return;
@@ -163,8 +219,7 @@ export function DataJobsPanel() {
           jobKey: selectedJobKey,
         }),
       });
-
-      await response.json();
+      const data = await parseJsonResponse<{ error?: string }>(response);
 
       if (!response.ok) {
         const refreshedData = await loadData();
@@ -176,7 +231,9 @@ export function DataJobsPanel() {
           setSelectedRun(latestRun);
         }
 
-        throw new Error("Data job failed. See run output for details.");
+        throw new Error(
+          getResponseErrorMessage(response, data, "Data job failed."),
+        );
       }
 
       setSuccessMessage(

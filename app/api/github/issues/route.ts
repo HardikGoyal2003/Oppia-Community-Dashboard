@@ -8,14 +8,7 @@ import {
 } from "@/lib/github/github.fetcher";
 import { getOrgMeta } from "@/db/org-meta/org-meta.db";
 import type { OrgMetaRecord } from "@/db/org-meta/org-meta.mapper";
-
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue };
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 
 type CachedOrgMeta = {
   orgMembers: string[];
@@ -23,9 +16,19 @@ type CachedOrgMeta = {
   lastUpdated: string;
 };
 
-function isValidCachedOrgMeta(data: JsonValue): data is CachedOrgMeta {
+function parsePlatform(
+  value: string | null | undefined,
+): ContributionPlatform | null {
+  return value === "WEB" || value === "ANDROID" ? value : null;
+}
+
+function canSelectPlatform(role: string | undefined): boolean {
+  return role === "ADMIN" || role === "SUPER_ADMIN";
+}
+
+function isValidCachedOrgMeta(data: object | null): data is CachedOrgMeta {
   if (typeof data !== "object" || data === null) return false;
-  const obj = data as { [key: string]: JsonValue };
+  const obj = data as Partial<CachedOrgMeta>;
   return (
     Array.isArray(obj.orgMembers) &&
     Array.isArray(obj.collaborators) &&
@@ -33,7 +36,9 @@ function isValidCachedOrgMeta(data: JsonValue): data is CachedOrgMeta {
   );
 }
 
-function toOrgMetaRecord(cached: CachedOrgMeta): OrgMetaRecord {
+function toOrgMetaRecord(
+  cached: CachedOrgMeta,
+): Omit<OrgMetaRecord, "schemaVersion"> {
   return {
     orgMembers: cached.orgMembers,
     collaborators: cached.collaborators,
@@ -49,7 +54,25 @@ export async function POST(req: Request) {
   }
 
   try {
-    const platform = session.user.platform;
+    let clientOrgMeta: Omit<OrgMetaRecord, "schemaVersion"> | undefined;
+    let requestedPlatform: ContributionPlatform | null = null;
+
+    try {
+      const body = await req.json();
+      if (body.orgMeta && isValidCachedOrgMeta(body.orgMeta)) {
+        clientOrgMeta = toOrgMetaRecord(body.orgMeta);
+      }
+      requestedPlatform = parsePlatform(body.platform);
+    } catch {
+      // No body or invalid JSON — proceed without client orgMeta.
+    }
+
+    // Admins may inspect any platform; everyone else is limited to the
+    // platform selected during sign-up.
+    const platform =
+      canSelectPlatform(session.user.role) && requestedPlatform
+        ? requestedPlatform
+        : session.user.platform;
 
     if (!platform) {
       return NextResponse.json(
@@ -65,17 +88,6 @@ export async function POST(req: Request) {
         { error: `No GitHub repo configured for platform: ${platform}` },
         { status: 500 },
       );
-    }
-
-    let clientOrgMeta: OrgMetaRecord | undefined;
-
-    try {
-      const body = await req.json();
-      if (body.orgMeta && isValidCachedOrgMeta(body.orgMeta)) {
-        clientOrgMeta = toOrgMetaRecord(body.orgMeta);
-      }
-    } catch {
-      // No body or invalid JSON — proceed without client orgMeta.
     }
 
     const issuesData = await fetchUnansweredIssues(

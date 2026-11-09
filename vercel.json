@@ -5,12 +5,20 @@
       "schedule": "30 22 * * *"
     },
     {
-      "path": "/api/cron/sync-team-gfi-counts",
+      "path": "/api/cron/capture-daily-discussion-metrics",
+      "schedule": "30 22 * * *"
+    },
+    {
+      "path": "/api/cron/sync-team-data",
       "schedule": "0 0 * * *"
     },
     {
       "path": "/api/cron/sync-org-meta",
       "schedule": "30 21 */3 * *"
+    },
+    {
+      "path": "/api/cron/send-action-item-digest",
+      "schedule": "0 3 * * 1"
     }
   ]
 }

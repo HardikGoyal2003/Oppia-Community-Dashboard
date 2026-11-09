@@ -21,6 +21,10 @@ function parsePlatform(
   return value === "WEB" || value === "ANDROID" ? value : null;
 }
 
+function canSelectPlatform(role: string | undefined): boolean {
+  return role === "ADMIN" || role === "SUPER_ADMIN";
+}
+
 function isIssue(value: Issue | null | undefined): value is Issue {
   if (!value) {
     return false;
@@ -39,15 +43,25 @@ function isIssue(value: Issue | null | undefined): value is Issue {
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
 
-  if (!session || !session.user) {
+  if (!session || !session.user || session.invalidUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   const { searchParams } = new URL(req.url);
-  const platform = parsePlatform(searchParams.get("platform"));
+  const requestedPlatform = parsePlatform(searchParams.get("platform"));
+
+  // Admins may inspect any platform; everyone else is limited to the
+  // platform selected during sign-up.
+  const platform =
+    canSelectPlatform(session.user.role) && requestedPlatform
+      ? requestedPlatform
+      : session.user.platform;
 
   if (!platform) {
-    return NextResponse.json({ error: "Invalid platform." }, { status: 400 });
+    return NextResponse.json(
+      { error: "No contribution platform found for the current user." },
+      { status: 400 },
+    );
   }
 
   const archivedIssues = await getArchivedIssues(platform);
@@ -57,12 +71,19 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
 
-  if (!session || !session.user) {
+  if (!session || !session.user || session.invalidUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   const body = (await req.json()) as ArchivedIssueRequestBody;
-  const platform = parsePlatform(body.platform);
+  const requestedPlatform = parsePlatform(body.platform);
+
+  // Admins may modify any platform; everyone else is limited to the
+  // platform selected during sign-up.
+  const platform =
+    canSelectPlatform(session.user.role) && requestedPlatform
+      ? requestedPlatform
+      : session.user.platform;
 
   if (!platform || !isIssue(body.issue)) {
     return NextResponse.json(
@@ -78,12 +99,19 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   const session = await getServerSession(authOptions);
 
-  if (!session || !session.user) {
+  if (!session || !session.user || session.invalidUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   const body = (await req.json()) as ArchivedIssueRequestBody;
-  const platform = parsePlatform(body.platform);
+  const requestedPlatform = parsePlatform(body.platform);
+
+  // Admins may modify any platform; everyone else is limited to the
+  // platform selected during sign-up.
+  const platform =
+    canSelectPlatform(session.user.role) && requestedPlatform
+      ? requestedPlatform
+      : session.user.platform;
 
   if (!platform || typeof body.issueNumber !== "number") {
     return NextResponse.json(

@@ -1,3 +1,5 @@
+import type { SchemaVersioned } from "@/lib/domain/schema.types";
+
 export type DataJobKind = "AUDIT" | "BACKFILL" | "MIGRATION" | "CLEANUP";
 
 export type DataJobRunStatus = "RUNNING" | "SUCCEEDED" | "FAILED";
@@ -10,7 +12,7 @@ export interface DataJobDefinition {
   supportsDryRun: boolean;
 }
 
-export interface DataJobRun {
+export interface DataJobRun extends SchemaVersioned {
   id: string;
   jobKey: string;
   jobName: string;
