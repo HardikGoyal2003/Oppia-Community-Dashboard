@@ -14,6 +14,17 @@ const dataJobRunsCollection = db.collection(
 ) as FirebaseFirestore.CollectionReference<FirestoreDataJobRun>;
 
 /**
+ * How long a run may stay in `RUNNING` before it is treated as interrupted.
+ * Data-job handlers have a 300s serverless limit, so anything older than this
+ * was killed by the platform before it could update its own record.
+ */
+const STALE_RUN_THRESHOLD_MS = 6 * 60 * 1000;
+
+/** Error recorded on runs that were interrupted before finishing. */
+const STALE_RUN_ERROR_MESSAGE =
+  "Run timed out or was interrupted before it could finish. Re-run the job to continue.";
+
+/**
  * Persists a new data-job run record.
  *
  * @param run The data-job run payload to store.
@@ -47,6 +58,10 @@ export async function getDataJobRunById(runId: string): Promise<DataJobRun> {
 /**
  * Lists recent data-job runs sorted by start time descending.
  *
+ * Runs left in `RUNNING` past the serverless execution window are marked as
+ * failed while listing so a platform timeout does not leave the control panel
+ * showing a job as permanently in progress.
+ *
  * @param limit The maximum number of runs to return.
  * @returns The normalized data-job runs.
  */
@@ -56,9 +71,59 @@ export async function listDataJobRuns(limit = 20): Promise<DataJobRun[]> {
     .limit(limit)
     .get();
 
-  return snapshot.docs.map((doc) =>
-    normalizeDataJobRunDocument(doc.id, doc.data()),
+  const now = Date.now();
+  const staleRunIds = new Set(
+    snapshot.docs
+      .filter((doc) => {
+        const data = doc.data();
+
+        return (
+          data.status === "RUNNING" &&
+          now - data.startedAt.toMillis() >= STALE_RUN_THRESHOLD_MS
+        );
+      })
+      .map((doc) => doc.id),
   );
+
+  if (staleRunIds.size > 0) {
+    const finishedAt = new Date();
+    const batch = dataJobRunsCollection.firestore.batch();
+
+    for (const doc of snapshot.docs) {
+      if (!staleRunIds.has(doc.id)) {
+        continue;
+      }
+
+      batch.update(doc.ref, {
+        status: "FAILED",
+        summary: "Job failed.",
+        errorMessage: STALE_RUN_ERROR_MESSAGE,
+        finishedAt,
+      });
+    }
+
+    try {
+      await batch.commit();
+    } catch (error) {
+      console.error("Failed to mark stale data job runs as failed.", error);
+    }
+  }
+
+  return snapshot.docs.map((doc) => {
+    const run = normalizeDataJobRunDocument(doc.id, doc.data());
+
+    if (!staleRunIds.has(doc.id)) {
+      return run;
+    }
+
+    return {
+      ...run,
+      status: "FAILED",
+      summary: "Job failed.",
+      errorMessage: STALE_RUN_ERROR_MESSAGE,
+      finishedAt: new Date(),
+    };
+  });
 }
 
 /**

@@ -7,7 +7,7 @@ import {
   markDataJobRunSucceeded,
 } from "@/db/data-jobs/data-job-runs.db";
 import { backfillSchemaVersions } from "@/db/schema/schema-migration-runner";
-import { getAllUsers, updateUserRole } from "@/db/users/users.db";
+import { getAllUsers, updateUserRoles } from "@/db/users/users.db";
 import type {
   DataJobDefinition,
   DataJobResult,
@@ -104,15 +104,16 @@ async function cleanupTeamContributorsToAlumni(
     };
   }
 
-  let updatedCount = 0;
-
-  for (const user of flaggedUsers) {
-    if (!context.dryRun) {
-      await updateUserRole(user.id, "ALUMNI");
-    }
-    updatedCount++;
+  if (!context.dryRun) {
+    // Persist the role changes in batched writes instead of one read + write
+    // round trip per user, which previously pushed large cleanups past the
+    // serverless execution limit.
+    await updateUserRoles(
+      flaggedUsers.map((user) => ({ uid: user.id, role: "ALUMNI" })),
+    );
   }
 
+  const updatedCount = flaggedUsers.length;
   const suffix = context.dryRun ? " (dry run — no changes persisted)" : ".";
 
   return {

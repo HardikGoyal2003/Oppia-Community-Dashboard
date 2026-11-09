@@ -8,6 +8,12 @@ import {
   runDataJob,
 } from "@/lib/data-jobs/data-jobs.service";
 
+// Data jobs touch every document in several Firestore collections, so they
+// need the full serverless execution window. The handlers enforce an internal
+// time budget below this limit to report partial progress instead of being
+// killed by the platform.
+export const maxDuration = 300;
+
 type DataJobRunRequestBody = {
   dryRun?: boolean;
   jobKey?: string;
@@ -24,12 +30,22 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  const [jobs, runs] = await Promise.all([
-    listAvailableDataJobs(),
-    listRecentDataJobRuns(),
-  ]);
+  try {
+    const [jobs, runs] = await Promise.all([
+      listAvailableDataJobs(),
+      listRecentDataJobRuns(),
+    ]);
 
-  return NextResponse.json({ jobs, runs });
+    return NextResponse.json({ jobs, runs });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to load data jobs.",
+      },
+      { status: 500 },
+    );
+  }
 }
 
 export async function POST(req: Request) {
