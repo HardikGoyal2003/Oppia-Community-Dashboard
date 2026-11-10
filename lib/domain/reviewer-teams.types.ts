@@ -83,9 +83,7 @@ export type ReviewerTeamMember = {
   avgCommentsPerReview: number | null;
   avgReviewsPerWeek: number | null;
   pendingReviews: number;
-  pendingActiveCount: number;
   pendingStaleCount: number;
-  maxPendingWaitHours: number | null;
   approvedPrCount: number;
   authoredPrCount: number;
   approvalToAuthoredRatio: number | null;

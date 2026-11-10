@@ -18,49 +18,28 @@ function canViewReviewerTeams(role: string | undefined): boolean {
 }
 
 /**
- * Computes the active/stale pending split and the longest current wait.
+ * Counts the reviewer's open assignments that have waited past the stale
+ * cutoff.
  *
  * @param pendingReviews The reviewer's open assignments.
  * @param nowMs The current timestamp in ms.
- * @returns Pending counts and the maximum wait in hours.
+ * @returns The number of stale pending reviews.
  */
-function getPendingBreakdown(
+function countStalePendingReviews(
   pendingReviews: PendingReview[],
   nowMs: number,
-): Pick<
-  ReviewerTeamMember,
-  "pendingActiveCount" | "pendingStaleCount" | "maxPendingWaitHours"
-> {
-  let pendingActiveCount = 0;
-  let pendingStaleCount = 0;
-  let maxPendingWaitHours: number | null = null;
+): number {
+  let staleCount = 0;
 
   for (const pr of pendingReviews) {
     const waitHours = (nowMs - new Date(pr.assignedAt).getTime()) / 3_600_000;
-    const safeWaitHours = Number.isFinite(waitHours)
-      ? Math.max(0, waitHours)
-      : 0;
 
-    if (safeWaitHours >= PENDING_STALE_CUTOFF_HOURS) {
-      pendingStaleCount++;
-    } else {
-      pendingActiveCount++;
+    if (waitHours >= PENDING_STALE_CUTOFF_HOURS) {
+      staleCount++;
     }
-
-    maxPendingWaitHours =
-      maxPendingWaitHours === null
-        ? safeWaitHours
-        : Math.max(maxPendingWaitHours, safeWaitHours);
   }
 
-  return {
-    pendingActiveCount,
-    pendingStaleCount,
-    maxPendingWaitHours:
-      maxPendingWaitHours === null
-        ? null
-        : Number(maxPendingWaitHours.toFixed(1)),
-  };
+  return staleCount;
 }
 
 /**
@@ -102,7 +81,7 @@ function buildMember(
     avgCommentsPerReview: reviewer?.avgCommentsPerReview ?? null,
     avgReviewsPerWeek: reviewer?.avgReviewsPerWeek ?? null,
     pendingReviews: pendingReviews.length,
-    ...getPendingBreakdown(pendingReviews, nowMs),
+    pendingStaleCount: countStalePendingReviews(pendingReviews, nowMs),
     approvedPrCount,
     authoredPrCount,
     approvalToAuthoredRatio:

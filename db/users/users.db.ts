@@ -199,24 +199,6 @@ export async function getUsersByTeam(teamKey: string): Promise<UserRecord[]> {
 }
 
 /**
- * Updates the role of an existing user.
- *
- * @param uid The user id to update.
- * @param role The new role value.
- * @returns A promise that resolves when the update has been written.
- */
-export async function updateUserRole(
-  uid: string,
-  role: UserRole,
-): Promise<void> {
-  const userDocRef = await getRequiredUserDocRefByUid(uid);
-
-  await userDocRef.update({
-    role,
-  });
-}
-
-/**
  * Updates the role of many users using batched writes.
  *
  * This is intended for bulk maintenance jobs where the user documents were
@@ -254,32 +236,6 @@ export async function updateUserPlatformByUid(
   const userDocRef = await getRequiredUserDocRefByUid(uid);
 
   await userDocRef.update({ platform });
-}
-
-/**
- * Updates a user's role and team by uid.
- *
- * @param uid The user id to update.
- * @param role The new role value.
- * @param team The new team value.
- * @param githubUsername The GitHub username to persist.
- * @returns A promise that resolves when the user update has been written.
- */
-export async function updateUserRoleAndTeamByUid(
-  uid: string,
-  role: UserRole,
-  team: string | null,
-  githubUsername: string,
-): Promise<void> {
-  assertGithubUsernameForRole(githubUsername);
-
-  const userDocRef = await getRequiredUserDocRefByUid(uid);
-
-  await userDocRef.update({
-    role,
-    team,
-    githubUsername,
-  });
 }
 
 /**

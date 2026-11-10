@@ -73,17 +73,3 @@ export function setCachedData<T>(key: string, data: T, ttlMs: number): void {
     console.warn(`[cache] Failed to write "${key}" to localStorage:`, error);
   }
 }
-
-/**
- * Removes a cache entry from localStorage.
- *
- * @param key The localStorage key to remove.
- * @returns Nothing.
- */
-export function clearCachedData(key: string): void {
-  try {
-    localStorage.removeItem(key);
-  } catch (error) {
-    console.warn(`[cache] Failed to remove "${key}" from localStorage:`, error);
-  }
-}

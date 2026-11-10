@@ -17,22 +17,6 @@ const collection = db.collection(
 ) as FirebaseFirestore.CollectionReference<FirestoreReviewCycle>;
 
 /**
- * Upserts a single review cycle record into Firestore.
- *
- * Uses `${reviewerLogin}:${prNumber}:${assignedAt}` as the doc ID
- * so re-syncing the same cycle is idempotent.
- *
- * @param record The cycle record to persist.
- * @returns A promise that resolves when the write completes.
- */
-export async function upsertReviewCycle(
-  record: ReviewCycleRecord,
-): Promise<void> {
-  const key = `${record.reviewerLogin}:${record.prNumber}:${record.assignedAt}`;
-  await collection.doc(key).set(serializeReviewCycle(record), { merge: true });
-}
-
-/**
  * Batch upserts multiple review cycle records.
  *
  * Firestore caps a single batch at 500 writes, so records are committed in
@@ -92,29 +76,6 @@ export async function findNewCycleRecords(
   }
 
   return newRecords;
-}
-
-/**
- * Computes aggregate stats for a given reviewer from their stored cycles.
- *
- * @param login The GitHub login of the reviewer.
- * @returns The aggregate reviews done count and total review time in ms.
- */
-export async function getReviewCycleAggregates(
-  login: string,
-): Promise<{ reviewsDone: number; totalReviewTimeMs: number }> {
-  const snapshot = await collection.where("reviewerLogin", "==", login).get();
-
-  let reviewsDone = 0;
-  let totalReviewTimeMs = 0;
-
-  snapshot.forEach((doc) => {
-    const data = doc.data();
-    reviewsDone++;
-    totalReviewTimeMs += data.durationMs;
-  });
-
-  return { reviewsDone, totalReviewTimeMs };
 }
 
 /**
