@@ -3,13 +3,16 @@ import {
   fetchClosedPRCycleRecords,
   fetchAuthoredPrCounts,
 } from "@/lib/github/github.fetcher";
-import { getAllReviewers, upsertReviewer } from "@/db/reviewers/reviewers.db";
-import { getTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
-import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import { getReviewers, upsertReviewers } from "@/db/reviewers/reviewers.db";
+import type { ReviewerDocument } from "@/lib/domain/reviewer-teams.types";
+import { getReviewerTeamLogins } from "@/lib/team-activity/reviewer-team-logins";
 import {
   upsertReviewCycles,
   findNewCycleRecords,
   getAllReviewCycleAggregates,
+  getReviewCycleAggregatesForLogins,
+  refreshReviewCycleAnalytics,
+  type ReviewCycleAggregate,
 } from "@/db/review-cycles/review-cycles.db";
 
 type SyncSummary = {
@@ -25,118 +28,176 @@ type SyncReviewCyclesOptions = {
   untilDate?: Date;
 };
 
+/** The reviewer fields that are derived from cycles and GitHub authored PRs. */
+type ReviewerMetrics = Pick<
+  ReviewerDocument,
+  | "completedReviews"
+  | "reviewedPrCount"
+  | "completedReviewSubmissions"
+  | "approvedPrCount"
+  | "authoredPrCount"
+  | "avgReviewTimeHours"
+  | "avgTimeToApprovalHours"
+  | "avgReviewRoundsBeforeApproval"
+  | "avgCommentsPerReview"
+  | "avgReviewsPerWeek"
+>;
+
+const METRIC_KEYS: Array<keyof ReviewerMetrics> = [
+  "completedReviews",
+  "reviewedPrCount",
+  "completedReviewSubmissions",
+  "approvedPrCount",
+  "authoredPrCount",
+  "avgReviewTimeHours",
+  "avgTimeToApprovalHours",
+  "avgReviewRoundsBeforeApproval",
+  "avgCommentsPerReview",
+  "avgReviewsPerWeek",
+];
+
 /**
- * Returns the GitHub logins that currently belong to a reviewer team.
+ * Derives a reviewer's metrics from their cycle aggregates.
  *
- * @returns The set of known reviewer logins.
+ * @param agg The reviewer's cycle aggregates, if any.
+ * @param existing The currently stored reviewer document, if any.
+ * @param authoredPrCount The reviewer's authored PR count from GitHub.
+ * @returns The metrics to persist.
  */
-async function getKnownReviewerLogins(): Promise<Set<string>> {
-  const platform: ContributionPlatform = "WEB";
-  const teamDoc = await getTeamReviewers(platform);
-  const knownLogins = new Set<string>();
+function buildReviewerMetrics(
+  agg: ReviewCycleAggregate | undefined,
+  existing: ReviewerDocument | null,
+  authoredPrCount: number | undefined,
+): ReviewerMetrics {
+  const avgReviewTimeHours = !agg
+    ? (existing?.avgReviewTimeHours ?? null)
+    : agg.completedReviews > 0
+      ? Number(
+          (agg.totalReviewTimeMs / agg.completedReviews / 3_600_000).toFixed(1),
+        )
+      : null;
 
-  if (!teamDoc) return knownLogins;
+  const avgReviewRoundsBeforeApproval = !agg
+    ? (existing?.avgReviewRoundsBeforeApproval ?? null)
+    : agg.approvedPrCount > 0
+      ? Number((agg.totalRoundsBeforeApproval / agg.approvedPrCount).toFixed(1))
+      : null;
 
-  for (const team of teamDoc.teams) {
-    for (const member of team.members) {
-      knownLogins.add(member.username);
-    }
-  }
+  const avgCommentsPerReview = !agg
+    ? (existing?.avgCommentsPerReview ?? null)
+    : agg.completedReviews > 0
+      ? Number((agg.totalComments / agg.completedReviews).toFixed(1))
+      : null;
 
-  return knownLogins;
+  const avgTimeToApprovalHours = !agg
+    ? (existing?.avgTimeToApprovalHours ?? null)
+    : agg.approvalsWithDuration > 0
+      ? Number(
+          (
+            agg.totalApprovalDurationMs /
+            agg.approvalsWithDuration /
+            3_600_000
+          ).toFixed(1),
+        )
+      : null;
+
+  const avgReviewsPerWeek = !agg
+    ? (existing?.avgReviewsPerWeek ?? null)
+    : agg.activeWeeks.size > 0
+      ? Number(
+          (agg.completedReviewSubmissions / agg.activeWeeks.size).toFixed(2),
+        )
+      : null;
+
+  return {
+    completedReviews: agg?.completedReviews ?? existing?.completedReviews ?? 0,
+    reviewedPrCount: agg?.reviewedPrs.size ?? existing?.reviewedPrCount ?? 0,
+    completedReviewSubmissions:
+      agg?.completedReviewSubmissions ??
+      existing?.completedReviewSubmissions ??
+      0,
+    approvedPrCount: agg?.approvedPrCount ?? existing?.approvedPrCount ?? 0,
+    authoredPrCount: authoredPrCount ?? existing?.authoredPrCount ?? 0,
+    avgReviewTimeHours,
+    avgTimeToApprovalHours,
+    avgReviewRoundsBeforeApproval,
+    avgCommentsPerReview,
+    avgReviewsPerWeek,
+  };
 }
 
 /**
- * Recomputes every known reviewer's stored metrics from the full set of
- * review cycle records.
+ * Checks whether two metric snapshots hold the same values.
  *
- * @returns The number of reviewer documents refreshed.
+ * @param left The current metrics.
+ * @param right The newly computed metrics.
+ * @returns True when every derived field is unchanged.
  */
-export async function refreshReviewerStats(): Promise<number> {
-  const knownLogins = await getKnownReviewerLogins();
+function metricsEqual(left: ReviewerMetrics, right: ReviewerMetrics): boolean {
+  return METRIC_KEYS.every((key) => left[key] === right[key]);
+}
+
+/**
+ * Recomputes stored metrics from review cycle records.
+ *
+ * When a set of logins is provided, only those reviewers are read and
+ * written. The daily sync uses this to touch just the reviewers whose cycles
+ * or authored PRs changed in the window, instead of scanning every cycle and
+ * rewriting every reviewer document.
+ *
+ * @param logins The reviewers to refresh. Omit to refresh every known reviewer.
+ * @returns The number of reviewer documents actually written.
+ */
+export async function refreshReviewerStats(
+  logins?: Iterable<string>,
+): Promise<number> {
+  const knownLogins = await getReviewerTeamLogins();
   if (knownLogins.size === 0) return 0;
 
+  const requestedLogins = logins
+    ? Array.from(new Set(logins))
+    : Array.from(knownLogins);
+  const targetLogins = requestedLogins.filter((login) =>
+    knownLogins.has(login),
+  );
+  if (targetLogins.length === 0) return 0;
+
+  const isFullRefresh = targetLogins.length === knownLogins.size;
+
   const [aggregates, reviewerDocs, authoredCounts] = await Promise.all([
-    getAllReviewCycleAggregates(),
-    getAllReviewers(),
-    fetchAuthoredPrCounts(Array.from(knownLogins)),
+    isFullRefresh
+      ? getAllReviewCycleAggregates()
+      : getReviewCycleAggregatesForLogins(targetLogins),
+    getReviewers(targetLogins),
+    fetchAuthoredPrCounts(targetLogins),
   ]);
 
-  let updatedCount = 0;
+  const updates: Array<{ login: string; doc: ReviewerDocument }> = [];
 
-  for (const login of knownLogins) {
-    const agg = aggregates.get(login);
+  for (const login of targetLogins) {
     const existing = reviewerDocs.get(login) ?? null;
+    const metrics = buildReviewerMetrics(
+      aggregates.get(login),
+      existing,
+      authoredCounts.get(login),
+    );
 
-    const avgReviewTimeHours = !agg
-      ? (existing?.avgReviewTimeHours ?? null)
-      : agg.completedReviews > 0
-        ? Number(
-            (agg.totalReviewTimeMs / agg.completedReviews / 3_600_000).toFixed(
-              1,
-            ),
-          )
-        : null;
+    if (existing && metricsEqual(existing, metrics)) continue;
 
-    const avgReviewRoundsBeforeApproval = !agg
-      ? (existing?.avgReviewRoundsBeforeApproval ?? null)
-      : agg.approvedPrCount > 0
-        ? Number(
-            (agg.totalRoundsBeforeApproval / agg.approvedPrCount).toFixed(1),
-          )
-        : null;
-
-    const avgCommentsPerReview = !agg
-      ? (existing?.avgCommentsPerReview ?? null)
-      : agg.completedReviews > 0
-        ? Number((agg.totalComments / agg.completedReviews).toFixed(1))
-        : null;
-
-    const avgTimeToApprovalHours = !agg
-      ? (existing?.avgTimeToApprovalHours ?? null)
-      : agg.approvalsWithDuration > 0
-        ? Number(
-            (
-              agg.totalApprovalDurationMs /
-              agg.approvalsWithDuration /
-              3_600_000
-            ).toFixed(1),
-          )
-        : null;
-
-    const avgReviewsPerWeek = !agg
-      ? (existing?.avgReviewsPerWeek ?? null)
-      : agg.activeWeeks.size > 0
-        ? Number(
-            (agg.completedReviewSubmissions / agg.activeWeeks.size).toFixed(2),
-          )
-        : null;
-
-    await upsertReviewer(login, {
-      teams: existing?.teams ?? [],
-      pendingReviews: existing?.pendingReviews ?? [],
-      completedReviews:
-        agg?.completedReviews ?? existing?.completedReviews ?? 0,
-      reviewedPrCount: agg?.reviewedPrs.size ?? existing?.reviewedPrCount ?? 0,
-      completedReviewSubmissions:
-        agg?.completedReviewSubmissions ??
-        existing?.completedReviewSubmissions ??
-        0,
-      approvedPrCount: agg?.approvedPrCount ?? existing?.approvedPrCount ?? 0,
-      authoredPrCount:
-        authoredCounts.get(login) ?? existing?.authoredPrCount ?? 0,
-      avgReviewTimeHours,
-      avgTimeToApprovalHours,
-      avgReviewRoundsBeforeApproval,
-      avgCommentsPerReview,
-      avgReviewsPerWeek,
-      lastUpdated: new Date(),
+    updates.push({
+      login,
+      doc: {
+        teams: existing?.teams ?? [],
+        pendingReviews: existing?.pendingReviews ?? [],
+        ...metrics,
+        lastUpdated: new Date(),
+      },
     });
-
-    updatedCount++;
   }
 
-  return updatedCount;
+  await upsertReviewers(updates);
+
+  return updates.length;
 }
 
 /**
@@ -145,11 +206,14 @@ export async function refreshReviewerStats(): Promise<number> {
  * Processes open PRs updated in the sync window + PRs closed within the
  * window, extracts completed cycles from their timelines, and writes:
  * - `reviewCycles/{key}` — completed cycles (idempotent merge)
- * - `reviewers/{login}` — recomputes all stats from every stored cycle
- *   record so averages stay consistent even when no new cycles appear.
+ * - `reviewers/{login}` — refreshes the reviewers that were active in the
+ *   window (cycle authors) or authored one of the scanned PRs. Reviewers
+ *   outside that set are left untouched.
+ * - `reviewCycleAnalytics/WEB` — recomputes the org-wide analytics snapshot
+ *   when the window produced cycle records, so dashboard reads stay a single
+ *   document fetch.
  *
- * Only processes cycles for reviewers who already have a doc in the
- * `reviewers` collection.
+ * Only persists cycles for reviewers who belong to a reviewer team.
  *
  * @param options Optional sync settings.
  * @returns A summary of the sync operation.
@@ -163,7 +227,7 @@ export async function syncReviewCycles(
   const [openResult, closedResult, knownLogins] = await Promise.all([
     fetchCycleRecords(sinceDate, options?.untilDate),
     fetchClosedPRCycleRecords(sinceDate, options?.untilDate),
-    getKnownReviewerLogins(),
+    getReviewerTeamLogins(),
   ]);
 
   const allCompleted = [...openResult.completed, ...closedResult.completed];
@@ -172,9 +236,27 @@ export async function syncReviewCycles(
 
   const newRecords = await findNewCycleRecords(filtered);
 
-  await upsertReviewCycles(filtered);
+  if (filtered.length > 0) {
+    await upsertReviewCycles(filtered);
+  }
 
-  const updatedReviewersCount = await refreshReviewerStats();
+  const affectedLogins = new Set<string>();
+  for (const cycle of filtered) {
+    affectedLogins.add(cycle.reviewerLogin);
+  }
+  for (const login of openResult.authorLogins) {
+    affectedLogins.add(login);
+  }
+  for (const login of closedResult.authorLogins) {
+    affectedLogins.add(login);
+  }
+
+  const updatedReviewersCount =
+    affectedLogins.size === 0 ? 0 : await refreshReviewerStats(affectedLogins);
+
+  if (filtered.length > 0) {
+    await refreshReviewCycleAnalytics();
+  }
 
   return {
     completedCyclesCount: allCompleted.length,

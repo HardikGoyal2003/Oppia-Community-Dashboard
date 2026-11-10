@@ -12,7 +12,10 @@ import {
   getReviewCycleBackfillState,
   saveReviewCycleBackfillState,
 } from "@/db/review-cycle-backfill/review-cycle-backfill.db";
-import { upsertReviewCycles } from "@/db/review-cycles/review-cycles.db";
+import {
+  refreshReviewCycleAnalytics,
+  upsertReviewCycles,
+} from "@/db/review-cycles/review-cycles.db";
 import { getTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
 import { getAllUsers, updateUserRoles } from "@/db/users/users.db";
 import { LibInvalidStateError } from "@/lib/lib.errors";
@@ -281,6 +284,7 @@ async function backfillReviewCyclesJob(
   let windowsCompleted = 0;
   let prsProcessed = 0;
   let cyclesWritten = 0;
+  const affectedLogins = new Set<string>();
 
   while (state.windowStart <= state.targetEnd && Date.now() < deadlineMs) {
     const step = await runReviewCycleBackfillStep({
@@ -294,6 +298,12 @@ async function backfillReviewCyclesJob(
     if (step.records.length > 0) {
       await upsertReviewCycles(step.records);
       cyclesWritten += step.records.length;
+      for (const record of step.records) {
+        affectedLogins.add(record.reviewerLogin);
+      }
+    }
+    for (const login of step.authorLogins) {
+      affectedLogins.add(login);
     }
     prsProcessed += step.processedPrNumbers.length;
 
@@ -327,7 +337,12 @@ async function backfillReviewCyclesJob(
 
   const completed = state.windowStart > state.targetEnd;
 
-  const updatedReviewersCount = await refreshReviewerStats();
+  const updatedReviewersCount =
+    affectedLogins.size === 0 ? 0 : await refreshReviewerStats(affectedLogins);
+
+  if (cyclesWritten > 0 || completed) {
+    await refreshReviewCycleAnalytics();
+  }
 
   if (completed) {
     await clearReviewCycleBackfillState();

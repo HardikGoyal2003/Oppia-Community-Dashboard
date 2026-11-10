@@ -26,6 +26,8 @@ export type ReviewCycleBackfillStepResult = {
   processedPrNumbers: number[];
   /** Whether every PR in the window has now been processed. */
   complete: boolean;
+  /** Authors of the PRs scanned in this window. */
+  authorLogins: Set<string>;
 };
 
 /**
@@ -58,6 +60,12 @@ export async function runReviewCycleBackfillStep(
     (pr) => !input.processedPrNumbers.has(pr.number),
   );
 
+  const authorLogins = new Set<string>();
+  for (const pr of prsByNumber.values()) {
+    const author = pr.user?.login;
+    if (author) authorLogins.add(author);
+  }
+
   const records: CycleRecord[] = [];
   const processedPrNumbers: number[] = [];
   let complete = true;
@@ -79,5 +87,5 @@ export async function runReviewCycleBackfillStep(
     processedPrNumbers.push(pr.number);
   }
 
-  return { records, processedPrNumbers, complete };
+  return { records, processedPrNumbers, complete, authorLogins };
 }
