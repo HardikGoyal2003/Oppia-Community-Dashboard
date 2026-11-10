@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import { getTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
-import { getAllReviewers } from "@/db/reviewers/reviewers.db";
-import { getReviewCycleAnalytics } from "@/db/review-cycles/review-cycles.db";
+import { getReviewers } from "@/db/reviewers/reviewers.db";
+import {
+  getReviewCycleAnalyticsSnapshot,
+  refreshReviewCycleAnalytics,
+} from "@/db/review-cycles/review-cycles.db";
 import type {
   PendingReview,
   ReviewerDocument,
@@ -110,10 +113,18 @@ export async function GET() {
     );
   }
 
-  const [reviewerMap, analytics] = await Promise.all([
-    getAllReviewers(),
-    getReviewCycleAnalytics(),
+  const memberLogins = doc.teams.flatMap((team) =>
+    team.members.map((member) => member.username),
+  );
+
+  const [reviewerMap, analyticsSnapshot] = await Promise.all([
+    getReviewers(memberLogins),
+    getReviewCycleAnalyticsSnapshot(),
   ]);
+
+  // The snapshot is written by the cycle sync. Recompute lazily only when it is
+  // missing (for example, on the first request after deploying this change).
+  const analytics = analyticsSnapshot ?? (await refreshReviewCycleAnalytics());
 
   const nowMs = Date.now();
 

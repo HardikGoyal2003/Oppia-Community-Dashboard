@@ -1,4 +1,5 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
+import { DbValidationError } from "@/db/db.errors";
 import type {
   ReviewerApprovalShare,
   ReviewerTeamsAnalytics,
@@ -10,11 +11,24 @@ import {
   type FirestoreReviewCycle,
   serializeReviewCycle,
 } from "./review-cycles.mapper";
+import {
+  type FirestoreReviewCycleAnalytics,
+  normalizeReviewCycleAnalytics,
+  serializeReviewCycleAnalytics,
+} from "./review-cycle-analytics.mapper";
 
 const db = getAdminFirestore();
 const collection = db.collection(
   DB_PATHS.REVIEW_CYCLES.COLLECTION,
 ) as FirebaseFirestore.CollectionReference<FirestoreReviewCycle>;
+const analyticsDoc = db
+  .collection(DB_PATHS.REVIEW_CYCLE_ANALYTICS.COLLECTION)
+  .doc(
+    DB_PATHS.REVIEW_CYCLE_ANALYTICS.SNAPSHOT_DOC,
+  ) as FirebaseFirestore.DocumentReference<FirestoreReviewCycleAnalytics>;
+
+/** Firestore `in` filters accept at most 30 comparison values. */
+const AGGREGATE_LOGIN_CHUNK_SIZE = 30;
 
 /**
  * Batch upserts multiple review cycle records.
@@ -101,11 +115,97 @@ export type ReviewCycleAggregate = {
 };
 
 /**
- * Computes aggregate stats for all reviewers from all stored cycles.
+ * Creates a zeroed per-reviewer aggregate.
+ *
+ * @returns An aggregate with every counter reset.
+ */
+function createEmptyAggregate(): ReviewCycleAggregate {
+  return {
+    completedReviews: 0,
+    reviewedPrs: new Set<number>(),
+    totalReviewTimeMs: 0,
+    totalRoundsBeforeApproval: 0,
+    approvedPrCount: 0,
+    totalComments: 0,
+    completedReviewSubmissions: 0,
+    totalApprovalDurationMs: 0,
+    approvalsWithDuration: 0,
+    activeWeeks: new Set<string>(),
+  };
+}
+
+/**
+ * Merges one cycle document into the per-reviewer aggregates.
+ *
+ * @param aggregates The aggregate map to update.
+ * @param seenPRsByReviewer The per-reviewer set of PRs already counted.
+ * @param data The cycle document to accumulate.
+ * @returns Nothing. The maps are mutated in place.
+ */
+function accumulateCycle(
+  aggregates: Map<string, ReviewCycleAggregate>,
+  seenPRsByReviewer: Map<string, Set<number>>,
+  data: FirestoreReviewCycle,
+): void {
+  const login = data.reviewerLogin;
+  const existing = aggregates.get(login) ?? createEmptyAggregate();
+
+  existing.completedReviews++;
+  existing.reviewedPrs.add(data.prNumber);
+  existing.totalReviewTimeMs += data.durationMs;
+
+  if (data.approvalDurationMs !== null) {
+    existing.totalApprovalDurationMs += data.approvalDurationMs;
+    existing.approvalsWithDuration++;
+  }
+
+  const seenPRs = seenPRsByReviewer.get(login) ?? new Set<number>();
+  if (!seenPRs.has(data.prNumber)) {
+    seenPRs.add(data.prNumber);
+    seenPRsByReviewer.set(login, seenPRs);
+
+    existing.completedReviewSubmissions += data.reviewSubmissionCount ?? 0;
+    if ((data.reviewSubmissionCount ?? 0) > 0) {
+      existing.activeWeeks.add(
+        getIstWeekStartDateKey(new Date(data.completedAt)),
+      );
+    }
+
+    if (data.reviewRoundsBeforeApproval !== null) {
+      existing.totalRoundsBeforeApproval += data.reviewRoundsBeforeApproval;
+      existing.approvedPrCount++;
+    }
+    existing.totalComments += data.commentCount;
+  }
+
+  aggregates.set(login, existing);
+}
+
+/**
+ * Aggregates a set of cycle records into per-reviewer stats.
  *
  * Deduplicates per-PR stats (reviewRoundsBeforeApproval, commentCount)
  * by PR number since multiple cycles can exist for the same reviewer
  * on the same PR.
+ *
+ * @param records The cycle records to aggregate.
+ * @returns A map of login to aggregate stats.
+ */
+function aggregateCycleRecords(
+  records: FirestoreReviewCycle[],
+): Map<string, ReviewCycleAggregate> {
+  const aggregates = new Map<string, ReviewCycleAggregate>();
+  const seenPRsByReviewer = new Map<string, Set<number>>();
+
+  for (const record of records) {
+    accumulateCycle(aggregates, seenPRsByReviewer, record);
+  }
+
+  return aggregates;
+}
+
+/**
+ * Computes aggregate stats for all reviewers from all stored cycles.
  *
  * @returns A map of login to aggregate stats.
  */
@@ -113,57 +213,39 @@ export async function getAllReviewCycleAggregates(): Promise<
   Map<string, ReviewCycleAggregate>
 > {
   const snapshot = await collection.get();
-  const map = new Map<string, ReviewCycleAggregate>();
+  return aggregateCycleRecords(snapshot.docs.map((doc) => doc.data()));
+}
 
-  const seenPRsByReviewer = new Map<string, Set<number>>();
+/**
+ * Computes aggregate stats for the given reviewers only.
+ *
+ * Reads just the cycles belonging to those logins instead of the whole
+ * collection, so a daily sync does not scan historical cycles for reviewers
+ * it will not update.
+ *
+ * @param logins The reviewer logins to aggregate.
+ * @returns A map of login to aggregate stats.
+ */
+export async function getReviewCycleAggregatesForLogins(
+  logins: string[],
+): Promise<Map<string, ReviewCycleAggregate>> {
+  const uniqueLogins = Array.from(new Set(logins));
+  if (uniqueLogins.length === 0) return new Map();
 
-  snapshot.forEach((doc) => {
-    const data = doc.data();
-    const login = data.reviewerLogin;
-    const existing = map.get(login) ?? {
-      completedReviews: 0,
-      reviewedPrs: new Set<number>(),
-      totalReviewTimeMs: 0,
-      totalRoundsBeforeApproval: 0,
-      approvedPrCount: 0,
-      totalComments: 0,
-      completedReviewSubmissions: 0,
-      totalApprovalDurationMs: 0,
-      approvalsWithDuration: 0,
-      activeWeeks: new Set<string>(),
-    };
-    existing.completedReviews++;
-    existing.reviewedPrs.add(data.prNumber);
-    existing.totalReviewTimeMs += data.durationMs;
+  const records: FirestoreReviewCycle[] = [];
 
-    if (data.approvalDurationMs !== null) {
-      existing.totalApprovalDurationMs += data.approvalDurationMs;
-      existing.approvalsWithDuration++;
-    }
+  for (
+    let start = 0;
+    start < uniqueLogins.length;
+    start += AGGREGATE_LOGIN_CHUNK_SIZE
+  ) {
+    const chunk = uniqueLogins.slice(start, start + AGGREGATE_LOGIN_CHUNK_SIZE);
+    const snapshot = await collection.where("reviewerLogin", "in", chunk).get();
 
-    const seenPRs = seenPRsByReviewer.get(login) ?? new Set<number>();
-    if (!seenPRs.has(data.prNumber)) {
-      seenPRs.add(data.prNumber);
-      seenPRsByReviewer.set(login, seenPRs);
+    snapshot.forEach((doc) => records.push(doc.data()));
+  }
 
-      existing.completedReviewSubmissions += data.reviewSubmissionCount ?? 0;
-      if ((data.reviewSubmissionCount ?? 0) > 0) {
-        existing.activeWeeks.add(
-          getIstWeekStartDateKey(new Date(data.completedAt)),
-        );
-      }
-
-      if (data.reviewRoundsBeforeApproval !== null) {
-        existing.totalRoundsBeforeApproval += data.reviewRoundsBeforeApproval;
-        existing.approvedPrCount++;
-      }
-      existing.totalComments += data.commentCount;
-    }
-
-    map.set(login, existing);
-  });
-
-  return map;
+  return aggregateCycleRecords(records);
 }
 
 /**
@@ -172,7 +254,7 @@ export async function getAllReviewCycleAggregates(): Promise<
  * @returns Weekly review counts, monthly unique reviewers, top approver
  * concentration, and PR-size vs review-time scatter data.
  */
-export async function getReviewCycleAnalytics(): Promise<ReviewerTeamsAnalytics> {
+async function computeReviewCycleAnalytics(): Promise<ReviewerTeamsAnalytics> {
   const snapshot = await collection.get();
 
   const weeklyReviews = new Map<string, number>();
@@ -268,4 +350,38 @@ export async function getReviewCycleAnalytics(): Promise<ReviewerTeamsAnalytics>
       .sort((a, b) => a.additions - b.additions),
     totalApprovals,
   };
+}
+
+/**
+ * Reads the precomputed reviewer analytics snapshot.
+ *
+ * The dashboard reads this single document instead of scanning the whole
+ * review-cycles collection on every page load. The snapshot is refreshed by
+ * the cycle sync and the backfill job.
+ *
+ * @returns The stored analytics, or null when no snapshot exists.
+ */
+export async function getReviewCycleAnalyticsSnapshot(): Promise<ReviewerTeamsAnalytics | null> {
+  const snapshot = await analyticsDoc.get();
+  if (!snapshot.exists) return null;
+  const data = snapshot.data();
+  if (!data) return null;
+
+  try {
+    return normalizeReviewCycleAnalytics(data);
+  } catch (error) {
+    if (error instanceof DbValidationError) return null;
+    throw error;
+  }
+}
+
+/**
+ * Recomputes org-wide reviewer analytics and persists the snapshot.
+ *
+ * @returns The freshly computed analytics.
+ */
+export async function refreshReviewCycleAnalytics(): Promise<ReviewerTeamsAnalytics> {
+  const analytics = await computeReviewCycleAnalytics();
+  await analyticsDoc.set(serializeReviewCycleAnalytics(analytics));
+  return analytics;
 }

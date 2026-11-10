@@ -43,20 +43,56 @@ export async function upsertReviewer(
 }
 
 /**
- * Fetches all reviewer documents from Firestore.
+ * Stores or replaces many reviewer documents using batched writes.
  *
- * @returns A promise that resolves to a map of login to reviewer document.
+ * @param entries The reviewer logins and documents to persist.
+ * @returns A promise that resolves when all batch writes complete.
  */
-export async function getAllReviewers(): Promise<
-  Map<string, ReviewerDocument>
-> {
-  const snapshot = await collection.get();
-  const map = new Map<string, ReviewerDocument>();
-  snapshot.forEach((doc) => {
-    const data = doc.data();
-    if (data) {
-      map.set(doc.id, normalizeReviewer(data));
+export async function upsertReviewers(
+  entries: Array<{ login: string; doc: ReviewerDocument }>,
+): Promise<void> {
+  const BATCH_SIZE = 400;
+
+  for (let start = 0; start < entries.length; start += BATCH_SIZE) {
+    const batch = db.batch();
+
+    for (const { login, doc } of entries.slice(start, start + BATCH_SIZE)) {
+      batch.set(collection.doc(login), serializeReviewer(doc));
     }
-  });
-  return map;
+
+    await batch.commit();
+  }
+}
+
+/**
+ * Retrieves reviewer documents for the given logins.
+ *
+ * Uses `getAll` so a targeted refresh reads only the affected reviewers
+ * instead of the whole collection.
+ *
+ * @param logins The GitHub logins to fetch.
+ * @returns A map of login to reviewer document for the logins that exist.
+ */
+export async function getReviewers(
+  logins: string[],
+): Promise<Map<string, ReviewerDocument>> {
+  const uniqueLogins = Array.from(new Set(logins));
+  const reviewers = new Map<string, ReviewerDocument>();
+  const CHUNK_SIZE = 300;
+
+  for (let start = 0; start < uniqueLogins.length; start += CHUNK_SIZE) {
+    const chunk = uniqueLogins.slice(start, start + CHUNK_SIZE);
+    const snapshots = await db.getAll(
+      ...chunk.map((login) => collection.doc(login)),
+    );
+
+    snapshots.forEach((snapshot, index) => {
+      const data = snapshot.data();
+      if (snapshot.exists && data) {
+        reviewers.set(chunk[index], normalizeReviewer(data));
+      }
+    });
+  }
+
+  return reviewers;
 }

@@ -1,6 +1,9 @@
 import { upsertTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
 import { upsertReviewer } from "@/db/reviewers/reviewers.db";
-import { upsertReviewCycles } from "@/db/review-cycles/review-cycles.db";
+import {
+  refreshReviewCycleAnalytics,
+  upsertReviewCycles,
+} from "@/db/review-cycles/review-cycles.db";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type {
   PendingReview,
@@ -347,6 +350,7 @@ export async function generateReviewerTeamsDummyData(): Promise<ReviewerTeamsDum
   }
 
   await upsertReviewCycles(cycles);
+  await refreshReviewCycleAnalytics();
 
   return {
     teamsWritten: SAMPLE_TEAMS.length,
