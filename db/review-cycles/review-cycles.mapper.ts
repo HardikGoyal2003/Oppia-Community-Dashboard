@@ -22,6 +22,10 @@ export function normalizeReviewCycle(
     reviewRoundsBeforeApproval:
       (data.reviewRoundsBeforeApproval as number | null) ?? null,
     commentCount: (data.commentCount as number) ?? 0,
+    reviewSubmissionCount: (data.reviewSubmissionCount as number) ?? 0,
+    approvedAt: (data.approvedAt as string | null) ?? null,
+    approvalDurationMs: (data.approvalDurationMs as number | null) ?? null,
+    prAdditions: (data.prAdditions as number | null) ?? null,
   };
 }
 

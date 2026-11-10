@@ -65,6 +65,7 @@ export async function POST(req: Request) {
           `Reviewer teams written: ${summary.teamsWritten}.`,
           `Reviewer documents written: ${summary.reviewersWritten}.`,
           `Pending PRs written: ${summary.pendingReviewsWritten}.`,
+          `Review cycle records written: ${summary.cyclesWritten}.`,
         ].join("\n"),
       });
     }

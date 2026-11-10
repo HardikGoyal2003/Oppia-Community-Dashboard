@@ -2,11 +2,114 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import { getTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
-import { getReviewer } from "@/db/reviewers/reviewers.db";
-import type { TeamReviewerMember } from "@/lib/domain/reviewer-teams.types";
+import { getAllReviewers } from "@/db/reviewers/reviewers.db";
+import { getReviewCycleAnalytics } from "@/db/review-cycles/review-cycles.db";
+import type {
+  PendingReview,
+  ReviewerDocument,
+  ReviewerTeamsDocument,
+  ReviewerTeamMember,
+} from "@/lib/domain/reviewer-teams.types";
+
+const PENDING_STALE_CUTOFF_HOURS = 48;
 
 function canViewReviewerTeams(role: string | undefined): boolean {
   return role === "ADMIN" || role === "SUPER_ADMIN";
+}
+
+/**
+ * Computes the active/stale pending split and the longest current wait.
+ *
+ * @param pendingReviews The reviewer's open assignments.
+ * @param nowMs The current timestamp in ms.
+ * @returns Pending counts and the maximum wait in hours.
+ */
+function getPendingBreakdown(
+  pendingReviews: PendingReview[],
+  nowMs: number,
+): Pick<
+  ReviewerTeamMember,
+  "pendingActiveCount" | "pendingStaleCount" | "maxPendingWaitHours"
+> {
+  let pendingActiveCount = 0;
+  let pendingStaleCount = 0;
+  let maxPendingWaitHours: number | null = null;
+
+  for (const pr of pendingReviews) {
+    const waitHours = (nowMs - new Date(pr.assignedAt).getTime()) / 3_600_000;
+    const safeWaitHours = Number.isFinite(waitHours)
+      ? Math.max(0, waitHours)
+      : 0;
+
+    if (safeWaitHours >= PENDING_STALE_CUTOFF_HOURS) {
+      pendingStaleCount++;
+    } else {
+      pendingActiveCount++;
+    }
+
+    maxPendingWaitHours =
+      maxPendingWaitHours === null
+        ? safeWaitHours
+        : Math.max(maxPendingWaitHours, safeWaitHours);
+  }
+
+  return {
+    pendingActiveCount,
+    pendingStaleCount,
+    maxPendingWaitHours:
+      maxPendingWaitHours === null
+        ? null
+        : Number(maxPendingWaitHours.toFixed(1)),
+  };
+}
+
+/**
+ * Builds the per-member response payload from the stored reviewer doc.
+ *
+ * @param username The member's GitHub login.
+ * @param avatarUrl The member's avatar URL.
+ * @param reviewer The stored reviewer document, if any.
+ * @param nowMs The current timestamp in ms.
+ * @returns The enriched member payload.
+ */
+function buildMember(
+  username: string,
+  avatarUrl: string,
+  reviewer: ReviewerDocument | null,
+  nowMs: number,
+): ReviewerTeamMember {
+  const pendingReviews = (reviewer?.pendingReviews ?? [])
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(a.assignedAt).getTime() - new Date(b.assignedAt).getTime(),
+    );
+
+  const approvedPrCount = reviewer?.approvedPrCount ?? 0;
+  const authoredPrCount = reviewer?.authoredPrCount ?? 0;
+
+  return {
+    username,
+    avatarUrl,
+    assignedPRs: pendingReviews,
+    reviewsDone: reviewer?.completedReviews ?? 0,
+    reviewedPrCount: reviewer?.reviewedPrCount ?? 0,
+    completedReviewSubmissions: reviewer?.completedReviewSubmissions ?? 0,
+    avgReviewTimeHours: reviewer?.avgReviewTimeHours ?? null,
+    avgTimeToApprovalHours: reviewer?.avgTimeToApprovalHours ?? null,
+    avgReviewRoundsBeforeApproval:
+      reviewer?.avgReviewRoundsBeforeApproval ?? null,
+    avgCommentsPerReview: reviewer?.avgCommentsPerReview ?? null,
+    avgReviewsPerWeek: reviewer?.avgReviewsPerWeek ?? null,
+    pendingReviews: pendingReviews.length,
+    ...getPendingBreakdown(pendingReviews, nowMs),
+    approvedPrCount,
+    authoredPrCount,
+    approvalToAuthoredRatio:
+      authoredPrCount > 0
+        ? Number((approvedPrCount / authoredPrCount).toFixed(2))
+        : null,
+  };
 }
 
 export async function GET() {
@@ -28,50 +131,35 @@ export async function GET() {
     );
   }
 
-  const teams = await Promise.all(
-    doc.teams
-      .slice()
-      .sort((a, b) => a.teamName.localeCompare(b.teamName))
-      .map(async (team) => {
-        const members = await Promise.all(
-          team.members.map(async (member: TeamReviewerMember) => {
-            const reviewer = await getReviewer(member.username);
+  const [reviewerMap, analytics] = await Promise.all([
+    getAllReviewers(),
+    getReviewCycleAnalytics(),
+  ]);
 
-            const pendingReviews = (reviewer?.pendingReviews ?? [])
-              .slice()
-              .sort(
-                (a, b) =>
-                  new Date(a.assignedAt).getTime() -
-                  new Date(b.assignedAt).getTime(),
-              );
+  const nowMs = Date.now();
 
-            return {
-              username: member.username,
-              avatarUrl: member.avatarUrl,
-              assignedPRs: pendingReviews,
-              reviewsDone: reviewer?.completedReviews ?? 0,
-              pendingReviews: pendingReviews.length,
-              avgReviewTimeHours: reviewer?.avgReviewTimeHours ?? null,
-              avgReviewRoundsBeforeApproval:
-                reviewer?.avgReviewRoundsBeforeApproval ?? null,
-              avgCommentsPerReview: reviewer?.avgCommentsPerReview ?? null,
-            };
-          }),
-        );
+  const teams = doc.teams
+    .slice()
+    .sort((a, b) => a.teamName.localeCompare(b.teamName))
+    .map((team) => ({
+      teamSlug: team.teamSlug,
+      teamName: team.teamName,
+      description: team.description,
+      members: team.members.map((member) =>
+        buildMember(
+          member.username,
+          member.avatarUrl,
+          reviewerMap.get(member.username) ?? null,
+          nowMs,
+        ),
+      ),
+    }));
 
-        return {
-          teamSlug: team.teamSlug,
-          teamName: team.teamName,
-          description: team.description,
-          members,
-        };
-      }),
-  );
-
-  const response = {
+  const response: ReviewerTeamsDocument = {
     platform: "WEB",
     lastSyncedAt: doc.lastUpdated,
     teams,
+    analytics,
   };
 
   return NextResponse.json(response);

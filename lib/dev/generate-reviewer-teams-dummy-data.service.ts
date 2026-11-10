@@ -1,8 +1,10 @@
 import { upsertTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
 import { upsertReviewer } from "@/db/reviewers/reviewers.db";
+import { upsertReviewCycles } from "@/db/review-cycles/review-cycles.db";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type {
   PendingReview,
+  ReviewCycleRecord,
   ReviewerDocument,
   TeamReviewersDocument,
 } from "@/lib/domain/reviewer-teams.types";
@@ -11,6 +13,7 @@ export type ReviewerTeamsDummyDataSummary = {
   teamsWritten: number;
   reviewersWritten: number;
   pendingReviewsWritten: number;
+  cyclesWritten: number;
 };
 
 type SamplePendingPr = {
@@ -254,6 +257,11 @@ export async function generateReviewerTeamsDummyData(): Promise<ReviewerTeamsDum
   }
 
   let pendingReviewsWritten = 0;
+  const cycles: ReviewCycleRecord[] = [];
+  const hourMs = 3_600_000;
+  const dayMs = 24 * hourMs;
+  let nextSamplePrNumber = 23_200;
+  let memberIndex = 0;
 
   for (const [username, teams] of reviewerToTeams) {
     const sample = reviewerToSample.get(username);
@@ -262,31 +270,88 @@ export async function generateReviewerTeamsDummyData(): Promise<ReviewerTeamsDum
       continue;
     }
 
+    const member = memberIndex++;
+
     const pendingReviews: PendingReview[] = sample.pendingPrs.map((pr) => ({
       prNumber: pr.prNumber,
       title: pr.title,
       url: `https://github.com/oppia/oppia/pull/${pr.prNumber}`,
-      assignedAt: new Date(now - pr.hoursAgo * 3_600_000).toISOString(),
+      assignedAt: new Date(now - pr.hoursAgo * hourMs).toISOString(),
     }));
+
+    const reviewedPrCount = Math.max(
+      1,
+      Math.round(sample.completedReviews * 0.8),
+    );
+    const completedReviewSubmissions =
+      Math.round(sample.completedReviews * 1.4) + (member % 5);
+    const authoredPrCount = Math.max(
+      1,
+      Math.round(sample.approvedPrCount * (0.5 + (member % 4) * 0.15)),
+    );
 
     const doc: ReviewerDocument = {
       teams: Array.from(teams).sort(),
       pendingReviews,
       completedReviews: sample.completedReviews,
+      reviewedPrCount,
+      completedReviewSubmissions,
       approvedPrCount: sample.approvedPrCount,
+      authoredPrCount,
       avgReviewTimeHours: sample.avgReviewTimeHours,
+      avgTimeToApprovalHours:
+        sample.avgReviewTimeHours !== null
+          ? Number((sample.avgReviewTimeHours * 1.6).toFixed(1))
+          : null,
       avgReviewRoundsBeforeApproval: sample.avgReviewRoundsBeforeApproval,
       avgCommentsPerReview: sample.avgCommentsPerReview,
+      avgReviewsPerWeek: Number((completedReviewSubmissions / 18).toFixed(2)),
       lastUpdated,
     };
 
     await upsertReviewer(username, doc);
     pendingReviewsWritten += pendingReviews.length;
+
+    const cycleCount = 6 + (member % 6);
+
+    for (let i = 0; i < cycleCount; i++) {
+      const prNumber = nextSamplePrNumber++;
+      const daysAgo = 3 + i * 6 + (member % 5);
+      const assignedMs = now - daysAgo * dayMs - member * 37 * 60_000;
+      const durationHours = 5 + ((member * 7 + i * 11) % 70);
+      const approved = (member + i) % 3 !== 0;
+      const approvedAtMs = approved
+        ? assignedMs + (durationHours + 3 + (i % 5)) * hourMs
+        : null;
+
+      cycles.push({
+        reviewerLogin: username,
+        prNumber,
+        prTitle: `Sample PR #${prNumber}`,
+        prUrl: `https://github.com/oppia/oppia/pull/${prNumber}`,
+        assignedAt: new Date(assignedMs).toISOString(),
+        completedAt: new Date(
+          assignedMs + durationHours * hourMs,
+        ).toISOString(),
+        durationMs: durationHours * hourMs,
+        reviewRoundsBeforeApproval: approved ? 1 + ((member + i) % 3) : null,
+        commentCount: 1 + ((member * 2 + i) % 7),
+        reviewSubmissionCount: 1 + ((member + i) % 3),
+        approvedAt:
+          approvedAtMs !== null ? new Date(approvedAtMs).toISOString() : null,
+        approvalDurationMs:
+          approvedAtMs !== null ? approvedAtMs - assignedMs : null,
+        prAdditions: [80, 150, 240, 320, 480][(member + i) % 5],
+      });
+    }
   }
+
+  await upsertReviewCycles(cycles);
 
   return {
     teamsWritten: SAMPLE_TEAMS.length,
     reviewersWritten: reviewerToTeams.size,
     pendingReviewsWritten,
+    cyclesWritten: cycles.length,
   };
 }

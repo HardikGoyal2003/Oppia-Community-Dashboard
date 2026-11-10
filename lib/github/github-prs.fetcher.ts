@@ -1,4 +1,5 @@
 import { requestGitHubRest, requestGitHubRestAll } from "./github.rest";
+import { requestGitHubGraphQL } from "./github.request";
 import { fetchGitHubRateLimit } from "./github.rate-limit";
 import fs from "fs";
 import path from "path";
@@ -16,6 +17,9 @@ type GitHubPullResponse = {
   assignees: Array<{ login: string }> | null;
   requested_teams: Array<{ slug: string }>;
   pull_request?: Record<string, string>;
+  /** Present on single-PR REST responses, absent from search results. */
+  additions?: number;
+  changed_files?: number;
 };
 
 type TimelineEvent = {
@@ -241,6 +245,14 @@ export type CycleRecord = {
   durationMs: number;
   reviewRoundsBeforeApproval: number | null;
   commentCount: number;
+  /** Non-pending review submissions made by the reviewer on this PR. */
+  reviewSubmissionCount: number;
+  /** Timestamp of the reviewer's first approval on this PR, if any. */
+  approvedAt: string | null;
+  /** Assignment → first approval duration in ms, if approved. */
+  approvalDurationMs: number | null;
+  /** Lines added by the PR (size proxy), if known. */
+  prAdditions: number | null;
 };
 
 export type CycleRecordsResult = {
@@ -270,6 +282,10 @@ type InlineComment = {
 export type ReviewerPRStats = {
   reviewRoundsBeforeApproval: number | null;
   commentCount: number;
+  /** Non-pending review submissions by this reviewer on the PR. */
+  reviewSubmissionCount: number;
+  /** Timestamp of this reviewer's first approval on the PR, if any. */
+  approvedAt: string | null;
 };
 
 type CycleEvent = {
@@ -437,6 +453,7 @@ export async function fetchReviewerStats(): Promise<ReviewerStatsMap> {
  * @param reviews The review submissions for the PR.
  * @param includePending Whether to include pending (unpaired) cycles.
  * @param reviewerStats Per-reviewer PR stats (rounds before approval, comment count).
+ * @param prAdditions Lines added by the PR, if known.
  * @returns Completed cycles and optionally pending cycles.
  */
 function extractCyclesFromPR(
@@ -445,6 +462,7 @@ function extractCyclesFromPR(
   reviews: GitHubReviewResponse[],
   includePending: boolean,
   reviewerStats: Map<string, ReviewerPRStats>,
+  prAdditions: number | null,
 ): { completed: CycleRecord[]; pending: CycleRecordsResult["pending"] } {
   const assignees = pr.assignees;
   if (!assignees || assignees.length === 0)
@@ -464,6 +482,10 @@ function extractCyclesFromPR(
     const reviewRoundsBeforeApproval =
       stats?.reviewRoundsBeforeApproval ?? null;
     const commentCount = stats?.commentCount ?? 0;
+    const reviewSubmissionCount = stats?.reviewSubmissionCount ?? 0;
+    const approvedAt = stats?.approvedAt ?? null;
+    const approvedAtMs = approvedAt ? new Date(approvedAt).getTime() : null;
+    let approvalAttached = false;
 
     const events: CycleEvent[] = [];
 
@@ -510,6 +532,14 @@ function extractCyclesFromPR(
           const durationMs =
             new Date(event.timestamp).getTime() -
             new Date(cycleStart).getTime();
+          const cycleStartMs = new Date(cycleStart).getTime();
+          const attachApproval =
+            !approvalAttached &&
+            approvedAtMs !== null &&
+            approvedAtMs >= cycleStartMs;
+          if (attachApproval) {
+            approvalAttached = true;
+          }
           completed.push({
             reviewerLogin: login,
             prNumber: pr.number,
@@ -520,6 +550,13 @@ function extractCyclesFromPR(
             durationMs: Math.max(0, durationMs),
             reviewRoundsBeforeApproval,
             commentCount,
+            reviewSubmissionCount,
+            approvedAt: attachApproval ? approvedAt : null,
+            approvalDurationMs:
+              attachApproval && approvedAtMs !== null
+                ? Math.max(0, approvedAtMs - cycleStartMs)
+                : null,
+            prAdditions,
           });
           inCycle = false;
         }
@@ -581,9 +618,11 @@ function extractReviewerPRStats(
       );
 
     let reviewRoundsBeforeApproval: number | null = null;
+    let approvedAt: string | null = null;
     for (let i = 0; i < userReviews.length; i++) {
       if (userReviews[i].state === "APPROVED") {
         reviewRoundsBeforeApproval = i + 1;
+        approvedAt = userReviews[i].submitted_at;
         break;
       }
     }
@@ -596,7 +635,12 @@ function extractReviewerPRStats(
     }
     commentCount += inlineByUser.get(login) ?? 0;
 
-    result.set(login, { reviewRoundsBeforeApproval, commentCount });
+    result.set(login, {
+      reviewRoundsBeforeApproval,
+      commentCount,
+      reviewSubmissionCount: userReviews.length,
+      approvedAt,
+    });
   }
 
   return result;
@@ -612,19 +656,24 @@ async function fetchPRTimelineAndReviews(prNumber: number): Promise<{
   timelineEvents: TimelineEvent[];
   reviews: GitHubReviewResponse[];
   inlineComments: InlineComment[];
+  pullRequest: GitHubPullResponse;
 }> {
-  const [timelineEvents, reviews, inlineComments] = await Promise.all([
-    requestGitHubRestAll<TimelineEvent>(
-      `/repos/${ORG}/${REPO}/issues/${prNumber}/timeline`,
-    ),
-    requestGitHubRestAll<GitHubReviewResponse>(
-      `/repos/${ORG}/${REPO}/pulls/${prNumber}/reviews`,
-    ),
-    requestGitHubRestAll<InlineComment>(
-      `/repos/${ORG}/${REPO}/pulls/${prNumber}/comments`,
-    ),
-  ]);
-  return { timelineEvents, reviews, inlineComments };
+  const [timelineEvents, reviews, inlineComments, pullRequest] =
+    await Promise.all([
+      requestGitHubRestAll<TimelineEvent>(
+        `/repos/${ORG}/${REPO}/issues/${prNumber}/timeline`,
+      ),
+      requestGitHubRestAll<GitHubReviewResponse>(
+        `/repos/${ORG}/${REPO}/pulls/${prNumber}/reviews`,
+      ),
+      requestGitHubRestAll<InlineComment>(
+        `/repos/${ORG}/${REPO}/pulls/${prNumber}/comments`,
+      ),
+      requestGitHubRest<GitHubPullResponse>(
+        `/repos/${ORG}/${REPO}/pulls/${prNumber}`,
+      ),
+    ]);
+  return { timelineEvents, reviews, inlineComments, pullRequest };
 }
 
 /**
@@ -672,7 +721,7 @@ export async function fetchCycleRecords(): Promise<CycleRecordsResult> {
 
     console.log(`  Processing open PR #${item.number}...`);
 
-    const { timelineEvents, reviews, inlineComments } =
+    const { timelineEvents, reviews, inlineComments, pullRequest } =
       await fetchPRTimelineAndReviews(item.number);
     const stats = extractReviewerPRStats(item, reviews, inlineComments);
     const result = extractCyclesFromPR(
@@ -681,6 +730,7 @@ export async function fetchCycleRecords(): Promise<CycleRecordsResult> {
       reviews,
       true,
       stats,
+      pullRequest.additions ?? null,
     );
 
     completed.push(...result.completed);
@@ -745,7 +795,7 @@ export async function fetchClosedPRCycleRecords(sinceDate: Date): Promise<{
 
     console.log(`  Processing closed PR #${item.number}...`);
 
-    const { timelineEvents, reviews, inlineComments } =
+    const { timelineEvents, reviews, inlineComments, pullRequest } =
       await fetchPRTimelineAndReviews(item.number);
     const stats = extractReviewerPRStats(item, reviews, inlineComments);
     const result = extractCyclesFromPR(
@@ -754,6 +804,7 @@ export async function fetchClosedPRCycleRecords(sinceDate: Date): Promise<{
       reviews,
       false,
       stats,
+      pullRequest.additions ?? null,
     );
 
     completed.push(...result.completed);
@@ -769,4 +820,47 @@ export async function fetchClosedPRCycleRecords(sinceDate: Date): Promise<{
   console.log(rate.core);
 
   return { completed, reviewerPRStats };
+}
+
+/**
+ * Fetches the total number of PRs authored by each login in oppia/oppia.
+ *
+ * Uses one batched GraphQL request with aliased `search` queries so we do
+ * not exhaust the REST search rate limit with per-user requests.
+ *
+ * @param logins The GitHub logins to look up.
+ * @returns A map of login to authored PR count.
+ */
+export async function fetchAuthoredPrCounts(
+  logins: string[],
+): Promise<Map<string, number>> {
+  const uniqueLogins = Array.from(new Set(logins.filter(Boolean)));
+  const result = new Map<string, number>();
+
+  if (uniqueLogins.length === 0) return result;
+
+  const CHUNK_SIZE = 20;
+
+  for (let start = 0; start < uniqueLogins.length; start += CHUNK_SIZE) {
+    const chunk = uniqueLogins.slice(start, start + CHUNK_SIZE);
+    const variables: Record<string, string> = {};
+
+    const variableDefs = chunk.map((_, index) => `$q${index}: String!`);
+    const searchFields = chunk.map((login, index) => {
+      variables[`q${index}`] = `repo:${ORG}/${REPO} type:pr author:${login}`;
+      return `u${index}: search(query: $q${index}, type: ISSUE, first: 1) { issueCount }`;
+    });
+
+    const query = `query(${variableDefs.join(", ")}) { ${searchFields.join(" ")} }`;
+
+    const data = await requestGitHubGraphQL<
+      Record<string, { issueCount: number }>
+    >(query, variables);
+
+    chunk.forEach((login, index) => {
+      result.set(login, data[`u${index}`]?.issueCount ?? 0);
+    });
+  }
+
+  return result;
 }

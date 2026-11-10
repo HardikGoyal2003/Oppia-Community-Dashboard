@@ -1,8 +1,9 @@
 import {
   fetchCycleRecords,
   fetchClosedPRCycleRecords,
+  fetchAuthoredPrCounts,
 } from "@/lib/github/github.fetcher";
-import { getReviewer, upsertReviewer } from "@/db/reviewers/reviewers.db";
+import { getAllReviewers, upsertReviewer } from "@/db/reviewers/reviewers.db";
 import { getTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import {
@@ -59,17 +60,21 @@ export async function syncReviewCycles(): Promise<SyncSummary> {
 
   await upsertReviewCycles(filtered);
 
-  const aggregates = await getAllReviewCycleAggregates();
+  const [aggregates, reviewerDocs, authoredCounts] = await Promise.all([
+    getAllReviewCycleAggregates(),
+    getAllReviewers(),
+    fetchAuthoredPrCounts(Array.from(knownLogins)),
+  ]);
 
   let updatedCount = 0;
 
-  for (const [login, agg] of aggregates) {
-    if (!knownLogins.has(login)) continue;
+  for (const login of knownLogins) {
+    const agg = aggregates.get(login);
+    const existing = reviewerDocs.get(login) ?? null;
 
-    const existing = await getReviewer(login);
-
-    const avgReviewTimeHours =
-      agg.completedReviews > 0
+    const avgReviewTimeHours = !agg
+      ? (existing?.avgReviewTimeHours ?? null)
+      : agg.completedReviews > 0
         ? Number(
             (agg.totalReviewTimeMs / agg.completedReviews / 3_600_000).toFixed(
               1,
@@ -77,26 +82,58 @@ export async function syncReviewCycles(): Promise<SyncSummary> {
           )
         : null;
 
-    const avgReviewRoundsBeforeApproval =
-      agg.approvedPrCount > 0
+    const avgReviewRoundsBeforeApproval = !agg
+      ? (existing?.avgReviewRoundsBeforeApproval ?? null)
+      : agg.approvedPrCount > 0
         ? Number(
             (agg.totalRoundsBeforeApproval / agg.approvedPrCount).toFixed(1),
           )
         : null;
 
-    const avgCommentsPerReview =
-      agg.completedReviews > 0
+    const avgCommentsPerReview = !agg
+      ? (existing?.avgCommentsPerReview ?? null)
+      : agg.completedReviews > 0
         ? Number((agg.totalComments / agg.completedReviews).toFixed(1))
+        : null;
+
+    const avgTimeToApprovalHours = !agg
+      ? (existing?.avgTimeToApprovalHours ?? null)
+      : agg.approvalsWithDuration > 0
+        ? Number(
+            (
+              agg.totalApprovalDurationMs /
+              agg.approvalsWithDuration /
+              3_600_000
+            ).toFixed(1),
+          )
+        : null;
+
+    const avgReviewsPerWeek = !agg
+      ? (existing?.avgReviewsPerWeek ?? null)
+      : agg.activeWeeks.size > 0
+        ? Number(
+            (agg.completedReviewSubmissions / agg.activeWeeks.size).toFixed(2),
+          )
         : null;
 
     await upsertReviewer(login, {
       teams: existing?.teams ?? [],
       pendingReviews: existing?.pendingReviews ?? [],
-      completedReviews: agg.completedReviews,
-      approvedPrCount: agg.approvedPrCount,
+      completedReviews:
+        agg?.completedReviews ?? existing?.completedReviews ?? 0,
+      reviewedPrCount: agg?.reviewedPrs.size ?? existing?.reviewedPrCount ?? 0,
+      completedReviewSubmissions:
+        agg?.completedReviewSubmissions ??
+        existing?.completedReviewSubmissions ??
+        0,
+      approvedPrCount: agg?.approvedPrCount ?? existing?.approvedPrCount ?? 0,
+      authoredPrCount:
+        authoredCounts.get(login) ?? existing?.authoredPrCount ?? 0,
       avgReviewTimeHours,
+      avgTimeToApprovalHours,
       avgReviewRoundsBeforeApproval,
       avgCommentsPerReview,
+      avgReviewsPerWeek,
       lastUpdated: new Date(),
     });
 

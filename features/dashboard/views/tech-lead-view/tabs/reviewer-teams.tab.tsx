@@ -10,14 +10,21 @@ import {
   Shield,
   Users,
 } from "lucide-react";
-import type { ReviewerTeamsDocument } from "@/lib/domain/reviewer-teams.types";
+import type {
+  PendingReview,
+  ReviewerTeamsDocument,
+  ReviewerTeamMember,
+} from "@/lib/domain/reviewer-teams.types";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ReviewerAnalyticsSection } from "../components/reviewer-analytics-section";
 
 type Tab = "individual" | "teams";
+
+const PENDING_STALE_CUTOFF_HOURS = 48;
 
 function waitingSince(iso: string): string {
   const hours = (Date.now() - new Date(iso).getTime()) / 3_600_000;
@@ -28,34 +35,55 @@ function waitingSince(iso: string): string {
   return `${days}d ${remaining}h`;
 }
 
+function formatHours(hours: number | null): string {
+  if (hours === null) return "—";
+  if (hours < 1) return `${Math.round(hours * 60)}m`;
+  if (hours < 24) return `${Math.round(hours)}h`;
+  const days = Math.floor(hours / 24);
+  const remaining = Math.round(hours % 24);
+  return remaining === 0 ? `${days}d` : `${days}d ${remaining}h`;
+}
+
+function Stat({
+  label,
+  value,
+  tooltip,
+  tone = "default",
+}: {
+  label: string;
+  value: React.ReactNode;
+  tooltip: string;
+  tone?: "default" | "warning" | "danger";
+}) {
+  const valueClass =
+    tone === "danger"
+      ? "text-red-600"
+      : tone === "warning"
+        ? "text-amber-600"
+        : "text-slate-800";
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className="cursor-help text-center">
+          <p className={`text-sm font-semibold ${valueClass}`}>{value}</p>
+          <p className="text-[11px] leading-tight text-slate-500">{label}</p>
+        </div>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs">{tooltip}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 function IndividualView({ data }: { data: ReviewerTeamsDocument }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const members = useMemo(() => {
-    const seen = new Map<
-      string,
-      {
-        username: string;
-        avatarUrl: string;
-        reviewsDone: number;
-        pendingReviews: number;
-        avgReviewTimeHours: number | null;
-        avgReviewRoundsBeforeApproval: number | null;
-        avgCommentsPerReview: number | null;
-      }
-    >();
+    const seen = new Map<string, ReviewerTeamMember>();
     for (const team of data.teams) {
       for (const m of team.members) {
         if (!seen.has(m.username)) {
-          seen.set(m.username, {
-            username: m.username,
-            avatarUrl: m.avatarUrl,
-            reviewsDone: m.reviewsDone,
-            pendingReviews: m.pendingReviews,
-            avgReviewTimeHours: m.avgReviewTimeHours,
-            avgReviewRoundsBeforeApproval: m.avgReviewRoundsBeforeApproval,
-            avgCommentsPerReview: m.avgCommentsPerReview,
-          });
+          seen.set(m.username, m);
         }
       }
     }
@@ -65,10 +93,7 @@ function IndividualView({ data }: { data: ReviewerTeamsDocument }) {
   }, [data]);
 
   const memberPRMap = useMemo(() => {
-    const map = new Map<
-      string,
-      (typeof data.teams)[0]["members"][0]["assignedPRs"]
-    >();
+    const map = new Map<string, PendingReview[]>();
     for (const team of data.teams) {
       for (const m of team.members) {
         const existing = map.get(m.username) ?? [];
@@ -95,10 +120,11 @@ function IndividualView({ data }: { data: ReviewerTeamsDocument }) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {members.map((member) => {
         const isExpanded = expanded.has(member.username);
         const prs = memberPRMap.get(member.username) ?? [];
+
         return (
           <div
             key={member.username}
@@ -120,119 +146,126 @@ function IndividualView({ data }: { data: ReviewerTeamsDocument }) {
               </span>
               <span
                 className={`rounded-full px-3 py-1 text-xs font-medium ${
-                  prs.length > 0
-                    ? "bg-amber-50 text-amber-700"
-                    : "bg-slate-100 text-slate-500"
+                  member.pendingStaleCount > 0
+                    ? "bg-red-50 text-red-700"
+                    : prs.length > 0
+                      ? "bg-amber-50 text-amber-700"
+                      : "bg-slate-100 text-slate-500"
                 }`}
               >
                 {prs.length} PR{prs.length !== 1 ? "s" : ""}
+                {member.pendingStaleCount > 0
+                  ? ` · ${member.pendingStaleCount} stale`
+                  : ""}
               </span>
             </button>
 
-            <div className="flex flex-wrap justify-center gap-4 border-t border-slate-100 px-4 py-3 text-xs">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="text-center">
-                    <p className="font-semibold text-slate-800">
-                      {member.reviewsDone}
-                    </p>
-                    <p className="text-slate-500">Completed</p>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Total number of completed review cycles (assigned → review
-                  submitted or unassigned).
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="text-center">
-                    <p className="font-semibold text-slate-800">
-                      {member.pendingReviews}
-                    </p>
-                    <p className="text-slate-500">Pending</p>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Open PRs currently assigned for review, not yet reviewed or
-                  unassigned.
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="text-center">
-                    <p className="font-semibold text-slate-800">
-                      {member.avgReviewTimeHours !== null
-                        ? `${Math.floor(member.avgReviewTimeHours / 24)}d ${Math.round(member.avgReviewTimeHours % 24)}h`
-                        : "—"}
-                    </p>
-                    <p className="text-slate-500">Avg time</p>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Average time from assignment to review submission or
-                  unassignment, across all completed cycles.
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="text-center">
-                    <p className="font-semibold text-slate-800">
-                      {member.avgReviewRoundsBeforeApproval !== null
-                        ? member.avgReviewRoundsBeforeApproval
-                        : "—"}
-                    </p>
-                    <p className="text-slate-500">Avg rounds</p>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Average number of review submissions before the first
-                  approval, across all PRs that were eventually approved.
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="text-center">
-                    <p className="font-semibold text-slate-800">
-                      {member.avgCommentsPerReview !== null
-                        ? Math.floor(member.avgCommentsPerReview)
-                        : "—"}
-                    </p>
-                    <p className="text-slate-500">Avg comments</p>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Average number of non-empty review bodies plus inline code
-                  comments per completed review cycle.
-                </TooltipContent>
-              </Tooltip>
+            <div className="grid grid-cols-3 gap-x-2 gap-y-3 border-t border-slate-100 px-3 py-3">
+              <Stat
+                label="Reviews"
+                value={member.completedReviewSubmissions}
+                tooltip="Every review submission (comment, request changes, or approval). One PR can receive multiple reviews, so this is not the same as PRs reviewed."
+              />
+              <Stat
+                label="PRs reviewed"
+                value={member.reviewedPrCount}
+                tooltip="Distinct PRs this reviewer submitted at least one review on."
+              />
+              <Stat
+                label="Pending"
+                value={member.pendingReviews}
+                tone={member.pendingStaleCount > 0 ? "warning" : "default"}
+                tooltip="Open PRs currently assigned for review and not yet reviewed or unassigned."
+              />
+              <Stat
+                label="First review"
+                value={formatHours(member.avgReviewTimeHours)}
+                tooltip="Average time from initial assignment to the reviewer's first review submission."
+              />
+              <Stat
+                label="To approval"
+                value={formatHours(member.avgTimeToApprovalHours)}
+                tooltip="Average time from initial assignment to the reviewer's first approval."
+              />
+              <Stat
+                label="Reviews/week"
+                value={
+                  member.avgReviewsPerWeek !== null
+                    ? member.avgReviewsPerWeek.toFixed(1)
+                    : "—"
+                }
+                tooltip="Average review submissions per active week. A review is any submitted review, not only an approval."
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-x-2 gap-y-3 border-t border-slate-100 bg-slate-50/60 px-3 py-3">
+              <Stat
+                label="Rounds"
+                value={
+                  member.avgReviewRoundsBeforeApproval !== null
+                    ? member.avgReviewRoundsBeforeApproval
+                    : "—"
+                }
+                tooltip="Average number of review submissions before the first approval, across PRs that were eventually approved."
+              />
+              <Stat
+                label="Comments"
+                value={
+                  member.avgCommentsPerReview !== null
+                    ? member.avgCommentsPerReview.toFixed(1)
+                    : "—"
+                }
+                tooltip="Average non-empty review bodies plus inline code comments per completed review cycle."
+              />
+              <Stat
+                label="Approved / Authored"
+                value={
+                  member.approvalToAuthoredRatio !== null
+                    ? `${member.approvalToAuthoredRatio.toFixed(2)}×`
+                    : "—"
+                }
+                tooltip={`Approvals given: ${member.approvedPrCount} PRs. PRs authored: ${member.authoredPrCount}. A large gap between team members may indicate uneven review load.`}
+              />
             </div>
 
             {isExpanded && prs.length > 0 && (
               <div className="divide-y divide-slate-100 border-t border-slate-100 bg-slate-50">
-                {prs.map((pr) => (
-                  <div
-                    key={pr.prNumber}
-                    className="flex items-center gap-2 px-4 py-2.5"
-                  >
-                    <a
-                      href={pr.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                {prs.map((pr) => {
+                  const waitHours =
+                    (Date.now() - new Date(pr.assignedAt).getTime()) /
+                    3_600_000;
+                  const isStale = waitHours >= PENDING_STALE_CUTOFF_HOURS;
+
+                  return (
+                    <div
+                      key={pr.prNumber}
+                      className="flex items-center gap-2 px-4 py-2.5"
                     >
-                      #{pr.prNumber}
-                      <ExternalLink className="h-3 w-3 shrink-0" />
-                    </a>
-                    <span className="min-w-0 flex-1 truncate text-xs text-slate-600">
-                      {pr.title}
-                    </span>
-                    <span className="flex shrink-0 items-center gap-1 text-xs text-slate-400">
-                      <Clock className="h-3 w-3" />
-                      {waitingSince(pr.assignedAt)}
-                    </span>
-                  </div>
-                ))}
+                      <a
+                        href={pr.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                      >
+                        #{pr.prNumber}
+                        <ExternalLink className="h-3 w-3 shrink-0" />
+                      </a>
+                      <span className="min-w-0 flex-1 truncate text-xs text-slate-600">
+                        {pr.title}
+                      </span>
+                      <span
+                        className={`flex shrink-0 items-center gap-1 text-xs ${
+                          isStale
+                            ? "font-medium text-red-600"
+                            : "text-slate-400"
+                        }`}
+                      >
+                        <Clock className="h-3 w-3" />
+                        {waitingSince(pr.assignedAt)}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
@@ -354,6 +387,11 @@ function TeamsView({ data }: { data: ReviewerTeamsDocument }) {
                           @{member.username}
                         </span>
                         <div className="ml-auto flex items-center gap-1.5">
+                          {member.pendingStaleCount > 0 && (
+                            <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-medium text-red-700">
+                              {member.pendingStaleCount} stale
+                            </span>
+                          )}
                           {count > 0 && (
                             <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
                               {count}
@@ -369,29 +407,43 @@ function TeamsView({ data }: { data: ReviewerTeamsDocument }) {
 
                       {isMemberExpanded && count > 0 && (
                         <div className="border-t border-slate-100 bg-white">
-                          {member.assignedPRs.map((pr) => (
-                            <div
-                              key={pr.prNumber}
-                              className="flex items-center gap-2 px-4 py-2 pl-8"
-                            >
-                              <a
-                                href={pr.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                          {member.assignedPRs.map((pr) => {
+                            const waitHours =
+                              (Date.now() - new Date(pr.assignedAt).getTime()) /
+                              3_600_000;
+                            const isStale =
+                              waitHours >= PENDING_STALE_CUTOFF_HOURS;
+
+                            return (
+                              <div
+                                key={pr.prNumber}
+                                className="flex items-center gap-2 px-4 py-2 pl-8"
                               >
-                                #{pr.prNumber}
-                                <ExternalLink className="h-2.5 w-2.5 shrink-0" />
-                              </a>
-                              <span className="min-w-0 flex-1 truncate text-[11px] text-slate-600">
-                                {pr.title}
-                              </span>
-                              <span className="flex shrink-0 items-center gap-0.5 text-[10px] text-slate-400">
-                                <Clock className="h-2.5 w-2.5" />
-                                {waitingSince(pr.assignedAt)}
-                              </span>
-                            </div>
-                          ))}
+                                <a
+                                  href={pr.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                                >
+                                  #{pr.prNumber}
+                                  <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+                                </a>
+                                <span className="min-w-0 flex-1 truncate text-[11px] text-slate-600">
+                                  {pr.title}
+                                </span>
+                                <span
+                                  className={`flex shrink-0 items-center gap-0.5 text-[10px] ${
+                                    isStale
+                                      ? "font-medium text-red-600"
+                                      : "text-slate-400"
+                                  }`}
+                                >
+                                  <Clock className="h-2.5 w-2.5" />
+                                  {waitingSince(pr.assignedAt)}
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
 
@@ -548,6 +600,19 @@ export function ReviewerReportsTab() {
       ) : (
         <TeamsView data={data} />
       )}
+
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">
+            Reviewer analytics
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Review velocity, participation, concentration, and PR-size trends
+            across all stored review cycles.
+          </p>
+        </div>
+        <ReviewerAnalyticsSection analytics={data.analytics} />
+      </div>
 
       <div className="rounded-lg border border-slate-200 bg-slate-50 px-5 py-3">
         <p className="text-xs text-slate-500">

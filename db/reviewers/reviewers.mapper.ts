@@ -43,6 +43,15 @@ function assertFirestoreReviewer(
     );
   }
   if (
+    data.reviewedPrCount !== undefined &&
+    typeof data.reviewedPrCount !== "number"
+  ) {
+    throw new DbValidationError(
+      "reviewedPrCount",
+      "reviewedPrCount must be a number.",
+    );
+  }
+  if (
     data.approvedPrCount !== undefined &&
     typeof data.approvedPrCount !== "number"
   ) {
@@ -81,6 +90,44 @@ function assertFirestoreReviewer(
       "avgCommentsPerReview must be a number or null.",
     );
   }
+  if (
+    data.completedReviewSubmissions !== undefined &&
+    typeof data.completedReviewSubmissions !== "number"
+  ) {
+    throw new DbValidationError(
+      "completedReviewSubmissions",
+      "completedReviewSubmissions must be a number.",
+    );
+  }
+  if (
+    data.authoredPrCount !== undefined &&
+    typeof data.authoredPrCount !== "number"
+  ) {
+    throw new DbValidationError(
+      "authoredPrCount",
+      "authoredPrCount must be a number.",
+    );
+  }
+  if (
+    data.avgTimeToApprovalHours !== undefined &&
+    data.avgTimeToApprovalHours !== null &&
+    typeof data.avgTimeToApprovalHours !== "number"
+  ) {
+    throw new DbValidationError(
+      "avgTimeToApprovalHours",
+      "avgTimeToApprovalHours must be a number or null.",
+    );
+  }
+  if (
+    data.avgReviewsPerWeek !== undefined &&
+    data.avgReviewsPerWeek !== null &&
+    typeof data.avgReviewsPerWeek !== "number"
+  ) {
+    throw new DbValidationError(
+      "avgReviewsPerWeek",
+      "avgReviewsPerWeek must be a number or null.",
+    );
+  }
   assertTimestamp("Reviewer", "lastUpdated", data.lastUpdated);
 }
 
@@ -98,10 +145,19 @@ export function normalizeReviewer(
     teams: data.teams,
     pendingReviews: data.pendingReviews,
     completedReviews: (data.completedReviews as number) ?? 0,
+    reviewedPrCount: (data.reviewedPrCount as number) ?? 0,
+    completedReviewSubmissions:
+      (data.completedReviewSubmissions as number) ?? 0,
     approvedPrCount: (data.approvedPrCount as number) ?? 0,
+    authoredPrCount: (data.authoredPrCount as number) ?? 0,
     avgReviewTimeHours:
       data.avgReviewTimeHours !== undefined && data.avgReviewTimeHours !== null
         ? (data.avgReviewTimeHours as number)
+        : null,
+    avgTimeToApprovalHours:
+      data.avgTimeToApprovalHours !== undefined &&
+      data.avgTimeToApprovalHours !== null
+        ? (data.avgTimeToApprovalHours as number)
         : null,
     avgReviewRoundsBeforeApproval:
       data.avgReviewRoundsBeforeApproval !== undefined &&
@@ -112,6 +168,10 @@ export function normalizeReviewer(
       data.avgCommentsPerReview !== undefined &&
       data.avgCommentsPerReview !== null
         ? (data.avgCommentsPerReview as number)
+        : null,
+    avgReviewsPerWeek:
+      data.avgReviewsPerWeek !== undefined && data.avgReviewsPerWeek !== null
+        ? (data.avgReviewsPerWeek as number)
         : null,
     lastUpdated: normalizeTimestamp(data.lastUpdated),
   };
@@ -128,10 +188,15 @@ export function serializeReviewer(doc: ReviewerDocument): FirestoreReviewer {
     teams: doc.teams,
     pendingReviews: doc.pendingReviews,
     completedReviews: doc.completedReviews,
+    reviewedPrCount: doc.reviewedPrCount,
+    completedReviewSubmissions: doc.completedReviewSubmissions,
     approvedPrCount: doc.approvedPrCount,
+    authoredPrCount: doc.authoredPrCount,
     avgReviewTimeHours: doc.avgReviewTimeHours,
+    avgTimeToApprovalHours: doc.avgTimeToApprovalHours,
     avgReviewRoundsBeforeApproval: doc.avgReviewRoundsBeforeApproval,
     avgCommentsPerReview: doc.avgCommentsPerReview,
+    avgReviewsPerWeek: doc.avgReviewsPerWeek,
     lastUpdated: Timestamp.fromDate(doc.lastUpdated),
   };
 }

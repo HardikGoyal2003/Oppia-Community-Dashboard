@@ -34,14 +34,20 @@ export async function syncPendingReviews(): Promise<SyncSummary> {
     }));
 
     await upsertReviewer(login, {
-      teams: existing?.teams ?? [],
+      ...(existing ?? {
+        teams: [],
+        completedReviews: 0,
+        reviewedPrCount: 0,
+        completedReviewSubmissions: 0,
+        approvedPrCount: 0,
+        authoredPrCount: 0,
+        avgReviewTimeHours: null,
+        avgTimeToApprovalHours: null,
+        avgReviewRoundsBeforeApproval: null,
+        avgCommentsPerReview: null,
+        avgReviewsPerWeek: null,
+      }),
       pendingReviews,
-      completedReviews: existing?.completedReviews ?? 0,
-      approvedPrCount: existing?.approvedPrCount ?? 0,
-      avgReviewTimeHours: existing?.avgReviewTimeHours ?? null,
-      avgReviewRoundsBeforeApproval:
-        existing?.avgReviewRoundsBeforeApproval ?? null,
-      avgCommentsPerReview: existing?.avgCommentsPerReview ?? null,
       lastUpdated: new Date(),
     });
 
