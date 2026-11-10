@@ -7,7 +7,7 @@ import path from "path";
 const ORG = "oppia";
 const REPO = "oppia";
 
-type GitHubPullResponse = {
+export type GitHubPullResponse = {
   number: number;
   title: string;
   html_url: string;
@@ -676,6 +676,183 @@ async function fetchPRTimelineAndReviews(prNumber: number): Promise<{
   return { timelineEvents, reviews, inlineComments, pullRequest };
 }
 
+const SEARCH_PER_PAGE = 100;
+const SEARCH_MAX_PAGES = 10;
+
+type GitHubSearchResponse<T> = {
+  items: T[];
+  total_count: number;
+};
+
+/**
+ * Fetches all pages of a GitHub search query.
+ *
+ * The Search API only exposes the first 1000 results for any query, so we
+ * stop after 10 pages of 100 instead of requesting pages GitHub will refuse.
+ *
+ * @param query The already URL-encoded search query.
+ * @param sort The sort field for the results.
+ * @returns Every matching item across the fetched pages.
+ */
+async function searchPullRequests(
+  query: string,
+  sort: "updated" | "created" = "updated",
+): Promise<GitHubPullResponse[]> {
+  const items: GitHubPullResponse[] = [];
+
+  for (let page = 1; page <= SEARCH_MAX_PAGES; page++) {
+    const searchResult = await requestGitHubRest<
+      GitHubSearchResponse<GitHubPullResponse>
+    >(
+      `/search/issues?q=${query}&sort=${sort}&order=desc&per_page=${SEARCH_PER_PAGE}&page=${page}`,
+    );
+
+    items.push(...searchResult.items);
+
+    if (searchResult.items.length < SEARCH_PER_PAGE) break;
+    if (items.length >= searchResult.total_count) break;
+  }
+
+  return items;
+}
+
+/**
+ * Fetches open PRs whose `updated` timestamp falls inside the window.
+ *
+ * @param sinceDate Inclusive start of the window.
+ * @param untilDate Optional inclusive end of the window. When omitted, the
+ *   window extends to now.
+ * @returns The matching open PRs.
+ */
+export async function fetchOpenPRsForCycleWindow(
+  sinceDate: Date,
+  untilDate?: Date,
+): Promise<GitHubPullResponse[]> {
+  const sinceDateStr = sinceDate.toISOString().slice(0, 10);
+  const untilDateStr = untilDate?.toISOString().slice(0, 10);
+  const updatedFilter = untilDateStr
+    ? `updated:${sinceDateStr}..${untilDateStr}`
+    : `updated:>=${sinceDateStr}`;
+
+  return searchPullRequests(
+    `repo:${ORG}/${REPO}+type:pr+state:open+${updatedFilter}`,
+  );
+}
+
+/**
+ * Fetches PRs whose `closed` timestamp falls inside the window.
+ *
+ * @param sinceDate Inclusive start of the window.
+ * @param untilDate Optional inclusive end of the window. When omitted, the
+ *   window extends to now.
+ * @returns The matching closed PRs.
+ */
+export async function fetchClosedPRsForCycleWindow(
+  sinceDate: Date,
+  untilDate?: Date,
+): Promise<GitHubPullResponse[]> {
+  const sinceDateStr = sinceDate.toISOString().slice(0, 10);
+  const untilDateStr = untilDate?.toISOString().slice(0, 10);
+  const closedFilter = untilDateStr
+    ? `closed:${sinceDateStr}..${untilDateStr}`
+    : `closed:>=${sinceDateStr}`;
+
+  return searchPullRequests(
+    `repo:${ORG}/${REPO}+type:pr+state:closed+${closedFilter}`,
+  );
+}
+
+/**
+ * Extracts review cycles for a single PR.
+ *
+ * PRs without assignees (or without a `pull_request` marker) have no cycles
+ * and are returned as empty results without any extra API calls.
+ *
+ * @param item The PR search/list item.
+ * @param includePending Whether to include pending (unpaired) cycles.
+ * @returns The completed cycles, pending cycles, and per-reviewer PR stats.
+ */
+export async function extractCycleRecordsForPR(
+  item: GitHubPullResponse,
+  includePending: boolean,
+): Promise<{
+  completed: CycleRecord[];
+  pending: CycleRecordsResult["pending"];
+  reviewerPRStats: Map<string, ReviewerPRStats>;
+}> {
+  if (!item.pull_request || !item.assignees || item.assignees.length === 0) {
+    return { completed: [], pending: [], reviewerPRStats: new Map() };
+  }
+
+  const { timelineEvents, reviews, inlineComments, pullRequest } =
+    await fetchPRTimelineAndReviews(item.number);
+  const reviewerPRStats = extractReviewerPRStats(item, reviews, inlineComments);
+  const result = extractCyclesFromPR(
+    item,
+    timelineEvents,
+    reviews,
+    includePending,
+    reviewerPRStats,
+    pullRequest.additions ?? null,
+  );
+
+  return {
+    completed: result.completed,
+    pending: result.pending,
+    reviewerPRStats,
+  };
+}
+
+/**
+ * Logs the current REST rate limit snapshot.
+ *
+ * @returns A promise that resolves when the snapshot is logged.
+ */
+async function logRestRateLimit(): Promise<void> {
+  const rate = await fetchGitHubRateLimit();
+  console.log("\nRate Limit (REST):");
+  console.log(rate.core);
+}
+
+/**
+ * Extracts cycles for every supplied PR, sequentially.
+ *
+ * @param items The PRs to process.
+ * @param includePending Whether to include pending (unpaired) cycles.
+ * @param stateLabel Label used in progress logs.
+ * @returns Completed cycles, pending cycles, and per-reviewer PR stats.
+ */
+async function collectCyclesForPRs(
+  items: GitHubPullResponse[],
+  includePending: boolean,
+  stateLabel: string,
+): Promise<CycleRecordsResult> {
+  const completed: CycleRecord[] = [];
+  const pending: CycleRecordsResult["pending"] = [];
+  const reviewerPRStats: CycleRecordsResult["reviewerPRStats"] = new Map();
+
+  for (const item of items) {
+    if (!item.pull_request || !item.assignees || item.assignees.length === 0) {
+      continue;
+    }
+
+    console.log(`  Processing ${stateLabel} PR #${item.number}...`);
+
+    const result = await extractCycleRecordsForPR(item, includePending);
+
+    completed.push(...result.completed);
+    pending.push(...result.pending);
+
+    for (const [login, prStats] of result.reviewerPRStats) {
+      const byPR = reviewerPRStats.get(login) ?? new Map();
+      byPR.set(item.number, prStats);
+      reviewerPRStats.set(login, byPR);
+    }
+  }
+
+  return { completed, pending, reviewerPRStats };
+}
+
 /**
  * Fetches open PRs updated in the last day and extracts completed review
  * cycles (to persist in reviewCycles) and pending cycles (current open
@@ -684,70 +861,35 @@ async function fetchPRTimelineAndReviews(prNumber: number): Promise<{
  * Uses the GitHub Search API with an `updated:>=` filter so only PRs
  * with recent activity are processed.
  *
+ * @param sinceDate Only PRs updated on or after this date are processed.
+ *   Defaults to the last 24 hours for the regular incremental sync.
+ * @param untilDate Optional inclusive end of the window, used by the
+ *   resumable backfill. When omitted, the window extends to now.
  * @returns Completed cycle records, pending cycle info per reviewer, and
  *   per-PR reviewer stats.
  */
-export async function fetchCycleRecords(): Promise<CycleRecordsResult> {
-  const sinceDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+export async function fetchCycleRecords(
+  sinceDate: Date = new Date(Date.now() - 24 * 60 * 60 * 1000),
+  untilDate?: Date,
+): Promise<CycleRecordsResult> {
   const sinceDateStr = sinceDate.toISOString().slice(0, 10);
+  const untilDateStr = untilDate?.toISOString().slice(0, 10);
 
   console.log(
-    `Fetching cycle records from open PRs updated since ${sinceDateStr}...`,
+    `Fetching cycle records from open PRs updated ${untilDateStr ? `between ${sinceDateStr} and ${untilDateStr}` : `since ${sinceDateStr}`}...`,
   );
 
-  const searchQuery = `repo:${ORG}/${REPO}+type:pr+state:open+updated:>=${sinceDateStr}`;
-
-  interface SearchResult {
-    items: GitHubPullResponse[];
-    total_count: number;
-  }
-
-  const searchResult = await requestGitHubRest<SearchResult>(
-    `/search/issues?q=${searchQuery}&sort=updated&order=desc&per_page=100`,
-  );
+  const searchItems = await fetchOpenPRsForCycleWindow(sinceDate, untilDate);
 
   console.log(
-    `Found ${searchResult.total_count} open PRs updated since ${sinceDateStr}.`,
+    `Found ${searchItems.length} open PRs updated since ${sinceDateStr}.`,
   );
 
-  const completed: CycleRecord[] = [];
-  const pending: CycleRecordsResult["pending"] = [];
-  const reviewerPRStats: CycleRecordsResult["reviewerPRStats"] = new Map();
+  const result = await collectCyclesForPRs(searchItems, true, "open");
 
-  for (const item of searchResult.items) {
-    if (!item.pull_request || !item.assignees || item.assignees.length === 0) {
-      continue;
-    }
+  await logRestRateLimit();
 
-    console.log(`  Processing open PR #${item.number}...`);
-
-    const { timelineEvents, reviews, inlineComments, pullRequest } =
-      await fetchPRTimelineAndReviews(item.number);
-    const stats = extractReviewerPRStats(item, reviews, inlineComments);
-    const result = extractCyclesFromPR(
-      item,
-      timelineEvents,
-      reviews,
-      true,
-      stats,
-      pullRequest.additions ?? null,
-    );
-
-    completed.push(...result.completed);
-    pending.push(...result.pending);
-
-    for (const [login, prStats] of stats) {
-      const byPR = reviewerPRStats.get(login) ?? new Map();
-      byPR.set(item.number, prStats);
-      reviewerPRStats.set(login, byPR);
-    }
-  }
-
-  const rate = await fetchGitHubRateLimit();
-  console.log("\nRate Limit (REST):");
-  console.log(rate.core);
-
-  return { completed, pending, reviewerPRStats };
+  return result;
 }
 
 /**
@@ -758,68 +900,36 @@ export async function fetchCycleRecords(): Promise<CycleRecordsResult> {
  * window (not merely updated).
  *
  * @param sinceDate Only PRs closed on or after this date are processed.
+ * @param untilDate Optional inclusive end of the window, used by the
+ *   resumable backfill. When omitted, the window extends to now.
  * @returns Completed cycle records and per-PR reviewer stats.
  */
-export async function fetchClosedPRCycleRecords(sinceDate: Date): Promise<{
+export async function fetchClosedPRCycleRecords(
+  sinceDate: Date,
+  untilDate?: Date,
+): Promise<{
   completed: CycleRecord[];
   reviewerPRStats: Map<string, Map<number, ReviewerPRStats>>;
 }> {
   const sinceDateStr = sinceDate.toISOString().slice(0, 10);
+  const untilDateStr = untilDate?.toISOString().slice(0, 10);
 
   console.log(
-    `Fetching cycle records from PRs closed since ${sinceDateStr}...`,
+    `Fetching cycle records from PRs closed ${untilDateStr ? `between ${sinceDateStr} and ${untilDateStr}` : `since ${sinceDateStr}`}...`,
   );
 
-  const searchQuery = `repo:${ORG}/${REPO}+type:pr+state:closed+closed:>=${sinceDateStr}`;
+  const searchItems = await fetchClosedPRsForCycleWindow(sinceDate, untilDate);
 
-  interface SearchResult {
-    items: GitHubPullResponse[];
-    total_count: number;
-  }
+  console.log(`Found ${searchItems.length} closed PRs since ${sinceDateStr}.`);
 
-  const searchResult = await requestGitHubRest<SearchResult>(
-    `/search/issues?q=${searchQuery}&sort=updated&order=desc&per_page=100`,
-  );
+  const result = await collectCyclesForPRs(searchItems, false, "closed");
 
-  console.log(
-    `Found ${searchResult.total_count} closed PRs since ${sinceDateStr}.`,
-  );
+  await logRestRateLimit();
 
-  const completed: CycleRecord[] = [];
-  const reviewerPRStats: Map<string, Map<number, ReviewerPRStats>> = new Map();
-
-  for (const item of searchResult.items) {
-    if (!item.pull_request || !item.assignees || item.assignees.length === 0) {
-      continue;
-    }
-
-    console.log(`  Processing closed PR #${item.number}...`);
-
-    const { timelineEvents, reviews, inlineComments, pullRequest } =
-      await fetchPRTimelineAndReviews(item.number);
-    const stats = extractReviewerPRStats(item, reviews, inlineComments);
-    const result = extractCyclesFromPR(
-      item,
-      timelineEvents,
-      reviews,
-      false,
-      stats,
-      pullRequest.additions ?? null,
-    );
-
-    completed.push(...result.completed);
-    for (const [login, prStats] of stats) {
-      const byPR = reviewerPRStats.get(login) ?? new Map();
-      byPR.set(item.number, prStats);
-      reviewerPRStats.set(login, byPR);
-    }
-  }
-
-  const rate = await fetchGitHubRateLimit();
-  console.log("\nRate Limit (REST):");
-  console.log(rate.core);
-
-  return { completed, reviewerPRStats };
+  return {
+    completed: result.completed,
+    reviewerPRStats: result.reviewerPRStats,
+  };
 }
 
 /**

@@ -35,20 +35,29 @@ export async function upsertReviewCycle(
 /**
  * Batch upserts multiple review cycle records.
  *
+ * Firestore caps a single batch at 500 writes, so records are committed in
+ * chunks. A 2-month backfill can produce well over that limit.
+ *
  * @param records The cycle records to persist.
- * @returns A promise that resolves when the batch write completes.
+ * @returns A promise that resolves when all batch writes complete.
  */
 export async function upsertReviewCycles(
   records: ReviewCycleRecord[],
 ): Promise<void> {
-  const batch = db.batch();
-  for (const record of records) {
-    const key = `${record.reviewerLogin}:${record.prNumber}:${record.assignedAt}`;
-    batch.set(collection.doc(key), serializeReviewCycle(record), {
-      merge: true,
-    });
+  const BATCH_SIZE = 400;
+
+  for (let start = 0; start < records.length; start += BATCH_SIZE) {
+    const batch = db.batch();
+
+    for (const record of records.slice(start, start + BATCH_SIZE)) {
+      const key = `${record.reviewerLogin}:${record.prNumber}:${record.assignedAt}`;
+      batch.set(collection.doc(key), serializeReviewCycle(record), {
+        merge: true,
+      });
+    }
+
+    await batch.commit();
   }
-  await batch.commit();
 }
 
 /**
@@ -66,13 +75,23 @@ export async function findNewCycleRecords(
   if (records.length === 0) return [];
 
   const firestore = getAdminFirestore();
-  const refs = records.map((r) =>
-    collection.doc(`${r.reviewerLogin}:${r.prNumber}:${r.assignedAt}`),
-  );
+  const GET_ALL_CHUNK_SIZE = 300;
+  const newRecords: ReviewCycleRecord[] = [];
 
-  const snapshots = await firestore.getAll(...refs);
+  for (let start = 0; start < records.length; start += GET_ALL_CHUNK_SIZE) {
+    const chunk = records.slice(start, start + GET_ALL_CHUNK_SIZE);
+    const refs = chunk.map((r) =>
+      collection.doc(`${r.reviewerLogin}:${r.prNumber}:${r.assignedAt}`),
+    );
 
-  return records.filter((_, i) => !snapshots[i].exists);
+    const snapshots = await firestore.getAll(...refs);
+
+    chunk.forEach((record, i) => {
+      if (!snapshots[i].exists) newRecords.push(record);
+    });
+  }
+
+  return newRecords;
 }
 
 /**

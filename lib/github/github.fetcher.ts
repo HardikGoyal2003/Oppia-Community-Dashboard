@@ -10,6 +10,9 @@ export {
   fetchCycleRecords,
   fetchClosedPRCycleRecords,
   fetchAuthoredPrCounts,
+  fetchOpenPRsForCycleWindow,
+  fetchClosedPRsForCycleWindow,
+  extractCycleRecordsForPR,
 } from "./github-prs.fetcher";
 export type { FetchedTeam } from "./github-teams.fetcher";
 export type {
@@ -20,5 +23,6 @@ export type {
   CycleRecord,
   CycleRecordsResult,
   ReviewerPRStats,
+  GitHubPullResponse,
 } from "./github-prs.fetcher";
 export type { GitHubRepoTarget } from "./github.types";

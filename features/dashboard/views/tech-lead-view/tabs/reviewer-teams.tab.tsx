@@ -191,10 +191,10 @@ function IndividualView({ data }: { data: ReviewerTeamsDocument }) {
                 label="Reviews/week"
                 value={
                   member.avgReviewsPerWeek !== null
-                    ? member.avgReviewsPerWeek.toFixed(1)
+                    ? Math.round(member.avgReviewsPerWeek)
                     : "—"
                 }
-                tooltip="Average review submissions per active week. A review is any submitted review, not only an approval."
+                tooltip="Average review submissions per active week. A review is any submitted review, not only an approval. Rounded to a whole number."
               />
             </div>
 
@@ -203,19 +203,19 @@ function IndividualView({ data }: { data: ReviewerTeamsDocument }) {
                 label="Rounds"
                 value={
                   member.avgReviewRoundsBeforeApproval !== null
-                    ? member.avgReviewRoundsBeforeApproval
+                    ? Math.round(member.avgReviewRoundsBeforeApproval)
                     : "—"
                 }
-                tooltip="Average number of review submissions before the first approval, across PRs that were eventually approved."
+                tooltip="Average number of review submissions before the first approval, across PRs that were eventually approved. Rounded to a whole number."
               />
               <Stat
                 label="Comments"
                 value={
                   member.avgCommentsPerReview !== null
-                    ? member.avgCommentsPerReview.toFixed(1)
+                    ? Math.round(member.avgCommentsPerReview)
                     : "—"
                 }
-                tooltip="Average non-empty review bodies plus inline code comments per completed review cycle."
+                tooltip="Average non-empty review bodies plus inline code comments per completed review cycle. Rounded to a whole number."
               />
               <Stat
                 label="Approved / Authored"

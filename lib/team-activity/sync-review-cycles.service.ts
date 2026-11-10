@@ -18,47 +18,43 @@ type SyncSummary = {
   updatedReviewersCount: number;
 };
 
+type SyncReviewCyclesOptions = {
+  /** Start of the window to scan. Defaults to the last 24 hours. */
+  sinceDate?: Date;
+  /** Optional inclusive end of the window, used by the backfill. */
+  untilDate?: Date;
+};
+
 /**
- * Syncs completed review cycles from GitHub into Firestore.
+ * Returns the GitHub logins that currently belong to a reviewer team.
  *
- * Processes open PRs updated in the last 24 hours + PRs closed within
- * the last 24 hours, extracts completed cycles from their timelines,
- * and writes:
- * - `reviewCycles/{key}` — completed cycles (idempotent merge)
- * - `reviewers/{login}` — recomputes all stats from every stored cycle
- *   record so averages stay consistent even when no new cycles appear.
- *
- * Only processes cycles for reviewers who already have a doc in the
- * `reviewers` collection.
- *
- * @returns A summary of the sync operation.
+ * @returns The set of known reviewer logins.
  */
-export async function syncReviewCycles(): Promise<SyncSummary> {
+async function getKnownReviewerLogins(): Promise<Set<string>> {
   const platform: ContributionPlatform = "WEB";
-  const sinceDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
-
-  const [openResult, closedResult, teamDoc] = await Promise.all([
-    fetchCycleRecords(),
-    fetchClosedPRCycleRecords(sinceDate),
-    getTeamReviewers(platform),
-  ]);
-
+  const teamDoc = await getTeamReviewers(platform);
   const knownLogins = new Set<string>();
-  if (teamDoc) {
-    for (const team of teamDoc.teams) {
-      for (const member of team.members) {
-        knownLogins.add(member.username);
-      }
+
+  if (!teamDoc) return knownLogins;
+
+  for (const team of teamDoc.teams) {
+    for (const member of team.members) {
+      knownLogins.add(member.username);
     }
   }
 
-  const allCompleted = [...openResult.completed, ...closedResult.completed];
+  return knownLogins;
+}
 
-  const filtered = allCompleted.filter((c) => knownLogins.has(c.reviewerLogin));
-
-  const newRecords = await findNewCycleRecords(filtered);
-
-  await upsertReviewCycles(filtered);
+/**
+ * Recomputes every known reviewer's stored metrics from the full set of
+ * review cycle records.
+ *
+ * @returns The number of reviewer documents refreshed.
+ */
+export async function refreshReviewerStats(): Promise<number> {
+  const knownLogins = await getKnownReviewerLogins();
+  if (knownLogins.size === 0) return 0;
 
   const [aggregates, reviewerDocs, authoredCounts] = await Promise.all([
     getAllReviewCycleAggregates(),
@@ -140,9 +136,49 @@ export async function syncReviewCycles(): Promise<SyncSummary> {
     updatedCount++;
   }
 
+  return updatedCount;
+}
+
+/**
+ * Syncs completed review cycles from GitHub into Firestore.
+ *
+ * Processes open PRs updated in the sync window + PRs closed within the
+ * window, extracts completed cycles from their timelines, and writes:
+ * - `reviewCycles/{key}` — completed cycles (idempotent merge)
+ * - `reviewers/{login}` — recomputes all stats from every stored cycle
+ *   record so averages stay consistent even when no new cycles appear.
+ *
+ * Only processes cycles for reviewers who already have a doc in the
+ * `reviewers` collection.
+ *
+ * @param options Optional sync settings.
+ * @returns A summary of the sync operation.
+ */
+export async function syncReviewCycles(
+  options?: SyncReviewCyclesOptions,
+): Promise<SyncSummary> {
+  const sinceDate =
+    options?.sinceDate ?? new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  const [openResult, closedResult, knownLogins] = await Promise.all([
+    fetchCycleRecords(sinceDate, options?.untilDate),
+    fetchClosedPRCycleRecords(sinceDate, options?.untilDate),
+    getKnownReviewerLogins(),
+  ]);
+
+  const allCompleted = [...openResult.completed, ...closedResult.completed];
+
+  const filtered = allCompleted.filter((c) => knownLogins.has(c.reviewerLogin));
+
+  const newRecords = await findNewCycleRecords(filtered);
+
+  await upsertReviewCycles(filtered);
+
+  const updatedReviewersCount = await refreshReviewerStats();
+
   return {
     completedCyclesCount: allCompleted.length,
     newCyclesCount: newRecords.length,
-    updatedReviewersCount: updatedCount,
+    updatedReviewersCount,
   };
 }

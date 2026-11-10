@@ -15,6 +15,7 @@ const EXCLUDED_SLUGS = new Set([
   "web-tech-leads",
   "lace-team-leads",
   "leap-team-leads",
+  "design-collaborators",
 ]);
 
 type GitHubTeamResponse = {
