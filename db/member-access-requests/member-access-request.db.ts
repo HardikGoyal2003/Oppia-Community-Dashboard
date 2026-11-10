@@ -42,29 +42,6 @@ export class PendingMemberAccessRequestError extends Error {
 }
 
 /**
- * Retrieves all pending member-access requests across platforms.
- *
- * @returns The pending member-access requests sorted by creation time descending.
- */
-export async function getPendingMemberAccessRequests(): Promise<
-  MemberAccessRequestRecord[]
-> {
-  return getPendingMemberAccessRequestsByPlatform();
-}
-
-/**
- * Retrieves pending member-access requests, optionally scoped to one platform.
- *
- * @param platform The optional contribution platform filter.
- * @returns The pending member-access requests sorted by creation time descending.
- */
-export async function getPendingMemberAccessRequestsByPlatform(
-  platform?: ContributionPlatform,
-): Promise<MemberAccessRequestRecord[]> {
-  return getPendingMemberAccessRequestsByPlatformAndRoles(platform);
-}
-
-/**
  * Retrieves pending member-access requests filtered by platform, roles, and team.
  *
  * @param platform The optional contribution platform filter.

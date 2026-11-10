@@ -59,5 +59,3 @@ export type StatusVariant = {
   dot: string;
   ring: string;
 };
-
-export type PerformanceMetric = TeamReport["metrics"][number];

@@ -1,10 +1,10 @@
 const CRON_REFRESH_INTERVAL_MS = 3 * 24 * 60 * 60 * 1000;
 
 /**
- * Computes the remaining cache lifetime from the last refresh timestamp.
+ * Computes the remaining cache TTL from a last-updated timestamp.
  *
- * @param lastUpdatedIso The last refresh timestamp, or null when unavailable.
- * @returns The remaining cache lifetime in milliseconds.
+ * @param lastUpdatedIso The ISO timestamp of the last update, or null.
+ * @returns The remaining TTL in milliseconds, floored at zero.
  */
 export function computeTtlFromLastUpdated(
   lastUpdatedIso: string | null,
@@ -26,10 +26,10 @@ type CacheEntry<T> = {
 };
 
 /**
- * Reads and validates a cached value from local storage.
+ * Reads a cached entry from localStorage, evicting it when expired.
  *
- * @param key The local-storage key.
- * @returns The cached value, or null when missing or invalid.
+ * @param key The localStorage key to read.
+ * @returns The cached data, or null when missing or expired.
  */
 export function getCachedData<T>(key: string): T | null {
   try {
@@ -54,11 +54,11 @@ export function getCachedData<T>(key: string): T | null {
 }
 
 /**
- * Stores a value in local storage with an expiry timestamp.
+ * Writes a cache entry to localStorage with an expiry timestamp.
  *
- * @param key The local-storage key.
- * @param data The value to cache.
- * @param ttlMs The cache lifetime in milliseconds.
+ * @param key The localStorage key to write.
+ * @param data The data to cache.
+ * @param ttlMs The time-to-live in milliseconds.
  * @returns Nothing.
  */
 export function setCachedData<T>(key: string, data: T, ttlMs: number): void {
@@ -71,19 +71,5 @@ export function setCachedData<T>(key: string, data: T, ttlMs: number): void {
     localStorage.setItem(key, JSON.stringify(entry));
   } catch (error) {
     console.warn(`[cache] Failed to write "${key}" to localStorage:`, error);
-  }
-}
-
-/**
- * Removes a cached value from local storage.
- *
- * @param key The local-storage key.
- * @returns Nothing.
- */
-export function clearCachedData(key: string): void {
-  try {
-    localStorage.removeItem(key);
-  } catch (error) {
-    console.warn(`[cache] Failed to remove "${key}" from localStorage:`, error);
   }
 }

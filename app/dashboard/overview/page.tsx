@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import TeamLeadOverviewTab from "@/features/dashboard/views/team-lead-view/tabs/overview.tab";
 import { AdminOverviewTab } from "@/features/dashboard/views/tech-lead-view/tabs/overview.tab";
 import { TeamMemberOverviewTab } from "@/features/dashboard/views/team-member-view/tabs/overview.tab";
-import ContributorOverviewWrapper from "./contributor-overview-wrapper";
+import ContributorOverviewWrapper from "@/features/dashboard/views/contributor-view/components/contributor-overview-wrapper";
 
 export default async function OverviewPage() {
   const session = await getServerSession(authOptions);

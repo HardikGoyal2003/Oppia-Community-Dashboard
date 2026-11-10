@@ -7,6 +7,9 @@ import { captureDailyUnansweredIssueMetrics } from "@/lib/team-metrics/capture-d
 import { captureDailyDiscussionMetrics } from "@/lib/discussion-metrics/capture-daily-discussion-metrics.service";
 import { syncTeamData } from "@/lib/teams/sync-team-data.service";
 import { syncOrgMeta } from "@/lib/org-meta/sync-org-meta.service";
+import { syncReviewerTeams } from "@/lib/team-activity/sync-reviewer-teams.service";
+import { syncReviewCycles } from "@/lib/team-activity/sync-review-cycles.service";
+import { syncPendingReviews } from "@/lib/team-activity/sync-pending-reviews.service";
 import { sendWeeklyActionItemDigest } from "@/lib/notifications/action-item-digest.service";
 
 const CRON_JOBS: CronJobDefinition[] = [
@@ -33,6 +36,24 @@ const CRON_JOBS: CronJobDefinition[] = [
     name: "Sync Org Meta",
     description:
       "Fetch org members and repo collaborators from GitHub and cache them in Firestore for faster unanswered-issues lookups.",
+  },
+  {
+    key: "sync_reviewer_teams",
+    name: "Sync Reviewer Teams",
+    description:
+      "Fetch web sub-teams and their members from GitHub under all-web-dev-teams and store in teamReviewers collection.",
+  },
+  {
+    key: "sync_review_cycles",
+    name: "Sync Review Cycles",
+    description:
+      "Fetch open PRs updated in the last 24h and PRs closed in the last 24h, extract completed review cycles from their timelines into reviewCycles, refresh metrics for the reviewers active in that window (completed reviews, reviewed/approved/authored PRs, review submissions, avg review time, time to approval, rounds before approval, comments per review, reviews per week), and refresh the dashboard analytics snapshot. Runs daily; run before Sync Pending Reviews.",
+  },
+  {
+    key: "sync_pending_reviews",
+    name: "Sync Pending Reviews",
+    description:
+      "Fetch current open PR assignments and replace pendingReviews on current reviewer-team members only, leaving review cycle history and metrics untouched. Runs daily; run after Sync Review Cycles, never concurrently.",
   },
   {
     key: "send_action_item_digest",
@@ -141,6 +162,59 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
           `Org members: ${result.orgMemberCount}.`,
           `Collaborators: ${result.collaboratorCount}.`,
           `Last updated: ${result.lastUpdated}.`,
+        ].join("\n"),
+      };
+    }
+    case "sync_reviewer_teams": {
+      const result = await syncReviewerTeams();
+      const finishedAt = new Date();
+
+      return {
+        finishedAt,
+        jobKey: job.key,
+        jobName: job.name,
+        startedAt,
+        summary: [
+          "Cron job completed.",
+          `Platform: ${result.platform}.`,
+          `Synced ${result.syncedTeamsCount} teams with ${result.totalMembersCount} members.`,
+          `Initial docs created: ${result.initialDocsCreated}.`,
+          `Last synced: ${finishedAt.toLocaleString("en-IN")}.`,
+        ].join("\n"),
+      };
+    }
+    case "sync_review_cycles": {
+      const result = await syncReviewCycles();
+      const finishedAt = new Date();
+
+      return {
+        finishedAt,
+        jobKey: job.key,
+        jobName: job.name,
+        startedAt,
+        summary: [
+          "Cron job completed.",
+          `Completed cycles: ${result.completedCyclesCount}.`,
+          `New cycles: ${result.newCyclesCount}.`,
+          `Updated reviewers: ${result.updatedReviewersCount}.`,
+          `Finished at: ${finishedAt.toLocaleString("en-IN")}.`,
+        ].join("\n"),
+      };
+    }
+    case "sync_pending_reviews": {
+      const result = await syncPendingReviews();
+      const finishedAt = new Date();
+
+      return {
+        finishedAt,
+        jobKey: job.key,
+        jobName: job.name,
+        startedAt,
+        summary: [
+          "Cron job completed.",
+          `Pending reviews synced: ${result.pendingReviewsCount}.`,
+          `Updated reviewers: ${result.updatedReviewersCount}.`,
+          `Finished at: ${finishedAt.toLocaleString("en-IN")}.`,
         ].join("\n"),
       };
     }

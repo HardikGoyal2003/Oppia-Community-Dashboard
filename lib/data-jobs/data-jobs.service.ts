@@ -7,7 +7,21 @@ import {
   markDataJobRunSucceeded,
 } from "@/db/data-jobs/data-job-runs.db";
 import { backfillSchemaVersions } from "@/db/schema/schema-migration-runner";
+import {
+  clearReviewCycleBackfillState,
+  getReviewCycleBackfillState,
+  saveReviewCycleBackfillState,
+} from "@/db/review-cycle-backfill/review-cycle-backfill.db";
+import {
+  refreshReviewCycleAnalytics,
+  upsertReviewCycles,
+} from "@/db/review-cycles/review-cycles.db";
+import { getTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
 import { getAllUsers, updateUserRoles } from "@/db/users/users.db";
+import { LibInvalidStateError } from "@/lib/lib.errors";
+import { runReviewCycleBackfillStep } from "@/lib/team-activity/backfill-review-cycles.service";
+import { refreshReviewerStats } from "@/lib/team-activity/sync-review-cycles.service";
+import type { ReviewCycleBackfillState } from "@/lib/domain/review-cycle-backfill.types";
 import type {
   DataJobDefinition,
   DataJobResult,
@@ -31,6 +45,68 @@ type DataJobHandler = (
 type RegisteredDataJob = DataJobDefinition & {
   handler: DataJobHandler;
 };
+
+/** Window used by the one-off review-cycle backfill job. */
+const REVIEW_CYCLE_BACKFILL_MONTHS = 2;
+
+/**
+ * Size of each backfill window. A window is only a checkpoint boundary: PRs
+ * inside it are tracked individually, so a larger window does not make a
+ * single run heavier.
+ */
+const REVIEW_CYCLE_BACKFILL_WINDOW_DAYS = 7;
+
+/**
+ * Wall-clock budget for the backfill loop. The platform terminated previous
+ * runs at roughly 275s, so we stop well before that, persist progress, and
+ * leave room to refresh reviewer stats before the invocation ends.
+ */
+const REVIEW_CYCLE_BACKFILL_TIME_BUDGET_MS = 120_000;
+
+/**
+ * Formats a Date as a UTC `YYYY-MM-DD` key, matching GitHub search filters.
+ *
+ * @param date The date to format.
+ * @returns The date key.
+ */
+function toUtcDateKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * Adds days to a `YYYY-MM-DD` date key.
+ *
+ * @param dateKey The starting date key.
+ * @param days The number of days to add.
+ * @returns The shifted date key.
+ */
+function addDaysToDateKey(dateKey: string, days: number): string {
+  const date = new Date(`${dateKey}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return toUtcDateKey(date);
+}
+
+/**
+ * Returns the earlier of two `YYYY-MM-DD` date keys.
+ *
+ * @param a The first date key.
+ * @param b The second date key.
+ * @returns The earlier date key.
+ */
+function minDateKey(a: string, b: string): string {
+  return a < b ? a : b;
+}
+
+/**
+ * Returns the later of two `YYYY-MM-DD` date keys.
+ *
+ * @param a The first date key.
+ * @param b The second date key.
+ * @returns The later date key.
+ */
+function maxDateKey(a: string, b: string): string {
+  return a > b ? a : b;
+}
 
 /**
  * Audits users and reports accounts that do not yet have a selected platform.
@@ -146,6 +222,145 @@ async function backfillSchemaVersionsJob(
   };
 }
 
+/**
+ * Backfills the last two months of review cycles from GitHub and recomputes
+ * every reviewer's analytics from the stored cycles.
+ *
+ * The range is walked in small date windows, and PR-level progress inside the
+ * current window is checkpointed. If the platform terminates a run, the next
+ * run resumes from the saved window and PR set instead of starting over.
+ * Requires reviewer teams to be synced first, since only cycles belonging to
+ * known team members are persisted.
+ *
+ * @param context The data-job execution context.
+ * @returns A summary of the backfill results.
+ */
+async function backfillReviewCyclesJob(
+  context: DataJobHandlerContext,
+): Promise<DataJobResult> {
+  void context.dryRun;
+
+  const teamDoc = await getTeamReviewers("WEB");
+  if (!teamDoc || teamDoc.teams.length === 0) {
+    throw new LibInvalidStateError(
+      "ReviewCycleBackfill",
+      "No reviewer teams found. Run Sync Reviewer Teams before backfilling review cycles.",
+    );
+  }
+
+  const knownLogins = new Set<string>();
+  for (const team of teamDoc.teams) {
+    for (const member of team.members) {
+      knownLogins.add(member.username);
+    }
+  }
+
+  const deadlineMs = Date.now() + REVIEW_CYCLE_BACKFILL_TIME_BUDGET_MS;
+  const todayKey = toUtcDateKey(new Date());
+  const defaultStart = new Date();
+  defaultStart.setUTCMonth(
+    defaultStart.getUTCMonth() - REVIEW_CYCLE_BACKFILL_MONTHS,
+  );
+  const defaultStartKey = toUtcDateKey(defaultStart);
+
+  const savedState = await getReviewCycleBackfillState();
+
+  let state: Omit<ReviewCycleBackfillState, "schemaVersion"> = savedState
+    ? { ...savedState, targetEnd: maxDateKey(savedState.targetEnd, todayKey) }
+    : {
+        windowStart: defaultStartKey,
+        windowEnd: minDateKey(
+          addDaysToDateKey(
+            defaultStartKey,
+            REVIEW_CYCLE_BACKFILL_WINDOW_DAYS - 1,
+          ),
+          todayKey,
+        ),
+        targetEnd: todayKey,
+        processedPrNumbers: [],
+        updatedAt: new Date(),
+      };
+
+  let windowsCompleted = 0;
+  let prsProcessed = 0;
+  let cyclesWritten = 0;
+  const affectedLogins = new Set<string>();
+
+  while (state.windowStart <= state.targetEnd && Date.now() < deadlineMs) {
+    const step = await runReviewCycleBackfillStep({
+      sinceDate: new Date(`${state.windowStart}T00:00:00.000Z`),
+      untilDate: new Date(`${state.windowEnd}T23:59:59.999Z`),
+      processedPrNumbers: new Set(state.processedPrNumbers),
+      knownLogins,
+      deadlineMs,
+    });
+
+    if (step.records.length > 0) {
+      await upsertReviewCycles(step.records);
+      cyclesWritten += step.records.length;
+      for (const record of step.records) {
+        affectedLogins.add(record.reviewerLogin);
+      }
+    }
+    for (const login of step.authorLogins) {
+      affectedLogins.add(login);
+    }
+    prsProcessed += step.processedPrNumbers.length;
+
+    if (step.complete) {
+      windowsCompleted++;
+      const nextStart = addDaysToDateKey(state.windowEnd, 1);
+      state = {
+        windowStart: nextStart,
+        windowEnd: minDateKey(
+          addDaysToDateKey(nextStart, REVIEW_CYCLE_BACKFILL_WINDOW_DAYS - 1),
+          state.targetEnd,
+        ),
+        targetEnd: state.targetEnd,
+        processedPrNumbers: [],
+        updatedAt: new Date(),
+      };
+    } else {
+      state = {
+        ...state,
+        processedPrNumbers: Array.from(
+          new Set([...state.processedPrNumbers, ...step.processedPrNumbers]),
+        ),
+        updatedAt: new Date(),
+      };
+    }
+
+    await saveReviewCycleBackfillState(state);
+
+    if (!step.complete) break;
+  }
+
+  const completed = state.windowStart > state.targetEnd;
+
+  const updatedReviewersCount =
+    affectedLogins.size === 0 ? 0 : await refreshReviewerStats(affectedLogins);
+
+  if (cyclesWritten > 0 || completed) {
+    await refreshReviewCycleAnalytics();
+  }
+
+  if (completed) {
+    await clearReviewCycleBackfillState();
+  }
+
+  const progressSummary = completed
+    ? "Backfill complete."
+    : `Partial progress — run the job again to continue window ${state.windowStart} to ${state.windowEnd}${
+        state.processedPrNumbers.length > 0
+          ? ` (${state.processedPrNumbers.length} PR(s) already done in this window)`
+          : ""
+      }.`;
+
+  return {
+    summary: `Review cycle backfill processed ${windowsCompleted} window(s), ${prsProcessed} PR(s), ${cyclesWritten} cycle(s). ${updatedReviewersCount} reviewer(s) refreshed. ${progressSummary}`,
+  };
+}
+
 const DATA_JOB_REGISTRY: RegisteredDataJob[] = [
   {
     key: "cleanup_team_contributors_to_alumni",
@@ -182,6 +397,15 @@ const DATA_JOB_REGISTRY: RegisteredDataJob[] = [
     kind: "MIGRATION",
     supportsDryRun: true,
     handler: backfillSchemaVersionsJob,
+  },
+  {
+    key: "backfill_review_cycles",
+    name: "Backfill Review Cycles (2 months)",
+    description:
+      "Re-fetches the last 2 months of review cycles from GitHub and recomputes reviewer analytics. Resumable: if it stops early, run it again to continue. Run Sync Reviewer Teams first so team membership is current.",
+    kind: "BACKFILL",
+    supportsDryRun: false,
+    handler: backfillReviewCyclesJob,
   },
 ];
 

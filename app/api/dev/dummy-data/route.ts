@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import { generateTeamReportsDummyData } from "@/lib/dev/generate-team-reports-dummy-data.service";
 import { generateDiscussionMetricsDummyData } from "@/lib/dev/generate-discussion-metrics-dummy-data.service";
+import { generateReviewerTeamsDummyData } from "@/lib/dev/generate-reviewer-teams-dummy-data.service";
 
 type DummyDataRequestBody = {
   generatorKey?: string;
@@ -51,6 +52,20 @@ export async function POST(req: Request) {
         summary: [
           "Dummy data generated successfully.",
           `Daily discussion metric snapshots written: ${summary.discussionMetricsWritten}.`,
+        ].join("\n"),
+      });
+    }
+
+    if (generatorKey === "reviewers") {
+      const summary = await generateReviewerTeamsDummyData();
+
+      return NextResponse.json({
+        summary: [
+          "Dummy data generated successfully.",
+          `Reviewer teams written: ${summary.teamsWritten}.`,
+          `Reviewer documents written: ${summary.reviewersWritten}.`,
+          `Pending PRs written: ${summary.pendingReviewsWritten}.`,
+          `Review cycle records written: ${summary.cyclesWritten}.`,
         ].join("\n"),
       });
     }
