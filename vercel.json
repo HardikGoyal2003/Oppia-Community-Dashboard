@@ -17,6 +17,18 @@
       "schedule": "30 21 */3 * *"
     },
     {
+      "path": "/api/cron/sync-reviewer-teams",
+      "schedule": "30 0 * * *"
+    },
+    {
+      "path": "/api/cron/sync-review-cycles",
+      "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/sync-pending-reviews",
+      "schedule": "0 2 * * *"
+    },
+    {
       "path": "/api/cron/send-action-item-digest",
       "schedule": "0 3 * * 1"
     }
