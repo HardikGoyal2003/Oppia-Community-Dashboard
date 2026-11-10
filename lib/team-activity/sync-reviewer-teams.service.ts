@@ -31,7 +31,7 @@ export async function syncReviewerTeams(): Promise<SyncSummary> {
 
   const fetchedTeams = await fetchWebReviewerTeams();
 
-  const teamDoc: TeamReviewersDocument = {
+  const teamDoc: Omit<TeamReviewersDocument, "schemaVersion"> = {
     teams: fetchedTeams.map((team) => ({
       teamSlug: team.teamSlug,
       teamName: team.teamName,
@@ -61,7 +61,7 @@ export async function syncReviewerTeams(): Promise<SyncSummary> {
     const existing = await getReviewer(login);
     if (existing) continue;
 
-    const doc: ReviewerDocument = {
+    const doc: Omit<ReviewerDocument, "schemaVersion"> = {
       teams,
       pendingReviews: [],
       completedReviews: 0,

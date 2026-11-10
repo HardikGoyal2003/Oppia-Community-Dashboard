@@ -229,7 +229,7 @@ export async function generateReviewerTeamsDummyData(): Promise<ReviewerTeamsDum
   const lastUpdated = new Date();
   const now = Date.now();
 
-  const teamDoc: TeamReviewersDocument = {
+  const teamDoc: Omit<TeamReviewersDocument, "schemaVersion"> = {
     teams: SAMPLE_TEAMS.map((team) => ({
       teamSlug: team.teamSlug,
       teamName: team.teamName,
@@ -260,7 +260,7 @@ export async function generateReviewerTeamsDummyData(): Promise<ReviewerTeamsDum
   }
 
   let pendingReviewsWritten = 0;
-  const cycles: ReviewCycleRecord[] = [];
+  const cycles: Array<Omit<ReviewCycleRecord, "schemaVersion">> = [];
   const hourMs = 3_600_000;
   const dayMs = 24 * hourMs;
   let nextSamplePrNumber = 23_200;
@@ -293,7 +293,7 @@ export async function generateReviewerTeamsDummyData(): Promise<ReviewerTeamsDum
       Math.round(sample.approvedPrCount * (0.5 + (member % 4) * 0.15)),
     );
 
-    const doc: ReviewerDocument = {
+    const doc: Omit<ReviewerDocument, "schemaVersion"> = {
       teams: Array.from(teams).sort(),
       pendingReviews,
       completedReviews: sample.completedReviews,

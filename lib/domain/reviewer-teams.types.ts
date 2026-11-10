@@ -1,3 +1,5 @@
+import type { SchemaVersioned } from "@/lib/domain/schema.types";
+
 /* Team doc member (no PR data — just identity) */
 export type TeamReviewerMember = {
   username: string;
@@ -18,12 +20,12 @@ export type TeamReviewerEntry = {
   members: TeamReviewerMember[];
 };
 
-export type TeamReviewersDocument = {
+export type TeamReviewersDocument = SchemaVersioned & {
   teams: TeamReviewerEntry[];
   lastUpdated: Date;
 };
 
-export type ReviewerDocument = {
+export type ReviewerDocument = SchemaVersioned & {
   teams: string[];
   pendingReviews: PendingReview[];
   /** Completed review cycles (assignment → first review or unassignment). */
@@ -47,7 +49,7 @@ export type ReviewerDocument = {
   lastUpdated: Date;
 };
 
-export type ReviewCycleRecord = {
+export type ReviewCycleRecord = SchemaVersioned & {
   reviewerLogin: string;
   prNumber: number;
   prTitle: string;
@@ -120,7 +122,7 @@ export type ReviewerPrSizePoint = {
   reviewTimeHours: number;
 };
 
-export type ReviewerTeamsAnalytics = {
+export type ReviewerTeamsAnalytics = SchemaVersioned & {
   weeklyReviews: ReviewerWeeklyPoint[];
   monthlyUniqueReviewers: ReviewerMonthlyUniquePoint[];
   topApprovers: ReviewerApprovalShare[];

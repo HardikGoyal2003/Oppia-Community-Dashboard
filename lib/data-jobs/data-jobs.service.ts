@@ -265,7 +265,7 @@ async function backfillReviewCyclesJob(
 
   const savedState = await getReviewCycleBackfillState();
 
-  let state: ReviewCycleBackfillState = savedState
+  let state: Omit<ReviewCycleBackfillState, "schemaVersion"> = savedState
     ? { ...savedState, targetEnd: maxDateKey(savedState.targetEnd, todayKey) }
     : {
         windowStart: defaultStartKey,

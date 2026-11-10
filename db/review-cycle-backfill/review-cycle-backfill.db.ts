@@ -47,7 +47,7 @@ export async function getReviewCycleBackfillState(): Promise<ReviewCycleBackfill
  * @returns A promise that resolves when the write completes.
  */
 export async function saveReviewCycleBackfillState(
-  state: ReviewCycleBackfillState,
+  state: Omit<ReviewCycleBackfillState, "schemaVersion">,
 ): Promise<void> {
   await stateDoc.set(serializeReviewCycleBackfillState(state));
 }

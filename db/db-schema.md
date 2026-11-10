@@ -239,6 +239,7 @@ Fields:
 
 - `teams: Array<{ teamSlug: string, teamName: string, description: string, members: Array<{ username: string, avatarUrl: string }> }>`
 - `lastUpdated: Timestamp`
+- `schemaVersion: number`
 
 ### `reviewers`
 
@@ -251,11 +252,17 @@ Fields:
 - `teams: string[]`
 - `pendingReviews: Array<{ prNumber: number, title: string, url: string, assignedAt: string }>`
 - `completedReviews: number`
+- `reviewedPrCount: number`
+- `completedReviewSubmissions: number`
 - `approvedPrCount: number`
+- `authoredPrCount: number`
 - `avgReviewTimeHours: number | null`
+- `avgTimeToApprovalHours: number | null`
 - `avgReviewRoundsBeforeApproval: number | null`
 - `avgCommentsPerReview: number | null`
+- `avgReviewsPerWeek: number | null`
 - `lastUpdated: Timestamp`
+- `schemaVersion: number`
 
 ### `reviewCycles`
 
@@ -274,6 +281,42 @@ Fields:
 - `durationMs: number`
 - `reviewRoundsBeforeApproval: number | null`
 - `commentCount: number`
+- `reviewSubmissionCount: number`
+- `approvedAt: string | null`
+- `approvalDurationMs: number | null`
+- `prAdditions: number | null`
+- `schemaVersion: number`
+
+### `reviewCycleAnalytics`
+
+Document id:
+
+- platform string (e.g. `WEB`)
+
+Fields:
+
+- `weeklyReviews: Array<{ weekStart: string, reviews: number }>`
+- `monthlyUniqueReviewers: Array<{ month: string, uniqueReviewers: number }>`
+- `topApprovers: Array<{ username: string, approvals: number, sharePct: number }>`
+- `prSizeScatter: Array<{ prNumber: number, additions: number, reviewTimeHours: number }>`
+- `totalApprovals: number`
+- `computedAt: Timestamp`
+- `schemaVersion: number`
+
+### `reviewCycleBackfill`
+
+Document id:
+
+- `state`
+
+Fields:
+
+- `windowStart: string`
+- `windowEnd: string`
+- `targetEnd: string`
+- `processedPrNumbers: number[]`
+- `updatedAt: Timestamp`
+- `schemaVersion: number`
 
 ## Derived Type Summary
 
@@ -296,3 +339,5 @@ Normalized app-layer models convert Firestore timestamps as follows:
 - `dataJobRuns.finishedAt -> Date | null`
 - `teamReviewers.lastUpdated -> Date`
 - `reviewers.lastUpdated -> Date`
+- `reviewCycleAnalytics.computedAt -> Date`
+- `reviewCycleBackfill.updatedAt -> Date`

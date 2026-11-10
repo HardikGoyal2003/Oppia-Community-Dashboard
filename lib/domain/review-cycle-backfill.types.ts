@@ -1,3 +1,5 @@
+import type { SchemaVersioned } from "@/lib/domain/schema.types";
+
 /**
  * Persisted progress for the resumable review-cycle backfill.
  *
@@ -5,7 +7,7 @@
  * scan cannot finish inside a single serverless invocation. Within a window,
  * PR-level progress is checkpointed so a timeout never repeats work.
  */
-export type ReviewCycleBackfillState = {
+export type ReviewCycleBackfillState = SchemaVersioned & {
   /** Inclusive `YYYY-MM-DD` start of the current window. */
   windowStart: string;
   /** Inclusive `YYYY-MM-DD` end of the current window. */

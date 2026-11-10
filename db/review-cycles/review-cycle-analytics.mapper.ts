@@ -1,5 +1,11 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { DbValidationError } from "@/db/db.errors";
+import {
+  SCHEMA_KEYS,
+  assertSchemaVersion,
+  getCurrentSchemaVersion,
+} from "@/db/schema/schema-version";
+import { migrateDocument } from "@/db/schema/schema-migrations";
 import { assertTimestamp } from "@/db/utils/timestamp.utils";
 import type { ReviewerTeamsAnalytics } from "@/lib/domain/reviewer-teams.types";
 
@@ -102,6 +108,7 @@ function assertFirestoreReviewCycleAnalytics(
   }
 
   assertTimestamp("ReviewCycleAnalytics", "computedAt", data.computedAt);
+  assertSchemaVersion(SCHEMA_KEYS.REVIEW_CYCLE_ANALYTICS, data.schemaVersion);
 }
 
 /**
@@ -113,13 +120,15 @@ function assertFirestoreReviewCycleAnalytics(
 export function normalizeReviewCycleAnalytics(
   data: FirebaseFirestore.DocumentData,
 ): ReviewerTeamsAnalytics {
-  assertFirestoreReviewCycleAnalytics(data);
+  const migrated = migrateDocument(SCHEMA_KEYS.REVIEW_CYCLE_ANALYTICS, data);
+  assertFirestoreReviewCycleAnalytics(migrated);
   return {
-    weeklyReviews: data.weeklyReviews,
-    monthlyUniqueReviewers: data.monthlyUniqueReviewers,
-    topApprovers: data.topApprovers,
-    prSizeScatter: data.prSizeScatter,
-    totalApprovals: data.totalApprovals,
+    weeklyReviews: migrated.weeklyReviews,
+    monthlyUniqueReviewers: migrated.monthlyUniqueReviewers,
+    topApprovers: migrated.topApprovers,
+    prSizeScatter: migrated.prSizeScatter,
+    totalApprovals: migrated.totalApprovals,
+    schemaVersion: migrated.schemaVersion,
   };
 }
 
@@ -130,10 +139,11 @@ export function normalizeReviewCycleAnalytics(
  * @returns The Firestore-ready document.
  */
 export function serializeReviewCycleAnalytics(
-  analytics: ReviewerTeamsAnalytics,
+  analytics: Omit<ReviewerTeamsAnalytics, "schemaVersion">,
 ): FirestoreReviewCycleAnalytics {
   return {
     ...analytics,
+    schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.REVIEW_CYCLE_ANALYTICS),
     computedAt: Timestamp.fromDate(new Date()),
   };
 }

@@ -15,7 +15,7 @@ type SyncSummary = {
  * Default reviewer document used when a team member has open assignments but
  * no stored reviewer document yet. Metrics are filled in by the cycle sync.
  */
-const EMPTY_REVIEWER: ReviewerDocument = {
+const EMPTY_REVIEWER: Omit<ReviewerDocument, "schemaVersion"> = {
   teams: [],
   pendingReviews: [],
   completedReviews: 0,
@@ -87,7 +87,10 @@ export async function syncPendingReviews(): Promise<SyncSummary> {
     getReviewers(Array.from(teamLogins)),
   ]);
 
-  const updates: Array<{ login: string; doc: ReviewerDocument }> = [];
+  const updates: Array<{
+    login: string;
+    doc: Omit<ReviewerDocument, "schemaVersion">;
+  }> = [];
   let totalPending = 0;
 
   for (const login of teamLogins) {

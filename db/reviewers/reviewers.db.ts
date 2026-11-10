@@ -37,7 +37,7 @@ export async function getReviewer(
  */
 export async function upsertReviewer(
   login: string,
-  doc: ReviewerDocument,
+  doc: Omit<ReviewerDocument, "schemaVersion">,
 ): Promise<void> {
   await collection.doc(login).set(serializeReviewer(doc));
 }
@@ -49,7 +49,10 @@ export async function upsertReviewer(
  * @returns A promise that resolves when all batch writes complete.
  */
 export async function upsertReviewers(
-  entries: Array<{ login: string; doc: ReviewerDocument }>,
+  entries: Array<{
+    login: string;
+    doc: Omit<ReviewerDocument, "schemaVersion">;
+  }>,
 ): Promise<void> {
   const BATCH_SIZE = 400;
 

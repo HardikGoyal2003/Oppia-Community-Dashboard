@@ -1,6 +1,12 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { DbValidationError } from "@/db/db.errors";
 import {
+  SCHEMA_KEYS,
+  assertSchemaVersion,
+  getCurrentSchemaVersion,
+} from "@/db/schema/schema-version";
+import { migrateDocument } from "@/db/schema/schema-migrations";
+import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
@@ -12,6 +18,7 @@ import type {
 export type FirestoreTeamReviewers = {
   teams: TeamReviewerEntry[];
   lastUpdated: Timestamp;
+  schemaVersion: number;
 };
 
 /**
@@ -97,6 +104,7 @@ function assertFirestoreTeamReviewers(
     );
   }
   assertTimestamp("TeamReviewers", "lastUpdated", data.lastUpdated);
+  assertSchemaVersion(SCHEMA_KEYS.TEAM_REVIEWERS, data.schemaVersion);
 }
 
 /**
@@ -108,10 +116,12 @@ function assertFirestoreTeamReviewers(
 export function normalizeTeamReviewers(
   data: FirebaseFirestore.DocumentData,
 ): TeamReviewersDocument {
-  assertFirestoreTeamReviewers(data);
+  const migrated = migrateDocument(SCHEMA_KEYS.TEAM_REVIEWERS, data);
+  assertFirestoreTeamReviewers(migrated);
   return {
-    teams: data.teams,
-    lastUpdated: normalizeTimestamp(data.lastUpdated),
+    teams: migrated.teams,
+    lastUpdated: normalizeTimestamp(migrated.lastUpdated),
+    schemaVersion: migrated.schemaVersion,
   };
 }
 
@@ -122,10 +132,11 @@ export function normalizeTeamReviewers(
  * @returns The Firestore-ready document.
  */
 export function serializeTeamReviewers(
-  doc: TeamReviewersDocument,
+  doc: Omit<TeamReviewersDocument, "schemaVersion">,
 ): FirestoreTeamReviewers {
   return {
     teams: doc.teams,
     lastUpdated: Timestamp.fromDate(doc.lastUpdated),
+    schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.TEAM_REVIEWERS),
   };
 }

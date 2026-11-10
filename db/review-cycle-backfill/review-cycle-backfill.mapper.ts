@@ -1,6 +1,12 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { DbValidationError } from "@/db/db.errors";
 import {
+  SCHEMA_KEYS,
+  assertSchemaVersion,
+  getCurrentSchemaVersion,
+} from "@/db/schema/schema-version";
+import { migrateDocument } from "@/db/schema/schema-migrations";
+import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
@@ -12,6 +18,7 @@ export type FirestoreReviewCycleBackfillState = {
   targetEnd: string;
   processedPrNumbers: number[];
   updatedAt: Timestamp;
+  schemaVersion: number;
 };
 
 /**
@@ -57,6 +64,7 @@ function assertFirestoreReviewCycleBackfillState(
   }
 
   assertTimestamp("ReviewCycleBackfill", "updatedAt", data.updatedAt);
+  assertSchemaVersion(SCHEMA_KEYS.REVIEW_CYCLE_BACKFILL, data.schemaVersion);
 }
 
 /**
@@ -68,13 +76,15 @@ function assertFirestoreReviewCycleBackfillState(
 export function normalizeReviewCycleBackfillState(
   data: FirebaseFirestore.DocumentData,
 ): ReviewCycleBackfillState {
-  assertFirestoreReviewCycleBackfillState(data);
+  const migrated = migrateDocument(SCHEMA_KEYS.REVIEW_CYCLE_BACKFILL, data);
+  assertFirestoreReviewCycleBackfillState(migrated);
   return {
-    windowStart: data.windowStart,
-    windowEnd: data.windowEnd,
-    targetEnd: data.targetEnd,
-    processedPrNumbers: data.processedPrNumbers,
-    updatedAt: normalizeTimestamp(data.updatedAt),
+    windowStart: migrated.windowStart,
+    windowEnd: migrated.windowEnd,
+    targetEnd: migrated.targetEnd,
+    processedPrNumbers: migrated.processedPrNumbers,
+    updatedAt: normalizeTimestamp(migrated.updatedAt),
+    schemaVersion: migrated.schemaVersion,
   };
 }
 
@@ -85,7 +95,7 @@ export function normalizeReviewCycleBackfillState(
  * @returns The Firestore-ready document.
  */
 export function serializeReviewCycleBackfillState(
-  state: ReviewCycleBackfillState,
+  state: Omit<ReviewCycleBackfillState, "schemaVersion">,
 ): FirestoreReviewCycleBackfillState {
   return {
     windowStart: state.windowStart,
@@ -93,5 +103,6 @@ export function serializeReviewCycleBackfillState(
     targetEnd: state.targetEnd,
     processedPrNumbers: state.processedPrNumbers,
     updatedAt: Timestamp.fromDate(state.updatedAt),
+    schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.REVIEW_CYCLE_BACKFILL),
   };
 }

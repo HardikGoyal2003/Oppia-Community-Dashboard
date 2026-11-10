@@ -38,7 +38,7 @@ export async function getTeamReviewers(
  */
 export async function upsertTeamReviewers(
   platform: ContributionPlatform,
-  doc: TeamReviewersDocument,
+  doc: Omit<TeamReviewersDocument, "schemaVersion">,
 ): Promise<void> {
   await collection.doc(platform).set(serializeTeamReviewers(doc));
 }

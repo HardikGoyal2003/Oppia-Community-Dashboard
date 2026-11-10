@@ -107,6 +107,31 @@ function buildSchemaCollectionTargets(): SchemaCollectionTarget[] {
       query: db.collection(DB_PATHS.MEMBER_ACCESS_REQUESTS.COLLECTION),
     },
     {
+      key: SCHEMA_KEYS.TEAM_REVIEWERS,
+      label: DB_PATHS.TEAM_REVIEWERS.COLLECTION,
+      query: db.collection(DB_PATHS.TEAM_REVIEWERS.COLLECTION),
+    },
+    {
+      key: SCHEMA_KEYS.REVIEWERS,
+      label: DB_PATHS.REVIEWERS.COLLECTION,
+      query: db.collection(DB_PATHS.REVIEWERS.COLLECTION),
+    },
+    {
+      key: SCHEMA_KEYS.REVIEW_CYCLES,
+      label: DB_PATHS.REVIEW_CYCLES.COLLECTION,
+      query: db.collection(DB_PATHS.REVIEW_CYCLES.COLLECTION),
+    },
+    {
+      key: SCHEMA_KEYS.REVIEW_CYCLE_ANALYTICS,
+      label: DB_PATHS.REVIEW_CYCLE_ANALYTICS.COLLECTION,
+      query: db.collection(DB_PATHS.REVIEW_CYCLE_ANALYTICS.COLLECTION),
+    },
+    {
+      key: SCHEMA_KEYS.REVIEW_CYCLE_BACKFILL,
+      label: DB_PATHS.REVIEW_CYCLE_BACKFILL.COLLECTION,
+      query: db.collection(DB_PATHS.REVIEW_CYCLE_BACKFILL.COLLECTION),
+    },
+    {
       key: SCHEMA_KEYS.TEAMS,
       label: DB_PATHS.TEAMS.COLLECTION,
       query: db.collection(DB_PATHS.TEAMS.COLLECTION),

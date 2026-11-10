@@ -1,6 +1,12 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { DbValidationError } from "@/db/db.errors";
 import {
+  SCHEMA_KEYS,
+  assertSchemaVersion,
+  getCurrentSchemaVersion,
+} from "@/db/schema/schema-version";
+import { migrateDocument } from "@/db/schema/schema-migrations";
+import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
@@ -129,10 +135,14 @@ function assertFirestoreReviewer(
     );
   }
   assertTimestamp("Reviewer", "lastUpdated", data.lastUpdated);
+  assertSchemaVersion(SCHEMA_KEYS.REVIEWERS, data.schemaVersion);
 }
 
 /**
  * Normalizes a raw Firestore reviewer document into the app model.
+ *
+ * Legacy documents written before schema versioning are migrated lazily to the
+ * current shape before validation.
  *
  * @param data The raw Firestore document data.
  * @returns The normalized reviewer document.
@@ -140,40 +150,44 @@ function assertFirestoreReviewer(
 export function normalizeReviewer(
   data: FirebaseFirestore.DocumentData,
 ): ReviewerDocument {
-  assertFirestoreReviewer(data);
+  const migrated = migrateDocument(SCHEMA_KEYS.REVIEWERS, data);
+  assertFirestoreReviewer(migrated);
   return {
-    teams: data.teams,
-    pendingReviews: data.pendingReviews,
-    completedReviews: (data.completedReviews as number) ?? 0,
-    reviewedPrCount: (data.reviewedPrCount as number) ?? 0,
+    teams: migrated.teams,
+    pendingReviews: migrated.pendingReviews,
+    completedReviews: (migrated.completedReviews as number) ?? 0,
+    reviewedPrCount: (migrated.reviewedPrCount as number) ?? 0,
     completedReviewSubmissions:
-      (data.completedReviewSubmissions as number) ?? 0,
-    approvedPrCount: (data.approvedPrCount as number) ?? 0,
-    authoredPrCount: (data.authoredPrCount as number) ?? 0,
+      (migrated.completedReviewSubmissions as number) ?? 0,
+    approvedPrCount: (migrated.approvedPrCount as number) ?? 0,
+    authoredPrCount: (migrated.authoredPrCount as number) ?? 0,
     avgReviewTimeHours:
-      data.avgReviewTimeHours !== undefined && data.avgReviewTimeHours !== null
-        ? (data.avgReviewTimeHours as number)
+      migrated.avgReviewTimeHours !== undefined &&
+      migrated.avgReviewTimeHours !== null
+        ? (migrated.avgReviewTimeHours as number)
         : null,
     avgTimeToApprovalHours:
-      data.avgTimeToApprovalHours !== undefined &&
-      data.avgTimeToApprovalHours !== null
-        ? (data.avgTimeToApprovalHours as number)
+      migrated.avgTimeToApprovalHours !== undefined &&
+      migrated.avgTimeToApprovalHours !== null
+        ? (migrated.avgTimeToApprovalHours as number)
         : null,
     avgReviewRoundsBeforeApproval:
-      data.avgReviewRoundsBeforeApproval !== undefined &&
-      data.avgReviewRoundsBeforeApproval !== null
-        ? (data.avgReviewRoundsBeforeApproval as number)
+      migrated.avgReviewRoundsBeforeApproval !== undefined &&
+      migrated.avgReviewRoundsBeforeApproval !== null
+        ? (migrated.avgReviewRoundsBeforeApproval as number)
         : null,
     avgCommentsPerReview:
-      data.avgCommentsPerReview !== undefined &&
-      data.avgCommentsPerReview !== null
-        ? (data.avgCommentsPerReview as number)
+      migrated.avgCommentsPerReview !== undefined &&
+      migrated.avgCommentsPerReview !== null
+        ? (migrated.avgCommentsPerReview as number)
         : null,
     avgReviewsPerWeek:
-      data.avgReviewsPerWeek !== undefined && data.avgReviewsPerWeek !== null
-        ? (data.avgReviewsPerWeek as number)
+      migrated.avgReviewsPerWeek !== undefined &&
+      migrated.avgReviewsPerWeek !== null
+        ? (migrated.avgReviewsPerWeek as number)
         : null,
-    lastUpdated: normalizeTimestamp(data.lastUpdated),
+    lastUpdated: normalizeTimestamp(migrated.lastUpdated),
+    schemaVersion: migrated.schemaVersion,
   };
 }
 
@@ -183,7 +197,9 @@ export function normalizeReviewer(
  * @param doc The reviewer document to persist.
  * @returns The Firestore-ready document.
  */
-export function serializeReviewer(doc: ReviewerDocument): FirestoreReviewer {
+export function serializeReviewer(
+  doc: Omit<ReviewerDocument, "schemaVersion">,
+): FirestoreReviewer {
   return {
     teams: doc.teams,
     pendingReviews: doc.pendingReviews,
@@ -198,5 +214,6 @@ export function serializeReviewer(doc: ReviewerDocument): FirestoreReviewer {
     avgCommentsPerReview: doc.avgCommentsPerReview,
     avgReviewsPerWeek: doc.avgReviewsPerWeek,
     lastUpdated: Timestamp.fromDate(doc.lastUpdated),
+    schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.REVIEWERS),
   };
 }

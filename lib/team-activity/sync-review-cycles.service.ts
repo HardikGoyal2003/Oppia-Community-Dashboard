@@ -172,7 +172,10 @@ export async function refreshReviewerStats(
     fetchAuthoredPrCounts(targetLogins),
   ]);
 
-  const updates: Array<{ login: string; doc: ReviewerDocument }> = [];
+  const updates: Array<{
+    login: string;
+    doc: Omit<ReviewerDocument, "schemaVersion">;
+  }> = [];
 
   for (const login of targetLogins) {
     const existing = reviewerDocs.get(login) ?? null;

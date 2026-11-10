@@ -1,5 +1,9 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DbValidationError } from "@/db/db.errors";
+import {
+  SCHEMA_KEYS,
+  getCurrentSchemaVersion,
+} from "@/db/schema/schema-version";
 import type {
   ReviewerApprovalShare,
   ReviewerTeamsAnalytics,
@@ -9,6 +13,7 @@ import { getIstDateKey, getIstWeekStartDateKey } from "@/lib/utils/date.utils";
 import { DB_PATHS } from "@/db/db-paths";
 import {
   type FirestoreReviewCycle,
+  normalizeReviewCycle,
   serializeReviewCycle,
 } from "./review-cycles.mapper";
 import {
@@ -40,7 +45,7 @@ const AGGREGATE_LOGIN_CHUNK_SIZE = 30;
  * @returns A promise that resolves when all batch writes complete.
  */
 export async function upsertReviewCycles(
-  records: ReviewCycleRecord[],
+  records: Array<Omit<ReviewCycleRecord, "schemaVersion">>,
 ): Promise<void> {
   const BATCH_SIZE = 400;
 
@@ -68,13 +73,13 @@ export async function upsertReviewCycles(
  * @returns The subset of records that are new (not yet in Firestore).
  */
 export async function findNewCycleRecords(
-  records: ReviewCycleRecord[],
-): Promise<ReviewCycleRecord[]> {
+  records: Array<Omit<ReviewCycleRecord, "schemaVersion">>,
+): Promise<Array<Omit<ReviewCycleRecord, "schemaVersion">>> {
   if (records.length === 0) return [];
 
   const firestore = getAdminFirestore();
   const GET_ALL_CHUNK_SIZE = 300;
-  const newRecords: ReviewCycleRecord[] = [];
+  const newRecords: Array<Omit<ReviewCycleRecord, "schemaVersion">> = [];
 
   for (let start = 0; start < records.length; start += GET_ALL_CHUNK_SIZE) {
     const chunk = records.slice(start, start + GET_ALL_CHUNK_SIZE);
@@ -213,7 +218,9 @@ export async function getAllReviewCycleAggregates(): Promise<
   Map<string, ReviewCycleAggregate>
 > {
   const snapshot = await collection.get();
-  return aggregateCycleRecords(snapshot.docs.map((doc) => doc.data()));
+  return aggregateCycleRecords(
+    snapshot.docs.map((doc) => normalizeReviewCycle(doc.data())),
+  );
 }
 
 /**
@@ -242,7 +249,7 @@ export async function getReviewCycleAggregatesForLogins(
     const chunk = uniqueLogins.slice(start, start + AGGREGATE_LOGIN_CHUNK_SIZE);
     const snapshot = await collection.where("reviewerLogin", "in", chunk).get();
 
-    snapshot.forEach((doc) => records.push(doc.data()));
+    snapshot.forEach((doc) => records.push(normalizeReviewCycle(doc.data())));
   }
 
   return aggregateCycleRecords(records);
@@ -268,7 +275,7 @@ async function computeReviewCycleAnalytics(): Promise<ReviewerTeamsAnalytics> {
   >();
 
   snapshot.forEach((doc) => {
-    const data = doc.data();
+    const data = normalizeReviewCycle(doc.data());
     const submissions = data.reviewSubmissionCount ?? 0;
 
     if (submissions > 0) {
@@ -349,6 +356,7 @@ async function computeReviewCycleAnalytics(): Promise<ReviewerTeamsAnalytics> {
       }))
       .sort((a, b) => a.additions - b.additions),
     totalApprovals,
+    schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.REVIEW_CYCLE_ANALYTICS),
   };
 }
 
