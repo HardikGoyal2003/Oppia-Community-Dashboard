@@ -265,6 +265,8 @@ export type CycleRecordsResult = {
     assignedAt: string;
   }>;
   reviewerPRStats: Map<string, Map<number, ReviewerPRStats>>;
+  /** Authors of every PR scanned in the window, used for authored-count refresh. */
+  authorLogins: Set<string>;
 };
 
 type GitHubReviewResponse = {
@@ -445,15 +447,50 @@ export async function fetchReviewerStats(): Promise<ReviewerStatsMap> {
 }
 
 /**
+ * Collects every reviewer login that was assigned to the PR at some point.
+ *
+ * Current assignees alone are not enough: a reviewer can be unassigned
+ * before the PR closes while still having a completed review cycle in the
+ * timeline.
+ *
+ * @param pr The PR response from GitHub.
+ * @param timelineEvents The timeline events for the PR.
+ * @returns The non-author logins seen in current assignees or the timeline.
+ */
+function collectCandidateReviewerLogins(
+  pr: GitHubPullResponse,
+  timelineEvents: TimelineEvent[],
+): Set<string> {
+  const author = pr.user?.login;
+  const logins = new Set<string>();
+
+  for (const assignee of pr.assignees ?? []) {
+    if (assignee.login !== author) logins.add(assignee.login);
+  }
+
+  for (const event of timelineEvents) {
+    if (event.event !== "assigned" && event.event !== "unassigned") continue;
+
+    const login = event.assignee?.login;
+    if (login && login !== author) logins.add(login);
+  }
+
+  return logins;
+}
+
+/**
  * Processes a single PR's timeline and reviews to extract completed and
- * pending review cycles for all non-author assignees.
+ * pending review cycles for the supplied reviewer logins.
  *
  * @param pr The PR response from GitHub.
  * @param timelineEvents The timeline events for the PR.
  * @param reviews The review submissions for the PR.
  * @param includePending Whether to include pending (unpaired) cycles.
- * @param reviewerStats Per-reviewer PR stats (rounds before approval, comment count).
+ * @param reviewerStats PR-level per-reviewer stats (rounds before approval,
+ * comment count, submissions). They are copied onto every cycle for the PR
+ * and deduplicated by PR during aggregation.
  * @param prAdditions Lines added by the PR, if known.
+ * @param reviewerLogins The logins with assignment activity on the PR.
  * @returns Completed cycles and optionally pending cycles.
  */
 function extractCyclesFromPR(
@@ -463,21 +500,12 @@ function extractCyclesFromPR(
   includePending: boolean,
   reviewerStats: Map<string, ReviewerPRStats>,
   prAdditions: number | null,
+  reviewerLogins: Set<string>,
 ): { completed: CycleRecord[]; pending: CycleRecordsResult["pending"] } {
-  const assignees = pr.assignees;
-  if (!assignees || assignees.length === 0)
-    return { completed: [], pending: [] };
-
-  const author = pr.user?.login;
-  const nonAuthorLogins = new Set(
-    assignees.map((a) => a.login).filter((l) => l !== author),
-  );
-  if (nonAuthorLogins.size === 0) return { completed: [], pending: [] };
-
   const completed: CycleRecord[] = [];
   const pending: CycleRecordsResult["pending"] = [];
 
-  for (const login of nonAuthorLogins) {
+  for (const login of reviewerLogins) {
     const stats = reviewerStats.get(login);
     const reviewRoundsBeforeApproval =
       stats?.reviewRoundsBeforeApproval ?? null;
@@ -529,14 +557,18 @@ function extractCyclesFromPR(
         cycleStart = event.timestamp;
       } else {
         if (inCycle) {
-          const durationMs =
-            new Date(event.timestamp).getTime() -
-            new Date(cycleStart).getTime();
+          const eventMs = new Date(event.timestamp).getTime();
           const cycleStartMs = new Date(cycleStart).getTime();
+          const durationMs = eventMs - cycleStartMs;
+          // Approvals are PR-level, but an approval only belongs to a cycle
+          // when it happened while that cycle was open. Without the upper
+          // bound, an approval submitted after a "changes requested" review
+          // would be attributed to the cycle that review already closed.
           const attachApproval =
             !approvalAttached &&
             approvedAtMs !== null &&
-            approvedAtMs >= cycleStartMs;
+            approvedAtMs >= cycleStartMs &&
+            approvedAtMs <= eventMs;
           if (attachApproval) {
             approvalAttached = true;
           }
@@ -578,28 +610,25 @@ function extractCyclesFromPR(
 }
 
 /**
- * Computes per-reviewer stats for a single PR: review rounds before
- * approval and total comment count (review bodies + inline comments).
+ * Computes PR-level per-reviewer stats for a single PR: review rounds before
+ * the reviewer's first approval, total comment count (review bodies + inline
+ * comments), and non-pending review submissions.
  *
- * @param pr The PR response from GitHub.
+ * These are deliberately PR-level, not per-cycle. The same values are copied
+ * onto each of the reviewer's cycles for the PR, and `aggregateCycleRecords`
+ * deduplicates them by PR number so they are counted once.
+ *
  * @param reviews The review submissions for the PR.
  * @param inlineComments The inline code comments on the PR.
- * @returns A map of reviewer login to their stats for this PR.
+ * @param reviewerLogins The logins with assignment activity on the PR.
+ * @returns A map of reviewer login to their PR-level stats.
  */
 function extractReviewerPRStats(
-  pr: GitHubPullResponse,
   reviews: GitHubReviewResponse[],
   inlineComments: InlineComment[],
+  reviewerLogins: Set<string>,
 ): Map<string, ReviewerPRStats> {
   const result = new Map<string, ReviewerPRStats>();
-
-  const assignees = pr.assignees;
-  if (!assignees || assignees.length === 0) return result;
-
-  const author = pr.user?.login;
-  const nonAuthorLogins = assignees
-    .map((a) => a.login)
-    .filter((l) => l !== author);
 
   const inlineByUser = new Map<string, number>();
   for (const c of inlineComments) {
@@ -608,7 +637,7 @@ function extractReviewerPRStats(
     inlineByUser.set(login, (inlineByUser.get(login) ?? 0) + 1);
   }
 
-  for (const login of nonAuthorLogins) {
+  for (const login of reviewerLogins) {
     const userReviews = reviews
       .filter((r) => r.user?.login === login && r.state !== "PENDING")
       .sort(
@@ -765,8 +794,9 @@ export async function fetchClosedPRsForCycleWindow(
 /**
  * Extracts review cycles for a single PR.
  *
- * PRs without assignees (or without a `pull_request` marker) have no cycles
- * and are returned as empty results without any extra API calls.
+ * PRs without a `pull_request` marker have no cycles and are returned as
+ * empty results without any extra API calls. PRs with no current assignees
+ * still fetch the timeline so historical assignment cycles are not dropped.
  *
  * @param item The PR search/list item.
  * @param includePending Whether to include pending (unpaired) cycles.
@@ -780,13 +810,23 @@ export async function extractCycleRecordsForPR(
   pending: CycleRecordsResult["pending"];
   reviewerPRStats: Map<string, ReviewerPRStats>;
 }> {
-  if (!item.pull_request || !item.assignees || item.assignees.length === 0) {
+  if (!item.pull_request) {
     return { completed: [], pending: [], reviewerPRStats: new Map() };
   }
 
   const { timelineEvents, reviews, inlineComments, pullRequest } =
     await fetchPRTimelineAndReviews(item.number);
-  const reviewerPRStats = extractReviewerPRStats(item, reviews, inlineComments);
+  const reviewerLogins = collectCandidateReviewerLogins(item, timelineEvents);
+
+  if (reviewerLogins.size === 0) {
+    return { completed: [], pending: [], reviewerPRStats: new Map() };
+  }
+
+  const reviewerPRStats = extractReviewerPRStats(
+    reviews,
+    inlineComments,
+    reviewerLogins,
+  );
   const result = extractCyclesFromPR(
     item,
     timelineEvents,
@@ -794,6 +834,7 @@ export async function extractCycleRecordsForPR(
     includePending,
     reviewerPRStats,
     pullRequest.additions ?? null,
+    reviewerLogins,
   );
 
   return {
@@ -830,9 +871,15 @@ async function collectCyclesForPRs(
   const completed: CycleRecord[] = [];
   const pending: CycleRecordsResult["pending"] = [];
   const reviewerPRStats: CycleRecordsResult["reviewerPRStats"] = new Map();
+  const authorLogins = new Set<string>();
 
   for (const item of items) {
-    if (!item.pull_request || !item.assignees || item.assignees.length === 0) {
+    const author = item.user?.login;
+    if (author) {
+      authorLogins.add(author);
+    }
+
+    if (!item.pull_request) {
       continue;
     }
 
@@ -850,7 +897,7 @@ async function collectCyclesForPRs(
     }
   }
 
-  return { completed, pending, reviewerPRStats };
+  return { completed, pending, reviewerPRStats, authorLogins };
 }
 
 /**
@@ -865,8 +912,8 @@ async function collectCyclesForPRs(
  *   Defaults to the last 24 hours for the regular incremental sync.
  * @param untilDate Optional inclusive end of the window, used by the
  *   resumable backfill. When omitted, the window extends to now.
- * @returns Completed cycle records, pending cycle info per reviewer, and
- *   per-PR reviewer stats.
+ * @returns Completed cycle records, pending cycle info per reviewer, per-PR
+ *   reviewer stats, and the authors of the scanned PRs.
  */
 export async function fetchCycleRecords(
   sinceDate: Date = new Date(Date.now() - 24 * 60 * 60 * 1000),
@@ -902,7 +949,7 @@ export async function fetchCycleRecords(
  * @param sinceDate Only PRs closed on or after this date are processed.
  * @param untilDate Optional inclusive end of the window, used by the
  *   resumable backfill. When omitted, the window extends to now.
- * @returns Completed cycle records and per-PR reviewer stats.
+ * @returns Completed cycle records, per-PR reviewer stats, and PR authors.
  */
 export async function fetchClosedPRCycleRecords(
   sinceDate: Date,
@@ -910,6 +957,7 @@ export async function fetchClosedPRCycleRecords(
 ): Promise<{
   completed: CycleRecord[];
   reviewerPRStats: Map<string, Map<number, ReviewerPRStats>>;
+  authorLogins: Set<string>;
 }> {
   const sinceDateStr = sinceDate.toISOString().slice(0, 10);
   const untilDateStr = untilDate?.toISOString().slice(0, 10);
@@ -929,6 +977,7 @@ export async function fetchClosedPRCycleRecords(
   return {
     completed: result.completed,
     reviewerPRStats: result.reviewerPRStats,
+    authorLogins: result.authorLogins,
   };
 }
 

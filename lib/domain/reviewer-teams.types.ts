@@ -55,13 +55,22 @@ export type ReviewCycleRecord = {
   assignedAt: string;
   completedAt: string;
   durationMs: number;
+  /**
+   * PR-level metric: number of review rounds before this reviewer's first
+   * approval on the PR, regardless of which cycle it landed in. Copied onto
+   * every cycle record for the PR and deduplicated by PR when aggregating.
+   */
   reviewRoundsBeforeApproval: number | null;
+  /** PR-level metric: total review-body + inline comments by this reviewer. */
   commentCount: number;
-  /** Non-pending review submissions made by this reviewer on the PR. */
+  /**
+   * PR-level metric: non-pending review submissions made by this reviewer on
+   * the PR. Copied onto every cycle record for the PR.
+   */
   reviewSubmissionCount: number;
   /** Timestamp of this reviewer's first approval on the PR, if any. */
   approvedAt: string | null;
-  /** Assignment → first approval duration in ms, if approved. */
+  /** Per-cycle: assignment → first approval duration in ms, if attached. */
   approvalDurationMs: number | null;
   /** Lines added by the PR (size proxy). */
   prAdditions: number | null;
