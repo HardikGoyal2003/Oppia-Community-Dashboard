@@ -47,13 +47,13 @@ const CRON_JOBS: CronJobDefinition[] = [
     key: "sync_review_cycles",
     name: "Sync Review Cycles",
     description:
-      "Fetch open PRs, extract completed review cycles from timeline events, and update completedReviews and avgReviewTimeHours on reviewer docs. Runs daily.",
+      "Fetch open PRs updated in the last 24h and PRs closed in the last 24h, extract completed review cycles from their timelines into reviewCycles, then recompute all reviewer metrics (completed reviews, reviewed/approved/authored PRs, review submissions, avg review time, time to approval, rounds before approval, comments per review, reviews per week). Runs daily; run before Sync Pending Reviews.",
   },
   {
     key: "sync_pending_reviews",
     name: "Sync Pending Reviews",
     description:
-      "Fetch open PR assignments and update pendingReviews on reviewer docs. Runs daily.",
+      "Fetch current open PR assignments and replace pendingReviews on reviewer docs, leaving review cycle history and metrics untouched. Runs daily; run after Sync Review Cycles, never concurrently.",
   },
   {
     key: "send_action_item_digest",
