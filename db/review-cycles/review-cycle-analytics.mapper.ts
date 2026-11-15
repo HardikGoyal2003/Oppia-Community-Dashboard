@@ -9,12 +9,12 @@ import { migrateDocument } from "@/db/schema/schema-migrations";
 import { assertTimestamp } from "@/db/utils/timestamp.utils";
 import type { ReviewerTeamsAnalytics } from "@/lib/domain/reviewer-teams.types";
 
-export type FirestoreReviewCycleAnalytics = ReviewerTeamsAnalytics & {
-  computedAt: Timestamp;
-  /** Internal merge state used to update analytics without scanning cycles. */
-  analyticsState?: ReviewCycleAnalyticsState;
-};
-
+/**
+ * Internal merge state used to update analytics without rescanning cycles.
+ *
+ * This is a persistence detail: it must never be returned to clients, so keep
+ * it on the stored type only and strip it with `toReviewerTeamsAnalytics`.
+ */
 export type ReviewCycleAnalyticsState = {
   weeklyReviews: Record<string, number>;
   monthlyReviewerKeys: Record<string, string[]>;
@@ -24,6 +24,22 @@ export type ReviewCycleAnalyticsState = {
     string,
     { additions: number; totalDurationMs: number; count: number }
   >;
+};
+
+/**
+ * Normalized analytics document, including the internal merge state.
+ *
+ * Only the DB layer should use this shape. API responses must call
+ * `toReviewerTeamsAnalytics` so the merge state stays server-side.
+ */
+export type StoredReviewCycleAnalytics = ReviewerTeamsAnalytics & {
+  analyticsState?: ReviewCycleAnalyticsState;
+};
+
+export type FirestoreReviewCycleAnalytics = ReviewerTeamsAnalytics & {
+  computedAt: Timestamp;
+  /** Internal merge state used to update analytics without scanning cycles. */
+  analyticsState?: ReviewCycleAnalyticsState;
 };
 
 /**
@@ -45,6 +61,90 @@ function assertArrayOfObjects(
       throw new DbValidationError(
         field,
         `Each entry in ${field} must be an object.`,
+      );
+    }
+  }
+}
+
+/**
+ * Asserts that a raw value is a record of the expected shape.
+ *
+ * @param field The field name being validated.
+ * @param value The raw value.
+ * @returns Nothing. Throws when the value is not a record.
+ */
+function assertRecord(
+  field: string,
+  value: FirebaseFirestore.DocumentData[string],
+): asserts value is FirebaseFirestore.DocumentData {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new DbValidationError(field, `${field} must be a record.`);
+  }
+}
+
+/**
+ * Validates the optional internal merge state stored on the snapshot.
+ *
+ * Invalid state is rejected instead of trusted so the caller falls back to a
+ * clean bootstrap rather than producing corrupt analytics.
+ *
+ * @param value The raw `analyticsState` value.
+ * @returns Nothing. Throws when the state is malformed.
+ */
+function assertAnalyticsState(
+  value: FirebaseFirestore.DocumentData[string],
+): void {
+  if (value === undefined) return;
+
+  assertRecord("analyticsState", value);
+  assertRecord("analyticsState.weeklyReviews", value.weeklyReviews);
+  for (const reviews of Object.values(
+    value.weeklyReviews as FirebaseFirestore.DocumentData,
+  )) {
+    if (typeof reviews !== "number" || !Number.isFinite(reviews)) {
+      throw new DbValidationError(
+        "analyticsState.weeklyReviews",
+        "weeklyReviews values must be finite numbers.",
+      );
+    }
+  }
+  assertRecord("analyticsState.monthlyReviewerKeys", value.monthlyReviewerKeys);
+  for (const logins of Object.values(
+    value.monthlyReviewerKeys as FirebaseFirestore.DocumentData,
+  )) {
+    if (
+      !Array.isArray(logins) ||
+      logins.some((login) => typeof login !== "string")
+    ) {
+      throw new DbValidationError(
+        "analyticsState.monthlyReviewerKeys",
+        "monthlyReviewerKeys values must be arrays of strings.",
+      );
+    }
+  }
+  for (const field of ["submissionKeys", "approvalKeys"]) {
+    const keys = value[field];
+    if (!Array.isArray(keys) || keys.some((key) => typeof key !== "string")) {
+      throw new DbValidationError(
+        `analyticsState.${field}`,
+        `${field} must be an array of strings.`,
+      );
+    }
+  }
+  assertRecord("analyticsState.prStats", value.prStats);
+  for (const stats of Object.values(
+    value.prStats as FirebaseFirestore.DocumentData,
+  )) {
+    if (
+      stats === null ||
+      typeof stats !== "object" ||
+      typeof stats.additions !== "number" ||
+      typeof stats.totalDurationMs !== "number" ||
+      typeof stats.count !== "number"
+    ) {
+      throw new DbValidationError(
+        "analyticsState.prStats",
+        "Each PR stat must have numeric additions, totalDurationMs, and count.",
       );
     }
   }
@@ -121,6 +221,7 @@ function assertFirestoreReviewCycleAnalytics(
   }
 
   assertTimestamp("ReviewCycleAnalytics", "computedAt", data.computedAt);
+  assertAnalyticsState(data.analyticsState);
   assertSchemaVersion(SCHEMA_KEYS.REVIEW_CYCLE_ANALYTICS, data.schemaVersion);
 }
 
@@ -128,11 +229,11 @@ function assertFirestoreReviewCycleAnalytics(
  * Normalizes a raw Firestore review-cycle analytics document.
  *
  * @param data The raw Firestore document data.
- * @returns The normalized analytics.
+ * @returns The normalized analytics, including internal merge state.
  */
 export function normalizeReviewCycleAnalytics(
   data: FirebaseFirestore.DocumentData,
-): ReviewerTeamsAnalytics & { analyticsState?: ReviewCycleAnalyticsState } {
+): StoredReviewCycleAnalytics {
   const migrated = migrateDocument(SCHEMA_KEYS.REVIEW_CYCLE_ANALYTICS, data);
   assertFirestoreReviewCycleAnalytics(migrated);
   return {
@@ -143,6 +244,28 @@ export function normalizeReviewCycleAnalytics(
     totalApprovals: migrated.totalApprovals,
     schemaVersion: migrated.schemaVersion,
     analyticsState: migrated.analyticsState,
+  };
+}
+
+/**
+ * Projects stored analytics onto the public dashboard shape.
+ *
+ * Strips the internal merge state (seen keys, monthly login lists, per-PR
+ * counters) so it never reaches an API response.
+ *
+ * @param stored The normalized analytics document.
+ * @returns The client-safe analytics payload.
+ */
+export function toReviewerTeamsAnalytics(
+  stored: StoredReviewCycleAnalytics,
+): ReviewerTeamsAnalytics {
+  return {
+    weeklyReviews: stored.weeklyReviews,
+    monthlyUniqueReviewers: stored.monthlyUniqueReviewers,
+    topApprovers: stored.topApprovers,
+    prSizeScatter: stored.prSizeScatter,
+    totalApprovals: stored.totalApprovals,
+    schemaVersion: stored.schemaVersion,
   };
 }
 

@@ -302,6 +302,7 @@ Fields:
 - `totalApprovals: number`
 - `computedAt: Timestamp`
 - `schemaVersion: number`
+- `analyticsState` (internal, never returned by the API): `{ weeklyReviews: Record<string, number>, monthlyReviewerKeys: Record<string, string[]>, submissionKeys: string[], approvalKeys: string[], prStats: Record<string, { additions: number, totalDurationMs: number, count: number }> }` — merge state for incremental updates. Stripped via `toReviewerTeamsAnalytics` before any response.
 
 ### `reviewerCycleAggregates`
 

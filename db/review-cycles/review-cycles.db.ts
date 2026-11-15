@@ -19,8 +19,10 @@ import {
 import {
   type FirestoreReviewCycleAnalytics,
   type ReviewCycleAnalyticsState,
+  type StoredReviewCycleAnalytics,
   normalizeReviewCycleAnalytics,
   serializeReviewCycleAnalytics,
+  toReviewerTeamsAnalytics,
 } from "./review-cycle-analytics.mapper";
 
 const db = getAdminFirestore();
@@ -260,16 +262,6 @@ export async function getReviewCycleAggregatesForLogins(
 }
 
 /**
- * Builds org-wide reviewer analytics from all stored review cycles.
- *
- * @returns Weekly review counts, monthly unique reviewers, top approver
- * concentration, and PR-size vs review-time scatter data.
- */
-type StoredAnalytics = ReviewerTeamsAnalytics & {
-  analyticsState?: ReviewCycleAnalyticsState;
-};
-
-/**
  * Creates empty state for incremental analytics updates.
  *
  * @returns A zeroed analytics state.
@@ -397,7 +389,7 @@ function mergeRecordsIntoAnalyticsState(
  *
  * @returns The initialized analytics and merge state.
  */
-async function computeReviewCycleAnalytics(): Promise<StoredAnalytics> {
+async function computeReviewCycleAnalytics(): Promise<StoredReviewCycleAnalytics> {
   const snapshot = await collection.get();
   const state = createAnalyticsState();
   mergeRecordsIntoAnalyticsState(
@@ -411,15 +403,14 @@ async function computeReviewCycleAnalytics(): Promise<StoredAnalytics> {
 }
 
 /**
- * Reads the precomputed reviewer analytics snapshot.
+ * Reads the stored analytics snapshot, including internal merge state.
  *
- * The dashboard reads this single document instead of scanning the whole
- * review-cycles collection on every page load. The snapshot is refreshed by
- * the cycle sync and the backfill job.
+ * This is a DB-layer helper: the merge state must not leave the server, so
+ * callers that build API responses use `getReviewCycleAnalyticsSnapshot`.
  *
- * @returns The stored analytics, or null when no snapshot exists.
+ * @returns The stored analytics, or null when no valid snapshot exists.
  */
-export async function getReviewCycleAnalyticsSnapshot(): Promise<StoredAnalytics | null> {
+async function getStoredReviewCycleAnalyticsSnapshot(): Promise<StoredReviewCycleAnalytics | null> {
   const snapshot = await analyticsDoc.get();
   if (!snapshot.exists) return null;
   const data = snapshot.data();
@@ -434,14 +425,31 @@ export async function getReviewCycleAnalyticsSnapshot(): Promise<StoredAnalytics
 }
 
 /**
+ * Reads the precomputed reviewer analytics snapshot.
+ *
+ * The dashboard reads this single document instead of scanning the whole
+ * review-cycles collection on every page load. The snapshot is refreshed by
+ * the cycle sync and the backfill job.
+ *
+ * The internal merge state is stripped, so this is safe to return from an API
+ * route.
+ *
+ * @returns The client-safe analytics, or null when no snapshot exists.
+ */
+export async function getReviewCycleAnalyticsSnapshot(): Promise<ReviewerTeamsAnalytics | null> {
+  const stored = await getStoredReviewCycleAnalyticsSnapshot();
+  return stored ? toReviewerTeamsAnalytics(stored) : null;
+}
+
+/**
  * Recomputes org-wide reviewer analytics and persists the snapshot.
  *
- * @returns The freshly computed analytics.
+ * @returns The freshly computed, client-safe analytics.
  */
 export async function refreshReviewCycleAnalytics(): Promise<ReviewerTeamsAnalytics> {
   const computed = await computeReviewCycleAnalytics();
   await analyticsDoc.set(serializeReviewCycleAnalytics(computed));
-  return computed;
+  return toReviewerTeamsAnalytics(computed);
 }
 
 /**
@@ -449,12 +457,12 @@ export async function refreshReviewCycleAnalytics(): Promise<ReviewerTeamsAnalyt
  * exists yet, a one-time full bootstrap is performed.
  *
  * @param records Newly persisted cycle records.
- * @returns The updated analytics.
+ * @returns The updated, client-safe analytics.
  */
 export async function updateReviewCycleAnalytics(
   records: Array<Omit<ReviewCycleRecord, "schemaVersion">>,
 ): Promise<ReviewerTeamsAnalytics> {
-  const existing = await getReviewCycleAnalyticsSnapshot();
+  const existing = await getStoredReviewCycleAnalyticsSnapshot();
   if (!existing?.analyticsState) {
     return refreshReviewCycleAnalytics();
   }
