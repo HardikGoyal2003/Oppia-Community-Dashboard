@@ -298,11 +298,41 @@ Fields:
 - `weeklyReviews: Array<{ weekStart: string, reviews: number }>`
 - `monthlyUniqueReviewers: Array<{ month: string, uniqueReviewers: number }>`
 - `topApprovers: Array<{ username: string, approvals: number, sharePct: number }>`
-- `prSizeScatter: Array<{ prNumber: number, additions: number, reviewTimeHours: number }>`
+- `prSizeScatter: Array<{ prNumber: number, additions: number, reviewTimeHours: number }>` — capped to the 400 most recent PRs
 - `totalApprovals: number`
 - `computedAt: Timestamp`
 - `schemaVersion: number`
-- `analyticsState` (internal, never returned by the API): `{ weeklyReviews: Record<string, number>, monthlyReviewerKeys: Record<string, string[]>, submissionKeys: string[], approvalKeys: string[], prStats: Record<string, { additions: number, totalDurationMs: number, count: number }> }` — merge state for incremental updates. Stripped via `toReviewerTeamsAnalytics` before any response.
+
+The snapshot holds only the dashboard payload. Incremental merge state lives in `reviewCyclePrStats`, `reviewCycleMonthlyReviewers`, and `reviewerCycleAggregates`, so this document cannot grow with review history.
+
+### `reviewCyclePrStats`
+
+Document id:
+
+- PR number string
+
+Fields:
+
+- `prNumber: number`
+- `additions: number | null`
+- `totalDurationMs: number`
+- `cycleCount: number`
+- `reviewers: Record<string, { weekStart: string, month: string, submissions: number, roundsBeforeApproval: number | null, comments: number, approved: boolean }>` — one fact per reviewer who touched the PR; owns reviewer-PR dedupe
+- `lastUpdated: Timestamp`
+- `schemaVersion: number`
+
+### `reviewCycleMonthlyReviewers`
+
+Document id:
+
+- `YYYY-MM` month key
+
+Fields:
+
+- `month: string`
+- `logins: string[]` — distinct reviewers who submitted a review that month
+- `lastUpdated: Timestamp`
+- `schemaVersion: number`
 
 ### `reviewerCycleAggregates`
 
@@ -313,9 +343,16 @@ Document id:
 Fields:
 
 - Incremental reviewer cycle counters and totals used to update reviewer metrics without scanning `reviewCycles`
-- `reviewedPrNumbers: number[]`
-- `approvedPrNumbers: number[]`
-- `activeWeeks: string[]`
+- `completedReviews: number`
+- `reviewedPrCount: number`
+- `approvedPrCount: number`
+- `totalReviewTimeMs: number`
+- `totalRoundsBeforeApproval: number`
+- `totalComments: number`
+- `completedReviewSubmissions: number`
+- `totalApprovalDurationMs: number`
+- `approvalsWithDuration: number`
+- `activeWeeks: string[]` — bounded by the number of weeks, not PRs
 - `lastUpdated: Timestamp`
 - `schemaVersion: number`
 

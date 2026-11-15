@@ -13,8 +13,8 @@ import {
 
 export type ReviewerCycleAggregateDocument = {
   completedReviews: number;
-  reviewedPrNumbers: number[];
-  approvedPrNumbers: number[];
+  reviewedPrCount: number;
+  approvedPrCount: number;
   totalReviewTimeMs: number;
   totalRoundsBeforeApproval: number;
   totalComments: number;
@@ -47,24 +47,6 @@ function assertFiniteNumber(
 }
 
 /**
- * Validates an array of numeric values.
- * @param field Field name.
- * @param value Raw field value.
- * @returns Nothing.
- */
-function assertNumberArray(
-  field: string,
-  value: FirebaseFirestore.DocumentData[string],
-): asserts value is number[] {
-  if (
-    !Array.isArray(value) ||
-    value.some((entry) => typeof entry !== "number")
-  ) {
-    throw new DbValidationError(field, `${field} must be an array of numbers.`);
-  }
-}
-
-/**
  * Validates an array of string values.
  * @param field Field name.
  * @param value Raw field value.
@@ -93,6 +75,8 @@ export function normalizeReviewerCycleAggregate(
   const migrated = migrateDocument(SCHEMA_KEYS.REVIEWER_CYCLE_AGGREGATES, data);
   for (const field of [
     "completedReviews",
+    "reviewedPrCount",
+    "approvedPrCount",
     "totalReviewTimeMs",
     "totalRoundsBeforeApproval",
     "totalComments",
@@ -102,8 +86,6 @@ export function normalizeReviewerCycleAggregate(
   ]) {
     assertFiniteNumber(field, migrated[field]);
   }
-  assertNumberArray("reviewedPrNumbers", migrated.reviewedPrNumbers);
-  assertNumberArray("approvedPrNumbers", migrated.approvedPrNumbers);
   assertStringArray("activeWeeks", migrated.activeWeeks);
   assertTimestamp(
     "ReviewerCycleAggregate",
@@ -116,8 +98,8 @@ export function normalizeReviewerCycleAggregate(
   );
   return {
     completedReviews: migrated.completedReviews,
-    reviewedPrNumbers: migrated.reviewedPrNumbers,
-    approvedPrNumbers: migrated.approvedPrNumbers,
+    reviewedPrCount: migrated.reviewedPrCount,
+    approvedPrCount: migrated.approvedPrCount,
     totalReviewTimeMs: migrated.totalReviewTimeMs,
     totalRoundsBeforeApproval: migrated.totalRoundsBeforeApproval,
     totalComments: migrated.totalComments,

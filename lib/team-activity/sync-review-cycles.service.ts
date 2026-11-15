@@ -4,23 +4,21 @@ import {
   fetchAuthoredPrCounts,
 } from "@/lib/github/github.fetcher";
 import { getReviewers, upsertReviewers } from "@/db/reviewers/reviewers.db";
-import type {
-  ReviewerDocument,
-  ReviewCycleRecord,
-} from "@/lib/domain/reviewer-teams.types";
+import type { ReviewerDocument } from "@/lib/domain/reviewer-teams.types";
 import { getReviewerTeamLogins } from "@/lib/team-activity/reviewer-team-logins";
 import {
   upsertReviewCycles,
   findNewCycleRecords,
   getReviewCycleAggregatesForLogins,
-  updateReviewCycleAnalytics,
+  applyReviewCycleContributions,
   type ReviewCycleAggregate,
+  type ReviewCycleLoginContribution,
 } from "@/db/review-cycles/review-cycles.db";
 import {
   aggregateDocumentToReviewCycleAggregate,
+  applyReviewCycleContribution,
   createEmptyReviewerCycleAggregate,
   getReviewerCycleAggregates,
-  mergeCyclesIntoAggregate,
   reviewCycleAggregateToDocument,
   upsertReviewerCycleAggregates,
 } from "@/db/reviewer-cycle-aggregates/reviewer-cycle-aggregates.db";
@@ -121,7 +119,7 @@ function buildReviewerMetrics(
 
   return {
     completedReviews: agg?.completedReviews ?? existing?.completedReviews ?? 0,
-    reviewedPrCount: agg?.reviewedPrs.size ?? existing?.reviewedPrCount ?? 0,
+    reviewedPrCount: agg?.reviewedPrCount ?? existing?.reviewedPrCount ?? 0,
     completedReviewSubmissions:
       agg?.completedReviewSubmissions ??
       existing?.completedReviewSubmissions ??
@@ -156,13 +154,13 @@ function metricsEqual(left: ReviewerMetrics, right: ReviewerMetrics): boolean {
  * rewriting every reviewer document.
  *
  * @param logins The reviewers to refresh. Omit to refresh every known reviewer.
- * @param newRecords Newly persisted cycles to merge incrementally.
+ * @param contributions Per-reviewer cycle contributions from this invocation.
  * @param rebuildFromCycles Whether to rebuild aggregate state from history.
  * @returns The number of reviewer documents actually written.
  */
 export async function refreshReviewerStats(
   logins?: Iterable<string>,
-  newRecords: Array<Omit<ReviewCycleRecord, "schemaVersion">> = [],
+  contributions: Map<string, ReviewCycleLoginContribution> = new Map(),
   rebuildFromCycles = false,
 ): Promise<number> {
   const knownLogins = await getReviewerTeamLogins();
@@ -198,21 +196,28 @@ export async function refreshReviewerStats(
   }> = [];
 
   for (const login of targetLogins) {
-    const aggregate =
-      aggregateDocuments.get(login) ??
-      (bootstrapped.has(login)
-        ? reviewCycleAggregateToDocument(bootstrapped.get(login)!)
-        : createEmptyReviewerCycleAggregate());
-    // A bootstrap query already includes cycles written in this invocation;
-    // applying newRecords again would double-count them.
-    const records = bootstrapped.has(login)
-      ? []
-      : newRecords.filter((record) => record.reviewerLogin === login);
-    if (!aggregateDocuments.has(login) || records.length > 0) {
-      aggregateWrites.push({
-        login,
-        aggregate: mergeCyclesIntoAggregate(aggregate, records),
-      });
+    const stored = aggregateDocuments.get(login);
+
+    if (!stored) {
+      // A bootstrap query already includes cycles written in this invocation,
+      // so the contribution must not be applied again for these logins.
+      const bootstrappedAggregate = bootstrapped.get(login);
+      const aggregate = bootstrappedAggregate
+        ? reviewCycleAggregateToDocument(bootstrappedAggregate)
+        : createEmptyReviewerCycleAggregate();
+
+      aggregateWrites.push({ login, aggregate });
+      aggregates.set(login, aggregateDocumentToReviewCycleAggregate(aggregate));
+      continue;
+    }
+
+    const contribution = contributions.get(login);
+    const aggregate = contribution
+      ? applyReviewCycleContribution(stored, contribution)
+      : stored;
+
+    if (contribution) {
+      aggregateWrites.push({ login, aggregate });
     }
     aggregates.set(login, aggregateDocumentToReviewCycleAggregate(aggregate));
   }
@@ -259,9 +264,10 @@ export async function refreshReviewerStats(
  * - `reviewers/{login}` — refreshes the reviewers that were active in the
  *   window (cycle authors) or authored one of the scanned PRs. Reviewers
  *   outside that set are left untouched.
- * - `reviewCycleAnalytics/WEB` — recomputes the org-wide analytics snapshot
- *   when the window produced cycle records, so dashboard reads stay a single
- *   document fetch.
+ * - `reviewCyclePrStats/{prNumber}` and `reviewCycleMonthlyReviewers/{month}` —
+ *   bounded incremental inputs updated when the window produced cycle records.
+ * - `reviewCycleAnalytics/WEB` — folds the new facts into the org-wide analytics
+ *   snapshot, so dashboard reads stay a single document fetch.
  *
  * Only persists cycles for reviewers who belong to a reviewer team.
  *
@@ -301,14 +307,12 @@ export async function syncReviewCycles(
     affectedLogins.add(login);
   }
 
+  const contributions = await applyReviewCycleContributions(newRecords);
+
   const updatedReviewersCount =
     affectedLogins.size === 0
       ? 0
-      : await refreshReviewerStats(affectedLogins, newRecords);
-
-  if (newRecords.length > 0) {
-    await updateReviewCycleAnalytics(newRecords);
-  }
+      : await refreshReviewerStats(affectedLogins, contributions);
 
   return {
     completedCyclesCount: allCompleted.length,

@@ -1,8 +1,13 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DB_PATHS } from "@/db/db-paths";
-import type { ReviewCycleRecord } from "@/lib/domain/reviewer-teams.types";
-import type { ReviewCycleAggregate } from "@/db/review-cycles/review-cycles.db";
-import { getIstWeekStartDateKey } from "@/lib/utils/date.utils";
+import {
+  SCHEMA_KEYS,
+  getCurrentSchemaVersion,
+} from "@/db/schema/schema-version";
+import type {
+  ReviewCycleAggregate,
+  ReviewCycleLoginContribution,
+} from "@/db/review-cycles/review-cycles.db";
 import {
   normalizeReviewerCycleAggregate,
   serializeReviewerCycleAggregate,
@@ -14,13 +19,18 @@ const collection = db.collection(DB_PATHS.REVIEWER_CYCLE_AGGREGATES.COLLECTION);
 
 /**
  * Creates an empty persisted reviewer aggregate.
+ *
+ * The aggregate stores counters plus the set of active weeks. PR membership
+ * lives in `reviewCyclePrStats`, so this document does not grow with the
+ * number of PRs a reviewer has worked on.
+ *
  * @returns An empty aggregate.
  */
 function emptyAggregate(): ReviewerCycleAggregateDocument {
   return {
     completedReviews: 0,
-    reviewedPrNumbers: [],
-    approvedPrNumbers: [],
+    reviewedPrCount: 0,
+    approvedPrCount: 0,
     totalReviewTimeMs: 0,
     totalRoundsBeforeApproval: 0,
     totalComments: 0,
@@ -29,7 +39,9 @@ function emptyAggregate(): ReviewerCycleAggregateDocument {
     approvalsWithDuration: 0,
     activeWeeks: [],
     lastUpdated: new Date(),
-    schemaVersion: 1,
+    schemaVersion: getCurrentSchemaVersion(
+      SCHEMA_KEYS.REVIEWER_CYCLE_AGGREGATES,
+    ),
   };
 }
 
@@ -47,11 +59,9 @@ export async function getReviewerCycleAggregates(
     ...logins.map((login) => collection.doc(login)),
   );
   snapshots.forEach((snapshot, index) => {
-    if (snapshot.exists && snapshot.data()) {
-      result.set(
-        logins[index],
-        normalizeReviewerCycleAggregate(snapshot.data()!),
-      );
+    const data = snapshot.data();
+    if (snapshot.exists && data) {
+      result.set(logins[index], normalizeReviewerCycleAggregate(data));
     }
   });
   return result;
@@ -77,43 +87,42 @@ export async function upsertReviewerCycleAggregates(
 }
 
 /**
- * Merges newly persisted cycles into one reviewer aggregate.
+ * Applies one batch of cycle contributions to a reviewer aggregate.
+ *
+ * Per-cycle counters are always added. PR-level metrics are taken from the
+ * facts of newly counted reviewer-PR pairs, which are derived from
+ * `reviewCyclePrStats`, so each reviewer-PR is only counted once.
+ *
  * @param aggregate Aggregate to mutate.
- * @param records New cycles for the reviewer.
+ * @param contribution The contribution for this reviewer.
  * @returns The updated aggregate.
  */
-export function mergeCyclesIntoAggregate(
+export function applyReviewCycleContribution(
   aggregate: ReviewerCycleAggregateDocument,
-  records: Array<Omit<ReviewCycleRecord, "schemaVersion">>,
+  contribution: ReviewCycleLoginContribution,
 ): ReviewerCycleAggregateDocument {
-  const reviewed = new Set(aggregate.reviewedPrNumbers);
-  const approved = new Set(aggregate.approvedPrNumbers);
+  aggregate.completedReviews += contribution.completedReviews;
+  aggregate.totalReviewTimeMs += contribution.totalReviewTimeMs;
+  aggregate.totalApprovalDurationMs += contribution.totalApprovalDurationMs;
+  aggregate.approvalsWithDuration += contribution.approvalsWithDuration;
+
   const weeks = new Set(aggregate.activeWeeks);
 
-  for (const record of records) {
-    aggregate.completedReviews++;
-    aggregate.totalReviewTimeMs += record.durationMs;
-    if (!reviewed.has(record.prNumber)) {
-      reviewed.add(record.prNumber);
-      aggregate.totalComments += record.commentCount;
-      aggregate.completedReviewSubmissions += record.reviewSubmissionCount;
-      if (record.reviewSubmissionCount > 0) {
-        weeks.add(getIstWeekStartDateKey(new Date(record.completedAt)));
-      }
-      if (record.reviewRoundsBeforeApproval !== null) {
-        approved.add(record.prNumber);
-        aggregate.totalRoundsBeforeApproval +=
-          record.reviewRoundsBeforeApproval;
-      }
+  for (const fact of contribution.newFacts) {
+    aggregate.reviewedPrCount++;
+    aggregate.completedReviewSubmissions += fact.submissions;
+    aggregate.totalComments += fact.comments;
+
+    if (fact.submissions > 0) {
+      weeks.add(fact.weekStart);
     }
-    if (record.approvalDurationMs !== null) {
-      aggregate.totalApprovalDurationMs += record.approvalDurationMs;
-      aggregate.approvalsWithDuration++;
+
+    if (fact.roundsBeforeApproval !== null) {
+      aggregate.approvedPrCount++;
+      aggregate.totalRoundsBeforeApproval += fact.roundsBeforeApproval;
     }
   }
 
-  aggregate.reviewedPrNumbers = Array.from(reviewed);
-  aggregate.approvedPrNumbers = Array.from(approved);
   aggregate.activeWeeks = Array.from(weeks);
   aggregate.lastUpdated = new Date();
   return aggregate;
@@ -137,11 +146,10 @@ export function aggregateDocumentToReviewCycleAggregate(
 ): ReviewCycleAggregate {
   return {
     completedReviews: document.completedReviews,
-    reviewedPrs: new Set(document.reviewedPrNumbers),
-    approvedPrs: new Set(document.approvedPrNumbers),
+    reviewedPrCount: document.reviewedPrCount,
+    approvedPrCount: document.approvedPrCount,
     totalReviewTimeMs: document.totalReviewTimeMs,
     totalRoundsBeforeApproval: document.totalRoundsBeforeApproval,
-    approvedPrCount: document.approvedPrNumbers.length,
     totalComments: document.totalComments,
     completedReviewSubmissions: document.completedReviewSubmissions,
     totalApprovalDurationMs: document.totalApprovalDurationMs,
@@ -151,8 +159,8 @@ export function aggregateDocumentToReviewCycleAggregate(
 }
 
 /**
- * Converts a legacy calculation aggregate into a stored aggregate document.
- * @param aggregate Legacy aggregate.
+ * Converts a calculation aggregate into a stored aggregate document.
+ * @param aggregate Calculation aggregate.
  * @returns Stored aggregate document.
  */
 export function reviewCycleAggregateToDocument(
@@ -160,8 +168,8 @@ export function reviewCycleAggregateToDocument(
 ): ReviewerCycleAggregateDocument {
   return {
     completedReviews: aggregate.completedReviews,
-    reviewedPrNumbers: Array.from(aggregate.reviewedPrs),
-    approvedPrNumbers: Array.from(aggregate.approvedPrs),
+    reviewedPrCount: aggregate.reviewedPrCount,
+    approvedPrCount: aggregate.approvedPrCount,
     totalReviewTimeMs: aggregate.totalReviewTimeMs,
     totalRoundsBeforeApproval: aggregate.totalRoundsBeforeApproval,
     totalComments: aggregate.totalComments,
@@ -170,6 +178,8 @@ export function reviewCycleAggregateToDocument(
     approvalsWithDuration: aggregate.approvalsWithDuration,
     activeWeeks: Array.from(aggregate.activeWeeks),
     lastUpdated: new Date(),
-    schemaVersion: 1,
+    schemaVersion: getCurrentSchemaVersion(
+      SCHEMA_KEYS.REVIEWER_CYCLE_AGGREGATES,
+    ),
   };
 }

@@ -127,6 +127,16 @@ function buildSchemaCollectionTargets(): SchemaCollectionTarget[] {
       query: db.collection(DB_PATHS.REVIEWER_CYCLE_AGGREGATES.COLLECTION),
     },
     {
+      key: SCHEMA_KEYS.REVIEW_CYCLE_PR_STATS,
+      label: DB_PATHS.REVIEW_CYCLE_PR_STATS.COLLECTION,
+      query: db.collection(DB_PATHS.REVIEW_CYCLE_PR_STATS.COLLECTION),
+    },
+    {
+      key: SCHEMA_KEYS.REVIEW_CYCLE_MONTHLY_REVIEWERS,
+      label: DB_PATHS.REVIEW_CYCLE_MONTHLY_REVIEWERS.COLLECTION,
+      query: db.collection(DB_PATHS.REVIEW_CYCLE_MONTHLY_REVIEWERS.COLLECTION),
+    },
+    {
       key: SCHEMA_KEYS.REVIEW_CYCLE_ANALYTICS,
       label: DB_PATHS.REVIEW_CYCLE_ANALYTICS.COLLECTION,
       query: db.collection(DB_PATHS.REVIEW_CYCLE_ANALYTICS.COLLECTION),

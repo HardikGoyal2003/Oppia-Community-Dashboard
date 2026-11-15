@@ -18,12 +18,22 @@ import {
 } from "./review-cycles.mapper";
 import {
   type FirestoreReviewCycleAnalytics,
-  type ReviewCycleAnalyticsState,
-  type StoredReviewCycleAnalytics,
   normalizeReviewCycleAnalytics,
   serializeReviewCycleAnalytics,
-  toReviewerTeamsAnalytics,
 } from "./review-cycle-analytics.mapper";
+import {
+  getRecentReviewCyclePrStats,
+  getReviewCyclePrStats,
+  upsertReviewCyclePrStats,
+} from "@/db/review-cycle-pr-stats/review-cycle-pr-stats.db";
+import {
+  type ReviewCyclePrReviewerFact,
+  type ReviewCyclePrStatsDocument,
+} from "@/db/review-cycle-pr-stats/review-cycle-pr-stats.mapper";
+import {
+  getReviewCycleMonthlyReviewers,
+  upsertReviewCycleMonthlyReviewers,
+} from "@/db/review-cycle-monthly-reviewers/review-cycle-monthly-reviewers.db";
 
 const db = getAdminFirestore();
 const collection = db.collection(
@@ -37,6 +47,14 @@ const analyticsDoc = db
 
 /** Firestore `in` filters accept at most 30 comparison values. */
 const AGGREGATE_LOGIN_CHUNK_SIZE = 30;
+
+/**
+ * Number of most recent PRs kept in the dashboard scatter snapshot.
+ *
+ * The scatter is a visualization, so it is capped to keep the analytics
+ * document bounded. Full per-PR stats stay in `reviewCyclePrStats`.
+ */
+const PR_SIZE_SCATTER_LIMIT = 400;
 
 /**
  * Batch upserts multiple review cycle records.
@@ -101,18 +119,17 @@ export async function findNewCycleRecords(
 }
 
 /**
- * Aggregated per-reviewer stats derived from all stored review cycles.
+ * Aggregated per-reviewer stats derived from review cycles.
  */
 export type ReviewCycleAggregate = {
   /** Completed review cycles (assignment → first review or unassignment). */
   completedReviews: number;
   /** Distinct PRs reviewed at least once. */
-  reviewedPrs: Set<number>;
+  reviewedPrCount: number;
+  /** Distinct PRs where the reviewer approved at least once. */
+  approvedPrCount: number;
   totalReviewTimeMs: number;
   totalRoundsBeforeApproval: number;
-  /** Distinct PRs where the reviewer approved at least once. */
-  approvedPrs: Set<number>;
-  approvedPrCount: number;
   totalComments: number;
   /** Sum of non-pending review submissions across all cycles. */
   completedReviewSubmissions: number;
@@ -124,6 +141,20 @@ export type ReviewCycleAggregate = {
 };
 
 /**
+ * Incremental contribution of a batch of cycles for one reviewer.
+ *
+ * `newFacts` only contains reviewer-PR pairs that were not counted before, so
+ * PR-level metrics are only counted once per reviewer-PR.
+ */
+export type ReviewCycleLoginContribution = {
+  completedReviews: number;
+  totalReviewTimeMs: number;
+  totalApprovalDurationMs: number;
+  approvalsWithDuration: number;
+  newFacts: ReviewCyclePrReviewerFact[];
+};
+
+/**
  * Creates a zeroed per-reviewer aggregate.
  *
  * @returns An aggregate with every counter reset.
@@ -131,11 +162,10 @@ export type ReviewCycleAggregate = {
 function createEmptyAggregate(): ReviewCycleAggregate {
   return {
     completedReviews: 0,
-    reviewedPrs: new Set<number>(),
-    approvedPrs: new Set<number>(),
+    reviewedPrCount: 0,
+    approvedPrCount: 0,
     totalReviewTimeMs: 0,
     totalRoundsBeforeApproval: 0,
-    approvedPrCount: 0,
     totalComments: 0,
     completedReviewSubmissions: 0,
     totalApprovalDurationMs: 0,
@@ -161,7 +191,6 @@ function accumulateCycle(
   const existing = aggregates.get(login) ?? createEmptyAggregate();
 
   existing.completedReviews++;
-  existing.reviewedPrs.add(data.prNumber);
   existing.totalReviewTimeMs += data.durationMs;
 
   if (data.approvalDurationMs !== null) {
@@ -174,6 +203,7 @@ function accumulateCycle(
     seenPRs.add(data.prNumber);
     seenPRsByReviewer.set(login, seenPRs);
 
+    existing.reviewedPrCount++;
     existing.completedReviewSubmissions += data.reviewSubmissionCount ?? 0;
     if ((data.reviewSubmissionCount ?? 0) > 0) {
       existing.activeWeeks.add(
@@ -183,12 +213,11 @@ function accumulateCycle(
 
     if (data.reviewRoundsBeforeApproval !== null) {
       existing.totalRoundsBeforeApproval += data.reviewRoundsBeforeApproval;
-      existing.approvedPrs.add(data.prNumber);
+      existing.approvedPrCount++;
     }
     existing.totalComments += data.commentCount;
   }
 
-  existing.approvedPrCount = existing.approvedPrs.size;
   aggregates.set(login, existing);
 }
 
@@ -213,20 +242,6 @@ function aggregateCycleRecords(
   }
 
   return aggregates;
-}
-
-/**
- * Computes aggregate stats for all reviewers from all stored cycles.
- *
- * @returns A map of login to aggregate stats.
- */
-export async function getAllReviewCycleAggregates(): Promise<
-  Map<string, ReviewCycleAggregate>
-> {
-  const snapshot = await collection.get();
-  return aggregateCycleRecords(
-    snapshot.docs.map((doc) => normalizeReviewCycle(doc.data())),
-  );
 }
 
 /**
@@ -262,38 +277,69 @@ export async function getReviewCycleAggregatesForLogins(
 }
 
 /**
- * Creates empty state for incremental analytics updates.
+ * Builds a reviewer-PR fact from a cycle record.
  *
- * @returns A zeroed analytics state.
+ * @param record The cycle record.
+ * @returns The reviewer-PR fact.
  */
-function createAnalyticsState(): ReviewCycleAnalyticsState {
+function buildReviewerFact(
+  record: Omit<ReviewCycleRecord, "schemaVersion">,
+): ReviewCyclePrReviewerFact {
+  const completedAt = new Date(record.completedAt);
   return {
-    weeklyReviews: {},
-    monthlyReviewerKeys: {},
-    submissionKeys: [],
-    approvalKeys: [],
-    prStats: {},
+    weekStart: getIstWeekStartDateKey(completedAt),
+    month: getIstDateKey(completedAt).slice(0, 7),
+    submissions: record.reviewSubmissionCount,
+    roundsBeforeApproval: record.reviewRoundsBeforeApproval,
+    comments: record.commentCount,
+    approved: record.reviewRoundsBeforeApproval !== null,
   };
 }
 
 /**
- * Converts internal analytics state into the dashboard response shape.
+ * Converts per-PR facts into a fresh PR stats document.
  *
- * @param state The persisted incremental state.
- * @returns Dashboard analytics derived from the state.
+ * @param prNumber The PR number.
+ * @returns An empty PR stats document.
  */
-function buildAnalyticsFromState(
-  state: ReviewCycleAnalyticsState,
-): ReviewerTeamsAnalytics {
-  const approvalsByReviewer = new Map<string, number>();
-  for (const key of state.approvalKeys) {
-    const reviewer = key.slice(0, key.lastIndexOf(":"));
-    approvalsByReviewer.set(
-      reviewer,
-      (approvalsByReviewer.get(reviewer) ?? 0) + 1,
-    );
-  }
+function createPrStatsDocument(
+  prNumber: number,
+): Omit<ReviewCyclePrStatsDocument, "schemaVersion"> {
+  return {
+    prNumber,
+    additions: null,
+    totalDurationMs: 0,
+    cycleCount: 0,
+    reviewers: {},
+    lastUpdated: new Date(),
+  };
+}
 
+/**
+ * The subset of a PR stats document needed to build the scatter chart.
+ */
+type PrScatterSource = {
+  prNumber: number;
+  additions: number | null;
+  totalDurationMs: number;
+  cycleCount: number;
+};
+
+/**
+ * Assembles the dashboard analytics payload from its bounded inputs.
+ *
+ * @param weeklyReviews Weekly submission counts keyed by week start.
+ * @param monthlyLogins Reviewer logins keyed by month.
+ * @param approvalsByReviewer Approval counts keyed by reviewer login.
+ * @param prStats PR stats used to build the scatter chart.
+ * @returns The analytics payload.
+ */
+function buildAnalytics(
+  weeklyReviews: Map<string, number>,
+  monthlyLogins: Map<string, Set<string>>,
+  approvalsByReviewer: Map<string, number>,
+  prStats: Iterable<PrScatterSource>,
+): ReviewerTeamsAnalytics {
   const totalApprovals = Array.from(approvalsByReviewer.values()).reduce(
     (sum, count) => sum + count,
     0,
@@ -310,107 +356,130 @@ function buildAnalyticsFromState(
     .sort((a, b) => b.approvals - a.approvals);
 
   return {
-    weeklyReviews: Object.entries(state.weeklyReviews)
+    weeklyReviews: Array.from(weeklyReviews.entries())
       .map(([weekStart, reviews]) => ({ weekStart, reviews }))
       .sort((a, b) => a.weekStart.localeCompare(b.weekStart)),
-    monthlyUniqueReviewers: Object.entries(state.monthlyReviewerKeys)
-      .map(([month, reviewers]) => ({
+    monthlyUniqueReviewers: Array.from(monthlyLogins.entries())
+      .map(([month, logins]) => ({
         month,
-        uniqueReviewers: reviewers.length,
+        uniqueReviewers: logins.size,
       }))
       .sort((a, b) => a.month.localeCompare(b.month)),
     topApprovers,
-    prSizeScatter: Object.entries(state.prStats)
-      .map(([prNumber, value]) => ({
-        prNumber: Number(prNumber),
-        additions: value.additions,
-        reviewTimeHours: value.totalDurationMs / value.count / 3_600_000,
-      }))
-      .sort((a, b) => a.additions - b.additions),
+    prSizeScatter: buildScatter(prStats),
     totalApprovals,
     schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.REVIEW_CYCLE_ANALYTICS),
   };
 }
 
 /**
- * Adds cycle records to the persisted analytics state idempotently.
+ * Builds the capped PR-size scatter from PR stats.
  *
- * @param state The state to mutate.
- * @param records The newly persisted cycle records.
- * @returns Nothing.
+ * @param prStats PR stats to plot.
+ * @returns Scatter points for the most recent PRs, sorted by size.
  */
-function mergeRecordsIntoAnalyticsState(
-  state: ReviewCycleAnalyticsState,
-  records: FirestoreReviewCycle[],
-): void {
-  const submissionKeys = new Set(state.submissionKeys);
-  const approvalKeys = new Set(state.approvalKeys);
-
-  for (const data of records) {
-    const reviewerPrKey = `${data.reviewerLogin}:${data.prNumber}`;
-
-    if (data.reviewSubmissionCount > 0 && !submissionKeys.has(reviewerPrKey)) {
-      submissionKeys.add(reviewerPrKey);
-      const weekStart = getIstWeekStartDateKey(new Date(data.completedAt));
-      state.weeklyReviews[weekStart] =
-        (state.weeklyReviews[weekStart] ?? 0) + data.reviewSubmissionCount;
-
-      const month = getIstDateKey(new Date(data.completedAt)).slice(0, 7);
-      const reviewers = new Set(state.monthlyReviewerKeys[month] ?? []);
-      reviewers.add(data.reviewerLogin);
-      state.monthlyReviewerKeys[month] = Array.from(reviewers);
-    }
-
-    if (data.reviewRoundsBeforeApproval !== null) {
-      const approvalKey = reviewerPrKey;
-      if (!approvalKeys.has(approvalKey)) {
-        approvalKeys.add(approvalKey);
-      }
-    }
-
-    if (data.prAdditions !== null) {
-      const existing = state.prStats[String(data.prNumber)] ?? {
-        additions: data.prAdditions,
-        totalDurationMs: 0,
-        count: 0,
-      };
-      existing.totalDurationMs += data.durationMs;
-      existing.count++;
-      state.prStats[String(data.prNumber)] = existing;
-    }
-  }
-
-  state.submissionKeys = Array.from(submissionKeys);
-  state.approvalKeys = Array.from(approvalKeys);
+function buildScatter(
+  prStats: Iterable<PrScatterSource>,
+): ReviewerTeamsAnalytics["prSizeScatter"] {
+  return Array.from(prStats)
+    .filter((stats) => stats.additions !== null)
+    .sort((a, b) => b.prNumber - a.prNumber)
+    .slice(0, PR_SIZE_SCATTER_LIMIT)
+    .map((stats) => ({
+      prNumber: stats.prNumber,
+      additions: stats.additions ?? 0,
+      reviewTimeHours:
+        stats.totalDurationMs / Math.max(stats.cycleCount, 1) / 3_600_000,
+    }))
+    .sort((a, b) => a.additions - b.additions);
 }
 
 /**
  * Performs the one-time full analytics bootstrap from review-cycle history.
  *
- * @returns The initialized analytics and merge state.
+ * Rebuilds the bounded aggregate documents (`reviewCyclePrStats` and
+ * `reviewCycleMonthlyReviewers`) as well as the analytics snapshot, so later
+ * incremental updates stay consistent.
+ *
+ * @returns The rebuilt analytics.
  */
-async function computeReviewCycleAnalytics(): Promise<StoredReviewCycleAnalytics> {
+async function rebuildReviewCycleAnalytics(): Promise<ReviewerTeamsAnalytics> {
   const snapshot = await collection.get();
-  const state = createAnalyticsState();
-  mergeRecordsIntoAnalyticsState(
-    state,
-    snapshot.docs.map((doc) => normalizeReviewCycle(doc.data())),
+
+  const prStats = new Map<
+    number,
+    Omit<ReviewCyclePrStatsDocument, "schemaVersion">
+  >();
+  const monthlyLogins = new Map<string, Set<string>>();
+  const weeklyReviews = new Map<string, number>();
+  const approvalsByReviewer = new Map<string, number>();
+
+  snapshot.forEach((doc) => {
+    const data = normalizeReviewCycle(doc.data());
+    const stats =
+      prStats.get(data.prNumber) ?? createPrStatsDocument(data.prNumber);
+
+    stats.totalDurationMs += data.durationMs;
+    stats.cycleCount++;
+    if (data.prAdditions !== null) stats.additions = data.prAdditions;
+
+    if (!stats.reviewers[data.reviewerLogin]) {
+      const fact = buildReviewerFact(data);
+      stats.reviewers[data.reviewerLogin] = fact;
+
+      if (fact.submissions > 0) {
+        weeklyReviews.set(
+          fact.weekStart,
+          (weeklyReviews.get(fact.weekStart) ?? 0) + fact.submissions,
+        );
+        const logins = monthlyLogins.get(fact.month) ?? new Set<string>();
+        logins.add(data.reviewerLogin);
+        monthlyLogins.set(fact.month, logins);
+      }
+
+      if (fact.approved) {
+        approvalsByReviewer.set(
+          data.reviewerLogin,
+          (approvalsByReviewer.get(data.reviewerLogin) ?? 0) + 1,
+        );
+      }
+    }
+
+    prStats.set(data.prNumber, stats);
+  });
+
+  const analytics = buildAnalytics(
+    weeklyReviews,
+    monthlyLogins,
+    approvalsByReviewer,
+    prStats.values(),
   );
-  return {
-    ...buildAnalyticsFromState(state),
-    analyticsState: state,
-  };
+
+  await Promise.all([
+    upsertReviewCyclePrStats(Array.from(prStats.values())),
+    upsertReviewCycleMonthlyReviewers(
+      Array.from(monthlyLogins.entries()).map(([month, logins]) => ({
+        month,
+        logins: Array.from(logins).sort(),
+        lastUpdated: new Date(),
+      })),
+    ),
+  ]);
+  await analyticsDoc.set(serializeReviewCycleAnalytics(analytics));
+
+  return analytics;
 }
 
 /**
- * Reads the stored analytics snapshot, including internal merge state.
+ * Reads the precomputed reviewer analytics snapshot.
  *
- * This is a DB-layer helper: the merge state must not leave the server, so
- * callers that build API responses use `getReviewCycleAnalyticsSnapshot`.
+ * The dashboard reads this single document instead of scanning the whole
+ * review-cycles collection on every page load. The snapshot is refreshed by
+ * the cycle sync and the backfill job.
  *
- * @returns The stored analytics, or null when no valid snapshot exists.
+ * @returns The stored analytics, or null when no snapshot exists.
  */
-async function getStoredReviewCycleAnalyticsSnapshot(): Promise<StoredReviewCycleAnalytics | null> {
+export async function getReviewCycleAnalyticsSnapshot(): Promise<ReviewerTeamsAnalytics | null> {
   const snapshot = await analyticsDoc.get();
   if (!snapshot.exists) return null;
   const data = snapshot.data();
@@ -425,69 +494,187 @@ async function getStoredReviewCycleAnalyticsSnapshot(): Promise<StoredReviewCycl
 }
 
 /**
- * Reads the precomputed reviewer analytics snapshot.
+ * Recomputes org-wide reviewer analytics and all bounded aggregate documents.
  *
- * The dashboard reads this single document instead of scanning the whole
- * review-cycles collection on every page load. The snapshot is refreshed by
- * the cycle sync and the backfill job.
- *
- * The internal merge state is stripped, so this is safe to return from an API
- * route.
- *
- * @returns The client-safe analytics, or null when no snapshot exists.
- */
-export async function getReviewCycleAnalyticsSnapshot(): Promise<ReviewerTeamsAnalytics | null> {
-  const stored = await getStoredReviewCycleAnalyticsSnapshot();
-  return stored ? toReviewerTeamsAnalytics(stored) : null;
-}
-
-/**
- * Recomputes org-wide reviewer analytics and persists the snapshot.
- *
- * @returns The freshly computed, client-safe analytics.
+ * @returns The freshly computed analytics.
  */
 export async function refreshReviewCycleAnalytics(): Promise<ReviewerTeamsAnalytics> {
-  const computed = await computeReviewCycleAnalytics();
-  await analyticsDoc.set(serializeReviewCycleAnalytics(computed));
-  return toReviewerTeamsAnalytics(computed);
+  return rebuildReviewCycleAnalytics();
 }
 
 /**
- * Merges newly persisted cycles into the analytics snapshot. If no snapshot
- * exists yet, a one-time full bootstrap is performed.
+ * Applies a batch of cycle records to the bounded aggregate documents.
  *
- * @param records Newly persisted cycle records.
- * @returns The updated, client-safe analytics.
+ * Updates `reviewCyclePrStats` first (which owns reviewer-PR dedupe), then
+ * folds only the newly counted facts into the analytics snapshot and monthly
+ * membership documents. Also returns the per-reviewer contribution so the
+ * caller can update `reviewerCycleAggregates` without re-reading cycles.
+ *
+ * @param records The newly persisted cycle records.
+ * @returns Per-reviewer contributions keyed by login.
  */
-export async function updateReviewCycleAnalytics(
+export async function applyReviewCycleContributions(
   records: Array<Omit<ReviewCycleRecord, "schemaVersion">>,
-): Promise<ReviewerTeamsAnalytics> {
-  const existing = await getStoredReviewCycleAnalyticsSnapshot();
-  if (!existing?.analyticsState) {
-    return refreshReviewCycleAnalytics();
+): Promise<Map<string, ReviewCycleLoginContribution>> {
+  const contributions = new Map<string, ReviewCycleLoginContribution>();
+  if (records.length === 0) return contributions;
+
+  const byPr = new Map<
+    number,
+    Array<Omit<ReviewCycleRecord, "schemaVersion">>
+  >();
+  for (const record of records) {
+    const existing = byPr.get(record.prNumber) ?? [];
+    existing.push(record);
+    byPr.set(record.prNumber, existing);
   }
 
-  const firestoreRecords = records.map((record) => ({
-    ...record,
-    schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.REVIEW_CYCLES),
-  }));
-  let updatedAnalytics: ReviewerTeamsAnalytics | null = null;
+  const prStats = await getReviewCyclePrStats(Array.from(byPr.keys()));
+  const updatedPrStats: Array<
+    Omit<ReviewCyclePrStatsDocument, "schemaVersion">
+  > = [];
 
-  await db.runTransaction(async (transaction) => {
-    const snapshot = await transaction.get(analyticsDoc);
-    const data = snapshot.data();
-    const current = data ? normalizeReviewCycleAnalytics(data) : null;
-    const state = current?.analyticsState ?? existing.analyticsState!;
-    mergeRecordsIntoAnalyticsState(state, firestoreRecords);
-    updatedAnalytics = buildAnalyticsFromState(state);
-    transaction.set(
-      analyticsDoc,
-      serializeReviewCycleAnalytics({
-        ...updatedAnalytics,
-        analyticsState: state,
-      }),
-    );
-  });
+  for (const [prNumber, prRecords] of byPr) {
+    const existing = prStats.get(prNumber);
+    const stats = existing
+      ? { ...existing, reviewers: { ...existing.reviewers } }
+      : createPrStatsDocument(prNumber);
 
-  return updatedAnalytics!;
+    for (const record of prRecords) {
+      const contribution = contributions.get(record.reviewerLogin) ?? {
+        completedReviews: 0,
+        totalReviewTimeMs: 0,
+        totalApprovalDurationMs: 0,
+        approvalsWithDuration: 0,
+        newFacts: [],
+      };
+
+      stats.totalDurationMs += record.durationMs;
+      stats.cycleCount++;
+      if (record.prAdditions !== null) stats.additions = record.prAdditions;
+
+      contribution.completedReviews++;
+      contribution.totalReviewTimeMs += record.durationMs;
+      if (record.approvalDurationMs !== null) {
+        contribution.totalApprovalDurationMs += record.approvalDurationMs;
+        contribution.approvalsWithDuration++;
+      }
+
+      if (!stats.reviewers[record.reviewerLogin]) {
+        const fact = buildReviewerFact(record);
+        stats.reviewers[record.reviewerLogin] = fact;
+        contribution.newFacts.push(fact);
+      }
+
+      contributions.set(record.reviewerLogin, contribution);
+    }
+
+    stats.lastUpdated = new Date();
+    updatedPrStats.push(stats);
+  }
+
+  await upsertReviewCyclePrStats(updatedPrStats);
+  await applyAnalyticsContributions(contributions);
+
+  return contributions;
+}
+
+/**
+ * Folds newly counted PR facts into the analytics snapshot.
+ *
+ * Monthly membership is read from its own documents and the scatter is derived
+ * from the most recent PR stats, so the snapshot stays bounded. If the stored
+ * snapshot predates monthly documents, a full rebuild runs once to rewrite them
+ * before incremental updates continue.
+ *
+ * @param contributions Per-reviewer contributions for this batch.
+ * @returns Nothing.
+ */
+async function applyAnalyticsContributions(
+  contributions: Map<string, ReviewCycleLoginContribution>,
+): Promise<void> {
+  const current = await getReviewCycleAnalyticsSnapshot();
+
+  if (!current) {
+    await rebuildReviewCycleAnalytics();
+    return;
+  }
+
+  const snapshotMonths = current.monthlyUniqueReviewers.map(
+    (point) => point.month,
+  );
+  const affectedMonths = new Set<string>();
+  for (const contribution of contributions.values()) {
+    for (const fact of contribution.newFacts) {
+      if (fact.submissions > 0) affectedMonths.add(fact.month);
+    }
+  }
+
+  const monthlyDocs = await getReviewCycleMonthlyReviewers(
+    Array.from(new Set([...snapshotMonths, ...affectedMonths])),
+  );
+
+  // A snapshot from before monthly documents existed cannot be updated
+  // incrementally without losing per-month membership.
+  if (snapshotMonths.some((month) => !monthlyDocs.has(month))) {
+    await rebuildReviewCycleAnalytics();
+    return;
+  }
+
+  const monthlyLogins = new Map<string, Set<string>>();
+  for (const [month, doc] of monthlyDocs) {
+    monthlyLogins.set(month, new Set(doc.logins));
+  }
+
+  const weeklyReviews = new Map(
+    current.weeklyReviews.map((point) => [point.weekStart, point.reviews]),
+  );
+  const approvalsByReviewer = new Map(
+    current.topApprovers.map((approver) => [
+      approver.username,
+      approver.approvals,
+    ]),
+  );
+
+  for (const [login, contribution] of contributions) {
+    for (const fact of contribution.newFacts) {
+      if (fact.submissions > 0) {
+        weeklyReviews.set(
+          fact.weekStart,
+          (weeklyReviews.get(fact.weekStart) ?? 0) + fact.submissions,
+        );
+        const logins = monthlyLogins.get(fact.month) ?? new Set<string>();
+        logins.add(login);
+        monthlyLogins.set(fact.month, logins);
+      }
+
+      if (fact.approved) {
+        approvalsByReviewer.set(
+          login,
+          (approvalsByReviewer.get(login) ?? 0) + 1,
+        );
+      }
+    }
+  }
+
+  const recentPrStats = await getRecentReviewCyclePrStats(
+    PR_SIZE_SCATTER_LIMIT,
+  );
+  const analytics = buildAnalytics(
+    weeklyReviews,
+    monthlyLogins,
+    approvalsByReviewer,
+    recentPrStats,
+  );
+
+  await Promise.all([
+    upsertReviewCycleMonthlyReviewers(
+      Array.from(affectedMonths).map((month) => ({
+        month,
+        logins: Array.from(monthlyLogins.get(month) ?? []).sort(),
+        lastUpdated: new Date(),
+      })),
+    ),
+    analyticsDoc.set(serializeReviewCycleAnalytics(analytics)),
+  ]);
 }

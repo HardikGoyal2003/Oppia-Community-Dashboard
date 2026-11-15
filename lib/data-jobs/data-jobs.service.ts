@@ -340,7 +340,7 @@ async function backfillReviewCyclesJob(
   const updatedReviewersCount =
     affectedLogins.size === 0
       ? 0
-      : await refreshReviewerStats(affectedLogins, [], true);
+      : await refreshReviewerStats(affectedLogins, new Map(), true);
 
   if (cyclesWritten > 0 || completed) {
     await refreshReviewCycleAnalytics();
