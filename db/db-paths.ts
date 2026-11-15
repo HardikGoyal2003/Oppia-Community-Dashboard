@@ -45,6 +45,9 @@ export const DB_PATHS = {
   REVIEW_CYCLES: {
     COLLECTION: "reviewCycles",
   },
+  REVIEWER_CYCLE_AGGREGATES: {
+    COLLECTION: "reviewerCycleAggregates",
+  },
   REVIEW_CYCLE_ANALYTICS: {
     COLLECTION: "reviewCycleAnalytics",
     SNAPSHOT_DOC: "WEB",

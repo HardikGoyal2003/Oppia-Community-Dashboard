@@ -4,16 +4,26 @@ import {
   fetchAuthoredPrCounts,
 } from "@/lib/github/github.fetcher";
 import { getReviewers, upsertReviewers } from "@/db/reviewers/reviewers.db";
-import type { ReviewerDocument } from "@/lib/domain/reviewer-teams.types";
+import type {
+  ReviewerDocument,
+  ReviewCycleRecord,
+} from "@/lib/domain/reviewer-teams.types";
 import { getReviewerTeamLogins } from "@/lib/team-activity/reviewer-team-logins";
 import {
   upsertReviewCycles,
   findNewCycleRecords,
-  getAllReviewCycleAggregates,
   getReviewCycleAggregatesForLogins,
-  refreshReviewCycleAnalytics,
+  updateReviewCycleAnalytics,
   type ReviewCycleAggregate,
 } from "@/db/review-cycles/review-cycles.db";
+import {
+  aggregateDocumentToReviewCycleAggregate,
+  createEmptyReviewerCycleAggregate,
+  getReviewerCycleAggregates,
+  mergeCyclesIntoAggregate,
+  reviewCycleAggregateToDocument,
+  upsertReviewerCycleAggregates,
+} from "@/db/reviewer-cycle-aggregates/reviewer-cycle-aggregates.db";
 
 type SyncSummary = {
   completedCyclesCount: number;
@@ -146,10 +156,14 @@ function metricsEqual(left: ReviewerMetrics, right: ReviewerMetrics): boolean {
  * rewriting every reviewer document.
  *
  * @param logins The reviewers to refresh. Omit to refresh every known reviewer.
+ * @param newRecords Newly persisted cycles to merge incrementally.
+ * @param rebuildFromCycles Whether to rebuild aggregate state from history.
  * @returns The number of reviewer documents actually written.
  */
 export async function refreshReviewerStats(
   logins?: Iterable<string>,
+  newRecords: Array<Omit<ReviewCycleRecord, "schemaVersion">> = [],
+  rebuildFromCycles = false,
 ): Promise<number> {
   const knownLogins = await getReviewerTeamLogins();
   if (knownLogins.size === 0) return 0;
@@ -162,15 +176,48 @@ export async function refreshReviewerStats(
   );
   if (targetLogins.length === 0) return 0;
 
-  const isFullRefresh = targetLogins.length === knownLogins.size;
-
-  const [aggregates, reviewerDocs, authoredCounts] = await Promise.all([
-    isFullRefresh
-      ? getAllReviewCycleAggregates()
-      : getReviewCycleAggregatesForLogins(targetLogins),
+  const [aggregateDocuments, reviewerDocs, authoredCounts] = await Promise.all([
+    rebuildFromCycles
+      ? Promise.resolve(new Map())
+      : getReviewerCycleAggregates(targetLogins),
     getReviewers(targetLogins),
     fetchAuthoredPrCounts(targetLogins),
   ]);
+
+  const missingLogins = rebuildFromCycles
+    ? targetLogins
+    : targetLogins.filter((login) => !aggregateDocuments.has(login));
+  const bootstrapped =
+    missingLogins.length > 0
+      ? await getReviewCycleAggregatesForLogins(missingLogins)
+      : new Map<string, ReviewCycleAggregate>();
+  const aggregates = new Map<string, ReviewCycleAggregate>();
+  const aggregateWrites: Array<{
+    login: string;
+    aggregate: ReturnType<typeof createEmptyReviewerCycleAggregate>;
+  }> = [];
+
+  for (const login of targetLogins) {
+    const aggregate =
+      aggregateDocuments.get(login) ??
+      (bootstrapped.has(login)
+        ? reviewCycleAggregateToDocument(bootstrapped.get(login)!)
+        : createEmptyReviewerCycleAggregate());
+    // A bootstrap query already includes cycles written in this invocation;
+    // applying newRecords again would double-count them.
+    const records = bootstrapped.has(login)
+      ? []
+      : newRecords.filter((record) => record.reviewerLogin === login);
+    if (!aggregateDocuments.has(login) || records.length > 0) {
+      aggregateWrites.push({
+        login,
+        aggregate: mergeCyclesIntoAggregate(aggregate, records),
+      });
+    }
+    aggregates.set(login, aggregateDocumentToReviewCycleAggregate(aggregate));
+  }
+
+  await upsertReviewerCycleAggregates(aggregateWrites);
 
   const updates: Array<{
     login: string;
@@ -255,10 +302,12 @@ export async function syncReviewCycles(
   }
 
   const updatedReviewersCount =
-    affectedLogins.size === 0 ? 0 : await refreshReviewerStats(affectedLogins);
+    affectedLogins.size === 0
+      ? 0
+      : await refreshReviewerStats(affectedLogins, newRecords);
 
-  if (filtered.length > 0) {
-    await refreshReviewCycleAnalytics();
+  if (newRecords.length > 0) {
+    await updateReviewCycleAnalytics(newRecords);
   }
 
   return {

@@ -11,6 +11,19 @@ import type { ReviewerTeamsAnalytics } from "@/lib/domain/reviewer-teams.types";
 
 export type FirestoreReviewCycleAnalytics = ReviewerTeamsAnalytics & {
   computedAt: Timestamp;
+  /** Internal merge state used to update analytics without scanning cycles. */
+  analyticsState?: ReviewCycleAnalyticsState;
+};
+
+export type ReviewCycleAnalyticsState = {
+  weeklyReviews: Record<string, number>;
+  monthlyReviewerKeys: Record<string, string[]>;
+  submissionKeys: string[];
+  approvalKeys: string[];
+  prStats: Record<
+    string,
+    { additions: number; totalDurationMs: number; count: number }
+  >;
 };
 
 /**
@@ -119,7 +132,7 @@ function assertFirestoreReviewCycleAnalytics(
  */
 export function normalizeReviewCycleAnalytics(
   data: FirebaseFirestore.DocumentData,
-): ReviewerTeamsAnalytics {
+): ReviewerTeamsAnalytics & { analyticsState?: ReviewCycleAnalyticsState } {
   const migrated = migrateDocument(SCHEMA_KEYS.REVIEW_CYCLE_ANALYTICS, data);
   assertFirestoreReviewCycleAnalytics(migrated);
   return {
@@ -129,6 +142,7 @@ export function normalizeReviewCycleAnalytics(
     prSizeScatter: migrated.prSizeScatter,
     totalApprovals: migrated.totalApprovals,
     schemaVersion: migrated.schemaVersion,
+    analyticsState: migrated.analyticsState,
   };
 }
 
@@ -139,7 +153,9 @@ export function normalizeReviewCycleAnalytics(
  * @returns The Firestore-ready document.
  */
 export function serializeReviewCycleAnalytics(
-  analytics: Omit<ReviewerTeamsAnalytics, "schemaVersion">,
+  analytics: Omit<ReviewerTeamsAnalytics, "schemaVersion"> & {
+    analyticsState?: ReviewCycleAnalyticsState;
+  },
 ): FirestoreReviewCycleAnalytics {
   return {
     ...analytics,

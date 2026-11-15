@@ -122,6 +122,11 @@ function buildSchemaCollectionTargets(): SchemaCollectionTarget[] {
       query: db.collection(DB_PATHS.REVIEW_CYCLES.COLLECTION),
     },
     {
+      key: SCHEMA_KEYS.REVIEWER_CYCLE_AGGREGATES,
+      label: DB_PATHS.REVIEWER_CYCLE_AGGREGATES.COLLECTION,
+      query: db.collection(DB_PATHS.REVIEWER_CYCLE_AGGREGATES.COLLECTION),
+    },
+    {
       key: SCHEMA_KEYS.REVIEW_CYCLE_ANALYTICS,
       label: DB_PATHS.REVIEW_CYCLE_ANALYTICS.COLLECTION,
       query: db.collection(DB_PATHS.REVIEW_CYCLE_ANALYTICS.COLLECTION),

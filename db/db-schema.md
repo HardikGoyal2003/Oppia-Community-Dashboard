@@ -303,6 +303,21 @@ Fields:
 - `computedAt: Timestamp`
 - `schemaVersion: number`
 
+### `reviewerCycleAggregates`
+
+Document id:
+
+- GitHub login string
+
+Fields:
+
+- Incremental reviewer cycle counters and totals used to update reviewer metrics without scanning `reviewCycles`
+- `reviewedPrNumbers: number[]`
+- `approvedPrNumbers: number[]`
+- `activeWeeks: string[]`
+- `lastUpdated: Timestamp`
+- `schemaVersion: number`
+
 ### `reviewCycleBackfill`
 
 Document id:

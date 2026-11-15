@@ -105,6 +105,7 @@ export const SCHEMA_MIGRATIONS: Record<SchemaKey, readonly SchemaMigration[]> =
     [SCHEMA_KEYS.ORG_META]: [addSchemaVersionField(1)],
     [SCHEMA_KEYS.REVIEWERS]: [addSchemaVersionField(1)],
     [SCHEMA_KEYS.REVIEW_CYCLES]: [addSchemaVersionField(1)],
+    [SCHEMA_KEYS.REVIEWER_CYCLE_AGGREGATES]: [addSchemaVersionField(1)],
     [SCHEMA_KEYS.REVIEW_CYCLE_ANALYTICS]: [addSchemaVersionField(1)],
     [SCHEMA_KEYS.REVIEW_CYCLE_BACKFILL]: [addSchemaVersionField(1)],
     [SCHEMA_KEYS.TEAM_REVIEWERS]: [addSchemaVersionField(1)],

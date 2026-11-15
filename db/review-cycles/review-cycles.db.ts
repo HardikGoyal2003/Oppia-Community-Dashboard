@@ -18,6 +18,7 @@ import {
 } from "./review-cycles.mapper";
 import {
   type FirestoreReviewCycleAnalytics,
+  type ReviewCycleAnalyticsState,
   normalizeReviewCycleAnalytics,
   serializeReviewCycleAnalytics,
 } from "./review-cycle-analytics.mapper";
@@ -108,6 +109,7 @@ export type ReviewCycleAggregate = {
   totalReviewTimeMs: number;
   totalRoundsBeforeApproval: number;
   /** Distinct PRs where the reviewer approved at least once. */
+  approvedPrs: Set<number>;
   approvedPrCount: number;
   totalComments: number;
   /** Sum of non-pending review submissions across all cycles. */
@@ -128,6 +130,7 @@ function createEmptyAggregate(): ReviewCycleAggregate {
   return {
     completedReviews: 0,
     reviewedPrs: new Set<number>(),
+    approvedPrs: new Set<number>(),
     totalReviewTimeMs: 0,
     totalRoundsBeforeApproval: 0,
     approvedPrCount: 0,
@@ -178,11 +181,12 @@ function accumulateCycle(
 
     if (data.reviewRoundsBeforeApproval !== null) {
       existing.totalRoundsBeforeApproval += data.reviewRoundsBeforeApproval;
-      existing.approvedPrCount++;
+      existing.approvedPrs.add(data.prNumber);
     }
     existing.totalComments += data.commentCount;
   }
 
+  existing.approvedPrCount = existing.approvedPrs.size;
   aggregates.set(login, existing);
 }
 
@@ -261,66 +265,42 @@ export async function getReviewCycleAggregatesForLogins(
  * @returns Weekly review counts, monthly unique reviewers, top approver
  * concentration, and PR-size vs review-time scatter data.
  */
-async function computeReviewCycleAnalytics(): Promise<ReviewerTeamsAnalytics> {
-  const snapshot = await collection.get();
+type StoredAnalytics = ReviewerTeamsAnalytics & {
+  analyticsState?: ReviewCycleAnalyticsState;
+};
 
-  const weeklyReviews = new Map<string, number>();
-  const monthlyReviewerSets = new Map<string, Set<string>>();
-  const seenSubmissionPRs = new Set<string>();
+/**
+ * Creates empty state for incremental analytics updates.
+ *
+ * @returns A zeroed analytics state.
+ */
+function createAnalyticsState(): ReviewCycleAnalyticsState {
+  return {
+    weeklyReviews: {},
+    monthlyReviewerKeys: {},
+    submissionKeys: [],
+    approvalKeys: [],
+    prStats: {},
+  };
+}
+
+/**
+ * Converts internal analytics state into the dashboard response shape.
+ *
+ * @param state The persisted incremental state.
+ * @returns Dashboard analytics derived from the state.
+ */
+function buildAnalyticsFromState(
+  state: ReviewCycleAnalyticsState,
+): ReviewerTeamsAnalytics {
   const approvalsByReviewer = new Map<string, number>();
-  const seenApprovalPRsByReviewer = new Map<string, Set<number>>();
-  const prDurations = new Map<
-    number,
-    { additions: number; totalDurationMs: number; count: number }
-  >();
-
-  snapshot.forEach((doc) => {
-    const data = normalizeReviewCycle(doc.data());
-    const submissions = data.reviewSubmissionCount ?? 0;
-
-    if (submissions > 0) {
-      const completedAt = new Date(data.completedAt);
-      const submissionKey = `${data.reviewerLogin}:${data.prNumber}`;
-
-      if (!seenSubmissionPRs.has(submissionKey)) {
-        seenSubmissionPRs.add(submissionKey);
-        const weekStart = getIstWeekStartDateKey(completedAt);
-        weeklyReviews.set(
-          weekStart,
-          (weeklyReviews.get(weekStart) ?? 0) + submissions,
-        );
-      }
-
-      const month = getIstDateKey(completedAt).slice(0, 7);
-      const reviewers = monthlyReviewerSets.get(month) ?? new Set<string>();
-      reviewers.add(data.reviewerLogin);
-      monthlyReviewerSets.set(month, reviewers);
-    }
-
-    if (data.reviewRoundsBeforeApproval !== null) {
-      const seenPRs =
-        seenApprovalPRsByReviewer.get(data.reviewerLogin) ?? new Set<number>();
-      if (!seenPRs.has(data.prNumber)) {
-        seenPRs.add(data.prNumber);
-        seenApprovalPRsByReviewer.set(data.reviewerLogin, seenPRs);
-        approvalsByReviewer.set(
-          data.reviewerLogin,
-          (approvalsByReviewer.get(data.reviewerLogin) ?? 0) + 1,
-        );
-      }
-    }
-
-    if (data.prAdditions !== null) {
-      const existing = prDurations.get(data.prNumber) ?? {
-        additions: data.prAdditions,
-        totalDurationMs: 0,
-        count: 0,
-      };
-      existing.totalDurationMs += data.durationMs;
-      existing.count++;
-      prDurations.set(data.prNumber, existing);
-    }
-  });
+  for (const key of state.approvalKeys) {
+    const reviewer = key.slice(0, key.lastIndexOf(":"));
+    approvalsByReviewer.set(
+      reviewer,
+      (approvalsByReviewer.get(reviewer) ?? 0) + 1,
+    );
+  }
 
   const totalApprovals = Array.from(approvalsByReviewer.values()).reduce(
     (sum, count) => sum + count,
@@ -338,25 +318,95 @@ async function computeReviewCycleAnalytics(): Promise<ReviewerTeamsAnalytics> {
     .sort((a, b) => b.approvals - a.approvals);
 
   return {
-    weeklyReviews: Array.from(weeklyReviews.entries())
+    weeklyReviews: Object.entries(state.weeklyReviews)
       .map(([weekStart, reviews]) => ({ weekStart, reviews }))
       .sort((a, b) => a.weekStart.localeCompare(b.weekStart)),
-    monthlyUniqueReviewers: Array.from(monthlyReviewerSets.entries())
+    monthlyUniqueReviewers: Object.entries(state.monthlyReviewerKeys)
       .map(([month, reviewers]) => ({
         month,
-        uniqueReviewers: reviewers.size,
+        uniqueReviewers: reviewers.length,
       }))
       .sort((a, b) => a.month.localeCompare(b.month)),
     topApprovers,
-    prSizeScatter: Array.from(prDurations.entries())
+    prSizeScatter: Object.entries(state.prStats)
       .map(([prNumber, value]) => ({
-        prNumber,
+        prNumber: Number(prNumber),
         additions: value.additions,
         reviewTimeHours: value.totalDurationMs / value.count / 3_600_000,
       }))
       .sort((a, b) => a.additions - b.additions),
     totalApprovals,
     schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.REVIEW_CYCLE_ANALYTICS),
+  };
+}
+
+/**
+ * Adds cycle records to the persisted analytics state idempotently.
+ *
+ * @param state The state to mutate.
+ * @param records The newly persisted cycle records.
+ * @returns Nothing.
+ */
+function mergeRecordsIntoAnalyticsState(
+  state: ReviewCycleAnalyticsState,
+  records: FirestoreReviewCycle[],
+): void {
+  const submissionKeys = new Set(state.submissionKeys);
+  const approvalKeys = new Set(state.approvalKeys);
+
+  for (const data of records) {
+    const reviewerPrKey = `${data.reviewerLogin}:${data.prNumber}`;
+
+    if (data.reviewSubmissionCount > 0 && !submissionKeys.has(reviewerPrKey)) {
+      submissionKeys.add(reviewerPrKey);
+      const weekStart = getIstWeekStartDateKey(new Date(data.completedAt));
+      state.weeklyReviews[weekStart] =
+        (state.weeklyReviews[weekStart] ?? 0) + data.reviewSubmissionCount;
+
+      const month = getIstDateKey(new Date(data.completedAt)).slice(0, 7);
+      const reviewers = new Set(state.monthlyReviewerKeys[month] ?? []);
+      reviewers.add(data.reviewerLogin);
+      state.monthlyReviewerKeys[month] = Array.from(reviewers);
+    }
+
+    if (data.reviewRoundsBeforeApproval !== null) {
+      const approvalKey = reviewerPrKey;
+      if (!approvalKeys.has(approvalKey)) {
+        approvalKeys.add(approvalKey);
+      }
+    }
+
+    if (data.prAdditions !== null) {
+      const existing = state.prStats[String(data.prNumber)] ?? {
+        additions: data.prAdditions,
+        totalDurationMs: 0,
+        count: 0,
+      };
+      existing.totalDurationMs += data.durationMs;
+      existing.count++;
+      state.prStats[String(data.prNumber)] = existing;
+    }
+  }
+
+  state.submissionKeys = Array.from(submissionKeys);
+  state.approvalKeys = Array.from(approvalKeys);
+}
+
+/**
+ * Performs the one-time full analytics bootstrap from review-cycle history.
+ *
+ * @returns The initialized analytics and merge state.
+ */
+async function computeReviewCycleAnalytics(): Promise<StoredAnalytics> {
+  const snapshot = await collection.get();
+  const state = createAnalyticsState();
+  mergeRecordsIntoAnalyticsState(
+    state,
+    snapshot.docs.map((doc) => normalizeReviewCycle(doc.data())),
+  );
+  return {
+    ...buildAnalyticsFromState(state),
+    analyticsState: state,
   };
 }
 
@@ -369,7 +419,7 @@ async function computeReviewCycleAnalytics(): Promise<ReviewerTeamsAnalytics> {
  *
  * @returns The stored analytics, or null when no snapshot exists.
  */
-export async function getReviewCycleAnalyticsSnapshot(): Promise<ReviewerTeamsAnalytics | null> {
+export async function getReviewCycleAnalyticsSnapshot(): Promise<StoredAnalytics | null> {
   const snapshot = await analyticsDoc.get();
   if (!snapshot.exists) return null;
   const data = snapshot.data();
@@ -389,7 +439,47 @@ export async function getReviewCycleAnalyticsSnapshot(): Promise<ReviewerTeamsAn
  * @returns The freshly computed analytics.
  */
 export async function refreshReviewCycleAnalytics(): Promise<ReviewerTeamsAnalytics> {
-  const analytics = await computeReviewCycleAnalytics();
-  await analyticsDoc.set(serializeReviewCycleAnalytics(analytics));
-  return analytics;
+  const computed = await computeReviewCycleAnalytics();
+  await analyticsDoc.set(serializeReviewCycleAnalytics(computed));
+  return computed;
+}
+
+/**
+ * Merges newly persisted cycles into the analytics snapshot. If no snapshot
+ * exists yet, a one-time full bootstrap is performed.
+ *
+ * @param records Newly persisted cycle records.
+ * @returns The updated analytics.
+ */
+export async function updateReviewCycleAnalytics(
+  records: Array<Omit<ReviewCycleRecord, "schemaVersion">>,
+): Promise<ReviewerTeamsAnalytics> {
+  const existing = await getReviewCycleAnalyticsSnapshot();
+  if (!existing?.analyticsState) {
+    return refreshReviewCycleAnalytics();
+  }
+
+  const firestoreRecords = records.map((record) => ({
+    ...record,
+    schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.REVIEW_CYCLES),
+  }));
+  let updatedAnalytics: ReviewerTeamsAnalytics | null = null;
+
+  await db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(analyticsDoc);
+    const data = snapshot.data();
+    const current = data ? normalizeReviewCycleAnalytics(data) : null;
+    const state = current?.analyticsState ?? existing.analyticsState!;
+    mergeRecordsIntoAnalyticsState(state, firestoreRecords);
+    updatedAnalytics = buildAnalyticsFromState(state);
+    transaction.set(
+      analyticsDoc,
+      serializeReviewCycleAnalytics({
+        ...updatedAnalytics,
+        analyticsState: state,
+      }),
+    );
+  });
+
+  return updatedAnalytics!;
 }
