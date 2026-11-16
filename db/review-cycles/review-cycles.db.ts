@@ -57,10 +57,15 @@ const AGGREGATE_LOGIN_CHUNK_SIZE = 30;
 const PR_SIZE_SCATTER_LIMIT = 400;
 
 /**
+ * Firestore caps a single batch at 500 writes, so multi-document writes are
+ * committed in chunks with some headroom.
+ */
+const WRITE_BATCH_SIZE = 400;
+
+/**
  * Batch upserts multiple review cycle records.
  *
- * Firestore caps a single batch at 500 writes, so records are committed in
- * chunks. A 2-month backfill can produce well over that limit.
+ * A 2-month backfill can produce well over the Firestore batch limit.
  *
  * @param records The cycle records to persist.
  * @returns A promise that resolves when all batch writes complete.
@@ -68,12 +73,10 @@ const PR_SIZE_SCATTER_LIMIT = 400;
 export async function upsertReviewCycles(
   records: Array<Omit<ReviewCycleRecord, "schemaVersion">>,
 ): Promise<void> {
-  const BATCH_SIZE = 400;
-
-  for (let start = 0; start < records.length; start += BATCH_SIZE) {
+  for (let start = 0; start < records.length; start += WRITE_BATCH_SIZE) {
     const batch = db.batch();
 
-    for (const record of records.slice(start, start + BATCH_SIZE)) {
+    for (const record of records.slice(start, start + WRITE_BATCH_SIZE)) {
       const key = `${record.reviewerLogin}:${record.prNumber}:${record.assignedAt}`;
       batch.set(collection.doc(key), serializeReviewCycle(record), {
         merge: true,
@@ -82,6 +85,52 @@ export async function upsertReviewCycles(
 
     await batch.commit();
   }
+}
+
+/**
+ * Deletes every stored review cycle belonging to the given reviewer logins.
+ *
+ * The dummy-data generator uses this to replace its sample reviewers' cycles,
+ * so repeated runs do not accumulate duplicates under new document keys.
+ *
+ * @param logins The reviewer logins whose cycles should be deleted.
+ * @returns The number of deleted documents.
+ */
+export async function deleteReviewCyclesForReviewers(
+  logins: string[],
+): Promise<number> {
+  const uniqueLogins = Array.from(new Set(logins));
+  let deleted = 0;
+
+  for (
+    let start = 0;
+    start < uniqueLogins.length;
+    start += AGGREGATE_LOGIN_CHUNK_SIZE
+  ) {
+    const chunk = uniqueLogins.slice(start, start + AGGREGATE_LOGIN_CHUNK_SIZE);
+    const snapshot = await collection.where("reviewerLogin", "in", chunk).get();
+
+    for (
+      let offset = 0;
+      offset < snapshot.docs.length;
+      offset += WRITE_BATCH_SIZE
+    ) {
+      const batch = db.batch();
+
+      for (const doc of snapshot.docs.slice(
+        offset,
+        offset + WRITE_BATCH_SIZE,
+      )) {
+        batch.delete(doc.ref);
+      }
+
+      await batch.commit();
+    }
+
+    deleted += snapshot.size;
+  }
+
+  return deleted;
 }
 
 /**

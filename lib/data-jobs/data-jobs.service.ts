@@ -449,7 +449,7 @@ const DATA_JOB_REGISTRY: RegisteredDataJob[] = [
     key: "repair_reviewer_analytics",
     name: "Repair Reviewer Analytics",
     description:
-      "Rebuilds the reviewer analytics snapshot and every reviewer aggregate from stored review cycles. Use only when analytics look stale or inconsistent after an interrupted backfill.",
+      "Rebuilds the reviewer analytics snapshot and every reviewer aggregate from stored review cycles. This is also the first-time bootstrap: dashboard requests never scan review cycles. Use it when analytics are missing, stale, or inconsistent after an interrupted backfill.",
     kind: "MIGRATION",
     supportsDryRun: false,
     handler: repairReviewerAnalyticsJob,

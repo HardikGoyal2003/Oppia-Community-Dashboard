@@ -3,18 +3,41 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import { getTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
 import { getReviewers } from "@/db/reviewers/reviewers.db";
+import { getReviewCycleAnalyticsSnapshot } from "@/db/review-cycles/review-cycles.db";
 import {
-  getReviewCycleAnalyticsSnapshot,
-  refreshReviewCycleAnalytics,
-} from "@/db/review-cycles/review-cycles.db";
+  SCHEMA_KEYS,
+  getCurrentSchemaVersion,
+} from "@/db/schema/schema-version";
 import type {
   PendingReview,
   ReviewerDocument,
+  ReviewerTeamsAnalytics,
   ReviewerTeamsDocument,
   ReviewerTeamMember,
 } from "@/lib/domain/reviewer-teams.types";
 
 const PENDING_STALE_CUTOFF_HOURS = 48;
+
+/**
+ * Builds an empty analytics payload for when no snapshot has been generated
+ * yet.
+ *
+ * Rebuilding analytics scans the whole review-cycle collection, so it is done
+ * by a protected data job instead of a dashboard request. Until that job runs,
+ * the UI shows its existing empty states.
+ *
+ * @returns An analytics payload with no data.
+ */
+function emptyAnalytics(): ReviewerTeamsAnalytics {
+  return {
+    weeklyReviews: [],
+    monthlyUniqueReviewers: [],
+    topApprovers: [],
+    prSizeScatter: [],
+    totalApprovals: 0,
+    schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.REVIEW_CYCLE_ANALYTICS),
+  };
+}
 
 function canViewReviewerTeams(role: string | undefined): boolean {
   return role === "ADMIN" || role === "SUPER_ADMIN";
@@ -107,7 +130,7 @@ export async function GET() {
     return NextResponse.json(
       {
         error:
-          "No reviewer teams data found. Run the Sync Reviewer Reports cron job, or generate reviewer dummy data from the control panel.",
+          "No reviewer teams data found. Run the Sync Reviewer Teams cron job, or generate reviewer dummy data from the control panel.",
       },
       { status: 404 },
     );
@@ -122,9 +145,9 @@ export async function GET() {
     getReviewCycleAnalyticsSnapshot(),
   ]);
 
-  // The snapshot is written by the cycle sync. Recompute lazily only when it is
-  // missing (for example, on the first request after deploying this change).
-  const analytics = analyticsSnapshot ?? (await refreshReviewCycleAnalytics());
+  // The snapshot is written by the cycle sync and repair jobs. Requests never
+  // rebuild it; a missing or invalid snapshot falls back to empty analytics.
+  const analytics = analyticsSnapshot ?? emptyAnalytics();
 
   const nowMs = Date.now();
 

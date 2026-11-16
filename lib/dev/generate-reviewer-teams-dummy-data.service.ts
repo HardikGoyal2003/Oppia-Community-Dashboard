@@ -1,6 +1,7 @@
 import { upsertTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
 import { upsertReviewer } from "@/db/reviewers/reviewers.db";
 import {
+  deleteReviewCyclesForReviewers,
   refreshReviewCycleAnalytics,
   upsertReviewCycles,
 } from "@/db/review-cycles/review-cycles.db";
@@ -16,6 +17,7 @@ export type ReviewerTeamsDummyDataSummary = {
   teamsWritten: number;
   reviewersWritten: number;
   pendingReviewsWritten: number;
+  cyclesCleared: number;
   cyclesWritten: number;
 };
 
@@ -222,6 +224,9 @@ function buildAvatarUrl(username: string): string {
  * Seeds deterministic sample reviewer teams, reviewer stats, and pending
  * reviews for local UI development of the Reviewer Reports tab.
  *
+ * Replaces previously generated sample review cycles before writing, so
+ * repeated runs do not accumulate duplicate cycle records.
+ *
  * @returns A summary of the written reviewer documents.
  */
 export async function generateReviewerTeamsDummyData(): Promise<ReviewerTeamsDummyDataSummary> {
@@ -349,6 +354,13 @@ export async function generateReviewerTeamsDummyData(): Promise<ReviewerTeamsDum
     }
   }
 
+  // Cycle document IDs include `assignedAt`, so re-running with fresh
+  // timestamps would otherwise add duplicate records alongside the old ones.
+  // Replace the sample reviewers' namespace before writing the new sample.
+  const cyclesCleared = await deleteReviewCyclesForReviewers(
+    Array.from(reviewerToTeams.keys()),
+  );
+
   await upsertReviewCycles(cycles);
   await refreshReviewCycleAnalytics();
 
@@ -356,6 +368,7 @@ export async function generateReviewerTeamsDummyData(): Promise<ReviewerTeamsDum
     teamsWritten: SAMPLE_TEAMS.length,
     reviewersWritten: reviewerToTeams.size,
     pendingReviewsWritten,
+    cyclesCleared,
     cyclesWritten: cycles.length,
   };
 }
