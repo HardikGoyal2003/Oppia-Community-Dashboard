@@ -32,7 +32,7 @@ export type ReviewerDocument = SchemaVersioned & {
   completedReviews: number;
   /** Distinct PRs the reviewer has reviewed at least once. */
   reviewedPrCount: number;
-  /** Total non-pending review submissions across all cycles. */
+  /** Total counted review submissions across all cycles. */
   completedReviewSubmissions: number;
   /** PRs where this reviewer submitted at least one approval. */
   approvedPrCount: number;
@@ -66,8 +66,9 @@ export type ReviewCycleRecord = SchemaVersioned & {
   /** PR-level metric: total review-body + inline comments by this reviewer. */
   commentCount: number;
   /**
-   * PR-level metric: non-pending review submissions made by this reviewer on
-   * the PR. Copied onto every cycle record for the PR.
+   * PR-level metric: counted review submissions (approved, changes requested,
+   * or commented) made by this reviewer on the PR. Copied onto every cycle
+   * record for the PR.
    */
   reviewSubmissionCount: number;
   /** Timestamp of this reviewer's first approval on the PR, if any. */

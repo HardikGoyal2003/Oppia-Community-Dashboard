@@ -44,24 +44,32 @@ export async function getReviewCyclePrStats(
 }
 
 /**
- * Writes PR stats documents in one batch.
+ * Firestore caps a single batch at 500 writes, so multi-document writes are
+ * committed in chunks with some headroom.
+ */
+const BATCH_SIZE = 400;
+
+/**
+ * Writes PR stats documents in chunks.
  *
  * @param documents The PR stats to persist.
- * @returns A promise that resolves after the write.
+ * @returns A promise that resolves after every chunk is written.
  */
 export async function upsertReviewCyclePrStats(
   documents: Array<Omit<ReviewCyclePrStatsDocument, "schemaVersion">>,
 ): Promise<void> {
-  if (documents.length === 0) return;
+  for (let start = 0; start < documents.length; start += BATCH_SIZE) {
+    const batch = db.batch();
 
-  const batch = db.batch();
-  for (const document of documents) {
-    batch.set(
-      collection.doc(String(document.prNumber)),
-      serializeReviewCyclePrStats(document),
-    );
+    for (const document of documents.slice(start, start + BATCH_SIZE)) {
+      batch.set(
+        collection.doc(String(document.prNumber)),
+        serializeReviewCyclePrStats(document),
+      );
+    }
+
+    await batch.commit();
   }
-  await batch.commit();
 }
 
 /**

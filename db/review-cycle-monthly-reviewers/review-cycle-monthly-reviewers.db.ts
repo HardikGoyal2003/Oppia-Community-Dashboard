@@ -12,24 +12,32 @@ const collection = db.collection(
 );
 
 /**
- * Writes monthly reviewer documents in one batch.
+ * Firestore caps a single batch at 500 writes, so multi-document writes are
+ * committed in chunks with some headroom.
+ */
+const BATCH_SIZE = 400;
+
+/**
+ * Writes monthly reviewer documents in chunks.
  *
  * @param documents The monthly documents to persist.
- * @returns A promise that resolves after the write.
+ * @returns A promise that resolves after every chunk is written.
  */
 export async function upsertReviewCycleMonthlyReviewers(
   documents: Array<Omit<ReviewCycleMonthlyReviewersDocument, "schemaVersion">>,
 ): Promise<void> {
-  if (documents.length === 0) return;
+  for (let start = 0; start < documents.length; start += BATCH_SIZE) {
+    const batch = db.batch();
 
-  const batch = db.batch();
-  for (const document of documents) {
-    batch.set(
-      collection.doc(document.month),
-      serializeReviewCycleMonthlyReviewers(document),
-    );
+    for (const document of documents.slice(start, start + BATCH_SIZE)) {
+      batch.set(
+        collection.doc(document.month),
+        serializeReviewCycleMonthlyReviewers(document),
+      );
+    }
+
+    await batch.commit();
   }
-  await batch.commit();
 }
 
 /**

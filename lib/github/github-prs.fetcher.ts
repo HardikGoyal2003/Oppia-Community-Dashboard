@@ -276,6 +276,28 @@ type GitHubReviewResponse = {
   submitted_at: string;
 };
 
+/**
+ * Review states that count as a submitted review.
+ *
+ * Pending drafts have not been submitted yet, and dismissed reviews have been
+ * retracted, so neither should contribute to review counts, rounds, or comments.
+ */
+const COUNTED_REVIEW_STATES = new Set([
+  "APPROVED",
+  "CHANGES_REQUESTED",
+  "COMMENTED",
+]);
+
+/**
+ * Returns whether a review counts as a submission.
+ *
+ * @param review The review to check.
+ * @returns True for approved, changes-requested, and commented reviews.
+ */
+function isCountedReview(review: GitHubReviewResponse): boolean {
+  return COUNTED_REVIEW_STATES.has(review.state);
+}
+
 type InlineComment = {
   user: { login: string };
   body: string;
@@ -284,7 +306,7 @@ type InlineComment = {
 export type ReviewerPRStats = {
   reviewRoundsBeforeApproval: number | null;
   commentCount: number;
-  /** Non-pending review submissions by this reviewer on the PR. */
+  /** Counted review submissions (approved, changes requested, or commented). */
   reviewSubmissionCount: number;
   /** Timestamp of this reviewer's first approval on the PR, if any. */
   approvedAt: string | null;
@@ -298,9 +320,9 @@ type CycleEvent = {
 /**
  * Computes review cycles from timeline and review events per assignee.
  *
- * Each `assigned` event paired with a following `unassigned` or
- * non-PENDING review submission counts as one completed review cycle.
- * Unpaired `assigned` events count as pending reviews.
+ * Each `assigned` event paired with a following `unassigned` or counted review
+ * submission counts as one completed review cycle. Unpaired `assigned` events
+ * count as pending reviews.
  *
  * @param timelineEvents The timeline events for a single PR.
  * @param reviews The PR review submissions.
@@ -333,7 +355,7 @@ function computeReviewCycles(
     }
 
     for (const r of reviews) {
-      if (r.user?.login === login && r.state !== "PENDING") {
+      if (r.user?.login === login && isCountedReview(r)) {
         events.push({ type: "reviewed", timestamp: r.submitted_at });
       }
     }
@@ -527,7 +549,7 @@ function extractCyclesFromPR(
     }
 
     for (const r of reviews) {
-      if (r.user?.login === login && r.state !== "PENDING") {
+      if (r.user?.login === login && isCountedReview(r)) {
         events.push({ type: "reviewed", timestamp: r.submitted_at });
       }
     }
@@ -612,7 +634,7 @@ function extractCyclesFromPR(
 /**
  * Computes PR-level per-reviewer stats for a single PR: review rounds before
  * the reviewer's first approval, total comment count (review bodies + inline
- * comments), and non-pending review submissions.
+ * comments), and counted review submissions.
  *
  * These are deliberately PR-level, not per-cycle. The same values are copied
  * onto each of the reviewer's cycles for the PR, and `aggregateCycleRecords`
@@ -639,7 +661,7 @@ function extractReviewerPRStats(
 
   for (const login of reviewerLogins) {
     const userReviews = reviews
-      .filter((r) => r.user?.login === login && r.state !== "PENDING")
+      .filter((r) => r.user?.login === login && isCountedReview(r))
       .sort(
         (a, b) =>
           new Date(a.submitted_at).getTime() -

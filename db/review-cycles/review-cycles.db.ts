@@ -131,7 +131,7 @@ export type ReviewCycleAggregate = {
   totalReviewTimeMs: number;
   totalRoundsBeforeApproval: number;
   totalComments: number;
-  /** Sum of non-pending review submissions across all cycles. */
+  /** Sum of counted review submissions across all cycles. */
   completedReviewSubmissions: number;
   totalApprovalDurationMs: number;
   /** Cycles that include an approval timestamp. */
