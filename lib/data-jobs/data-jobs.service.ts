@@ -13,6 +13,8 @@ import {
   saveReviewCycleBackfillState,
 } from "@/db/review-cycle-backfill/review-cycle-backfill.db";
 import {
+  applyReviewCycleContributions,
+  findNewCycleRecords,
   refreshReviewCycleAnalytics,
   upsertReviewCycles,
 } from "@/db/review-cycles/review-cycles.db";
@@ -22,6 +24,7 @@ import { LibInvalidStateError } from "@/lib/lib.errors";
 import { runReviewCycleBackfillStep } from "@/lib/team-activity/backfill-review-cycles.service";
 import { refreshReviewerStats } from "@/lib/team-activity/sync-review-cycles.service";
 import type { ReviewCycleBackfillState } from "@/lib/domain/review-cycle-backfill.types";
+import type { ReviewCycleRecord } from "@/lib/domain/reviewer-teams.types";
 import type {
   DataJobDefinition,
   DataJobResult,
@@ -285,6 +288,7 @@ async function backfillReviewCyclesJob(
   let prsProcessed = 0;
   let cyclesWritten = 0;
   const affectedLogins = new Set<string>();
+  const newCycleRecords: Array<Omit<ReviewCycleRecord, "schemaVersion">> = [];
 
   while (state.windowStart <= state.targetEnd && Date.now() < deadlineMs) {
     const step = await runReviewCycleBackfillStep({
@@ -296,6 +300,9 @@ async function backfillReviewCyclesJob(
     });
 
     if (step.records.length > 0) {
+      // Only merge cycles that are not already stored, so re-running the job
+      // after it completes cannot count the same cycle twice.
+      newCycleRecords.push(...(await findNewCycleRecords(step.records)));
       await upsertReviewCycles(step.records);
       cyclesWritten += step.records.length;
       for (const record of step.records) {
@@ -337,14 +344,15 @@ async function backfillReviewCyclesJob(
 
   const completed = state.windowStart > state.targetEnd;
 
+  // Merge only the cycles this invocation added. A full rebuild is reserved for
+  // the explicit Repair Reviewer Analytics job, so resuming this job does not
+  // re-read the entire review-cycle history on every run.
+  const contributions = await applyReviewCycleContributions(newCycleRecords);
+
   const updatedReviewersCount =
     affectedLogins.size === 0
       ? 0
-      : await refreshReviewerStats(affectedLogins, new Map(), true);
-
-  if (cyclesWritten > 0 || completed) {
-    await refreshReviewCycleAnalytics();
-  }
+      : await refreshReviewerStats(affectedLogins, contributions);
 
   if (completed) {
     await clearReviewCycleBackfillState();
@@ -360,6 +368,34 @@ async function backfillReviewCyclesJob(
 
   return {
     summary: `Review cycle backfill processed ${windowsCompleted} window(s), ${prsProcessed} PR(s), ${cyclesWritten} cycle(s). ${updatedReviewersCount} reviewer(s) refreshed. ${progressSummary}`,
+  };
+}
+
+/**
+ * Rebuilds the reviewer analytics snapshot and every reviewer aggregate from
+ * the stored review cycles.
+ *
+ * Normal syncs and backfills merge incrementally. This is the explicit repair
+ * path for analytics left inconsistent by an invocation that stopped between
+ * writing cycles and applying their contributions.
+ *
+ * @param context The data-job execution context.
+ * @returns A summary of the repair results.
+ */
+async function repairReviewerAnalyticsJob(
+  context: DataJobHandlerContext,
+): Promise<DataJobResult> {
+  void context.dryRun;
+
+  const analytics = await refreshReviewCycleAnalytics();
+  const updatedReviewersCount = await refreshReviewerStats(
+    undefined,
+    new Map(),
+    true,
+  );
+
+  return {
+    summary: `Reviewer analytics repaired. Rebuilt ${analytics.prSizeScatter.length} scatter point(s) and refreshed ${updatedReviewersCount} reviewer(s).`,
   };
 }
 
@@ -404,10 +440,19 @@ const DATA_JOB_REGISTRY: RegisteredDataJob[] = [
     key: "backfill_review_cycles",
     name: "Backfill Review Cycles (2 months)",
     description:
-      "Re-fetches the last 2 months of review cycles from GitHub and recomputes reviewer analytics. Resumable: if it stops early, run it again to continue. Run Sync Reviewer Teams first so team membership is current.",
+      "Re-fetches the last 2 months of review cycles from GitHub and merges them into reviewer analytics. Resumable: if it stops early, run it again to continue. Run Sync Reviewer Teams first so team membership is current.",
     kind: "BACKFILL",
     supportsDryRun: false,
     handler: backfillReviewCyclesJob,
+  },
+  {
+    key: "repair_reviewer_analytics",
+    name: "Repair Reviewer Analytics",
+    description:
+      "Rebuilds the reviewer analytics snapshot and every reviewer aggregate from stored review cycles. Use only when analytics look stale or inconsistent after an interrupted backfill.",
+    kind: "MIGRATION",
+    supportsDryRun: false,
+    handler: repairReviewerAnalyticsJob,
   },
 ];
 
