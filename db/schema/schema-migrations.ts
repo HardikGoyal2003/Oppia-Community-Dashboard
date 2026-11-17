@@ -105,29 +105,7 @@ export const SCHEMA_MIGRATIONS: Record<SchemaKey, readonly SchemaMigration[]> =
     [SCHEMA_KEYS.ORG_META]: [addSchemaVersionField(1)],
     [SCHEMA_KEYS.REVIEWERS]: [addSchemaVersionField(1)],
     [SCHEMA_KEYS.REVIEW_CYCLES]: [addSchemaVersionField(1)],
-    [SCHEMA_KEYS.REVIEWER_CYCLE_AGGREGATES]: [
-      addSchemaVersionField(1),
-      {
-        toVersion: 2,
-        migrate: (document) => {
-          const migratedDocument: FirebaseFirestore.DocumentData = {
-            ...document,
-            reviewedPrCount: Array.isArray(document.reviewedPrNumbers)
-              ? document.reviewedPrNumbers.length
-              : 0,
-            approvedPrCount: Array.isArray(document.approvedPrNumbers)
-              ? document.approvedPrNumbers.length
-              : 0,
-            schemaVersion: 2,
-          };
-
-          delete migratedDocument.reviewedPrNumbers;
-          delete migratedDocument.approvedPrNumbers;
-
-          return migratedDocument;
-        },
-      },
-    ],
+    [SCHEMA_KEYS.REVIEWER_CYCLE_AGGREGATES]: [addSchemaVersionField(1)],
     [SCHEMA_KEYS.REVIEW_CYCLE_PR_STATS]: [addSchemaVersionField(1)],
     [SCHEMA_KEYS.REVIEW_CYCLE_MONTHLY_REVIEWERS]: [addSchemaVersionField(1)],
     [SCHEMA_KEYS.REVIEW_CYCLE_ANALYTICS]: [addSchemaVersionField(1)],

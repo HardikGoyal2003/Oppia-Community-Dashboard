@@ -31,8 +31,10 @@ export type ReviewCyclePrReviewerFact = {
 export type ReviewCyclePrStatsDocument = {
   prNumber: number;
   additions: number | null;
-  totalDurationMs: number;
-  cycleCount: number;
+  /** Earliest review assignment across every reviewer on the PR. */
+  firstAssignedAt: string | null;
+  /** Latest approval submitted by any reviewer on the PR. */
+  lastApprovedAt: string | null;
   reviewers: Record<string, ReviewCyclePrReviewerFact>;
   lastUpdated: Date;
   schemaVersion: number;
@@ -122,8 +124,12 @@ function assertFirestoreReviewCyclePrStats(
       "additions must be a finite number or null.",
     );
   }
-  assertFiniteNumber("totalDurationMs", data.totalDurationMs);
-  assertFiniteNumber("cycleCount", data.cycleCount);
+  for (const field of ["firstAssignedAt", "lastApprovedAt"] as const) {
+    const value = data[field];
+    if (value !== null && value !== undefined && typeof value !== "string") {
+      throw new DbValidationError(field, `${field} must be a string or null.`);
+    }
+  }
 
   if (
     data.reviewers === null ||
@@ -156,8 +162,14 @@ export function normalizeReviewCyclePrStats(
   return {
     prNumber: migrated.prNumber,
     additions: migrated.additions,
-    totalDurationMs: migrated.totalDurationMs,
-    cycleCount: migrated.cycleCount,
+    firstAssignedAt:
+      typeof migrated.firstAssignedAt === "string"
+        ? migrated.firstAssignedAt
+        : null,
+    lastApprovedAt:
+      typeof migrated.lastApprovedAt === "string"
+        ? migrated.lastApprovedAt
+        : null,
     reviewers: migrated.reviewers,
     lastUpdated: normalizeTimestamp(migrated.lastUpdated),
     schemaVersion: migrated.schemaVersion,

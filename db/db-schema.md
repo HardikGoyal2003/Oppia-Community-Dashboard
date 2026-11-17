@@ -315,8 +315,8 @@ Fields:
 
 - `prNumber: number`
 - `additions: number | null`
-- `totalDurationMs: number`
-- `cycleCount: number`
+- `firstAssignedAt: string | null` — earliest review assignment on the PR
+- `lastApprovedAt: string | null` — latest approval by any reviewer
 - `reviewers: Record<string, { weekStart: string, month: string, submissions: number, roundsBeforeApproval: number | null, comments: number, approved: boolean }>` — one fact per reviewer who touched the PR; owns reviewer-PR dedupe
 - `lastUpdated: Timestamp`
 - `schemaVersion: number`

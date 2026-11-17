@@ -145,8 +145,6 @@ export async function GET() {
     getReviewCycleAnalyticsSnapshot(),
   ]);
 
-  // The snapshot is written by the cycle sync and repair jobs. Requests never
-  // rebuild it; a missing or invalid snapshot falls back to empty analytics.
   const analytics = analyticsSnapshot ?? emptyAnalytics();
 
   const nowMs = Date.now();

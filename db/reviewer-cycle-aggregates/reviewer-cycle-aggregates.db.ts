@@ -18,6 +18,12 @@ const db = getAdminFirestore();
 const collection = db.collection(DB_PATHS.REVIEWER_CYCLE_AGGREGATES.COLLECTION);
 
 /**
+ * Firestore caps a single batch at 500 writes, so multi-document writes are
+ * committed in chunks with some headroom.
+ */
+const BATCH_SIZE = 400;
+
+/**
  * Creates an empty persisted reviewer aggregate.
  *
  * The aggregate stores counters plus the set of active weeks. PR membership
@@ -66,12 +72,6 @@ export async function getReviewerCycleAggregates(
   });
   return result;
 }
-
-/**
- * Firestore caps a single batch at 500 writes, so multi-document writes are
- * committed in chunks with some headroom.
- */
-const BATCH_SIZE = 400;
 
 /**
  * Writes reviewer aggregate documents in chunks.

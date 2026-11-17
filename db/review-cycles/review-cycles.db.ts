@@ -35,6 +35,52 @@ import {
   upsertReviewCycleMonthlyReviewers,
 } from "@/db/review-cycle-monthly-reviewers/review-cycle-monthly-reviewers.db";
 
+/**
+ * The subset of a PR stats document needed to build the scatter chart.
+ */
+type PrScatterSource = {
+  prNumber: number;
+  additions: number | null;
+  firstAssignedAt: string | null;
+  lastApprovedAt: string | null;
+};
+
+/**
+ * Aggregated per-reviewer stats derived from review cycles.
+ */
+export type ReviewCycleAggregate = {
+  /** Completed review cycles (assignment → first review or unassignment). */
+  completedReviews: number;
+  /** Distinct PRs reviewed at least once. */
+  reviewedPrCount: number;
+  /** Distinct PRs where the reviewer approved at least once. */
+  approvedPrCount: number;
+  totalReviewTimeMs: number;
+  totalRoundsBeforeApproval: number;
+  totalComments: number;
+  /** Sum of counted review submissions across all cycles. */
+  completedReviewSubmissions: number;
+  totalApprovalDurationMs: number;
+  /** Cycles that include an approval timestamp. */
+  approvalsWithDuration: number;
+  /** Distinct ISO weeks in which the reviewer submitted a review. */
+  activeWeeks: Set<string>;
+};
+
+/**
+ * Incremental contribution of a batch of cycles for one reviewer.
+ *
+ * `newFacts` only contains reviewer-PR pairs that were not counted before, so
+ * PR-level metrics are only counted once per reviewer-PR.
+ */
+export type ReviewCycleLoginContribution = {
+  completedReviews: number;
+  totalReviewTimeMs: number;
+  totalApprovalDurationMs: number;
+  approvalsWithDuration: number;
+  newFacts: ReviewCyclePrReviewerFact[];
+};
+
 const db = getAdminFirestore();
 const collection = db.collection(
   DB_PATHS.REVIEW_CYCLES.COLLECTION,
@@ -166,42 +212,6 @@ export async function findNewCycleRecords(
 
   return newRecords;
 }
-
-/**
- * Aggregated per-reviewer stats derived from review cycles.
- */
-export type ReviewCycleAggregate = {
-  /** Completed review cycles (assignment → first review or unassignment). */
-  completedReviews: number;
-  /** Distinct PRs reviewed at least once. */
-  reviewedPrCount: number;
-  /** Distinct PRs where the reviewer approved at least once. */
-  approvedPrCount: number;
-  totalReviewTimeMs: number;
-  totalRoundsBeforeApproval: number;
-  totalComments: number;
-  /** Sum of counted review submissions across all cycles. */
-  completedReviewSubmissions: number;
-  totalApprovalDurationMs: number;
-  /** Cycles that include an approval timestamp. */
-  approvalsWithDuration: number;
-  /** Distinct ISO weeks in which the reviewer submitted a review. */
-  activeWeeks: Set<string>;
-};
-
-/**
- * Incremental contribution of a batch of cycles for one reviewer.
- *
- * `newFacts` only contains reviewer-PR pairs that were not counted before, so
- * PR-level metrics are only counted once per reviewer-PR.
- */
-export type ReviewCycleLoginContribution = {
-  completedReviews: number;
-  totalReviewTimeMs: number;
-  totalApprovalDurationMs: number;
-  approvalsWithDuration: number;
-  newFacts: ReviewCyclePrReviewerFact[];
-};
 
 /**
  * Creates a zeroed per-reviewer aggregate.
@@ -346,6 +356,38 @@ function buildReviewerFact(
 }
 
 /**
+ * Returns the earlier of two ISO timestamps, ignoring missing values.
+ *
+ * @param current The currently stored timestamp.
+ * @param candidate The timestamp to compare with it.
+ * @returns The earlier timestamp, or whichever value is present.
+ */
+function earlierTimestamp(
+  current: string | null,
+  candidate: string | null,
+): string | null {
+  if (current === null) return candidate;
+  if (candidate === null) return current;
+  return candidate < current ? candidate : current;
+}
+
+/**
+ * Returns the later of two ISO timestamps, ignoring missing values.
+ *
+ * @param current The currently stored timestamp.
+ * @param candidate The timestamp to compare with it.
+ * @returns The later timestamp, or whichever value is present.
+ */
+function laterTimestamp(
+  current: string | null,
+  candidate: string | null,
+): string | null {
+  if (current === null) return candidate;
+  if (candidate === null) return current;
+  return candidate > current ? candidate : current;
+}
+
+/**
  * Converts per-PR facts into a fresh PR stats document.
  *
  * @param prNumber The PR number.
@@ -357,22 +399,12 @@ function createPrStatsDocument(
   return {
     prNumber,
     additions: null,
-    totalDurationMs: 0,
-    cycleCount: 0,
+    firstAssignedAt: null,
+    lastApprovedAt: null,
     reviewers: {},
     lastUpdated: new Date(),
   };
 }
-
-/**
- * The subset of a PR stats document needed to build the scatter chart.
- */
-type PrScatterSource = {
-  prNumber: number;
-  additions: number | null;
-  totalDurationMs: number;
-  cycleCount: number;
-};
 
 /**
  * Assembles the dashboard analytics payload from its bounded inputs.
@@ -422,23 +454,45 @@ function buildAnalytics(
 }
 
 /**
+ * Returns whether a PR stats entry can be plotted on the approval scatter.
+ *
+ * @param stats The PR stats to check.
+ * @returns True when the PR has a size and both timing endpoints.
+ */
+function hasApprovalTiming(stats: PrScatterSource): stats is PrScatterSource & {
+  additions: number;
+  firstAssignedAt: string;
+  lastApprovedAt: string;
+} {
+  return (
+    stats.additions !== null &&
+    stats.firstAssignedAt !== null &&
+    stats.lastApprovedAt !== null
+  );
+}
+
+/**
  * Builds the capped PR-size scatter from PR stats.
  *
- * @param prStats PR stats to plot.
- * @returns Scatter points for the most recent PRs, sorted by size.
+ * @param prStats PR stats used as scatter inputs.
+ * @returns Scatter points for the most recent approved PRs, sorted by size.
  */
 function buildScatter(
   prStats: Iterable<PrScatterSource>,
 ): ReviewerTeamsAnalytics["prSizeScatter"] {
   return Array.from(prStats)
-    .filter((stats) => stats.additions !== null)
+    .filter(hasApprovalTiming)
     .sort((a, b) => b.prNumber - a.prNumber)
     .slice(0, PR_SIZE_SCATTER_LIMIT)
     .map((stats) => ({
       prNumber: stats.prNumber,
-      additions: stats.additions ?? 0,
+      additions: stats.additions,
       reviewTimeHours:
-        stats.totalDurationMs / Math.max(stats.cycleCount, 1) / 3_600_000,
+        Math.max(
+          0,
+          new Date(stats.lastApprovedAt).getTime() -
+            new Date(stats.firstAssignedAt).getTime(),
+        ) / 3_600_000,
     }))
     .sort((a, b) => a.additions - b.additions);
 }
@@ -468,9 +522,16 @@ async function rebuildReviewCycleAnalytics(): Promise<ReviewerTeamsAnalytics> {
     const stats =
       prStats.get(data.prNumber) ?? createPrStatsDocument(data.prNumber);
 
-    stats.totalDurationMs += data.durationMs;
-    stats.cycleCount++;
     if (data.prAdditions !== null) stats.additions = data.prAdditions;
+
+    stats.firstAssignedAt = earlierTimestamp(
+      stats.firstAssignedAt,
+      data.assignedAt,
+    );
+    stats.lastApprovedAt = laterTimestamp(
+      stats.lastApprovedAt,
+      data.approvedAt,
+    );
 
     if (!stats.reviewers[data.reviewerLogin]) {
       const fact = buildReviewerFact(data);
@@ -598,9 +659,15 @@ export async function applyReviewCycleContributions(
         newFacts: [],
       };
 
-      stats.totalDurationMs += record.durationMs;
-      stats.cycleCount++;
       if (record.prAdditions !== null) stats.additions = record.prAdditions;
+      stats.firstAssignedAt = earlierTimestamp(
+        stats.firstAssignedAt,
+        record.assignedAt,
+      );
+      stats.lastApprovedAt = laterTimestamp(
+        stats.lastApprovedAt,
+        record.approvedAt,
+      );
 
       contribution.completedReviews++;
       contribution.totalReviewTimeMs += record.durationMs;

@@ -21,6 +21,7 @@ import {
   PieChart,
   ScatterChart as ScatterIcon,
 } from "lucide-react";
+import { GITHUB_REPOS } from "@/lib/config/github.constants";
 import type {
   ReviewerApprovalShare,
   ReviewerMonthlyUniquePoint,
@@ -45,6 +46,30 @@ type ScatterTooltipProps = {
 };
 
 const TOP_APPROVER_COUNT = 5;
+
+/**
+ * Builds the GitHub URL for a PR in the web repository.
+ *
+ * @param prNumber The PR number to link to.
+ * @returns The PR URL.
+ */
+function buildPrUrl(prNumber: number): string {
+  const { owner, repo } = GITHUB_REPOS.WEB;
+  return `https://github.com/${owner}/${repo}/pull/${prNumber}`;
+}
+
+/**
+ * Opens a scatter point's PR on GitHub in a new tab.
+ *
+ * @param point The clicked scatter point.
+ * @returns Nothing.
+ */
+function openScatterPointPr(point: { payload?: ReviewerPrSizePoint }): void {
+  const prNumber = point.payload?.prNumber;
+  if (typeof prNumber !== "number") return;
+
+  window.open(buildPrUrl(prNumber), "_blank", "noopener,noreferrer");
+}
 
 /**
  * Formats an ISO date key as a short `12 Nov` label.
@@ -162,7 +187,10 @@ function ScatterTooltip({ active, payload }: ScatterTooltipProps) {
       </p>
       <p className="mt-1 text-xs text-slate-600">
         {point.additions} lines added · {point.reviewTimeHours.toFixed(1)}h to
-        first review
+        approval
+      </p>
+      <p className="mt-1 text-xs font-medium text-blue-600">
+        Click to open PR on GitHub
       </p>
     </div>
   );
@@ -357,7 +385,7 @@ export function ReviewerAnalyticsSection({
 
       <ChartCard
         title="PR size vs review time"
-        description="Lines added (ignoring deletions) against hours from assignment to first review."
+        description="Lines added (ignoring deletions) against hours from the first review assignment to the latest approval on the PR. Click a point to open its PR."
         icon={<ScatterIcon className="h-4 w-4" />}
         footer={
           analytics.prSizeScatter.length > 0 ? (
@@ -374,7 +402,7 @@ export function ReviewerAnalyticsSection({
             <ResponsiveContainer width="100%" height="100%">
               <ScatterChart
                 data={analytics.prSizeScatter}
-                margin={{ top: 8, right: 8, bottom: 4, left: -16 }}
+                margin={{ top: 8, right: 8, bottom: 4, left: 0 }}
               >
                 <CartesianGrid stroke="#e2e8f0" strokeDasharray="4 4" />
                 <XAxis
@@ -388,18 +416,23 @@ export function ReviewerAnalyticsSection({
                 <YAxis
                   type="number"
                   dataKey="reviewTimeHours"
-                  name="Review time (h)"
+                  name="Time to approval (h)"
                   tick={{ fill: "#94a3b8", fontSize: 11 }}
                   tickLine={false}
                   axisLine={false}
-                  width={36}
+                  width={40}
                 />
                 <ZAxis range={[60, 60]} />
                 <Tooltip
                   content={<ScatterTooltip />}
                   cursor={{ strokeDasharray: "3 3" }}
                 />
-                <Scatter dataKey="reviewTimeHours" name="PRs">
+                <Scatter
+                  dataKey="reviewTimeHours"
+                  name="PRs"
+                  cursor="pointer"
+                  onClick={openScatterPointPr}
+                >
                   {analytics.prSizeScatter.map((point) => (
                     <Cell
                       key={point.prNumber}
