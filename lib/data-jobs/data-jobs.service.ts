@@ -49,8 +49,8 @@ type RegisteredDataJob = DataJobDefinition & {
   handler: DataJobHandler;
 };
 
-/** Window used by the one-off review-cycle backfill job. */
-const REVIEW_CYCLE_BACKFILL_MONTHS = 2;
+/** Fixed start date for the one-off review-cycle backfill job. */
+const REVIEW_CYCLE_BACKFILL_START_DATE_KEY = "2026-01-01";
 
 /**
  * Size of each backfill window. A window is only a checkpoint boundary: PRs
@@ -226,8 +226,8 @@ async function backfillSchemaVersionsJob(
 }
 
 /**
- * Backfills the last two months of review cycles from GitHub and recomputes
- * every reviewer's analytics from the stored cycles.
+ * Backfills review cycles from 2026-01-01 through today and merges them into
+ * reviewer analytics.
  *
  * The range is walked in small date windows, and PR-level progress inside the
  * current window is checkpointed. If the platform terminates a run, the next
@@ -260,26 +260,49 @@ async function backfillReviewCyclesJob(
 
   const deadlineMs = Date.now() + REVIEW_CYCLE_BACKFILL_TIME_BUDGET_MS;
   const todayKey = toUtcDateKey(new Date());
-  const defaultStart = new Date();
-  defaultStart.setUTCMonth(
-    defaultStart.getUTCMonth() - REVIEW_CYCLE_BACKFILL_MONTHS,
-  );
-  const defaultStartKey = toUtcDateKey(defaultStart);
+  const defaultStartKey = REVIEW_CYCLE_BACKFILL_START_DATE_KEY;
 
   const savedState = await getReviewCycleBackfillState();
+  const targetEndKey = savedState
+    ? maxDateKey(savedState.targetEnd, todayKey)
+    : todayKey;
+  const windowStartKey = savedState
+    ? minDateKey(savedState.windowStart, defaultStartKey)
+    : defaultStartKey;
+  const windowWasExtended =
+    savedState !== null && windowStartKey !== savedState.windowStart;
+  const windowEndKey = savedState
+    ? windowWasExtended
+      ? minDateKey(
+          maxDateKey(savedState.windowEnd, windowStartKey),
+          targetEndKey,
+        )
+      : savedState.windowEnd
+    : minDateKey(
+        addDaysToDateKey(
+          defaultStartKey,
+          REVIEW_CYCLE_BACKFILL_WINDOW_DAYS - 1,
+        ),
+        targetEndKey,
+      );
 
   let state: Omit<ReviewCycleBackfillState, "schemaVersion"> = savedState
-    ? { ...savedState, targetEnd: maxDateKey(savedState.targetEnd, todayKey) }
+    ? {
+        ...savedState,
+        windowStart: windowStartKey,
+        windowEnd: windowEndKey,
+        targetEnd: targetEndKey,
+        // PR progress belongs to the old, narrower window and cannot be reused
+        // once the window is widened back to the fixed start date.
+        processedPrNumbers: windowWasExtended
+          ? []
+          : savedState.processedPrNumbers,
+        updatedAt: new Date(),
+      }
     : {
-        windowStart: defaultStartKey,
-        windowEnd: minDateKey(
-          addDaysToDateKey(
-            defaultStartKey,
-            REVIEW_CYCLE_BACKFILL_WINDOW_DAYS - 1,
-          ),
-          todayKey,
-        ),
-        targetEnd: todayKey,
+        windowStart: windowStartKey,
+        windowEnd: windowEndKey,
+        targetEnd: targetEndKey,
         processedPrNumbers: [],
         updatedAt: new Date(),
       };
@@ -438,9 +461,9 @@ const DATA_JOB_REGISTRY: RegisteredDataJob[] = [
   },
   {
     key: "backfill_review_cycles",
-    name: "Backfill Review Cycles (2 months)",
+    name: "Backfill Review Cycles (Jan 1 2026)",
     description:
-      "Re-fetches the last 2 months of review cycles from GitHub and merges them into reviewer analytics. Resumable: if it stops early, run it again to continue. Run Sync Reviewer Teams first so team membership is current.",
+      "Re-fetches review cycles from 2026-01-01 through today and merges them into reviewer analytics. Resumable: if it stops early, run it again to continue. Run Sync Reviewer Teams first so team membership is current.",
     kind: "BACKFILL",
     supportsDryRun: false,
     handler: backfillReviewCyclesJob,
