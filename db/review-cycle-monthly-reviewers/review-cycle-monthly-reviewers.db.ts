@@ -11,6 +11,9 @@ const collection = db.collection(
   DB_PATHS.REVIEW_CYCLE_MONTHLY_REVIEWERS.COLLECTION,
 );
 
+/** Firestore `getAll` works best in modest chunks. */
+const READ_CHUNK_SIZE = 300;
+
 /**
  * Firestore caps a single batch at 500 writes, so multi-document writes are
  * committed in chunks with some headroom.
@@ -53,16 +56,20 @@ export async function getReviewCycleMonthlyReviewers(
   if (months.length === 0) return result;
 
   const unique = Array.from(new Set(months));
-  const snapshots = await db.getAll(
-    ...unique.map((month) => collection.doc(month)),
-  );
 
-  snapshots.forEach((snapshot, index) => {
-    const data = snapshot.data();
-    if (snapshot.exists && data) {
-      result.set(unique[index], normalizeReviewCycleMonthlyReviewers(data));
-    }
-  });
+  for (let start = 0; start < unique.length; start += READ_CHUNK_SIZE) {
+    const chunk = unique.slice(start, start + READ_CHUNK_SIZE);
+    const snapshots = await db.getAll(
+      ...chunk.map((month) => collection.doc(month)),
+    );
+
+    snapshots.forEach((snapshot, index) => {
+      const data = snapshot.data();
+      if (snapshot.exists && data) {
+        result.set(chunk[index], normalizeReviewCycleMonthlyReviewers(data));
+      }
+    });
+  }
 
   return result;
 }
