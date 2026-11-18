@@ -1,8 +1,6 @@
 import { requestGitHubRest, requestGitHubRestAll } from "./github.rest";
 import { requestGitHubGraphQL } from "./github.request";
 import { fetchGitHubRateLimit } from "./github.rate-limit";
-import fs from "fs";
-import path from "path";
 
 const ORG = "oppia";
 const REPO = "oppia";
@@ -164,17 +162,6 @@ export async function fetchAssignedPRs(): Promise<MemberPRMap> {
     const timelineEvents = await requestGitHubRestAll<TimelineEvent>(
       `/repos/${ORG}/${REPO}/issues/${pr.number}/timeline`,
     );
-
-    if (pr.number === 26078) {
-      const logFile = path.join(process.cwd(), "logs", "debug.log");
-
-      fs.mkdirSync(path.dirname(logFile), { recursive: true });
-
-      fs.appendFileSync(
-        logFile,
-        `[${new Date().toISOString()}] PR ${pr.number}\n${JSON.stringify(timelineEvents, null, 2)}\n\n`,
-      );
-    }
 
     const assignmentTimestamps = getMostRecentAssignments(
       timelineEvents,
