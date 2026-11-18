@@ -1,6 +1,10 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DB_PATHS } from "@/db/db-paths";
 import { DbValidationError } from "@/db/db.errors";
+import {
+  chunkValues,
+  FIRESTORE_WRITE_BATCH_SIZE,
+} from "@/db/utils/batch.utils";
 import type { ActionItemModel } from "@/lib/domain/action-items.types";
 import {
   type FirestoreActionItem,
@@ -19,9 +23,6 @@ const actionItemsCollectionGroup: FirebaseFirestore.CollectionGroup<FirestoreAct
   db.collectionGroup(
     DB_PATHS.ACTION_ITEMS.COLLECTION,
   ) as FirebaseFirestore.CollectionGroup<FirestoreActionItem>;
-
-/** Maximum number of writes committed per Firestore batch. */
-const FIRESTORE_BATCH_LIMIT = 400;
 
 /**
  * Builds the CollectionReference for one team's action items.
@@ -54,23 +55,6 @@ function getActionItemDocumentRef(
   return getActionItemsCollectionRef(teamId).doc(
     itemId,
   ) as FirebaseFirestore.DocumentReference<FirestoreActionItem>;
-}
-
-/**
- * Splits a list into fixed-size chunks so writes stay within batch limits.
- *
- * @param values The values to split.
- * @param size The maximum chunk size.
- * @returns The chunked values.
- */
-function chunkValues<T>(values: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-
-  return chunks;
 }
 
 /**
@@ -171,7 +155,7 @@ export async function upsertActionItems(
     }
   }
 
-  for (const chunk of chunkValues(writes, FIRESTORE_BATCH_LIMIT)) {
+  for (const chunk of chunkValues(writes, FIRESTORE_WRITE_BATCH_SIZE)) {
     const batch = actionItemsCollectionGroup.firestore.batch();
 
     for (const write of chunk) {
@@ -195,7 +179,7 @@ export async function deleteActionItems(
     getActionItemDocumentRef(item.teamId, item.id),
   );
 
-  for (const chunk of chunkValues(writes, FIRESTORE_BATCH_LIMIT)) {
+  for (const chunk of chunkValues(writes, FIRESTORE_WRITE_BATCH_SIZE)) {
     const batch = actionItemsCollectionGroup.firestore.batch();
 
     for (const ref of chunk) {
@@ -233,7 +217,7 @@ export async function markActionItemsNotified(
     });
   }
 
-  for (const chunk of chunkValues(writes, FIRESTORE_BATCH_LIMIT)) {
+  for (const chunk of chunkValues(writes, FIRESTORE_WRITE_BATCH_SIZE)) {
     const batch = actionItemsCollectionGroup.firestore.batch();
 
     for (const write of chunk) {

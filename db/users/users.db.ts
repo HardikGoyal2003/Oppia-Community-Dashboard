@@ -5,6 +5,7 @@ import {
 } from "@/lib/auth/auth.types";
 import { Timestamp } from "firebase-admin/firestore";
 import { DbValidationError } from "../db.errors";
+import { chunkValues, FIRESTORE_WRITE_BATCH_SIZE } from "../utils/batch.utils";
 import {
   getRequiredUserDocRefByUid,
   getRequiredUserDocRefInTransaction,
@@ -17,30 +18,9 @@ import type { FirestoreUser } from "./users.mapper";
 
 export { usersCollection };
 
-/** Maximum number of writes Firestore accepts in a single batch. */
-const FIRESTORE_BATCH_LIMIT = 400;
-
 export type UserRecord = UserModel & {
   id: string;
 };
-
-/**
- * Splits a list into fixed-size chunks so writes stay within Firestore's batch
- * limit.
- *
- * @param values The values to split.
- * @param size The maximum chunk size.
- * @returns The chunked values.
- */
-function chunkValues<T>(values: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-
-  return chunks;
-}
 
 /**
  * Validates that a GitHub username is provided.
@@ -196,7 +176,7 @@ export async function getUsersByTeam(teamKey: string): Promise<UserRecord[]> {
 export async function updateUserRoles(
   updates: Array<{ uid: string; role: UserRole }>,
 ): Promise<void> {
-  for (const chunk of chunkValues(updates, FIRESTORE_BATCH_LIMIT)) {
+  for (const chunk of chunkValues(updates, FIRESTORE_WRITE_BATCH_SIZE)) {
     const batch = usersCollection.firestore.batch();
 
     for (const { uid, role } of chunk) {

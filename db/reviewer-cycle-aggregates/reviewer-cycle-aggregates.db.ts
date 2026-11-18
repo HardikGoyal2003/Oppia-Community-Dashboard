@@ -1,5 +1,6 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DB_PATHS } from "@/db/db-paths";
+import { FIRESTORE_WRITE_BATCH_SIZE } from "@/db/utils/batch.utils";
 import {
   SCHEMA_KEYS,
   getCurrentSchemaVersion,
@@ -16,12 +17,6 @@ import {
 
 const db = getAdminFirestore();
 const collection = db.collection(DB_PATHS.REVIEWER_CYCLE_AGGREGATES.COLLECTION);
-
-/**
- * Firestore caps a single batch at 500 writes, so multi-document writes are
- * committed in chunks with some headroom.
- */
-const BATCH_SIZE = 400;
 
 /**
  * Creates an empty persisted reviewer aggregate.
@@ -81,10 +76,17 @@ export async function getReviewerCycleAggregates(
 export async function upsertReviewerCycleAggregates(
   entries: Array<{ login: string; aggregate: ReviewerCycleAggregateDocument }>,
 ): Promise<void> {
-  for (let start = 0; start < entries.length; start += BATCH_SIZE) {
+  for (
+    let start = 0;
+    start < entries.length;
+    start += FIRESTORE_WRITE_BATCH_SIZE
+  ) {
     const batch = collection.firestore.batch();
 
-    for (const entry of entries.slice(start, start + BATCH_SIZE)) {
+    for (const entry of entries.slice(
+      start,
+      start + FIRESTORE_WRITE_BATCH_SIZE,
+    )) {
       batch.set(
         collection.doc(entry.login),
         serializeReviewerCycleAggregate(entry.aggregate),

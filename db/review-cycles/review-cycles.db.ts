@@ -1,6 +1,10 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DbValidationError } from "@/db/db.errors";
 import {
+  FIRESTORE_READ_CHUNK_SIZE,
+  FIRESTORE_WRITE_BATCH_SIZE,
+} from "@/db/utils/batch.utils";
+import {
   SCHEMA_KEYS,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
@@ -108,12 +112,6 @@ const AGGREGATE_LOGIN_CHUNK_SIZE = 30;
 const PR_SIZE_SCATTER_LIMIT = 400;
 
 /**
- * Firestore caps a single batch at 500 writes, so multi-document writes are
- * committed in chunks with some headroom.
- */
-const WRITE_BATCH_SIZE = 400;
-
-/**
  * Batch upserts multiple review cycle records.
  *
  * A 2-month backfill can produce well over the Firestore batch limit.
@@ -124,10 +122,17 @@ const WRITE_BATCH_SIZE = 400;
 export async function upsertReviewCycles(
   records: Array<Omit<ReviewCycleRecord, "schemaVersion">>,
 ): Promise<void> {
-  for (let start = 0; start < records.length; start += WRITE_BATCH_SIZE) {
+  for (
+    let start = 0;
+    start < records.length;
+    start += FIRESTORE_WRITE_BATCH_SIZE
+  ) {
     const batch = collection.firestore.batch();
 
-    for (const record of records.slice(start, start + WRITE_BATCH_SIZE)) {
+    for (const record of records.slice(
+      start,
+      start + FIRESTORE_WRITE_BATCH_SIZE,
+    )) {
       const key = `${record.reviewerLogin}:${record.prNumber}:${record.assignedAt}`;
       batch.set(collection.doc(key), serializeReviewCycle(record), {
         merge: true,
@@ -164,13 +169,13 @@ export async function deleteReviewCyclesForReviewers(
     for (
       let offset = 0;
       offset < snapshot.docs.length;
-      offset += WRITE_BATCH_SIZE
+      offset += FIRESTORE_WRITE_BATCH_SIZE
     ) {
       const batch = collection.firestore.batch();
 
       for (const doc of snapshot.docs.slice(
         offset,
-        offset + WRITE_BATCH_SIZE,
+        offset + FIRESTORE_WRITE_BATCH_SIZE,
       )) {
         batch.delete(doc.ref);
       }
@@ -198,11 +203,14 @@ export async function findNewCycleRecords(
 ): Promise<Array<Omit<ReviewCycleRecord, "schemaVersion">>> {
   if (records.length === 0) return [];
 
-  const GET_ALL_CHUNK_SIZE = 300;
   const newRecords: Array<Omit<ReviewCycleRecord, "schemaVersion">> = [];
 
-  for (let start = 0; start < records.length; start += GET_ALL_CHUNK_SIZE) {
-    const chunk = records.slice(start, start + GET_ALL_CHUNK_SIZE);
+  for (
+    let start = 0;
+    start < records.length;
+    start += FIRESTORE_READ_CHUNK_SIZE
+  ) {
+    const chunk = records.slice(start, start + FIRESTORE_READ_CHUNK_SIZE);
     const refs = chunk.map((r) =>
       collection.doc(`${r.reviewerLogin}:${r.prNumber}:${r.assignedAt}`),
     );

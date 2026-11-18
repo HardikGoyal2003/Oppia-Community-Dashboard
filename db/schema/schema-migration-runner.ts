@@ -1,6 +1,7 @@
 import { DB_PATHS } from "@/db/db-paths";
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { logDbError } from "@/db/db-logger";
+import { chunkValues } from "@/db/utils/batch.utils";
 import {
   isDocumentAtCurrentSchemaVersion,
   migrateDocument,
@@ -38,23 +39,6 @@ const WRITE_CONCURRENCY = 50;
  * mid-write and leaving the run stuck in `RUNNING`.
  */
 const DEFAULT_TIME_BUDGET_MS = 240_000;
-
-/**
- * Splits a list into fixed-size chunks.
- *
- * @param values The values to split.
- * @param size The maximum chunk size.
- * @returns The chunked values.
- */
-function chunkValues<T>(values: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-
-  return chunks;
-}
 
 /**
  * Builds the error used when a backfill stops early to stay within the

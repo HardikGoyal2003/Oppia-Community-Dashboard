@@ -1,6 +1,10 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DB_PATHS } from "@/db/db-paths";
 import {
+  FIRESTORE_READ_CHUNK_SIZE,
+  FIRESTORE_WRITE_BATCH_SIZE,
+} from "@/db/utils/batch.utils";
+import {
   normalizeReviewCycleMonthlyReviewers,
   serializeReviewCycleMonthlyReviewers,
   type ReviewCycleMonthlyReviewersDocument,
@@ -11,15 +15,6 @@ const collection = db.collection(
   DB_PATHS.REVIEW_CYCLE_MONTHLY_REVIEWERS.COLLECTION,
 );
 
-/** Firestore `getAll` works best in modest chunks. */
-const READ_CHUNK_SIZE = 300;
-
-/**
- * Firestore caps a single batch at 500 writes, so multi-document writes are
- * committed in chunks with some headroom.
- */
-const BATCH_SIZE = 400;
-
 /**
  * Writes monthly reviewer documents in chunks.
  *
@@ -29,10 +24,17 @@ const BATCH_SIZE = 400;
 export async function upsertReviewCycleMonthlyReviewers(
   documents: Array<Omit<ReviewCycleMonthlyReviewersDocument, "schemaVersion">>,
 ): Promise<void> {
-  for (let start = 0; start < documents.length; start += BATCH_SIZE) {
+  for (
+    let start = 0;
+    start < documents.length;
+    start += FIRESTORE_WRITE_BATCH_SIZE
+  ) {
     const batch = collection.firestore.batch();
 
-    for (const document of documents.slice(start, start + BATCH_SIZE)) {
+    for (const document of documents.slice(
+      start,
+      start + FIRESTORE_WRITE_BATCH_SIZE,
+    )) {
       batch.set(
         collection.doc(document.month),
         serializeReviewCycleMonthlyReviewers(document),
@@ -57,8 +59,12 @@ export async function getReviewCycleMonthlyReviewers(
 
   const unique = Array.from(new Set(months));
 
-  for (let start = 0; start < unique.length; start += READ_CHUNK_SIZE) {
-    const chunk = unique.slice(start, start + READ_CHUNK_SIZE);
+  for (
+    let start = 0;
+    start < unique.length;
+    start += FIRESTORE_READ_CHUNK_SIZE
+  ) {
+    const chunk = unique.slice(start, start + FIRESTORE_READ_CHUNK_SIZE);
     const snapshots = await db.getAll(
       ...chunk.map((month) => collection.doc(month)),
     );
