@@ -1,7 +1,7 @@
 /**
  * Base error for domain-aware lib-layer failures.
  */
-export class LibError extends Error {
+class LibError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "LibError";

@@ -1,8 +1,5 @@
 import { requestGitHubRest, getCoreRateLimit } from "./github.rest";
 
-export type { RateLimitSnapshot } from "./github.rest";
-export { getCoreRateLimit } from "./github.rest";
-
 type GraphQLRateLimit = {
   limit: number;
   remaining: number;

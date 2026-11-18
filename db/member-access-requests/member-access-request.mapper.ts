@@ -102,7 +102,7 @@ function assertFirestoreMemberAccessRequest(
  * @param request The raw Firestore member-access request document.
  * @returns The normalized member-access request model.
  */
-export function normalizeMemberAccessRequest(
+function normalizeMemberAccessRequest(
   request: FirestoreMemberAccessRequest,
 ): MemberAccessRequestModel {
   return {

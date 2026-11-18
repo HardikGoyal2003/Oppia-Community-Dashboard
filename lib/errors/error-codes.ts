@@ -6,7 +6,7 @@
  * here for each additional external service or failure mode.
  */
 
-export type ErrorCode = "GITHUB_API_UNAVAILABLE";
+type ErrorCode = "GITHUB_API_UNAVAILABLE";
 
 export type ErrorCodeMeta = {
   heading: string;

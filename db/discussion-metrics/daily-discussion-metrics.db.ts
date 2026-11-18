@@ -20,7 +20,7 @@ const dailyDiscussionMetricsCollection = db.collection(
  * @param capturedAt The exact snapshot timestamp.
  * @returns The daily discussion metric document id.
  */
-export function getDailyDiscussionMetricSnapshotDocId(
+function getDailyDiscussionMetricSnapshotDocId(
   platform: ContributionPlatform,
   capturedAt: Date,
 ): string {

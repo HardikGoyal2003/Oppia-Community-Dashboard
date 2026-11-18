@@ -26,7 +26,7 @@ export type ReviewerCycleAggregateDocument = {
   schemaVersion: number;
 };
 
-export type FirestoreReviewerCycleAggregate = Omit<
+type FirestoreReviewerCycleAggregate = Omit<
   ReviewerCycleAggregateDocument,
   "lastUpdated"
 > & { lastUpdated: Timestamp };

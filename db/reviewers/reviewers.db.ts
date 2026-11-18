@@ -13,22 +13,6 @@ const collection = db.collection(
 ) as FirebaseFirestore.CollectionReference<FirestoreReviewer>;
 
 /**
- * Retrieves a reviewer document by GitHub login.
- *
- * @param login The GitHub login of the reviewer.
- * @returns The reviewer document, or null if not found.
- */
-export async function getReviewer(
-  login: string,
-): Promise<ReviewerDocument | null> {
-  const snapshot = await collection.doc(login).get();
-  if (!snapshot.exists) return null;
-  const data = snapshot.data();
-  if (!data) return null;
-  return normalizeReviewer(data);
-}
-
-/**
  * Stores or replaces a reviewer document for the given login.
  *
  * @param login The GitHub login of the reviewer.

@@ -28,7 +28,6 @@
     "@vercel/analytics": "^1.6.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "firebase": "^12.7.0",
     "firebase-admin": "^14.5.0",
     "lucide-react": "^0.556.0",
     "next": "16.4.5",
@@ -58,9 +57,6 @@
     "vercel": "^65.12.1"
   },
   "overrides": {
-    "@firebase/firestore": {
-      "@grpc/grpc-js": "^1.14.7"
-    },
     "rimraf": {
       "glob": "^14.0.4"
     }

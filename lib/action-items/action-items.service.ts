@@ -22,7 +22,7 @@ import {
  * @param ruleKey The stable rule identifier from the team report.
  * @returns The action item document id.
  */
-export function buildActionItemId(ruleKey: string): string {
+function buildActionItemId(ruleKey: string): string {
   return ruleKey.trim().replace(/[^A-Za-z0-9_-]+/g, "-");
 }
 

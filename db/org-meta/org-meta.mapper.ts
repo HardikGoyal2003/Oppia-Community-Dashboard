@@ -11,7 +11,7 @@ import {
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
 
-export type CollaboratorEntry = {
+type CollaboratorEntry = {
   login: string;
   permission: string;
 };

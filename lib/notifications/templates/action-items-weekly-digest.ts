@@ -10,7 +10,7 @@ export type WeeklyDigestItem = {
   notificationCount: number;
 };
 
-export type WeeklyDigestInput = {
+type WeeklyDigestInput = {
   teamName: string;
   /** IST date key (`YYYY-MM-DD`). */
   dateKey: string;
@@ -20,7 +20,7 @@ export type WeeklyDigestInput = {
 };
 
 /** Dashboard path that hosts the action item list for deep linking. */
-export const ACTION_ITEMS_DEEP_LINK_PATH = "/dashboard/overview";
+const ACTION_ITEMS_DEEP_LINK_PATH = "/dashboard/overview";
 
 const DATE_FORMAT = new Intl.DateTimeFormat("en-IN", {
   day: "numeric",

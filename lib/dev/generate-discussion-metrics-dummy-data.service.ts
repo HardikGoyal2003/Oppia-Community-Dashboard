@@ -3,7 +3,7 @@ import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { getIstDateKey } from "@/lib/utils/date.utils";
 import { getFixedIstCaptureDate } from "./dummy-data.utils";
 
-export type DiscussionMetricsDummyDataSummary = {
+type DiscussionMetricsDummyDataSummary = {
   discussionMetricsWritten: number;
 };
 

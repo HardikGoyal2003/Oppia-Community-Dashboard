@@ -4,7 +4,7 @@ import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { fetchOrgAndCollaboratorAccess } from "./github.query-helpers";
 import type { GitHubRepoTarget } from "./github.types";
 
-export type MaintainerAccess = {
+type MaintainerAccess = {
   orgMembers: Set<string>;
   collaborators: Set<string>;
   maintainers: Set<string>;

@@ -1,6 +1,5 @@
 import { DbValidationError } from "@/db/db.errors";
 import {
-  LEGACY_SCHEMA_VERSION,
   SCHEMA_KEYS,
   SCHEMA_VERSIONS,
   getCurrentSchemaVersion,
@@ -15,7 +14,7 @@ import {
  * return the document shape for `toVersion`. They run in order, one version at
  * a time, so a document can be upgraded across multiple versions in one pass.
  */
-export type SchemaMigration = {
+type SchemaMigration = {
   /** Version produced by this migration. Must be exactly the previous version + 1. */
   toVersion: number;
   migrate: (
@@ -92,30 +91,29 @@ function collapseTeamGfiCounts(): SchemaMigration {
  * that predate versioning. Future structural changes get a new entry with the
  * next `toVersion` here (and a matching bump in `SCHEMA_VERSIONS`).
  */
-export const SCHEMA_MIGRATIONS: Record<SchemaKey, readonly SchemaMigration[]> =
-  {
-    [SCHEMA_KEYS.ACTION_ITEMS]: [addSchemaVersionField(1)],
-    [SCHEMA_KEYS.ARCHIVED_DISCUSSIONS]: [addSchemaVersionField(1)],
-    [SCHEMA_KEYS.ARCHIVED_ISSUES]: [addSchemaVersionField(1)],
-    [SCHEMA_KEYS.DAILY_TEAM_METRICS]: [addSchemaVersionField(1)],
-    [SCHEMA_KEYS.DAILY_DISCUSSION_METRICS]: [addSchemaVersionField(1)],
-    [SCHEMA_KEYS.DATA_JOB_RUNS]: [addSchemaVersionField(1)],
-    [SCHEMA_KEYS.MEMBER_ACCESS_REQUESTS]: [addSchemaVersionField(1)],
-    [SCHEMA_KEYS.NOTIFICATION_DELIVERIES]: [addSchemaVersionField(1)],
-    [SCHEMA_KEYS.ORG_META]: [addSchemaVersionField(1)],
-    [SCHEMA_KEYS.REVIEWERS]: [addSchemaVersionField(1)],
-    [SCHEMA_KEYS.REVIEW_CYCLES]: [addSchemaVersionField(1)],
-    [SCHEMA_KEYS.REVIEWER_CYCLE_AGGREGATES]: [addSchemaVersionField(1)],
-    [SCHEMA_KEYS.REVIEW_CYCLE_PR_STATS]: [addSchemaVersionField(1)],
-    [SCHEMA_KEYS.REVIEW_CYCLE_MONTHLY_REVIEWERS]: [addSchemaVersionField(1)],
-    [SCHEMA_KEYS.REVIEW_CYCLE_ANALYTICS]: [addSchemaVersionField(1)],
-    [SCHEMA_KEYS.REVIEW_CYCLE_BACKFILL]: [addSchemaVersionField(1)],
-    [SCHEMA_KEYS.TEAM_REVIEWERS]: [addSchemaVersionField(1)],
-    [SCHEMA_KEYS.TEAMS]: [addSchemaVersionField(1), collapseTeamGfiCounts()],
-    [SCHEMA_KEYS.USER_JOURNEY_PROGRESS]: [addSchemaVersionField(1)],
-    [SCHEMA_KEYS.USER_NOTIFICATIONS]: [addSchemaVersionField(1)],
-    [SCHEMA_KEYS.USERS]: [addSchemaVersionField(1)],
-  };
+const SCHEMA_MIGRATIONS: Record<SchemaKey, readonly SchemaMigration[]> = {
+  [SCHEMA_KEYS.ACTION_ITEMS]: [addSchemaVersionField(1)],
+  [SCHEMA_KEYS.ARCHIVED_DISCUSSIONS]: [addSchemaVersionField(1)],
+  [SCHEMA_KEYS.ARCHIVED_ISSUES]: [addSchemaVersionField(1)],
+  [SCHEMA_KEYS.DAILY_TEAM_METRICS]: [addSchemaVersionField(1)],
+  [SCHEMA_KEYS.DAILY_DISCUSSION_METRICS]: [addSchemaVersionField(1)],
+  [SCHEMA_KEYS.DATA_JOB_RUNS]: [addSchemaVersionField(1)],
+  [SCHEMA_KEYS.MEMBER_ACCESS_REQUESTS]: [addSchemaVersionField(1)],
+  [SCHEMA_KEYS.NOTIFICATION_DELIVERIES]: [addSchemaVersionField(1)],
+  [SCHEMA_KEYS.ORG_META]: [addSchemaVersionField(1)],
+  [SCHEMA_KEYS.REVIEWERS]: [addSchemaVersionField(1)],
+  [SCHEMA_KEYS.REVIEW_CYCLES]: [addSchemaVersionField(1)],
+  [SCHEMA_KEYS.REVIEWER_CYCLE_AGGREGATES]: [addSchemaVersionField(1)],
+  [SCHEMA_KEYS.REVIEW_CYCLE_PR_STATS]: [addSchemaVersionField(1)],
+  [SCHEMA_KEYS.REVIEW_CYCLE_MONTHLY_REVIEWERS]: [addSchemaVersionField(1)],
+  [SCHEMA_KEYS.REVIEW_CYCLE_ANALYTICS]: [addSchemaVersionField(1)],
+  [SCHEMA_KEYS.REVIEW_CYCLE_BACKFILL]: [addSchemaVersionField(1)],
+  [SCHEMA_KEYS.TEAM_REVIEWERS]: [addSchemaVersionField(1)],
+  [SCHEMA_KEYS.TEAMS]: [addSchemaVersionField(1), collapseTeamGfiCounts()],
+  [SCHEMA_KEYS.USER_JOURNEY_PROGRESS]: [addSchemaVersionField(1)],
+  [SCHEMA_KEYS.USER_NOTIFICATIONS]: [addSchemaVersionField(1)],
+  [SCHEMA_KEYS.USERS]: [addSchemaVersionField(1)],
+};
 
 /**
  * Upgrades a raw Firestore document from its stored schema version to the
@@ -184,9 +182,3 @@ export function isDocumentAtCurrentSchemaVersion(
 ): boolean {
   return readSchemaVersion(key, document) === SCHEMA_VERSIONS[key];
 }
-
-/**
- * Returns the latest schema version for a model. Re-exported for convenience
- * so callers only need to import from the migration module.
- */
-export { LEGACY_SCHEMA_VERSION, getCurrentSchemaVersion };

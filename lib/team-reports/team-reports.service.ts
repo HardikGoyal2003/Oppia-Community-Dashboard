@@ -36,7 +36,7 @@ async function getLatestUnansweredDiscussionsByPlatform(): Promise<UnansweredDis
   return Object.fromEntries(counts) as UnansweredDiscussionsByPlatform;
 }
 
-export type TeamReportNextStep = {
+type TeamReportNextStep = {
   /**
    * Stable identifier for the rule that produced this step. Used to give
    * persisted action items a deterministic identity across syncs.
@@ -58,7 +58,7 @@ export type TeamReport = TeamModel & {
   nextSteps: TeamReportNextStep[];
 };
 
-export type TeamReportsSnapshot = {
+type TeamReportsSnapshot = {
   generatedAt: string;
   reports: TeamReport[];
 };

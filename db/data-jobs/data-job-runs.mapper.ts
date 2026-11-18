@@ -122,10 +122,7 @@ function assertFirestoreDataJobRun(
  * @param run The raw Firestore data-job run document.
  * @returns The normalized data-job run.
  */
-export function normalizeDataJobRun(
-  id: string,
-  run: FirestoreDataJobRun,
-): DataJobRun {
+function normalizeDataJobRun(id: string, run: FirestoreDataJobRun): DataJobRun {
   return {
     id,
     jobKey: run.jobKey,

@@ -11,7 +11,7 @@ import {
   serializeNotification,
 } from "@/db/users/notifications/notifications.mapper";
 
-export type NotificationStatusFilter = "READ" | "UNREAD" | "ALL";
+type NotificationStatusFilter = "READ" | "UNREAD" | "ALL";
 
 /**
  * Resolves a user document reference by uid and guarantees that the document exists.

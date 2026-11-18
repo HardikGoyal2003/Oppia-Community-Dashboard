@@ -19,7 +19,7 @@ const dailyTeamMetricsCollection = db.collection(
  * @param capturedAt The exact snapshot timestamp.
  * @returns The daily team metric document id.
  */
-export function getDailyTeamMetricSnapshotDocId(
+function getDailyTeamMetricSnapshotDocId(
   teamId: string,
   capturedAt: Date,
 ): string {

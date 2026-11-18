@@ -13,7 +13,7 @@ import type {
   TeamReviewersDocument,
 } from "@/lib/domain/reviewer-teams.types";
 
-export type ReviewerTeamsDummyDataSummary = {
+type ReviewerTeamsDummyDataSummary = {
   teamsWritten: number;
   reviewersWritten: number;
   pendingReviewsWritten: number;

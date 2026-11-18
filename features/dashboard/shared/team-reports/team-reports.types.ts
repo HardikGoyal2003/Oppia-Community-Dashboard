@@ -13,8 +13,3 @@ export type PlatformUnansweredIssuesChartReport = {
     unansweredIssuesCount: number;
   }>;
 };
-
-export type TeamReportsResponse = {
-  generatedAt: string;
-  reports: PlatformUnansweredIssuesChartReport[];
-};

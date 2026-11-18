@@ -26,15 +26,15 @@ import {
 import { getIstDateKey, getIstWeekStartDateKey } from "@/lib/utils/date.utils";
 
 /** Delivery kind recorded for weekly action-item digests. */
-export const WEEKLY_ACTION_ITEMS_DIGEST_KIND = "weekly_action_items_digest";
+const WEEKLY_ACTION_ITEMS_DIGEST_KIND = "weekly_action_items_digest";
 
-export type DigestChannelOutcome = {
+type DigestChannelOutcome = {
   channel: NotificationChannelKey;
   status: NotificationDeliveryStatus;
   detail: string;
 };
 
-export type DigestTeamOutcome = {
+type DigestTeamOutcome = {
   teamKey: string;
   teamName: string;
   itemCount: number;
@@ -44,7 +44,7 @@ export type DigestTeamOutcome = {
   channelOutcomes: DigestChannelOutcome[];
 };
 
-export type ActionItemDigestSummary = {
+type ActionItemDigestSummary = {
   force: boolean;
   periodKey: string;
   synced: ActionItemSyncSummary;

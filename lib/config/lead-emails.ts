@@ -1,5 +1,5 @@
 /** Shared team inboxes used for action-item nudges. */
-export const TEAM_LEAD_EMAILS: Record<string, string> = {
+const TEAM_LEAD_EMAILS: Record<string, string> = {
   CLAM: "android-clam-leads@oppia.org",
   DEV_WORKFLOW_INFRA: "android-dev-workflow-leads@oppia.org",
   LEAP: "web-leap-leads@oppia.org",

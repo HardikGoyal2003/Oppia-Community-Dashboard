@@ -11,7 +11,7 @@ import {
  *
  * @returns Nothing. Ensures the admin app is initialized once per process.
  */
-export function initFirebaseAdmin() {
+function initFirebaseAdmin() {
   const { useFirestoreEmulator } = getFirebaseRuntimeConfig();
   const projectId = getFirebaseAdminProjectId();
 
