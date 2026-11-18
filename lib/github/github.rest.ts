@@ -56,12 +56,11 @@ function captureRateLimit(res: Response): void {
  * This is captured from response headers of actual API calls, so it
  * accurately reflects consumed requests.
  *
- * @returns The latest core rate limit snapshot, or defaults when unset.
+ * @returns The latest core rate limit snapshot, or null when no response has
+ *   been observed yet.
  */
-export function getCoreRateLimit(): RateLimitSnapshot {
-  return (
-    lastCoreRateLimit ?? { limit: 5000, remaining: 5000, used: 0, reset: 0 }
-  );
+export function getCoreRateLimit(): RateLimitSnapshot | null {
+  return lastCoreRateLimit;
 }
 
 /**
@@ -241,6 +240,9 @@ async function executeGitHubRestRequest(url: string): Promise<Response> {
   });
 
   if (!res.ok) {
+    // GitHub includes rate limit headers on rejected requests too, and those
+    // are the most useful ones after a 403/429.
+    captureRateLimit(res);
     throw await buildRestError(res);
   }
 

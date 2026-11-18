@@ -196,7 +196,7 @@ export async function fetchAssignedPRs(): Promise<MemberPRMap> {
 
   const rate = await fetchGitHubRateLimit();
   console.log("\nRate Limit (REST):");
-  console.log(rate.core);
+  console.log(rate.core ?? "unavailable");
 
   return map;
 }
@@ -626,7 +626,7 @@ export async function extractCycleRecordsForPR(
 async function logRestRateLimit(): Promise<void> {
   const rate = await fetchGitHubRateLimit();
   console.log("\nRate Limit (REST):");
-  console.log(rate.core);
+  console.log(rate.core ?? "unavailable");
 }
 
 /**

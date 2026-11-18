@@ -74,7 +74,7 @@ export async function fetchUnansweredIssues(
 
   const rate = await fetchGitHubRateLimit();
   console.log("\nRate Limit (GraphQL):");
-  console.log(rate.graphql);
+  console.log(rate.graphql ?? "unavailable");
 
   return mapGitHubIssueNodes(filtered);
 }

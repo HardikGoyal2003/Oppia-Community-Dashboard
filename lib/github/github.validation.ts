@@ -622,22 +622,52 @@ export function parseRateLimitBucket(
 }
 
 /**
- * Validates the REST `/rate_limit` response.
+ * Validates an optional rate limit bucket.
  *
  * @param value The value to validate.
  * @param context A description of where the value came from.
- * @returns The validated GraphQL rate limit bucket.
+ * @returns The validated bucket, or null when GitHub omitted it.
+ */
+function parseOptionalRateLimitBucket(
+  value: JsonValue,
+  context: string,
+): GitHubRateLimitPayload | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  return parseRateLimitBucket(value, context);
+}
+
+/**
+ * Validates the REST `/rate_limit` response.
+ *
+ * Both the core and GraphQL buckets are returned as-is so callers can report a
+ * missing bucket instead of inventing a healthy default.
+ *
+ * @param value The value to validate.
+ * @param context A description of where the value came from.
+ * @returns The validated rate limit buckets.
  */
 export function parseRateLimitResponse(
   value: JsonValue,
   context: string,
-): { resources: { graphql: GitHubRateLimitPayload } } {
+): {
+  resources: {
+    core: GitHubRateLimitPayload | null;
+    graphql: GitHubRateLimitPayload | null;
+  };
+} {
   const record = expectRecord(value, context);
   const resources = expectRecord(record.resources, `${context}.resources`);
 
   return {
     resources: {
-      graphql: parseRateLimitBucket(
+      core: parseOptionalRateLimitBucket(
+        resources.core,
+        `${context}.resources.core`,
+      ),
+      graphql: parseOptionalRateLimitBucket(
         resources.graphql,
         `${context}.resources.graphql`,
       ),

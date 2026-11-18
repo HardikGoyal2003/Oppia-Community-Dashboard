@@ -1,4 +1,4 @@
-import { requestGitHubGraphQL } from "./github.request";
+import { GitHubGraphQLError, requestGitHubGraphQL } from "./github.request";
 import type {
   GitHubDiscussionNode,
   GitHubGoodFirstIssueNode,
@@ -16,6 +16,7 @@ import {
   parsePageInfo,
   type GitHubPermission,
   type JsonValue,
+  type PageInfoPayload,
 } from "./github.validation";
 
 type GitHubIssuesPage = {
@@ -182,6 +183,41 @@ function parseOrgAndRepoAccessResponse(
 }
 
 /**
+ * Ensures a paginated GraphQL response actually advances its cursor.
+ *
+ * GitHub can report `hasNextPage: true` with a null or repeated cursor. Both
+ * cases would otherwise loop forever, so they are treated as invalid responses.
+ *
+ * @param pageInfo The validated page info for the response.
+ * @param requestedCursor The cursor sent with the request.
+ * @param context A description of the query for error details.
+ * @returns Nothing. Throws when another page is claimed without new progress.
+ */
+function assertCursorAdvanced(
+  pageInfo: PageInfoPayload,
+  requestedCursor: string | null,
+  context: string,
+): void {
+  if (!pageInfo.hasNextPage) {
+    return;
+  }
+
+  if (!pageInfo.endCursor) {
+    throw new GitHubGraphQLError(
+      `${context} reported another page without an end cursor.`,
+      ["endCursor: null"],
+    );
+  }
+
+  if (pageInfo.endCursor === requestedCursor) {
+    throw new GitHubGraphQLError(
+      `${context} returned the same cursor, refusing to loop.`,
+      [`endCursor: ${pageInfo.endCursor}`],
+    );
+  }
+}
+
+/**
  * Fetches recent repository issues from the last 15 days using paginated GraphQL requests.
  *
  * @param target The repository to fetch from.
@@ -242,9 +278,12 @@ export async function fetchRecentIssueNodes(
       },
     );
 
+    const pageInfo = data.repository.issues.pageInfo;
+    assertCursorAdvanced(pageInfo, cursor, "GitHub issues pagination");
+
     issues.push(...data.repository.issues.nodes);
-    hasNextPage = data.repository.issues.pageInfo.hasNextPage;
-    cursor = data.repository.issues.pageInfo.endCursor;
+    hasNextPage = pageInfo.hasNextPage;
+    cursor = pageInfo.endCursor;
   }
 
   return issues;
@@ -321,9 +360,8 @@ export async function fetchRecentDiscussionNodes(
       );
 
     const nodes = data.repository.discussions.nodes;
+    const pageInfo = data.repository.discussions.pageInfo;
     discussions.push(...nodes);
-    hasNextPage = data.repository.discussions.pageInfo.hasNextPage;
-    cursor = data.repository.discussions.pageInfo.endCursor;
 
     // Discussions are ordered by UPDATED_AT descending, so once the oldest
     // discussion on a page falls outside the window, every later page will too.
@@ -332,6 +370,10 @@ export async function fetchRecentDiscussionNodes(
     if (oldestUpdatedAt && new Date(oldestUpdatedAt).getTime() < cutoffTime) {
       break;
     }
+
+    assertCursorAdvanced(pageInfo, cursor, "GitHub discussions pagination");
+    hasNextPage = pageInfo.hasNextPage;
+    cursor = pageInfo.endCursor;
   }
 
   return discussions;
@@ -390,9 +432,16 @@ export async function fetchGoodFirstIssueNodes(
         },
       );
 
+    const pageInfo = data.search.pageInfo;
+    assertCursorAdvanced(
+      pageInfo,
+      cursor,
+      "GitHub good-first-issue pagination",
+    );
+
     issues.push(...data.search.nodes);
-    hasNextPage = data.search.pageInfo.hasNextPage;
-    cursor = data.search.pageInfo.endCursor;
+    hasNextPage = pageInfo.hasNextPage;
+    cursor = pageInfo.endCursor;
   }
 
   return issues;
