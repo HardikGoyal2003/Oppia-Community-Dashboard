@@ -228,7 +228,7 @@ export async function backfillSchemaVersions(options: {
         summary.failedCount += 1;
         logDbError(
           `Failed to persist migrated document ${chunk[index].ref.path}.`,
-          result.reason,
+          result.reason as object,
         );
       });
     }
@@ -276,7 +276,7 @@ export async function backfillSchemaVersions(options: {
         summary.failedCount += 1;
         logDbError(
           `Failed to backfill schema version for ${target.label}/${doc.id}.`,
-          error,
+          error as object,
         );
       }
     }

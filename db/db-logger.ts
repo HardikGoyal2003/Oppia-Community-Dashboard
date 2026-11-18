@@ -5,6 +5,17 @@
  * @param error The thrown error or failure reason.
  * @returns Nothing.
  */
-export function logDbError<T>(message: string, error: T): void {
+export function logDbError(
+  message: string,
+  error:
+    | object
+    | string
+    | number
+    | boolean
+    | bigint
+    | symbol
+    | null
+    | undefined,
+): void {
   console.error(`[db] ${message}`, error);
 }

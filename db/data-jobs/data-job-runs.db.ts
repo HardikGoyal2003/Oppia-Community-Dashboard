@@ -107,7 +107,10 @@ export async function listDataJobRuns(limit = 20): Promise<DataJobRun[]> {
     try {
       await batch.commit();
     } catch (error) {
-      logDbError("Failed to mark stale data job runs as failed.", error);
+      logDbError(
+        "Failed to mark stale data job runs as failed.",
+        error as object,
+      );
     }
   }
 
