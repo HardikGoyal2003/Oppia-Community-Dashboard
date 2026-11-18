@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-type DummyGeneratorKey = "team_reports" | "discussions";
+type DummyGeneratorKey = "team_reports" | "discussions" | "reviewers";
 
 export function DummyDataPanel() {
   const [loadingKey, setLoadingKey] = useState<DummyGeneratorKey | null>(null);
@@ -78,8 +78,8 @@ export function DummyDataPanel() {
         <h2 className="text-lg font-semibold text-slate-900">Dummy Data</h2>
         <p className="mt-2 text-sm text-slate-600">
           Generate deterministic sample team metadata, daily team metric
-          snapshots, and daily discussion metric snapshots for local UI
-          development.
+          snapshots, daily discussion metric snapshots, and reviewer teams for
+          local UI development.
         </p>
       </div>
 
@@ -88,7 +88,7 @@ export function DummyDataPanel() {
         <p className="text-sm text-emerald-700">{successMessage}</p>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
           <p className="text-sm text-slate-700">
             This writes sample records for `teams` and `dailyTeamMetrics` so the
@@ -124,6 +124,25 @@ export function DummyDataPanel() {
             {loadingKey === "discussions"
               ? "Generating..."
               : "Generate Discussions Dummy Data"}
+          </Button>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm text-slate-700">
+            This writes sample records for `teamReviewers` and `reviewers` so
+            the Reviewer Reports tab can render teams, members, stats, and
+            pending PRs.
+          </p>
+
+          <Button
+            className="mt-4"
+            onClick={() => handleGenerate("reviewers")}
+            disabled={loadingKey !== null}
+          >
+            <DatabaseZap className="mr-2 h-4 w-4" />
+            {loadingKey === "reviewers"
+              ? "Generating..."
+              : "Generate Reviewer Reports Dummy Data"}
           </Button>
         </div>
       </div>

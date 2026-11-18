@@ -78,7 +78,7 @@ export async function fetchUnansweredDiscussions(
 
   const rate = await fetchGitHubRateLimit();
   console.log("\nRate Limit:");
-  console.log(rate.rateLimit);
+  console.log(rate.graphql);
 
   return mapGitHubDiscussionNodes(filtered);
 }

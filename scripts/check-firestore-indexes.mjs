@@ -8,7 +8,8 @@ const indexTagPattern = /@firestore-index\s+(\S+)\s+([^*\n]+)/g;
 const whereFieldPattern = /\.where\(\s*["']([^"']+)["']/g;
 const orderByFieldPattern =
   /\.orderBy\(\s*["']([^"']+)["']\s*(?:,\s*["']([^"']+)["'])?/g;
-const queryMethodPattern = /(?:export\s+)?(?:async\s+)?function\s+\w+\s*\([^)]*\)/g;
+const queryMethodPattern =
+  /(?:export\s+)?(?:async\s+)?function\s+\w+\s*\([^)]*\)/g;
 
 /**
  * Recursively lists database-layer files that contain Firestore queries.
@@ -173,7 +174,10 @@ async function main() {
       }
 
       const queryFields = [
-        ...new Set([...whereFields, ...orderByFields.map((field) => field.field)]),
+        ...new Set([
+          ...whereFields,
+          ...orderByFields.map((field) => field.field),
+        ]),
       ];
 
       const tags = getIndexTags(source, range);

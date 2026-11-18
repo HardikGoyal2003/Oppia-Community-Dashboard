@@ -48,5 +48,3 @@ export function useActionItems() {
     reload,
   };
 }
-
-export type UseActionItemsReturn = ReturnType<typeof useActionItems>;

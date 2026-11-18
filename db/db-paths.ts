@@ -36,4 +36,30 @@ export const DB_PATHS = {
   ORG_META: {
     COLLECTION: "orgMeta",
   },
+  TEAM_REVIEWERS: {
+    COLLECTION: "teamReviewers",
+  },
+  REVIEWERS: {
+    COLLECTION: "reviewers",
+  },
+  REVIEW_CYCLES: {
+    COLLECTION: "reviewCycles",
+  },
+  REVIEWER_CYCLE_AGGREGATES: {
+    COLLECTION: "reviewerCycleAggregates",
+  },
+  REVIEW_CYCLE_PR_STATS: {
+    COLLECTION: "reviewCyclePrStats",
+  },
+  REVIEW_CYCLE_MONTHLY_REVIEWERS: {
+    COLLECTION: "reviewCycleMonthlyReviewers",
+  },
+  REVIEW_CYCLE_ANALYTICS: {
+    COLLECTION: "reviewCycleAnalytics",
+    SNAPSHOT_DOC: "WEB",
+  },
+  REVIEW_CYCLE_BACKFILL: {
+    COLLECTION: "reviewCycleBackfill",
+    STATE_DOC: "state",
+  },
 } as const;

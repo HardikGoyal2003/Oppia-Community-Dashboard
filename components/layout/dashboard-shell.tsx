@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Map,
   MessageSquare,
+  Shield,
   Users,
 } from "lucide-react";
 import type { UserRole } from "@/lib/auth/auth.types";
@@ -40,6 +41,11 @@ function getSidebarItems(role: UserRole): SidebarNavigationItem[] {
           name: "Team Reports",
           icon: BarChart3,
           url: "/dashboard/team-reports",
+        },
+        {
+          name: "Reviewer Reports",
+          icon: Shield,
+          url: "/dashboard/reviewer-teams",
         },
         {
           name: "Unanswered Issues",
