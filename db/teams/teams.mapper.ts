@@ -41,18 +41,6 @@ function assertNonNegativeNumber(
 }
 
 /**
- * Validates the total GFI count stored on a team document.
- *
- * @param gfiCount The total GFI count candidate.
- * @returns Nothing. Throws when the value is invalid.
- */
-function assertFirestoreGfiCount(
-  gfiCount: number | undefined,
-): asserts gfiCount is number {
-  assertNonNegativeNumber(gfiCount, "gfiCount");
-}
-
-/**
  * Validates the nested team leads array stored on a team document.
  *
  * @param leads The nested leads array candidate.
@@ -144,7 +132,7 @@ function assertFirestoreTeam(
 
   assertFirestoreTeamLeads(team.leads);
   assertFirestoreTeamMembers(team.members);
-  assertFirestoreGfiCount(team.gfiCount);
+  assertNonNegativeNumber(team.gfiCount, "gfiCount");
 
   assertTimestamp("Team", "lastUpdated", team.lastUpdated);
   assertSchemaVersion(SCHEMA_KEYS.TEAMS, team.schemaVersion);

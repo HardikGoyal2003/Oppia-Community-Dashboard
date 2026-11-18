@@ -229,13 +229,14 @@ export async function updateUserRoleAndTeamWithNotificationByUid(
     team,
     githubUsername,
   });
-  batch.set(notificationRef, {
-    ...serializeNotification({
+  batch.set(
+    notificationRef,
+    serializeNotification({
       message,
       read: false,
       createdAt: new Date(),
     }),
-  });
+  );
 
   await batch.commit();
 }
@@ -253,13 +254,14 @@ function appendNotificationInTransaction(
   userDocRef: FirebaseFirestore.DocumentReference<FirestoreUser>,
   message: string,
 ): void {
-  tx.set(getUserNotificationsCollection(userDocRef).doc(), {
-    ...serializeNotification({
+  tx.set(
+    getUserNotificationsCollection(userDocRef).doc(),
+    serializeNotification({
       message,
       read: false,
       createdAt: new Date(),
     }),
-  });
+  );
 }
 
 /**
