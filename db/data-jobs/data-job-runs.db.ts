@@ -1,3 +1,4 @@
+import { Timestamp } from "firebase-admin/firestore";
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import type { DataJobRun } from "@/lib/domain/data-jobs.types";
 import { DB_PATHS } from "@/db/db-paths";
@@ -85,8 +86,10 @@ export async function listDataJobRuns(limit = 20): Promise<DataJobRun[]> {
       .map((doc) => doc.id),
   );
 
+  let staleFinishedAt: Date | null = null;
+
   if (staleRunIds.size > 0) {
-    const finishedAt = new Date();
+    staleFinishedAt = new Date();
     const batch = dataJobRunsCollection.firestore.batch();
 
     for (const doc of snapshot.docs) {
@@ -98,7 +101,7 @@ export async function listDataJobRuns(limit = 20): Promise<DataJobRun[]> {
         status: "FAILED",
         summary: "Job failed.",
         errorMessage: STALE_RUN_ERROR_MESSAGE,
-        finishedAt,
+        finishedAt: Timestamp.fromDate(staleFinishedAt),
       });
     }
 
@@ -112,7 +115,7 @@ export async function listDataJobRuns(limit = 20): Promise<DataJobRun[]> {
   return snapshot.docs.map((doc) => {
     const run = normalizeDataJobRunDocument(doc.id, doc.data());
 
-    if (!staleRunIds.has(doc.id)) {
+    if (!staleRunIds.has(doc.id) || !staleFinishedAt) {
       return run;
     }
 
@@ -121,7 +124,7 @@ export async function listDataJobRuns(limit = 20): Promise<DataJobRun[]> {
       status: "FAILED",
       summary: "Job failed.",
       errorMessage: STALE_RUN_ERROR_MESSAGE,
-      finishedAt: new Date(),
+      finishedAt: staleFinishedAt,
     };
   });
 }
@@ -144,7 +147,7 @@ export async function markDataJobRunSucceeded(
     status: "SUCCEEDED",
     summary,
     errorMessage: null,
-    finishedAt: new Date(),
+    finishedAt: Timestamp.now(),
   });
 }
 
@@ -166,6 +169,6 @@ export async function markDataJobRunFailed(
     status: "FAILED",
     summary: "Job failed.",
     errorMessage,
-    finishedAt: new Date(),
+    finishedAt: Timestamp.now(),
   });
 }
