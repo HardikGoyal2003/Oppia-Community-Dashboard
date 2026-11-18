@@ -17,7 +17,7 @@ interface GitHubLabel {
 
 interface GitHubCommentConnection {
   nodes: {
-    author: GitHubUser;
+    author: GitHubUser | null;
     createdAt: string;
   }[];
 }

@@ -1,6 +1,14 @@
 import { requestGitHubRest, requestGitHubRestAll } from "./github.rest";
 import { requestGitHubGraphQL } from "./github.request";
 import { fetchGitHubRateLimit } from "./github.rate-limit";
+import {
+  parseGitHubInlineComment,
+  parseGitHubPullRequest,
+  parseGitHubReview,
+  parseGitHubTimelineEvent,
+  parseIssueCountRecord,
+  parseSearchResponse,
+} from "./github.validation";
 
 const ORG = "oppia";
 const REPO = "oppia";
@@ -48,7 +56,7 @@ type CycleRecordsResult = {
 };
 
 type GitHubReviewResponse = {
-  user: { login: string };
+  user: { login: string } | null;
   state: string;
   body: string | null;
   submitted_at: string;
@@ -63,7 +71,7 @@ export type GitHubPullResponse = {
   user: { login: string } | null;
   assignees: Array<{ login: string }> | null;
   requested_teams: Array<{ slug: string }>;
-  pull_request?: Record<string, string>;
+  pull_request?: object;
   /** Present on single-PR REST responses, absent from search results. */
   additions?: number;
   changed_files?: number;
@@ -84,7 +92,7 @@ export type OpenPRAssignment = {
 };
 
 type InlineComment = {
-  user: { login: string };
+  user: { login: string } | null;
   body: string;
 };
 
@@ -141,6 +149,7 @@ export async function fetchAssignedPRs(): Promise<MemberPRMap> {
 
   const prs = await requestGitHubRestAll<GitHubPullResponse>(
     `/repos/${ORG}/${REPO}/pulls?state=open`,
+    parseGitHubPullRequest,
   );
 
   console.log(`Found ${prs.length} open PRs.`);
@@ -161,6 +170,7 @@ export async function fetchAssignedPRs(): Promise<MemberPRMap> {
 
     const timelineEvents = await requestGitHubRestAll<TimelineEvent>(
       `/repos/${ORG}/${REPO}/issues/${pr.number}/timeline`,
+      parseGitHubTimelineEvent,
     );
 
     const assignmentTimestamps = getMostRecentAssignments(
@@ -458,15 +468,19 @@ async function fetchPRTimelineAndReviews(prNumber: number): Promise<{
     await Promise.all([
       requestGitHubRestAll<TimelineEvent>(
         `/repos/${ORG}/${REPO}/issues/${prNumber}/timeline`,
+        parseGitHubTimelineEvent,
       ),
       requestGitHubRestAll<GitHubReviewResponse>(
         `/repos/${ORG}/${REPO}/pulls/${prNumber}/reviews`,
+        parseGitHubReview,
       ),
       requestGitHubRestAll<InlineComment>(
         `/repos/${ORG}/${REPO}/pulls/${prNumber}/comments`,
+        parseGitHubInlineComment,
       ),
       requestGitHubRest<GitHubPullResponse>(
         `/repos/${ORG}/${REPO}/pulls/${prNumber}`,
+        parseGitHubPullRequest,
       ),
     ]);
   return { timelineEvents, reviews, inlineComments, pullRequest };
@@ -493,6 +507,7 @@ async function searchPullRequests(
       GitHubSearchResponse<GitHubPullResponse>
     >(
       `/search/issues?q=${query}&sort=${sort}&order=desc&per_page=${SEARCH_PER_PAGE}&page=${page}`,
+      parseSearchResponse(parseGitHubPullRequest),
     );
 
     items.push(...searchResult.items);
@@ -773,7 +788,7 @@ export async function fetchAuthoredPrCounts(
 
     const data = await requestGitHubGraphQL<
       Record<string, { issueCount: number }>
-    >(query, variables);
+    >(query, parseIssueCountRecord, variables);
 
     chunk.forEach((login, index) => {
       result.set(login, data[`u${index}`]?.issueCount ?? 0);

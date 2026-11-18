@@ -1,11 +1,10 @@
 import { requestGitHubRest, getCoreRateLimit } from "./github.rest";
+import {
+  parseRateLimitResponse,
+  type GitHubRateLimitPayload,
+} from "./github.validation";
 
-type GraphQLRateLimit = {
-  limit: number;
-  remaining: number;
-  used: number;
-  reset: number;
-};
+type GraphQLRateLimit = GitHubRateLimitPayload;
 
 /**
  * Fetches the current GitHub rate limits from the REST endpoint and
@@ -32,7 +31,7 @@ export async function fetchGitHubRateLimit(): Promise<{
   try {
     const data = await requestGitHubRest<{
       resources: { graphql: GraphQLRateLimit };
-    }>("/rate_limit");
+    }>("/rate_limit", parseRateLimitResponse);
     graphql = data.resources.graphql;
   } catch {
     // Fall back to defaults if the rate limit endpoint fails.

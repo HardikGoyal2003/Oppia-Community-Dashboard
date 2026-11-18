@@ -1,4 +1,3 @@
-import { GitHubGraphQLError } from "./github.request";
 import { requestGitHubGraphQL } from "./github.request";
 import type {
   GitHubDiscussionNode,
@@ -7,8 +6,17 @@ import type {
   GitHubRepoTarget,
   GitHubUser,
 } from "./github.types";
-
-type Permission = "READ" | "TRIAGE" | "WRITE" | "MAINTAIN" | "ADMIN";
+import {
+  expectRecord,
+  parseArray,
+  parseGitHubDiscussionNode,
+  parseGitHubGoodFirstIssueNode,
+  parseGitHubIssueNode,
+  parseOrgAndRepoAccess,
+  parsePageInfo,
+  type GitHubPermission,
+  type JsonValue,
+} from "./github.validation";
 
 type GitHubIssuesPage = {
   nodes: GitHubIssueNode[];
@@ -42,7 +50,7 @@ type GoodFirstIssuesSearchResponse = {
 };
 
 type CollaboratorEdge = {
-  permission: Permission;
+  permission: GitHubPermission;
   node: GitHubUser;
 };
 
@@ -60,130 +68,117 @@ type OrgAndRepoAccessResult = {
 };
 
 /**
- * Validates that the GitHub issues response contains the nested structures required by the fetcher.
+ * Validates the GitHub issues response, including every issue node and the
+ * pagination metadata.
  *
- * @param response The parsed issues response payload.
- * @returns Nothing. Throws when the response shape is incomplete.
+ * @param value The parsed issues response payload.
+ * @param context A description of where the value came from.
+ * @returns The validated issues response.
  */
-function assertIssuesResponse(response: IssuesResponse): void {
-  if (!response.repository) {
-    throw new GitHubGraphQLError(
-      "GitHub issues response is missing repository data.",
-      [],
-    );
-  }
+function parseIssuesResponse(
+  value: JsonValue,
+  context: string,
+): IssuesResponse {
+  const record = expectRecord(value, context);
+  const repository = expectRecord(record.repository, `${context}.repository`);
+  const issues = expectRecord(
+    repository.issues,
+    `${context}.repository.issues`,
+  );
 
-  if (!response.repository.issues) {
-    throw new GitHubGraphQLError(
-      "GitHub issues response is missing issues data.",
-      [],
-    );
-  }
-
-  if (!Array.isArray(response.repository.issues.nodes)) {
-    throw new GitHubGraphQLError(
-      "GitHub issues response contains invalid issue nodes.",
-      [],
-    );
-  }
-
-  if (!response.repository.issues.pageInfo) {
-    throw new GitHubGraphQLError(
-      "GitHub issues response is missing pagination data.",
-      [],
-    );
-  }
+  return {
+    repository: {
+      issues: {
+        nodes: parseArray(
+          issues.nodes,
+          `${context}.repository.issues.nodes`,
+          parseGitHubIssueNode,
+        ),
+        pageInfo: parsePageInfo(
+          issues.pageInfo,
+          `${context}.repository.issues.pageInfo`,
+        ),
+      },
+    },
+  };
 }
 
 /**
- * Validates that the GitHub discussions response contains the nested structures required by the fetcher.
+ * Validates the GitHub discussions response, including every discussion node
+ * and the pagination metadata.
  *
- * @param response The parsed discussions response payload.
- * @returns Nothing. Throws when the response shape is incomplete.
+ * @param value The parsed discussions response payload.
+ * @param context A description of where the value came from.
+ * @returns The validated discussions response.
  */
-function assertDiscussionsResponse(response: DiscussionsResponse): void {
-  if (!response.repository) {
-    throw new GitHubGraphQLError(
-      "GitHub discussions response is missing repository data.",
-      [],
-    );
-  }
+function parseDiscussionsResponse(
+  value: JsonValue,
+  context: string,
+): DiscussionsResponse {
+  const record = expectRecord(value, context);
+  const repository = expectRecord(record.repository, `${context}.repository`);
+  const discussions = expectRecord(
+    repository.discussions,
+    `${context}.repository.discussions`,
+  );
 
-  if (!response.repository.discussions) {
-    throw new GitHubGraphQLError(
-      "GitHub discussions response is missing discussions data.",
-      [],
-    );
-  }
-
-  if (!Array.isArray(response.repository.discussions.nodes)) {
-    throw new GitHubGraphQLError(
-      "GitHub discussions response contains invalid discussion nodes.",
-      [],
-    );
-  }
-
-  if (!response.repository.discussions.pageInfo) {
-    throw new GitHubGraphQLError(
-      "GitHub discussions response is missing pagination data.",
-      [],
-    );
-  }
+  return {
+    repository: {
+      discussions: {
+        nodes: parseArray(
+          discussions.nodes,
+          `${context}.repository.discussions.nodes`,
+          parseGitHubDiscussionNode,
+        ),
+        pageInfo: parsePageInfo(
+          discussions.pageInfo,
+          `${context}.repository.discussions.pageInfo`,
+        ),
+      },
+    },
+  };
 }
 
 /**
- * Validates that the GitHub good-first-issues search response contains the nested structures required by the fetcher.
+ * Validates the good-first-issues search response, including every node and
+ * the pagination metadata.
  *
- * @param response The parsed good-first-issues response payload.
- * @returns Nothing. Throws when the response shape is incomplete.
+ * @param value The parsed good-first-issues response payload.
+ * @param context A description of where the value came from.
+ * @returns The validated good-first-issues response.
  */
-function assertGoodFirstIssuesResponse(
-  response: GoodFirstIssuesSearchResponse,
-): void {
-  if (!response.search) {
-    throw new GitHubGraphQLError(
-      "GitHub GFI response is missing search data.",
-      [],
-    );
-  }
+function parseGoodFirstIssuesResponse(
+  value: JsonValue,
+  context: string,
+): GoodFirstIssuesSearchResponse {
+  const record = expectRecord(value, context);
+  const search = expectRecord(record.search, `${context}.search`);
 
-  if (!Array.isArray(response.search.nodes)) {
-    throw new GitHubGraphQLError(
-      "GitHub GFI response contains invalid issue nodes.",
-      [],
-    );
-  }
-
-  if (!response.search.pageInfo) {
-    throw new GitHubGraphQLError(
-      "GitHub GFI response is missing pagination data.",
-      [],
-    );
-  }
+  return {
+    search: {
+      nodes: parseArray(
+        search.nodes,
+        `${context}.search.nodes`,
+        parseGitHubGoodFirstIssueNode,
+      ),
+      pageInfo: parsePageInfo(search.pageInfo, `${context}.search.pageInfo`),
+    },
+  };
 }
 
 /**
- * Validates that the organization/collaborator response contains the nested structures required by the fetcher.
+ * Validates the organization/collaborator response, including member logins
+ * and collaborator permission values.
  *
- * @param response The parsed organization/collaborator response payload.
- * @returns Nothing. Throws when the response shape is incomplete.
+ * @param value The parsed organization/collaborator response payload.
+ * @param context A description of where the value came from.
+ * @returns The validated access response.
  */
-function assertOrgAndRepoAccessResponse(
-  response: OrgAndRepoAccessResult,
-): void {
-  if (!response.organization?.membersWithRole?.nodes) {
-    throw new GitHubGraphQLError(
-      "GitHub organization response is missing member data.",
-      [],
-    );
-  }
-
-  if (!response.repository?.collaborators?.edges) {
-    throw new GitHubGraphQLError(
-      "GitHub repository response is missing collaborator data.",
-      [],
-    );
-  }
+function parseOrgAndRepoAccessResponse(
+  value: JsonValue,
+  context: string,
+): OrgAndRepoAccessResult {
+  return parseOrgAndRepoAccess(value, context);
 }
 
 /**
@@ -238,6 +233,7 @@ export async function fetchRecentIssueNodes(
   while (hasNextPage) {
     const data: IssuesResponse = await requestGitHubGraphQL<IssuesResponse>(
       query,
+      parseIssuesResponse,
       {
         owner: target.owner,
         repo: target.repo,
@@ -245,7 +241,6 @@ export async function fetchRecentIssueNodes(
         since,
       },
     );
-    assertIssuesResponse(data);
 
     issues.push(...data.repository.issues.nodes);
     hasNextPage = data.repository.issues.pageInfo.hasNextPage;
@@ -315,12 +310,15 @@ export async function fetchRecentDiscussionNodes(
 
   while (hasNextPage) {
     const data: DiscussionsResponse =
-      await requestGitHubGraphQL<DiscussionsResponse>(query, {
-        owner: target.owner,
-        repo: target.repo,
-        cursor,
-      });
-    assertDiscussionsResponse(data);
+      await requestGitHubGraphQL<DiscussionsResponse>(
+        query,
+        parseDiscussionsResponse,
+        {
+          owner: target.owner,
+          repo: target.repo,
+          cursor,
+        },
+      );
 
     const nodes = data.repository.discussions.nodes;
     discussions.push(...nodes);
@@ -383,11 +381,14 @@ export async function fetchGoodFirstIssueNodes(
 
   while (hasNextPage) {
     const data: GoodFirstIssuesSearchResponse =
-      await requestGitHubGraphQL<GoodFirstIssuesSearchResponse>(query, {
-        cursor,
-        searchQuery,
-      });
-    assertGoodFirstIssuesResponse(data);
+      await requestGitHubGraphQL<GoodFirstIssuesSearchResponse>(
+        query,
+        parseGoodFirstIssuesResponse,
+        {
+          cursor,
+          searchQuery,
+        },
+      );
 
     issues.push(...data.search.nodes);
     hasNextPage = data.search.pageInfo.hasNextPage;
@@ -424,10 +425,13 @@ export async function fetchOrgAndCollaboratorAccess(
     }
   `;
 
-  const response = await requestGitHubGraphQL<OrgAndRepoAccessResult>(query, {
-    owner: target.owner,
-    repo: target.repo,
-  });
-  assertOrgAndRepoAccessResponse(response);
+  const response = await requestGitHubGraphQL<OrgAndRepoAccessResult>(
+    query,
+    parseOrgAndRepoAccessResponse,
+    {
+      owner: target.owner,
+      repo: target.repo,
+    },
+  );
   return response;
 }
