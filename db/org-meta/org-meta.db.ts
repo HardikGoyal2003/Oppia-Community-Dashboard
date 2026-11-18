@@ -28,13 +28,7 @@ export async function getOrgMeta(
     return null;
   }
 
-  const data = snapshot.data();
-
-  if (!data) {
-    return null;
-  }
-
-  return normalizeOrgMetaDocument(data);
+  return normalizeOrgMetaDocument(snapshot.data()!);
 }
 
 /**

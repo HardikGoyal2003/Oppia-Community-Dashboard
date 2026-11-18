@@ -24,9 +24,7 @@ export async function getTeamReviewers(
 ): Promise<TeamReviewersDocument | null> {
   const snapshot = await collection.doc(platform).get();
   if (!snapshot.exists) return null;
-  const data = snapshot.data();
-  if (!data) return null;
-  return normalizeTeamReviewers(data);
+  return normalizeTeamReviewers(snapshot.data()!);
 }
 
 /**
