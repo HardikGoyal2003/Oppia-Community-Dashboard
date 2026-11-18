@@ -3,22 +3,12 @@ import {
   readEnv,
   readEnvWithDefault,
   readNumberEnv,
-  requireEnv,
 } from "@/lib/config/env";
 
 type FirebaseRuntimeConfig = {
   useFirestoreEmulator: boolean;
   firestoreEmulatorHost: string;
   firestoreEmulatorPort: number;
-};
-
-type FirebaseClientConfig = {
-  apiKey: string;
-  authDomain: string;
-  projectId: string;
-  storageBucket: string;
-  messagingSenderId: string;
-  appId: string;
 };
 
 /**
@@ -57,29 +47,4 @@ export function getFirebaseAdminProjectId(): string {
       "demo-oppia-community-dashboard",
     ),
   );
-}
-
-/**
- * Returns the Firebase project id for the client SDK.
- *
- * @returns The client-side Firebase project id.
- */
-function getFirebaseClientProjectId(): string {
-  return requireEnv("NEXT_PUBLIC_FIREBASE_PROJECT_ID");
-}
-
-/**
- * Returns the required Firebase client SDK configuration.
- *
- * @returns The validated Firebase client configuration.
- */
-export function getFirebaseClientConfig(): FirebaseClientConfig {
-  return {
-    apiKey: requireEnv("NEXT_PUBLIC_FIREBASE_API_KEY"),
-    authDomain: requireEnv("NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN"),
-    projectId: getFirebaseClientProjectId(),
-    storageBucket: requireEnv("NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET"),
-    messagingSenderId: requireEnv("NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID"),
-    appId: requireEnv("NEXT_PUBLIC_FIREBASE_APP_ID"),
-  };
 }
