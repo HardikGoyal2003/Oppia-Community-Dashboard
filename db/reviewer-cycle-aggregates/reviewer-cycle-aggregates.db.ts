@@ -7,6 +7,11 @@ import {
   type ReviewerCycleAggregateDocument,
 } from "./reviewer-cycle-aggregates.mapper";
 
+type ReviewerCycleAggregateWrite = Omit<
+  ReviewerCycleAggregateDocument,
+  "schemaVersion"
+>;
+
 const db = getAdminFirestore();
 const collection = db.collection(DB_PATHS.REVIEWER_CYCLE_AGGREGATES.COLLECTION);
 
@@ -38,7 +43,7 @@ export async function getReviewerCycleAggregates(
  * @returns A promise that resolves after every chunk is written.
  */
 export async function upsertReviewerCycleAggregates(
-  entries: Array<{ login: string; aggregate: ReviewerCycleAggregateDocument }>,
+  entries: Array<{ login: string; aggregate: ReviewerCycleAggregateWrite }>,
 ): Promise<void> {
   for (
     let start = 0;

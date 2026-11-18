@@ -57,7 +57,9 @@ export async function getReviewCycleAggregatesForLogins(
  *
  * @returns The rebuilt analytics.
  */
-async function rebuildReviewCycleAnalytics(): Promise<ReviewerTeamsAnalytics> {
+async function rebuildReviewCycleAnalytics(): Promise<
+  Omit<ReviewerTeamsAnalytics, "schemaVersion">
+> {
   const records = await getAllReviewCycles();
 
   const prStats = new Map<
@@ -135,7 +137,9 @@ async function rebuildReviewCycleAnalytics(): Promise<ReviewerTeamsAnalytics> {
  *
  * @returns The freshly computed analytics.
  */
-export async function refreshReviewCycleAnalytics(): Promise<ReviewerTeamsAnalytics> {
+export async function refreshReviewCycleAnalytics(): Promise<
+  Omit<ReviewerTeamsAnalytics, "schemaVersion">
+> {
   return rebuildReviewCycleAnalytics();
 }
 

@@ -12,10 +12,6 @@ import {
   TEAM_DEFINITIONS_BY_KEY,
 } from "@/lib/domain/team-definitions";
 import { getTeamReportsSnapshot } from "@/lib/team-reports/team-reports.service";
-import {
-  SCHEMA_KEYS,
-  getCurrentSchemaVersion,
-} from "@/db/schema/schema-version";
 
 /**
  * Builds the document id for an action item. Items live at
@@ -69,7 +65,7 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
     existingItems.map((item) => [`${item.teamId}/${item.id}`, item]),
   );
   const now = new Date();
-  const itemsToUpsert: ActionItemModel[] = [];
+  const itemsToUpsert: Array<Omit<ActionItemModel, "schemaVersion">> = [];
   const touchedKeys = new Set<string>();
 
   let createdCount = 0;
@@ -103,15 +99,15 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
           notificationCount: 0,
           createdAt: now,
           updatedAt: now,
-          schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.ACTION_ITEMS),
         });
         continue;
       }
 
       updatedCount += 1;
+      const { schemaVersion: _schemaVersion, ...priorItem } = prior;
 
       itemsToUpsert.push({
-        ...prior,
+        ...priorItem,
         teamName: report.teamName,
         message: step.message,
         priority: step.priority,

@@ -127,9 +127,12 @@ export async function getActionItemsByTeamId(
  * @returns A promise that resolves when all batches are committed.
  */
 export async function upsertActionItems(
-  items: ActionItemModel[],
+  items: Array<Omit<ActionItemModel, "schemaVersion">>,
 ): Promise<void> {
-  const byTeam = new Map<string, ActionItemModel[]>();
+  const byTeam = new Map<
+    string,
+    Array<Omit<ActionItemModel, "schemaVersion">>
+  >();
 
   for (const item of items) {
     const existing = byTeam.get(item.teamId);

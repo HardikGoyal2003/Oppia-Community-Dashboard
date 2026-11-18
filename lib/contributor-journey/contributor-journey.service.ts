@@ -15,10 +15,8 @@ import {
   markManualJourneyItemCompletedByUid,
   saveUserJourneyProgressByUid,
 } from "@/db/user-journey-progress/user-journey-progress.db";
-import {
-  SCHEMA_KEYS,
-  getCurrentSchemaVersion,
-} from "@/db/schema/schema-version";
+
+type UserJourneyProgressWrite = Omit<UserJourneyProgressModel, "schemaVersion">;
 
 type ContributorJourneyItemSnapshot = ContributorJourneyChecklistItem & {
   completed: boolean;
@@ -61,7 +59,7 @@ function getCompletionType(item: ContributorJourneyChecklistItem) {
  */
 function buildDefaultJourneyProgress(
   platform: ContributionPlatform,
-): UserJourneyProgressModel {
+): UserJourneyProgressWrite {
   const items = CONTRIBUTOR_JOURNEY_CONTENT[platform].tasks.flatMap(
     (task) => task.items,
   );
@@ -91,7 +89,6 @@ function buildDefaultJourneyProgress(
     ),
     platform,
     updatedAt: new Date(),
-    schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.USER_JOURNEY_PROGRESS),
   };
 }
 
@@ -107,7 +104,7 @@ function ensureJourneyProgressShape(
   platform: ContributionPlatform,
 ): {
   changed: boolean;
-  progress: UserJourneyProgressModel;
+  progress: UserJourneyProgressWrite;
 } {
   if (!progress || progress.platform !== platform) {
     return {
@@ -135,17 +132,24 @@ function ensureJourneyProgressShape(
     }
   }
 
+  if (!changed) {
+    const { schemaVersion: _schemaVersion, ...existingProgress } = progress;
+    return {
+      changed: false,
+      progress: existingProgress,
+    };
+  }
+
+  const { schemaVersion: _schemaVersion, ...progressWithoutSchema } = progress;
   return {
-    changed,
-    progress: changed
-      ? {
-          ...progress,
-          derivedState,
-          manualProgress,
-          platform,
-          updatedAt: new Date(),
-        }
-      : progress,
+    changed: true,
+    progress: {
+      ...progressWithoutSchema,
+      derivedState,
+      manualProgress,
+      platform,
+      updatedAt: new Date(),
+    },
   };
 }
 
@@ -156,7 +160,7 @@ function ensureJourneyProgressShape(
  * @returns The API-safe progress snapshot.
  */
 function toJourneyProgressSnapshot(
-  progress: UserJourneyProgressModel,
+  progress: UserJourneyProgressWrite,
 ): JourneyProgressSnapshot {
   return {
     createdAt: progress.createdAt.toISOString(),
@@ -194,7 +198,7 @@ function toJourneyProgressSnapshot(
  */
 function getDerivedCompletionState(
   item: ContributorJourneyChecklistItem,
-  progress: UserJourneyProgressModel,
+  progress: UserJourneyProgressWrite,
 ): {
   completed: boolean;
   completedAt: Date | null;
@@ -220,7 +224,7 @@ function getDerivedCompletionState(
  */
 function buildJourneyTaskSnapshots(
   platform: ContributionPlatform,
-  progress: UserJourneyProgressModel,
+  progress: UserJourneyProgressWrite,
 ): ContributorJourneyTaskSnapshot[] {
   return CONTRIBUTOR_JOURNEY_CONTENT[platform].tasks.map((task) => {
     let previousBlockingManualCompleted = true;
@@ -295,7 +299,7 @@ function getManualItemById(
  */
 function isManualItemLocked(
   platform: ContributionPlatform,
-  progress: UserJourneyProgressModel,
+  progress: UserJourneyProgressWrite,
   itemId: string,
 ): boolean {
   for (const task of CONTRIBUTOR_JOURNEY_CONTENT[platform].tasks) {
@@ -336,7 +340,7 @@ function isManualItemLocked(
 export async function getContributorJourneySnapshotByUid(
   uid: string,
   platform: ContributionPlatform,
-  progress?: UserJourneyProgressModel,
+  progress?: UserJourneyProgressWrite,
 ): Promise<ContributorJourneySnapshot> {
   const ensuredProgress =
     progress ?? (await getContributorJourneyStoredProgressByUid(uid, platform));
@@ -377,7 +381,7 @@ export async function getContributorJourneySnapshotByUid(
 export async function getContributorJourneyStoredProgressByUid(
   uid: string,
   platform: ContributionPlatform,
-): Promise<UserJourneyProgressModel> {
+): Promise<UserJourneyProgressWrite> {
   const currentProgress = await getUserJourneyProgressByUid(uid);
   const ensured = ensureJourneyProgressShape(currentProgress, platform);
 
@@ -400,7 +404,7 @@ export async function markContributorJourneyManualItemCompletedByUid(
   uid: string,
   platform: ContributionPlatform,
   itemId: string,
-): Promise<UserJourneyProgressModel> {
+): Promise<UserJourneyProgressWrite> {
   const ensured = ensureJourneyProgressShape(
     await getUserJourneyProgressByUid(uid),
     platform,

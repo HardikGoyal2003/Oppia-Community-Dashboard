@@ -1,8 +1,4 @@
 import { DbValidationError } from "@/db/db.errors";
-import {
-  SCHEMA_KEYS,
-  getCurrentSchemaVersion,
-} from "@/db/schema/schema-version";
 import type {
   ReviewerApprovalShare,
   ReviewerTeamsAnalytics,
@@ -305,7 +301,7 @@ export function buildAnalytics(
   monthlyLogins: Map<string, Set<string>>,
   approvalsByReviewer: Map<string, number>,
   prStats: Iterable<PrScatterSource>,
-): ReviewerTeamsAnalytics {
+): Omit<ReviewerTeamsAnalytics, "schemaVersion"> {
   const totalApprovals = Array.from(approvalsByReviewer.values()).reduce(
     (sum, count) => sum + count,
     0,
@@ -334,6 +330,5 @@ export function buildAnalytics(
     topApprovers,
     prSizeScatter: buildScatter(prStats),
     totalApprovals,
-    schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.REVIEW_CYCLE_ANALYTICS),
   };
 }

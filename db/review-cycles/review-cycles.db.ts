@@ -177,7 +177,7 @@ export async function getReviewCycleAnalyticsSnapshot(): Promise<ReviewerTeamsAn
  * @returns A promise that resolves when the snapshot is written.
  */
 export async function saveReviewCycleAnalyticsSnapshot(
-  analytics: ReviewerTeamsAnalytics,
+  analytics: Omit<ReviewerTeamsAnalytics, "schemaVersion">,
 ): Promise<void> {
   await analyticsDoc.set(serializeReviewCycleAnalytics(analytics));
 }

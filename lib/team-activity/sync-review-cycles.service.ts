@@ -27,6 +27,7 @@ import {
   applyReviewCycleContribution,
   createEmptyReviewerCycleAggregate,
   reviewCycleAggregateToDocument,
+  type ReviewerCycleAggregateWrite,
 } from "@/lib/team-activity/reviewer-cycle-aggregate";
 
 type SyncSummary = {
@@ -198,7 +199,7 @@ export async function refreshReviewerStats(
   const aggregates = new Map<string, ReviewCycleAggregate>();
   const aggregateWrites: Array<{
     login: string;
-    aggregate: ReturnType<typeof createEmptyReviewerCycleAggregate>;
+    aggregate: ReviewerCycleAggregateWrite;
   }> = [];
 
   for (const login of targetLogins) {

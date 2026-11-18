@@ -1,19 +1,20 @@
-import {
-  SCHEMA_KEYS,
-  getCurrentSchemaVersion,
-} from "@/db/schema/schema-version";
 import type {
   ReviewCycleAggregate,
   ReviewCycleLoginContribution,
 } from "@/lib/reviewer-teams/review-cycle-analytics";
 import type { ReviewerCycleAggregateDocument } from "@/db/reviewer-cycle-aggregates/reviewer-cycle-aggregates.mapper";
 
+export type ReviewerCycleAggregateWrite = Omit<
+  ReviewerCycleAggregateDocument,
+  "schemaVersion"
+>;
+
 /**
  * Creates an empty persisted reviewer aggregate.
  *
  * @returns An empty aggregate document.
  */
-export function createEmptyReviewerCycleAggregate(): ReviewerCycleAggregateDocument {
+export function createEmptyReviewerCycleAggregate(): ReviewerCycleAggregateWrite {
   return {
     completedReviews: 0,
     reviewedPrCount: 0,
@@ -26,9 +27,6 @@ export function createEmptyReviewerCycleAggregate(): ReviewerCycleAggregateDocum
     approvalsWithDuration: 0,
     activeWeeks: [],
     lastUpdated: new Date(),
-    schemaVersion: getCurrentSchemaVersion(
-      SCHEMA_KEYS.REVIEWER_CYCLE_AGGREGATES,
-    ),
   };
 }
 
@@ -44,9 +42,9 @@ export function createEmptyReviewerCycleAggregate(): ReviewerCycleAggregateDocum
  * @returns A new updated aggregate document.
  */
 export function applyReviewCycleContribution(
-  aggregate: ReviewerCycleAggregateDocument,
+  aggregate: ReviewerCycleAggregateWrite,
   contribution: ReviewCycleLoginContribution,
-): ReviewerCycleAggregateDocument {
+): ReviewerCycleAggregateWrite {
   const weeks = new Set(aggregate.activeWeeks);
   let reviewedPrCount = aggregate.reviewedPrCount;
   let approvedPrCount = aggregate.approvedPrCount;
@@ -69,8 +67,11 @@ export function applyReviewCycleContribution(
     }
   }
 
+  const { schemaVersion: _schemaVersion, ...aggregateWithoutSchema } =
+    aggregate as ReviewerCycleAggregateDocument;
+
   return {
-    ...aggregate,
+    ...aggregateWithoutSchema,
     completedReviews:
       aggregate.completedReviews + contribution.completedReviews,
     reviewedPrCount,
@@ -96,7 +97,7 @@ export function applyReviewCycleContribution(
  * @returns The calculation aggregate.
  */
 export function aggregateDocumentToReviewCycleAggregate(
-  document: ReviewerCycleAggregateDocument,
+  document: ReviewerCycleAggregateWrite,
 ): ReviewCycleAggregate {
   return {
     completedReviews: document.completedReviews,
@@ -120,7 +121,7 @@ export function aggregateDocumentToReviewCycleAggregate(
  */
 export function reviewCycleAggregateToDocument(
   aggregate: ReviewCycleAggregate,
-): ReviewerCycleAggregateDocument {
+): ReviewerCycleAggregateWrite {
   return {
     completedReviews: aggregate.completedReviews,
     reviewedPrCount: aggregate.reviewedPrCount,
@@ -133,8 +134,5 @@ export function reviewCycleAggregateToDocument(
     approvalsWithDuration: aggregate.approvalsWithDuration,
     activeWeeks: Array.from(aggregate.activeWeeks),
     lastUpdated: new Date(),
-    schemaVersion: getCurrentSchemaVersion(
-      SCHEMA_KEYS.REVIEWER_CYCLE_AGGREGATES,
-    ),
   };
 }
