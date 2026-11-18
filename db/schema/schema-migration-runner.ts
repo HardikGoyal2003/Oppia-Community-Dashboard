@@ -185,7 +185,8 @@ function buildSchemaCollectionTargets(): SchemaCollectionTarget[] {
  * @param options Backfill options.
  * @param options.dryRun When true, scans and reports without writing.
  * @param options.timeBudgetMs Optional maximum time to spend before pausing.
- * @returns The number of scanned, migrated, and failed documents.
+ * @returns The number of scanned, migrated (or that would be migrated in a dry
+ * run), and failed documents.
  * @throws {Error} When the time budget is exhausted before every collection is
  * scanned. Re-running the job continues where the previous pass stopped because
  * documents already at the current version are skipped.

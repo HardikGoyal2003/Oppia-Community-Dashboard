@@ -217,13 +217,14 @@ async function backfillSchemaVersionsJob(
 ): Promise<DataJobResult> {
   const summary = await backfillSchemaVersions({ dryRun: context.dryRun });
   const suffix = context.dryRun ? " (dry run — no changes persisted)" : ".";
+  const action = context.dryRun ? "would be upgraded" : "upgraded";
   const failureSummary =
     summary.failedCount > 0
       ? ` ${summary.failedCount} document(s) could not be migrated.`
       : "";
 
   return {
-    summary: `Schema backfill completed. ${summary.migratedCount} of ${summary.scannedCount} document(s) upgraded${suffix}${failureSummary}`,
+    summary: `Schema backfill completed. ${summary.migratedCount} of ${summary.scannedCount} document(s) ${action}${suffix}${failureSummary}`,
   };
 }
 
