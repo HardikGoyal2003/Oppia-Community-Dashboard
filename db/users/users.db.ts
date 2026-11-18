@@ -2,6 +2,7 @@ import {
   ContributionPlatform,
   UserRole,
   UserModel,
+  isContributionPlatform,
 } from "@/lib/auth/auth.types";
 import { Timestamp } from "firebase-admin/firestore";
 import { DbValidationError } from "../db.errors";
@@ -196,6 +197,10 @@ export async function updateUserPlatformByUid(
   uid: string,
   platform: ContributionPlatform,
 ): Promise<void> {
+  if (!isContributionPlatform(platform)) {
+    throw new DbValidationError("platform", "platform must be WEB or ANDROID.");
+  }
+
   const userDocRef = await getRequiredUserDocRefByUid(uid);
 
   await userDocRef.update({ platform });

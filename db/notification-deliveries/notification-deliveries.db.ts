@@ -1,5 +1,6 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DB_PATHS } from "@/db/db-paths";
+import { DbValidationError } from "@/db/db.errors";
 import type { NotificationDeliveryModel } from "@/lib/domain/notifications.types";
 import {
   normalizeNotificationDeliveryDocument,
@@ -21,6 +22,13 @@ const notificationDeliveriesCollection = db.collection(
 export async function getNotificationDeliveryById(
   id: string,
 ): Promise<NotificationDeliveryModel | null> {
+  if (typeof id !== "string" || id.trim().length === 0) {
+    throw new DbValidationError(
+      "id",
+      "Notification delivery id must be a non-empty string.",
+    );
+  }
+
   const snapshot = await notificationDeliveriesCollection.doc(id).get();
 
   if (!snapshot.exists) {
@@ -40,6 +48,13 @@ export async function getNotificationDeliveryById(
 export async function recordNotificationDelivery(
   delivery: Omit<NotificationDeliveryModel, "schemaVersion">,
 ): Promise<void> {
+  if (typeof delivery.id !== "string" || delivery.id.trim().length === 0) {
+    throw new DbValidationError(
+      "id",
+      "Notification delivery id must be a non-empty string.",
+    );
+  }
+
   await notificationDeliveriesCollection
     .doc(delivery.id)
     .set(serializeNotificationDelivery(delivery));

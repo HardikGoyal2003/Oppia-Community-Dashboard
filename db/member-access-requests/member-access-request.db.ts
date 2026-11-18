@@ -16,6 +16,7 @@ import {
 import { isAssignableUserRole } from "@/lib/auth/roles";
 import {
   type FirestoreMemberAccessRequest,
+  assertMemberAccessRequestModel,
   normalizeMemberAccessRequestDocument,
   normalizeMemberAccessRequestRecord,
   serializeMemberAccessRequest,
@@ -102,6 +103,14 @@ export async function submitMemberAccessRequest(
     "createdAt" | "status" | "schemaVersion"
   >,
 ): Promise<void> {
+  const memberAccessRequest: Omit<MemberAccessRequestModel, "schemaVersion"> = {
+    ...request,
+    status: "PENDING",
+    createdAt: new Date(),
+  };
+
+  assertMemberAccessRequestModel(memberAccessRequest);
+
   const collectionRef = memberAccessRequestsCollection;
   const pendingQuery = collectionRef
     .where("userId", "==", request.userId)
@@ -119,14 +128,7 @@ export async function submitMemberAccessRequest(
       throw new PendingMemberAccessRequestError(pendingRequest);
     }
 
-    tx.set(
-      newRequestRef,
-      serializeMemberAccessRequest({
-        ...request,
-        status: "PENDING",
-        createdAt: new Date(),
-      }),
-    );
+    tx.set(newRequestRef, serializeMemberAccessRequest(memberAccessRequest));
   });
 }
 
