@@ -197,16 +197,15 @@ export async function resolveMemberAccessRequest(
     }
 
     const status = decision === "ACCEPT" ? "ACCEPTED" : "REJECTED";
+    const resolvedRequest: MemberAccessRequestRecord = {
+      ...request,
+      status,
+    };
 
-    tx.set(
-      requestRef,
-      serializeMemberAccessRequest({
-        ...request,
-        status,
-      }),
-      { merge: false },
-    );
+    tx.set(requestRef, serializeMemberAccessRequest(resolvedRequest), {
+      merge: false,
+    });
 
-    return request;
+    return resolvedRequest;
   });
 }
