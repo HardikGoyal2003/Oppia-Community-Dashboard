@@ -2,7 +2,7 @@ import { Notification } from "@/lib/auth/auth.types";
 import { DB_PATHS } from "@/db/db-paths";
 import {
   getRequiredDocumentRef,
-  getRequiredDocumentSnapshot,
+  updateRequiredDocument,
 } from "@/db/utils/document.utils";
 import { usersCollection } from "@/db/users/users.db";
 import {
@@ -111,9 +111,8 @@ export async function markNotificationAsReadByUid(
   const userDocRef = await getRequiredUserDocRefByUid(uid);
   const notificationRef =
     getUserNotificationsCollection(userDocRef).doc(notificationId);
-  await getRequiredDocumentSnapshot("Notification", notificationRef);
 
-  await notificationRef.update({
+  await updateRequiredDocument("Notification", notificationRef, {
     read: true,
   });
 }

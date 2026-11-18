@@ -2,7 +2,10 @@ import { Timestamp } from "firebase-admin/firestore";
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import type { DataJobRun } from "@/lib/domain/data-jobs.types";
 import { DB_PATHS } from "@/db/db-paths";
-import { getRequiredDocumentSnapshot } from "@/db/utils/document.utils";
+import {
+  getRequiredDocumentSnapshot,
+  updateRequiredDocument,
+} from "@/db/utils/document.utils";
 import { logDbError } from "@/db/db-logger";
 import {
   type FirestoreDataJobRun,
@@ -142,9 +145,8 @@ export async function markDataJobRunSucceeded(
   summary: string,
 ): Promise<void> {
   const runRef = dataJobRunsCollection.doc(runId);
-  await getRequiredDocumentSnapshot("Data job run", runRef);
 
-  await runRef.update({
+  await updateRequiredDocument("Data job run", runRef, {
     status: "SUCCEEDED",
     summary,
     errorMessage: null,
@@ -164,9 +166,8 @@ export async function markDataJobRunFailed(
   errorMessage: string,
 ): Promise<void> {
   const runRef = dataJobRunsCollection.doc(runId);
-  await getRequiredDocumentSnapshot("Data job run", runRef);
 
-  await runRef.update({
+  await updateRequiredDocument("Data job run", runRef, {
     status: "FAILED",
     summary: "Job failed.",
     errorMessage,
