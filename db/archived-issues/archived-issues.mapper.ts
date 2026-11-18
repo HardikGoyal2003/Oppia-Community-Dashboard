@@ -17,7 +17,6 @@ export type FirestoreArchivedIssue = {
   issueNumber: number;
   issueUrl: string;
   issueTitle: string;
-  isArchived?: boolean;
   lastCommentCreatedAt: Timestamp;
   linkedProject: string;
   platform: ContributionPlatform;
@@ -59,13 +58,6 @@ function assertFirestoreArchivedIssue(
     throw new DbValidationError(
       "issueTitle",
       "Archived issue issueTitle must be a string.",
-    );
-  }
-
-  if (issue.isArchived !== undefined && typeof issue.isArchived !== "boolean") {
-    throw new DbValidationError(
-      "isArchived",
-      "Archived issue isArchived must be a boolean.",
     );
   }
 

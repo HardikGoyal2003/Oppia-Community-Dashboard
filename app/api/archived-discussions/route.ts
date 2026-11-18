@@ -36,7 +36,6 @@ function isDiscussion(
     typeof value.discussionNumber === "number" &&
     typeof value.discussionUrl === "string" &&
     typeof value.discussionTitle === "string" &&
-    typeof value.isArchived === "boolean" &&
     typeof value.createdAt === "string"
   );
 }

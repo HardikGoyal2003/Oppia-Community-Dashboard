@@ -34,7 +34,6 @@ function isIssue(value: Issue | null | undefined): value is Issue {
     typeof value.issueNumber === "number" &&
     typeof value.issueUrl === "string" &&
     typeof value.issueTitle === "string" &&
-    typeof value.isArchived === "boolean" &&
     typeof value.lastCommentCreatedAt === "string" &&
     typeof value.linkedProject === "string"
   );
