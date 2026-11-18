@@ -46,3 +46,18 @@ export class DbValidationError extends DbError {
     this.field = field;
   }
 }
+
+/**
+ * Error raised when a duplicate pending member-access request already exists.
+ */
+export class PendingMemberAccessRequestError extends DbError {
+  request: import("@/db/member-access-requests/member-access-request.types").MemberAccessRequestModel;
+
+  constructor(
+    request: import("@/db/member-access-requests/member-access-request.types").MemberAccessRequestModel,
+  ) {
+    super("A pending member access request already exists.");
+    this.name = "PendingMemberAccessRequestError";
+    this.request = request;
+  }
+}

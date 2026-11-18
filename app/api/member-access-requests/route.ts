@@ -5,7 +5,6 @@ import { getKnownRoleDisplayLabel } from "@/lib/auth/role-display";
 import {
   getMemberAccessRequestById,
   getPendingMemberAccessRequestsByPlatformAndRoles,
-  PendingMemberAccessRequestError,
   resolveMemberAccessRequest,
   submitMemberAccessRequest,
 } from "@/db/member-access-requests/member-access-request.db";
@@ -15,6 +14,7 @@ import {
   DbInvalidStateError,
   DbNotFoundError,
   DbValidationError,
+  PendingMemberAccessRequestError,
 } from "@/db/db.errors";
 
 function canManageRequests(role: UserRole): boolean {
