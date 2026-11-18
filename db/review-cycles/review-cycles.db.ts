@@ -137,7 +137,7 @@ export async function findNewCycleRecords(
       collection.doc(`${r.reviewerLogin}:${r.prNumber}:${r.assignedAt}`),
     );
 
-    const snapshots = await db.getAll(...refs);
+    const snapshots = await collection.firestore.getAll(...refs);
 
     chunk.forEach((record, i) => {
       if (!snapshots[i].exists) newRecords.push(record);

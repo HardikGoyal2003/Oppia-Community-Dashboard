@@ -36,7 +36,7 @@ export async function getReviewCyclePrStats(
     start += FIRESTORE_READ_CHUNK_SIZE
   ) {
     const chunk = unique.slice(start, start + FIRESTORE_READ_CHUNK_SIZE);
-    const snapshots = await db.getAll(
+    const snapshots = await collection.firestore.getAll(
       ...chunk.map((prNumber) => collection.doc(String(prNumber))),
     );
 

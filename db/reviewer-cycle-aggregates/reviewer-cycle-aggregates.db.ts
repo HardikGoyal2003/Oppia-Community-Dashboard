@@ -28,7 +28,7 @@ export async function getReviewerCycleAggregates(
 ): Promise<Map<string, ReviewerCycleAggregateDocument>> {
   const result = new Map<string, ReviewerCycleAggregateDocument>();
   if (logins.length === 0) return result;
-  const snapshots = await db.getAll(
+  const snapshots = await collection.firestore.getAll(
     ...logins.map((login) => collection.doc(login)),
   );
   snapshots.forEach((snapshot, index) => {

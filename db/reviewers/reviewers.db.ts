@@ -81,7 +81,7 @@ export async function getReviewers(
     start += FIRESTORE_READ_CHUNK_SIZE
   ) {
     const chunk = uniqueLogins.slice(start, start + FIRESTORE_READ_CHUNK_SIZE);
-    const snapshots = await db.getAll(
+    const snapshots = await collection.firestore.getAll(
       ...chunk.map((login) => collection.doc(login)),
     );
 

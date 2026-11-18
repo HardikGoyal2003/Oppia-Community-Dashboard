@@ -66,7 +66,7 @@ export async function getReviewCycleMonthlyReviewers(
     start += FIRESTORE_READ_CHUNK_SIZE
   ) {
     const chunk = unique.slice(start, start + FIRESTORE_READ_CHUNK_SIZE);
-    const snapshots = await db.getAll(
+    const snapshots = await collection.firestore.getAll(
       ...chunk.map((month) => collection.doc(month)),
     );
 
