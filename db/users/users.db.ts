@@ -5,14 +5,15 @@ import {
   isContributionPlatform,
 } from "@/lib/auth/auth.types";
 import { Timestamp } from "firebase-admin/firestore";
-import { DbValidationError } from "../db.errors";
+import { DbNotFoundError, DbValidationError } from "../db.errors";
 import { chunkValues, FIRESTORE_WRITE_BATCH_SIZE } from "../utils/batch.utils";
 import {
-  getRequiredUserDocRefByUid,
   getRequiredUserDocRefInTransaction,
   getUserNotificationsCollection,
+  getUserNotificationsCollectionByUid,
   usersCollection,
 } from "./users.refs";
+import { updateRequiredDocument } from "../utils/document.utils";
 import { serializeNotification } from "./notifications/notifications.mapper";
 import { normalizeUserDocument, serializeUser } from "./users.mapper";
 import type { FirestoreUser } from "./users.mapper";
@@ -201,9 +202,7 @@ export async function updateUserPlatformByUid(
     throw new DbValidationError("platform", "platform must be WEB or ANDROID.");
   }
 
-  const userDocRef = await getRequiredUserDocRefByUid(uid);
-
-  await userDocRef.update({ platform });
+  await updateRequiredDocument("User", usersCollection.doc(uid), { platform });
 }
 
 /**
@@ -225,8 +224,8 @@ export async function updateUserRoleAndTeamWithNotificationByUid(
 ): Promise<void> {
   assertGithubUsernameProvided(githubUsername);
 
-  const userDocRef = await getRequiredUserDocRefByUid(uid);
-  const notificationRef = getUserNotificationsCollection(userDocRef).doc();
+  const userDocRef = usersCollection.doc(uid);
+  const notificationRef = getUserNotificationsCollectionByUid(uid).doc();
   const batch = usersCollection.firestore.batch();
 
   batch.update(userDocRef, {
@@ -243,7 +242,23 @@ export async function updateUserRoleAndTeamWithNotificationByUid(
     }),
   );
 
-  await batch.commit();
+  try {
+    await batch.commit();
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      (("code" in error && error.code === 5) ||
+        ("message" in error &&
+          typeof error.message === "string" &&
+          (error.message.toUpperCase().includes("NOT_FOUND") ||
+            error.message.toUpperCase().includes("NO DOCUMENT TO UPDATE"))))
+    ) {
+      throw new DbNotFoundError("User");
+    }
+
+    throw error;
+  }
 }
 
 /**
