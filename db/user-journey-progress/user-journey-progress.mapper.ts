@@ -1,6 +1,7 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { DbValidationError } from "@/db/db.errors";
 import {
+  assertOptionalTimestamp,
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
@@ -70,14 +71,11 @@ function assertManualProgressState(
     );
   }
 
-  const completedAt = value.completedAt as Timestamp | null;
-  if (completedAt !== null) {
-    assertTimestamp(
-      "Journey manual progress",
-      `manualProgress.${itemId}.completedAt`,
-      completedAt,
-    );
-  }
+  assertOptionalTimestamp(
+    "Journey manual progress",
+    `manualProgress.${itemId}.completedAt`,
+    value.completedAt,
+  );
 }
 
 /**
@@ -112,14 +110,11 @@ function assertDerivedProgressState(
     );
   }
 
-  const completedAt = value.completedAt as Timestamp | null;
-  if (completedAt !== null) {
-    assertTimestamp(
-      "Journey derived progress",
-      `derivedState.${key}.completedAt`,
-      completedAt,
-    );
-  }
+  assertOptionalTimestamp(
+    "Journey derived progress",
+    `derivedState.${key}.completedAt`,
+    value.completedAt,
+  );
 
   if (
     !("sourceUrl" in value) ||
@@ -160,8 +155,11 @@ function assertFirestoreUserJourneyProgress(
   }
 
   for (const [itemId, value] of Object.entries(
-    progress.manualProgress,
-  ) as Array<[string, FirebaseFirestore.DocumentData | null]>) {
+    progress.manualProgress as Record<
+      string,
+      FirebaseFirestore.DocumentData | null
+    >,
+  )) {
     assertManualProgressState(itemId, value);
   }
 
@@ -241,14 +239,21 @@ export function normalizeUserJourneyProgressDocument(
   );
   assertFirestoreUserJourneyProgress(migratedProgress);
 
+  const derivedState: UserJourneyProgressModel["derivedState"] = {
+    FIRST_ISSUE_CLAIMED: normalizeDerivedProgressState(
+      migratedProgress.derivedState.FIRST_ISSUE_CLAIMED,
+    ),
+    FIRST_PR_MERGED: normalizeDerivedProgressState(
+      migratedProgress.derivedState.FIRST_PR_MERGED,
+    ),
+    SECOND_PR_MERGED: normalizeDerivedProgressState(
+      migratedProgress.derivedState.SECOND_PR_MERGED,
+    ),
+  };
+
   return {
     createdAt: normalizeTimestamp(migratedProgress.createdAt),
-    derivedState: Object.fromEntries(
-      DERIVED_JOURNEY_KEYS.map((key) => [
-        key,
-        normalizeDerivedProgressState(migratedProgress.derivedState[key]),
-      ]),
-    ) as UserJourneyProgressModel["derivedState"],
+    derivedState,
     manualProgress: Object.fromEntries(
       Object.entries(migratedProgress.manualProgress).map(([itemId, state]) => [
         itemId,

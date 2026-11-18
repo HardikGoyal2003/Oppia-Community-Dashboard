@@ -153,36 +153,35 @@ export function normalizeReviewer(
   return {
     teams: migrated.teams,
     pendingReviews: migrated.pendingReviews,
-    completedReviews: (migrated.completedReviews as number) ?? 0,
-    reviewedPrCount: (migrated.reviewedPrCount as number) ?? 0,
-    completedReviewSubmissions:
-      (migrated.completedReviewSubmissions as number) ?? 0,
-    approvedPrCount: (migrated.approvedPrCount as number) ?? 0,
-    authoredPrCount: (migrated.authoredPrCount as number) ?? 0,
+    completedReviews: migrated.completedReviews ?? 0,
+    reviewedPrCount: migrated.reviewedPrCount ?? 0,
+    completedReviewSubmissions: migrated.completedReviewSubmissions ?? 0,
+    approvedPrCount: migrated.approvedPrCount ?? 0,
+    authoredPrCount: migrated.authoredPrCount ?? 0,
     avgReviewTimeHours:
       migrated.avgReviewTimeHours !== undefined &&
       migrated.avgReviewTimeHours !== null
-        ? (migrated.avgReviewTimeHours as number)
+        ? migrated.avgReviewTimeHours
         : null,
     avgTimeToApprovalHours:
       migrated.avgTimeToApprovalHours !== undefined &&
       migrated.avgTimeToApprovalHours !== null
-        ? (migrated.avgTimeToApprovalHours as number)
+        ? migrated.avgTimeToApprovalHours
         : null,
     avgReviewRoundsBeforeApproval:
       migrated.avgReviewRoundsBeforeApproval !== undefined &&
       migrated.avgReviewRoundsBeforeApproval !== null
-        ? (migrated.avgReviewRoundsBeforeApproval as number)
+        ? migrated.avgReviewRoundsBeforeApproval
         : null,
     avgCommentsPerReview:
       migrated.avgCommentsPerReview !== undefined &&
       migrated.avgCommentsPerReview !== null
-        ? (migrated.avgCommentsPerReview as number)
+        ? migrated.avgCommentsPerReview
         : null,
     avgReviewsPerWeek:
       migrated.avgReviewsPerWeek !== undefined &&
       migrated.avgReviewsPerWeek !== null
-        ? (migrated.avgReviewsPerWeek as number)
+        ? migrated.avgReviewsPerWeek
         : null,
     lastUpdated: normalizeTimestamp(migrated.lastUpdated),
     schemaVersion: migrated.schemaVersion,

@@ -1,12 +1,6 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { DbValidationError } from "@/db/db.errors";
-import type { ContributionPlatform } from "@/lib/auth/auth.types";
-import type {
-  TeamLead,
-  TeamLeadRole,
-  TeamMember,
-  TeamModel,
-} from "@/lib/domain/teams.types";
+import type { TeamLead, TeamMember, TeamModel } from "@/lib/domain/teams.types";
 import {
   assertTimestamp,
   normalizeTimestamp,
@@ -136,7 +130,7 @@ export function normalizeTeamDocument(
     gfiCount: migratedTeam.gfiCount,
     lastUpdated: normalizeTimestamp(migratedTeam.lastUpdated),
     leads: migratedTeam.leads.map((lead) => ({
-      role: lead.role as TeamLeadRole,
+      role: lead.role,
       uid: lead.uid,
       username: lead.username,
     })),
@@ -144,7 +138,7 @@ export function normalizeTeamDocument(
       uid: member.uid,
       username: member.username,
     })),
-    platform: migratedTeam.platform as ContributionPlatform,
+    platform: migratedTeam.platform,
     teamName: migratedTeam.teamName,
     schemaVersion: migratedTeam.schemaVersion,
   };

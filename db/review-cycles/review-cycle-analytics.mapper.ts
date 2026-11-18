@@ -29,7 +29,7 @@ export type FirestoreReviewCycleAnalytics = ReviewerTeamsAnalytics & {
 function assertArrayOfObjects(
   field: string,
   value: FirebaseFirestore.DocumentData | undefined,
-): void {
+): asserts value is FirebaseFirestore.DocumentData[] {
   if (!Array.isArray(value)) {
     throw new DbValidationError(field, `${field} must be an array.`);
   }
@@ -53,7 +53,7 @@ function assertFirestoreReviewCycleAnalytics(
   data: FirebaseFirestore.DocumentData,
 ): asserts data is FirestoreReviewCycleAnalytics {
   assertArrayOfObjects("weeklyReviews", data.weeklyReviews);
-  for (const point of data.weeklyReviews as Array<FirebaseFirestore.DocumentData>) {
+  for (const point of data.weeklyReviews) {
     if (
       typeof point.weekStart !== "string" ||
       typeof point.reviews !== "number"
@@ -66,7 +66,7 @@ function assertFirestoreReviewCycleAnalytics(
   }
 
   assertArrayOfObjects("monthlyUniqueReviewers", data.monthlyUniqueReviewers);
-  for (const point of data.monthlyUniqueReviewers as Array<FirebaseFirestore.DocumentData>) {
+  for (const point of data.monthlyUniqueReviewers) {
     if (
       typeof point.month !== "string" ||
       typeof point.uniqueReviewers !== "number"
@@ -79,7 +79,7 @@ function assertFirestoreReviewCycleAnalytics(
   }
 
   assertArrayOfObjects("topApprovers", data.topApprovers);
-  for (const point of data.topApprovers as Array<FirebaseFirestore.DocumentData>) {
+  for (const point of data.topApprovers) {
     if (
       typeof point.username !== "string" ||
       typeof point.approvals !== "number" ||
@@ -93,7 +93,7 @@ function assertFirestoreReviewCycleAnalytics(
   }
 
   assertArrayOfObjects("prSizeScatter", data.prSizeScatter);
-  for (const point of data.prSizeScatter as Array<FirebaseFirestore.DocumentData>) {
+  for (const point of data.prSizeScatter) {
     if (
       typeof point.prNumber !== "number" ||
       typeof point.additions !== "number" ||
