@@ -27,13 +27,7 @@ export async function getNotificationDeliveryById(
     return null;
   }
 
-  const data = snapshot.data();
-
-  if (!data) {
-    return null;
-  }
-
-  return normalizeNotificationDeliveryDocument({ ...data, id: snapshot.id });
+  return normalizeNotificationDeliveryDocument(snapshot.id, snapshot.data()!);
 }
 
 /**

@@ -1,5 +1,6 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DB_PATHS } from "@/db/db-paths";
+import { DbValidationError } from "@/db/db.errors";
 import type { ActionItemModel } from "@/lib/domain/action-items.types";
 import {
   type FirestoreActionItem,
@@ -78,11 +79,25 @@ function chunkValues<T>(values: T[], size: number): T[][] {
  *
  * @param path The document path.
  * @returns The team document id.
+ * @throws {DbValidationError} When the path shape is invalid.
  */
 function resolveTeamIdFromPath(path: string): string {
   const segments = path.split("/");
-  // teams/{teamId}/actionItems/{itemId}
-  return segments[1] ?? "";
+  const teamId = segments[1];
+
+  if (
+    segments.length < 4 ||
+    segments[0] !== DB_PATHS.TEAMS.COLLECTION ||
+    segments[2] !== DB_PATHS.ACTION_ITEMS.COLLECTION ||
+    !teamId
+  ) {
+    throw new DbValidationError(
+      "path",
+      `Invalid action item document path: ${path}`,
+    );
+  }
+
+  return teamId;
 }
 
 /**
