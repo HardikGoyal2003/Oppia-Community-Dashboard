@@ -7,6 +7,7 @@ import {
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
 import {
+  assertDateKey,
   assertNonEmptyString,
   assertNonNegativeNumber,
 } from "@/db/utils/validation.utils";
@@ -48,10 +49,10 @@ function assertFirestoreDailyTeamMetric(
     );
   }
 
-  assertNonEmptyString(
+  assertDateKey(
     "dateKey",
     metric.dateKey,
-    "Team metric dateKey must be a non-empty string.",
+    "Team metric dateKey must be a YYYY-MM-DD date key.",
   );
 
   if (typeof metric.unansweredIssuesCount !== "number") {

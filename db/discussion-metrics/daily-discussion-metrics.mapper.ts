@@ -7,7 +7,7 @@ import {
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
 import {
-  assertNonEmptyString,
+  assertDateKey,
   assertNonNegativeNumber,
 } from "@/db/utils/validation.utils";
 import {
@@ -40,10 +40,10 @@ function assertFirestoreDailyDiscussionMetric(
     );
   }
 
-  assertNonEmptyString(
+  assertDateKey(
     "dateKey",
     metric.dateKey,
-    "Discussion metric dateKey must be a non-empty string.",
+    "Discussion metric dateKey must be a YYYY-MM-DD date key.",
   );
 
   assertNonNegativeNumber(

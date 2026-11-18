@@ -10,6 +10,7 @@ import {
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
 import {
+  assertDateKey,
   assertNonEmptyString,
   assertNonNegativeNumber,
 } from "@/db/utils/validation.utils";
@@ -65,10 +66,10 @@ function assertFirestoreNotificationDelivery(
     delivery.teamKey,
     "Delivery teamKey must be a non-empty string.",
   );
-  assertNonEmptyString(
+  assertDateKey(
     "periodKey",
     delivery.periodKey,
-    "Delivery periodKey must be a non-empty string.",
+    "Delivery periodKey must be a YYYY-MM-DD date key.",
   );
 
   if (
