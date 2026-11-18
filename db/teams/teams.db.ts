@@ -30,13 +30,7 @@ export async function getTeamById(teamId: string): Promise<TeamModel | null> {
     return null;
   }
 
-  const data = snapshot.data();
-
-  if (!data) {
-    return null;
-  }
-
-  return normalizeTeamDocument(data);
+  return normalizeTeamDocument(snapshot.data()!);
 }
 
 /**
