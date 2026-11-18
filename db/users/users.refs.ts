@@ -56,3 +56,19 @@ export function getUserNotificationsCollection(
     DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION,
   ) as FirebaseFirestore.CollectionReference<FirestoreNotification>;
 }
+
+/**
+ * Resolves the notifications subcollection for a user by uid.
+ *
+ * @param uid The user id that owns the notifications subcollection.
+ * @returns The typed notifications subcollection reference.
+ */
+export function getUserNotificationsCollectionByUid(
+  uid: string,
+): FirebaseFirestore.CollectionReference<FirestoreNotification> {
+  return usersCollection
+    .doc(uid)
+    .collection(
+      DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION,
+    ) as FirebaseFirestore.CollectionReference<FirestoreNotification>;
+}

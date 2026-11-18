@@ -1,9 +1,6 @@
 import { Notification } from "@/lib/auth/auth.types";
 import { updateRequiredDocument } from "@/db/utils/document.utils";
-import {
-  getRequiredUserDocRefByUid,
-  getUserNotificationsCollection,
-} from "@/db/users/users.refs";
+import { getUserNotificationsCollectionByUid } from "@/db/users/users.refs";
 import {
   type FirestoreNotification,
   normalizeNotificationDocument,
@@ -23,9 +20,7 @@ export async function appendUserNotificationByUid(
   uid: string,
   message: string,
 ): Promise<void> {
-  const userDocRef = await getRequiredUserDocRefByUid(uid);
-
-  await getUserNotificationsCollection(userDocRef)
+  await getUserNotificationsCollectionByUid(uid)
     .doc()
     .set(
       serializeNotification({
@@ -48,9 +43,8 @@ export async function getNotificationsByUid(
   uid: string,
   status: NotificationStatusFilter = "ALL",
 ): Promise<Notification[]> {
-  const userDocRef = await getRequiredUserDocRefByUid(uid);
   let query: FirebaseFirestore.Query<FirestoreNotification> =
-    getUserNotificationsCollection(userDocRef);
+    getUserNotificationsCollectionByUid(uid);
 
   if (status === "READ") {
     query = query.where("read", "==", true);
@@ -79,9 +73,8 @@ export async function markNotificationAsReadByUid(
   uid: string,
   notificationId: string,
 ): Promise<void> {
-  const userDocRef = await getRequiredUserDocRefByUid(uid);
   const notificationRef =
-    getUserNotificationsCollection(userDocRef).doc(notificationId);
+    getUserNotificationsCollectionByUid(uid).doc(notificationId);
 
   await updateRequiredDocument("Notification", notificationRef, {
     read: true,
