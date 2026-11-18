@@ -4,7 +4,7 @@ import { DbValidationError } from "@/db/db.errors";
  * Version assigned to documents that were written before schema versioning
  * existed. Legacy documents omit the `schemaVersion` field entirely.
  */
-export const LEGACY_SCHEMA_VERSION = 0;
+const LEGACY_SCHEMA_VERSION = 0;
 
 /**
  * Stable keys for every persisted model that participates in schema

@@ -16,8 +16,6 @@ import { serializeNotification } from "./notifications/notifications.mapper";
 import { normalizeUserDocument, serializeUser } from "./users.mapper";
 import type { FirestoreUser } from "./users.mapper";
 
-export { usersCollection };
-
 export type UserRecord = UserModel & {
   id: string;
 };

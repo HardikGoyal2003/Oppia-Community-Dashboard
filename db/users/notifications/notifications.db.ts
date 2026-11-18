@@ -10,8 +10,6 @@ import {
   serializeNotification,
 } from "@/db/users/notifications/notifications.mapper";
 
-export { getUserNotificationsCollection };
-
 type NotificationStatusFilter = "READ" | "UNREAD" | "ALL";
 
 /**
