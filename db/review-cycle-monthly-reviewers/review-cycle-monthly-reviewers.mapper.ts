@@ -24,7 +24,7 @@ export type ReviewCycleMonthlyReviewersDocument = {
   schemaVersion: number;
 };
 
-type FirestoreReviewCycleMonthlyReviewers = Omit<
+export type FirestoreReviewCycleMonthlyReviewers = Omit<
   ReviewCycleMonthlyReviewersDocument,
   "lastUpdated"
 > & { lastUpdated: Timestamp };

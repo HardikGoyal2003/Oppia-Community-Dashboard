@@ -4,6 +4,7 @@ import { FIRESTORE_WRITE_BATCH_SIZE } from "@/db/utils/batch.utils";
 import {
   normalizeReviewerCycleAggregate,
   serializeReviewerCycleAggregate,
+  type FirestoreReviewerCycleAggregate,
   type ReviewerCycleAggregateDocument,
 } from "./reviewer-cycle-aggregates.mapper";
 
@@ -13,7 +14,9 @@ type ReviewerCycleAggregateWrite = Omit<
 >;
 
 const db = getAdminFirestore();
-const collection = db.collection(DB_PATHS.REVIEWER_CYCLE_AGGREGATES.COLLECTION);
+const collection = db.collection(
+  DB_PATHS.REVIEWER_CYCLE_AGGREGATES.COLLECTION,
+) as FirebaseFirestore.CollectionReference<FirestoreReviewerCycleAggregate>;
 
 /**
  * Reads aggregate documents for the supplied reviewer logins.

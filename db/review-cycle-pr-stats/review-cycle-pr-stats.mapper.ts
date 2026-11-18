@@ -40,7 +40,7 @@ export type ReviewCyclePrStatsDocument = {
   schemaVersion: number;
 };
 
-type FirestoreReviewCyclePrStats = Omit<
+export type FirestoreReviewCyclePrStats = Omit<
   ReviewCyclePrStatsDocument,
   "lastUpdated"
 > & { lastUpdated: Timestamp };

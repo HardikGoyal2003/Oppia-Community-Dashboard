@@ -7,13 +7,14 @@ import {
 import {
   normalizeReviewCycleMonthlyReviewers,
   serializeReviewCycleMonthlyReviewers,
+  type FirestoreReviewCycleMonthlyReviewers,
   type ReviewCycleMonthlyReviewersDocument,
 } from "./review-cycle-monthly-reviewers.mapper";
 
 const db = getAdminFirestore();
 const collection = db.collection(
   DB_PATHS.REVIEW_CYCLE_MONTHLY_REVIEWERS.COLLECTION,
-);
+) as FirebaseFirestore.CollectionReference<FirestoreReviewCycleMonthlyReviewers>;
 
 /**
  * Writes monthly reviewer documents in chunks.

@@ -7,11 +7,14 @@ import {
 import {
   normalizeReviewCyclePrStats,
   serializeReviewCyclePrStats,
+  type FirestoreReviewCyclePrStats,
   type ReviewCyclePrStatsDocument,
 } from "./review-cycle-pr-stats.mapper";
 
 const db = getAdminFirestore();
-const collection = db.collection(DB_PATHS.REVIEW_CYCLE_PR_STATS.COLLECTION);
+const collection = db.collection(
+  DB_PATHS.REVIEW_CYCLE_PR_STATS.COLLECTION,
+) as FirebaseFirestore.CollectionReference<FirestoreReviewCyclePrStats>;
 
 /**
  * Reads PR stats documents for the supplied PR numbers.
