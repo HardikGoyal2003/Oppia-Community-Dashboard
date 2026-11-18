@@ -1,5 +1,5 @@
-import { requireEnv } from "@/lib/config/env";
 import { LibInvalidStateError } from "@/lib/lib.errors";
+import { getGitHubToken } from "./github.auth";
 import {
   expectArray,
   expectRecord,
@@ -58,15 +58,6 @@ function parseGraphQLErrors(value: JsonValue): GraphQLErrorPayload[] {
       }
     },
   );
-}
-
-/**
- * Resolves the GitHub token at request time so optional imports do not fail eagerly.
- *
- * @returns The configured GitHub token.
- */
-function getGitHubToken(): string {
-  return requireEnv("GITHUB_TOKEN");
 }
 
 /**

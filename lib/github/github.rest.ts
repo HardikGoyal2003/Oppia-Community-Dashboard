@@ -1,4 +1,5 @@
 import { LibInvalidStateError } from "@/lib/lib.errors";
+import { getGitHubToken } from "./github.auth";
 import {
   GitHubPayloadError,
   type JsonObject,
@@ -219,24 +220,22 @@ function validateRestPayload<T>(
 }
 
 /**
- * Executes a GitHub REST request and returns the validated JSON body.
+ * Executes a single authenticated GitHub REST request.
  *
- * @param path The GitHub REST path beginning with a slash.
- * @param validate Validator for the expected response payload.
- * @returns The validated JSON response body.
- * @throws {GitHubRestError} When GitHub returns a non-success response or an
- *   unexpected payload.
+ * Centralizes token handling, headers, rate-limit capture, and error parsing so
+ * the single-page and paginated helpers cannot drift apart.
+ *
+ * @param url The fully qualified GitHub REST URL to request.
+ * @returns The successful response.
+ * @throws {GitHubRestError} When GitHub returns a non-success response.
+ * @throws {LibConfigError} When GITHUB_TOKEN is not configured.
  */
-export async function requestGitHubRest<T>(
-  path: string,
-  validate: Validator<T>,
-): Promise<T> {
-  const token = process.env.GITHUB_TOKEN;
-  const res = await fetch(`${API_URL}${path}`, {
+async function executeGitHubRestRequest(url: string): Promise<Response> {
+  const res = await fetch(url, {
     cache: "no-store",
     headers: {
       Accept: "application/vnd.github+json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      Authorization: `Bearer ${getGitHubToken()}`,
       "X-GitHub-Api-Version": API_VERSION,
     },
   });
@@ -246,6 +245,25 @@ export async function requestGitHubRest<T>(
   }
 
   captureRateLimit(res);
+
+  return res;
+}
+
+/**
+ * Executes a GitHub REST request and returns the validated JSON body.
+ *
+ * @param path The GitHub REST path beginning with a slash.
+ * @param validate Validator for the expected response payload.
+ * @returns The validated JSON response body.
+ * @throws {GitHubRestError} When GitHub returns a non-success response or an
+ *   unexpected payload.
+ * @throws {LibConfigError} When GITHUB_TOKEN is not configured.
+ */
+export async function requestGitHubRest<T>(
+  path: string,
+  validate: Validator<T>,
+): Promise<T> {
+  const res = await executeGitHubRestRequest(`${API_URL}${path}`);
 
   return validateRestPayload((await res.json()) as JsonValue, validate, path);
 }
@@ -259,6 +277,7 @@ export async function requestGitHubRest<T>(
  * @returns The aggregated array from all pages.
  * @throws {GitHubRestError} When GitHub returns a non-success response, a
  *   malformed pagination link, or an unexpected payload.
+ * @throws {LibConfigError} When GITHUB_TOKEN is not configured.
  */
 export async function requestGitHubRestAll<T>(
   path: string,
@@ -280,22 +299,7 @@ export async function requestGitHubRestAll<T>(
 
     visitedUrls.add(nextUrl);
 
-    const token = process.env.GITHUB_TOKEN;
-    const res = await fetch(nextUrl, {
-      cache: "no-store",
-      headers: {
-        Accept: "application/vnd.github+json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        "X-GitHub-Api-Version": API_VERSION,
-      },
-    });
-
-    if (!res.ok) {
-      throw await buildRestError(res);
-    }
-
-    captureRateLimit(res);
-
+    const res = await executeGitHubRestRequest(nextUrl);
     const items = (await res.json()) as JsonValue;
     allItems.push(
       ...validateRestPayload(items, parseArrayPayload(validate), path),
