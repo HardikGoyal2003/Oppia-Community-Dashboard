@@ -151,6 +151,6 @@ export function serializeReviewCycleAnalytics(
   return {
     ...analytics,
     schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.REVIEW_CYCLE_ANALYTICS),
-    computedAt: Timestamp.fromDate(new Date()),
+    computedAt: Timestamp.now(),
   };
 }
