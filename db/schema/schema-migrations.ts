@@ -1,6 +1,5 @@
 import { DbValidationError } from "@/db/db.errors";
 import {
-  LEGACY_SCHEMA_VERSION,
   SCHEMA_KEYS,
   SCHEMA_VERSIONS,
   getCurrentSchemaVersion,
@@ -183,9 +182,3 @@ export function isDocumentAtCurrentSchemaVersion(
 ): boolean {
   return readSchemaVersion(key, document) === SCHEMA_VERSIONS[key];
 }
-
-/**
- * Returns the latest schema version for a model. Re-exported for convenience
- * so callers only need to import from the migration module.
- */
-export { LEGACY_SCHEMA_VERSION, getCurrentSchemaVersion };
