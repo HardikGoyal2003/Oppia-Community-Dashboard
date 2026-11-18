@@ -1,7 +1,7 @@
 /**
  * Base error for domain-aware DB failures.
  */
-class DbError extends Error {
+export class DbError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "DbError";

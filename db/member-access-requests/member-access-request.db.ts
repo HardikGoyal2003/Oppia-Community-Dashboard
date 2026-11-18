@@ -1,6 +1,10 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DB_PATHS } from "@/db/db-paths";
-import { DbInvalidStateError, DbValidationError } from "@/db/db.errors";
+import {
+  DbError,
+  DbInvalidStateError,
+  DbValidationError,
+} from "@/db/db.errors";
 import {
   getRequiredDocumentSnapshot,
   getRequiredTransactionDocumentSnapshot,
@@ -31,7 +35,7 @@ const memberAccessRequestsCollection = db.collection(
 /**
  * Error raised when a duplicate pending member-access request already exists.
  */
-export class PendingMemberAccessRequestError extends Error {
+export class PendingMemberAccessRequestError extends DbError {
   request: MemberAccessRequestModel;
 
   constructor(request: MemberAccessRequestModel) {
