@@ -1,45 +1,18 @@
 import { Notification } from "@/lib/auth/auth.types";
-import { DB_PATHS } from "@/db/db-paths";
+import { updateRequiredDocument } from "@/db/utils/document.utils";
 import {
-  getRequiredDocumentRef,
-  updateRequiredDocument,
-} from "@/db/utils/document.utils";
-import { usersCollection } from "@/db/users/users.db";
+  getRequiredUserDocRefByUid,
+  getUserNotificationsCollection,
+} from "@/db/users/users.refs";
 import {
   type FirestoreNotification,
   normalizeNotificationDocument,
   serializeNotification,
 } from "@/db/users/notifications/notifications.mapper";
-import type { FirestoreUser } from "@/db/users/users.mapper";
+
+export { getUserNotificationsCollection };
 
 type NotificationStatusFilter = "READ" | "UNREAD" | "ALL";
-
-/**
- * Resolves a user document reference by uid and guarantees that the document exists.
- *
- * @param uid The user id that owns the notifications.
- * @returns The existing Firestore user document reference.
- */
-async function getRequiredUserDocRefByUid(
-  uid: string,
-): Promise<FirebaseFirestore.DocumentReference<FirestoreUser>> {
-  const userDocRef = usersCollection.doc(uid);
-  return getRequiredDocumentRef("User", userDocRef);
-}
-
-/**
- * Resolves the notifications subcollection for a user uid.
- *
- * @param userDocRef The existing user document reference.
- * @returns The typed notifications subcollection reference.
- */
-export function getUserNotificationsCollection(
-  userDocRef: FirebaseFirestore.DocumentReference<FirestoreUser>,
-): FirebaseFirestore.CollectionReference<FirestoreNotification> {
-  return userDocRef.collection(
-    DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION,
-  ) as FirebaseFirestore.CollectionReference<FirestoreNotification>;
-}
 
 /**
  * Appends a notification to a user located by uid.

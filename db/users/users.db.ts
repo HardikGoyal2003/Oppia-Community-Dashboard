@@ -1,25 +1,21 @@
-import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import {
   ContributionPlatform,
   UserRole,
   UserModel,
 } from "@/lib/auth/auth.types";
 import { Timestamp } from "firebase-admin/firestore";
-import { DB_PATHS } from "../db-paths";
 import { DbValidationError } from "../db.errors";
 import {
-  getRequiredDocumentRef,
-  getRequiredTransactionDocumentSnapshot,
-} from "../utils/document.utils";
-import { getUserNotificationsCollection } from "./notifications/notifications.db";
+  getRequiredUserDocRefByUid,
+  getRequiredUserDocRefInTransaction,
+  getUserNotificationsCollection,
+  usersCollection,
+} from "./users.refs";
 import { serializeNotification } from "./notifications/notifications.mapper";
 import { normalizeUserDocument, serializeUser } from "./users.mapper";
 import type { FirestoreUser } from "./users.mapper";
 
-const db = getAdminFirestore();
-export const usersCollection = db.collection(
-  DB_PATHS.USERS.COLLECTION,
-) as FirebaseFirestore.CollectionReference<FirestoreUser>;
+export { usersCollection };
 
 /** Maximum number of writes Firestore accepts in a single batch. */
 const FIRESTORE_BATCH_LIMIT = 400;
@@ -77,19 +73,6 @@ function isDocumentAlreadyExistsError(error: object): boolean {
   }
 
   return false;
-}
-
-/**
- * Resolves a user document reference by uid and guarantees that the document exists.
- *
- * @param uid The user id to fetch.
- * @returns The existing Firestore user document reference.
- */
-async function getRequiredUserDocRefByUid(
-  uid: string,
-): Promise<FirebaseFirestore.DocumentReference<FirestoreUser>> {
-  const userDocRef = usersCollection.doc(uid);
-  return getRequiredDocumentRef("User", userDocRef);
 }
 
 /**
@@ -277,23 +260,6 @@ export async function updateUserRoleAndTeamWithNotificationByUid(
   });
 
   await batch.commit();
-}
-
-/**
- * Resolves a user document reference inside a transaction and guarantees it exists.
- *
- * @param tx The active Firestore transaction.
- * @param uid The user id to fetch.
- * @returns The existing user document reference.
- * @throws {DbNotFoundError} When the user document does not exist.
- */
-async function getRequiredUserDocRefInTransaction(
-  tx: FirebaseFirestore.Transaction,
-  uid: string,
-): Promise<FirebaseFirestore.DocumentReference<FirestoreUser>> {
-  const userDocRef = usersCollection.doc(uid);
-  await getRequiredTransactionDocumentSnapshot(tx, "User", userDocRef);
-  return userDocRef;
 }
 
 /**
