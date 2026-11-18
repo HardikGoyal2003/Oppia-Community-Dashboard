@@ -506,16 +506,20 @@ export function ReviewerReportsTab() {
     void load();
   }, []);
 
-  const totalAssignedPRs = useMemo(
-    () =>
-      data?.teams.reduce(
-        (sum, team) =>
-          sum +
-          team.members.reduce((msum, m) => msum + m.assignedPRs.length, 0),
-        0,
-      ) ?? 0,
-    [data],
-  );
+  const totalAssignedPRs = useMemo(() => {
+    if (!data) return 0;
+
+    const seen = new Set<string>();
+    for (const team of data.teams) {
+      for (const member of team.members) {
+        for (const pr of member.assignedPRs) {
+          seen.add(`${member.username.toLowerCase()}:${pr.prNumber}`);
+        }
+      }
+    }
+
+    return seen.size;
+  }, [data]);
 
   if (loading) {
     return (
