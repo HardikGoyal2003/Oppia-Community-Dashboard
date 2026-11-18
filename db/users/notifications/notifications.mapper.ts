@@ -52,7 +52,7 @@ function assertFirestoreNotification(
  * @param value The raw notification records.
  * @returns The notifications with normalized Date instances.
  */
-export function normalizeNotifications(
+function normalizeNotifications(
   value: Array<FirestoreNotification & { id: string }>,
 ): Notification[] {
   return value.map((notification) => {

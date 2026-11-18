@@ -1,7 +1,7 @@
 import type { SchemaVersioned } from "@/lib/domain/schema.types";
 
 /* Team doc member (no PR data — just identity) */
-export type TeamReviewerMember = {
+type TeamReviewerMember = {
   username: string;
   avatarUrl: string;
 };
@@ -131,7 +131,7 @@ export type ReviewerTeamsAnalytics = SchemaVersioned & {
   totalApprovals: number;
 };
 
-export type ReviewerTeam = {
+type ReviewerTeam = {
   teamSlug: string;
   teamName: string;
   description: string;

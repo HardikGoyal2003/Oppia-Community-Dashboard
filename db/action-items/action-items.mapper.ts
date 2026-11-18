@@ -36,7 +36,7 @@ export type FirestoreActionItem = Omit<
 > &
   TimestampedActionItemFields;
 
-export type FirestoreActionItemNotificationUpdate = {
+type FirestoreActionItemNotificationUpdate = {
   firstNotifiedAt: Timestamp;
   lastNotifiedAt: Timestamp;
   notificationCount: number;

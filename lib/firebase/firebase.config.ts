@@ -6,13 +6,13 @@ import {
   requireEnv,
 } from "@/lib/config/env";
 
-export type FirebaseRuntimeConfig = {
+type FirebaseRuntimeConfig = {
   useFirestoreEmulator: boolean;
   firestoreEmulatorHost: string;
   firestoreEmulatorPort: number;
 };
 
-export type FirebaseClientConfig = {
+type FirebaseClientConfig = {
   apiKey: string;
   authDomain: string;
   projectId: string;
@@ -64,7 +64,7 @@ export function getFirebaseAdminProjectId(): string {
  *
  * @returns The client-side Firebase project id.
  */
-export function getFirebaseClientProjectId(): string {
+function getFirebaseClientProjectId(): string {
   return requireEnv("NEXT_PUBLIC_FIREBASE_PROJECT_ID");
 }
 

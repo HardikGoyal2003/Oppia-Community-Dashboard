@@ -21,7 +21,7 @@ const archivedIssuesCollection = db.collection(
  * @param issueNumber The GitHub issue number.
  * @returns The Firestore document id for the archived issue.
  */
-export function getArchivedIssueDocId(
+function getArchivedIssueDocId(
   platform: ContributionPlatform,
   issueNumber: number,
 ): string {

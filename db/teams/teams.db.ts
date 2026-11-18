@@ -13,7 +13,7 @@ const teamsCollection = db.collection(
   DB_PATHS.TEAMS.COLLECTION,
 ) as FirebaseFirestore.CollectionReference<FirestoreTeam>;
 
-export type TeamRecord = TeamModel & {
+type TeamRecord = TeamModel & {
   id: string;
 };
 

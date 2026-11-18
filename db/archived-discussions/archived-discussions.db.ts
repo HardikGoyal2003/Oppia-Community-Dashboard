@@ -21,7 +21,7 @@ const archivedDiscussionsCollection = db.collection(
  * @param discussionNumber The GitHub discussion number.
  * @returns The Firestore document id for the archived discussion.
  */
-export function getArchivedDiscussionDocId(
+function getArchivedDiscussionDocId(
   platform: ContributionPlatform,
   discussionNumber: number,
 ): string {

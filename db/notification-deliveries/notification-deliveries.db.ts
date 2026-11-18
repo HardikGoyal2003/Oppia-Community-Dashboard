@@ -8,7 +8,7 @@ import {
 import type { FirestoreNotificationDelivery } from "./notification-deliveries.mapper";
 
 const db = getAdminFirestore();
-export const notificationDeliveriesCollection = db.collection(
+const notificationDeliveriesCollection = db.collection(
   DB_PATHS.NOTIFICATION_DELIVERIES.COLLECTION,
 ) as FirebaseFirestore.CollectionReference<FirestoreNotificationDelivery>;
 

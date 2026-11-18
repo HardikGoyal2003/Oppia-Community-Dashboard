@@ -6,7 +6,7 @@ import {
   type GitHubPullResponse,
 } from "@/lib/github/github.fetcher";
 
-export type ReviewCycleBackfillStepInput = {
+type ReviewCycleBackfillStepInput = {
   /** Inclusive start of the window. */
   sinceDate: Date;
   /** Inclusive end of the window. */
@@ -19,7 +19,7 @@ export type ReviewCycleBackfillStepInput = {
   deadlineMs: number;
 };
 
-export type ReviewCycleBackfillStepResult = {
+type ReviewCycleBackfillStepResult = {
   /** Cycles extracted during this step, filtered to known reviewers. */
   records: CycleRecord[];
   /** PR numbers processed during this step. */

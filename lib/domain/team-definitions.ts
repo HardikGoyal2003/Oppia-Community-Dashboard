@@ -1,7 +1,7 @@
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config/teams.constants";
 
-export type TeamDefinition = {
+type TeamDefinition = {
   linkedProject: string;
   platform: ContributionPlatform;
   teamId: string;

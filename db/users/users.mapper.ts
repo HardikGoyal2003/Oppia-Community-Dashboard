@@ -92,7 +92,7 @@ function assertFirestoreUser(
  * @param user The raw Firestore user document.
  * @returns The normalized user model.
  */
-export function normalizeUser(user: FirestoreUser): UserModel {
+function normalizeUser(user: FirestoreUser): UserModel {
   return {
     email: user.email,
     fullName: user.fullName,

@@ -18,7 +18,7 @@ export type ActionItem = {
   updatedAt: string;
 };
 
-export type ActionItemsSyncSummary = {
+type ActionItemsSyncSummary = {
   detectedCount: number;
   createdCount: number;
   updatedCount: number;

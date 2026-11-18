@@ -18,7 +18,7 @@ type MigrationWrite = {
 };
 
 /** Summary of a schema-version backfill pass. */
-export type SchemaVersionBackfillSummary = {
+type SchemaVersionBackfillSummary = {
   scannedCount: number;
   migratedCount: number;
   failedCount: number;

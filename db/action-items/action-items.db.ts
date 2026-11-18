@@ -14,7 +14,7 @@ const db = getAdminFirestore();
  * Action items live at `teams/{teamId}/actionItems/{ruleKey}`. The collection
  * group reference supports cross-team reads (admins and digests).
  */
-export const actionItemsCollectionGroup: FirebaseFirestore.CollectionGroup<FirestoreActionItem> =
+const actionItemsCollectionGroup: FirebaseFirestore.CollectionGroup<FirestoreActionItem> =
   db.collectionGroup(
     DB_PATHS.ACTION_ITEMS.COLLECTION,
   ) as FirebaseFirestore.CollectionGroup<FirestoreActionItem>;
@@ -28,7 +28,7 @@ const FIRESTORE_BATCH_LIMIT = 400;
  * @param teamId The team document id (e.g. `WEB_CORE`).
  * @returns The Firestore collection reference.
  */
-export function getActionItemsCollectionRef(
+function getActionItemsCollectionRef(
   teamId: string,
 ): FirebaseFirestore.CollectionReference<FirestoreActionItem> {
   return db
@@ -46,7 +46,7 @@ export function getActionItemsCollectionRef(
  * @param itemId The action item document id (the rule key).
  * @returns The Firestore document reference.
  */
-export function getActionItemDocumentRef(
+function getActionItemDocumentRef(
   teamId: string,
   itemId: string,
 ): FirebaseFirestore.DocumentReference<FirestoreActionItem> {
