@@ -58,26 +58,24 @@ function getActionItemDocumentRef(
 }
 
 /**
- * Resolves the parent team id from a collection-group document path like
- * `teams/WEB_CORE/actionItems/gfi-shortfall`.
+ * Resolves the parent team id from an action-item document reference.
  *
- * @param path The document path.
+ * Action items live at `teams/{teamId}/actionItems/{itemId}`; the team id is
+ * the id of the document that owns the action-items subcollection.
+ *
+ * @param ref The action-item document reference.
  * @returns The team document id.
- * @throws {DbValidationError} When the path shape is invalid.
+ * @throws {DbValidationError} When the document is not nested under a team.
  */
-function resolveTeamIdFromPath(path: string): string {
-  const segments = path.split("/");
-  const teamId = segments[1];
+function resolveTeamIdFromRef(
+  ref: FirebaseFirestore.DocumentReference<FirestoreActionItem>,
+): string {
+  const teamId = ref.parent.parent?.id;
 
-  if (
-    segments.length < 4 ||
-    segments[0] !== DB_PATHS.TEAMS.COLLECTION ||
-    segments[2] !== DB_PATHS.ACTION_ITEMS.COLLECTION ||
-    !teamId
-  ) {
+  if (!teamId) {
     throw new DbValidationError(
       "path",
-      `Invalid action item document path: ${path}`,
+      `Invalid action item document path: ${ref.path}`,
     );
   }
 
@@ -97,7 +95,7 @@ export async function getActionItems(): Promise<ActionItemModel[]> {
 
     return normalizeActionItemDocument({
       id: doc.id,
-      teamId: resolveTeamIdFromPath(doc.ref.path),
+      teamId: resolveTeamIdFromRef(doc.ref),
       data,
     });
   });

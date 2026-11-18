@@ -11,7 +11,7 @@ const LEGACY_SCHEMA_VERSION = 0;
  * versioning. A key is not the collection name; it identifies a model shape
  * so migrations stay attached to the correct model if a collection is renamed.
  */
-export const SCHEMA_KEYS = {
+export const SCHEMA_KEYS = Object.freeze({
   ACTION_ITEMS: "actionItems",
   ARCHIVED_DISCUSSIONS: "archivedDiscussions",
   ARCHIVED_ISSUES: "archivedIssues",
@@ -33,7 +33,7 @@ export const SCHEMA_KEYS = {
   USER_JOURNEY_PROGRESS: "userJourneyProgress",
   USER_NOTIFICATIONS: "userNotifications",
   USERS: "users",
-} as const;
+} as const);
 
 export type SchemaKey = (typeof SCHEMA_KEYS)[keyof typeof SCHEMA_KEYS];
 
