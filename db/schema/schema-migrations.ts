@@ -110,6 +110,7 @@ export const SCHEMA_MIGRATIONS: Record<SchemaKey, readonly SchemaMigration[]> =
     [SCHEMA_KEYS.REVIEW_CYCLE_MONTHLY_REVIEWERS]: [addSchemaVersionField(1)],
     [SCHEMA_KEYS.REVIEW_CYCLE_ANALYTICS]: [addSchemaVersionField(1)],
     [SCHEMA_KEYS.REVIEW_CYCLE_BACKFILL]: [addSchemaVersionField(1)],
+    [SCHEMA_KEYS.REVIEW_ANALYTICS_LOCKS]: [addSchemaVersionField(1)],
     [SCHEMA_KEYS.TEAM_REVIEWERS]: [addSchemaVersionField(1)],
     [SCHEMA_KEYS.TEAMS]: [addSchemaVersionField(1), collapseTeamGfiCounts()],
     [SCHEMA_KEYS.USER_JOURNEY_PROGRESS]: [addSchemaVersionField(1)],

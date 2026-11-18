@@ -371,6 +371,22 @@ Fields:
 - `updatedAt: Timestamp`
 - `schemaVersion: number`
 
+### `reviewAnalyticsLocks`
+
+Document id:
+
+- `reviewCycles`
+
+Fields:
+
+- `ownerId: string`
+- `acquiredAt: Timestamp`
+- `expiresAt: Timestamp`
+- `schemaVersion: number`
+
+Singleton lease that serializes review-cycle writes and analytics rebuilds. An
+expired lease can be overwritten by the next mutation.
+
 ## Derived Type Summary
 
 Normalized app-layer models convert Firestore timestamps as follows:

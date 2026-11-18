@@ -5,6 +5,7 @@ import {
   refreshReviewCycleAnalytics,
   upsertReviewCycles,
 } from "@/db/review-cycles/review-cycles.db";
+import { withReviewAnalyticsLock } from "@/db/review-analytics-lock/review-analytics-lock.db";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type {
   PendingReview,
@@ -354,21 +355,23 @@ export async function generateReviewerTeamsDummyData(): Promise<ReviewerTeamsDum
     }
   }
 
-  // Cycle document IDs include `assignedAt`, so re-running with fresh
-  // timestamps would otherwise add duplicate records alongside the old ones.
-  // Replace the sample reviewers' namespace before writing the new sample.
-  const cyclesCleared = await deleteReviewCyclesForReviewers(
-    Array.from(reviewerToTeams.keys()),
-  );
+  return withReviewAnalyticsLock(async () => {
+    // Cycle document IDs include `assignedAt`, so re-running with fresh
+    // timestamps would otherwise add duplicate records alongside the old ones.
+    // Replace the sample reviewers' namespace before writing the new sample.
+    const cyclesCleared = await deleteReviewCyclesForReviewers(
+      Array.from(reviewerToTeams.keys()),
+    );
 
-  await upsertReviewCycles(cycles);
-  await refreshReviewCycleAnalytics();
+    await upsertReviewCycles(cycles);
+    await refreshReviewCycleAnalytics();
 
-  return {
-    teamsWritten: SAMPLE_TEAMS.length,
-    reviewersWritten: reviewerToTeams.size,
-    pendingReviewsWritten,
-    cyclesCleared,
-    cyclesWritten: cycles.length,
-  };
+    return {
+      teamsWritten: SAMPLE_TEAMS.length,
+      reviewersWritten: reviewerToTeams.size,
+      pendingReviewsWritten,
+      cyclesCleared,
+      cyclesWritten: cycles.length,
+    };
+  });
 }

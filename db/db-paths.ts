@@ -62,4 +62,8 @@ export const DB_PATHS = {
     COLLECTION: "reviewCycleBackfill",
     STATE_DOC: "state",
   },
+  REVIEW_ANALYTICS_LOCKS: {
+    COLLECTION: "reviewAnalyticsLocks",
+    LOCK_DOC: "reviewCycles",
+  },
 } as const;

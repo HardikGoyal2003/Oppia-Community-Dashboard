@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { ReviewAnalyticsLockBusyError } from "@/db/review-analytics-lock/review-analytics-lock.db";
 import { authOptions } from "@/lib/auth/auth.options";
 import {
   listAvailableCronJobs,
@@ -54,6 +55,10 @@ export async function POST(req: Request) {
     const run = await runCronJob(jobKey);
     return NextResponse.json({ run });
   } catch (error) {
+    if (error instanceof ReviewAnalyticsLockBusyError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+
     return NextResponse.json(
       {
         error:

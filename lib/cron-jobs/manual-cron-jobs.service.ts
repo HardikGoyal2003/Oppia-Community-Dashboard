@@ -47,7 +47,7 @@ const CRON_JOBS: CronJobDefinition[] = [
     key: "sync_review_cycles",
     name: "Sync Review Cycles",
     description:
-      "Fetch open PRs updated in the last 24h and PRs closed in the last 24h, extract completed review cycles from their timelines into reviewCycles, refresh metrics for the reviewers active in that window, and refresh the dashboard analytics snapshot. Runs daily; run before Sync Pending Reviews.",
+      "Fetch open PRs updated in the last 24h and PRs closed in the last 24h, extract completed review cycles from their timelines into reviewCycles, refresh metrics for the reviewers active in that window, and refresh the dashboard analytics snapshot under an exclusive Firestore lease. Runs daily; run before Sync Pending Reviews.",
   },
   {
     key: "sync_pending_reviews",

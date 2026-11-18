@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ReviewAnalyticsLockBusyError } from "@/db/review-analytics-lock/review-analytics-lock.db";
 import { readEnv } from "@/lib/config";
 import { syncReviewCycles } from "@/lib/team-activity/sync-review-cycles.service";
 
@@ -18,6 +19,10 @@ export async function GET(req: Request) {
     const summary = await syncReviewCycles();
     return NextResponse.json(summary);
   } catch (error) {
+    if (error instanceof ReviewAnalyticsLockBusyError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+
     console.error(error);
     return NextResponse.json(
       {
