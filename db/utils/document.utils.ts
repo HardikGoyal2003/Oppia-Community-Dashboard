@@ -7,18 +7,7 @@ import { DbNotFoundError } from "@/db/db.errors";
  * @returns True when the error represents a not-found document.
  */
 function isDocumentNotFoundError(error: object): boolean {
-  if ("code" in error && error.code === 5) {
-    return true;
-  }
-
-  if ("message" in error && typeof error.message === "string") {
-    const message = error.message.toUpperCase();
-    return (
-      message.includes("NOT_FOUND") || message.includes("NO DOCUMENT TO UPDATE")
-    );
-  }
-
-  return false;
+  return "code" in error && error.code === 5;
 }
 
 /**

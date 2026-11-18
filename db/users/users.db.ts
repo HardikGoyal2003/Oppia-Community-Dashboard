@@ -248,11 +248,8 @@ export async function updateUserRoleAndTeamWithNotificationByUid(
     if (
       error &&
       typeof error === "object" &&
-      (("code" in error && error.code === 5) ||
-        ("message" in error &&
-          typeof error.message === "string" &&
-          (error.message.toUpperCase().includes("NOT_FOUND") ||
-            error.message.toUpperCase().includes("NO DOCUMENT TO UPDATE"))))
+      "code" in error &&
+      error.code === 5
     ) {
       throw new DbNotFoundError("User");
     }
