@@ -9,7 +9,7 @@ import {
   appendUserNotificationInTransaction,
   updateUserRoleAndTeamWithNotificationInTransaction,
 } from "@/db/users/users.db";
-import { isValidUserRole } from "@/lib/utils/roles.utils";
+import { isAssignableUserRole } from "@/lib/auth/roles";
 import {
   type FirestoreMemberAccessRequest,
   normalizeMemberAccessRequestDocument,
@@ -183,7 +183,7 @@ export async function resolveMemberAccessRequest(
     }
 
     if (decision === "ACCEPT") {
-      if (!isValidUserRole(request.role)) {
+      if (!isAssignableUserRole(request.role)) {
         throw new DbValidationError("role", "Invalid role in request.");
       }
 
