@@ -7,7 +7,10 @@ import {
   type ActionItemModel,
   type ActionItemSyncSummary,
 } from "@/lib/domain/action-items.types";
-import { TEAM_DEFINITIONS } from "@/lib/domain/team-definitions";
+import {
+  TEAM_DEFINITIONS_BY_ID,
+  TEAM_DEFINITIONS_BY_KEY,
+} from "@/lib/domain/team-definitions";
 import { getTeamReportsSnapshot } from "@/lib/team-reports/team-reports.service";
 import {
   SCHEMA_KEYS,
@@ -33,10 +36,7 @@ function buildActionItemId(ruleKey: string): string {
  * @returns The matching team key, or the team id when no definition matches.
  */
 function getTeamKeyForTeamId(teamId: string): string {
-  return (
-    TEAM_DEFINITIONS.find((definition) => definition.teamId === teamId)
-      ?.teamKey ?? teamId
-  );
+  return TEAM_DEFINITIONS_BY_ID[teamId]?.teamKey ?? teamId;
 }
 
 /**
@@ -47,10 +47,7 @@ function getTeamKeyForTeamId(teamId: string): string {
  * @returns The matching team document id, or null when no definition matches.
  */
 export function getTeamIdForKey(teamKey: string): string | null {
-  return (
-    TEAM_DEFINITIONS.find((definition) => definition.teamKey === teamKey)
-      ?.teamId ?? null
-  );
+  return TEAM_DEFINITIONS_BY_KEY[teamKey]?.teamId ?? null;
 }
 
 /**

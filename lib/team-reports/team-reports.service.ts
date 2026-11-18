@@ -1,6 +1,6 @@
 import { getDailyTeamMetricsSinceDateKey } from "@/db/team-metrics/daily-team-metrics.db";
 import { getTeams } from "@/db/teams/teams.db";
-import { TEAM_DEFINITIONS } from "@/lib/domain/team-definitions";
+import { TEAM_DEFINITIONS_BY_KEY } from "@/lib/domain/team-definitions";
 import type { TeamModel } from "@/lib/domain/teams.types";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { getDiscussionMetricHistory } from "@/lib/discussion-metrics/discussion-metrics.service";
@@ -235,11 +235,9 @@ export async function getTeamReportForAssignment(
   teamKey: string,
   platform: ContributionPlatform,
 ): Promise<TeamReport | null> {
-  const teamDefinition = TEAM_DEFINITIONS.find(
-    (team) => team.teamKey === teamKey && team.platform === platform,
-  );
+  const teamDefinition = TEAM_DEFINITIONS_BY_KEY[teamKey];
 
-  if (!teamDefinition) {
+  if (!teamDefinition || teamDefinition.platform !== platform) {
     return null;
   }
 

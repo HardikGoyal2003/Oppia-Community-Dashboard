@@ -1,7 +1,10 @@
 import { getAllUsers } from "@/db/users/users.db";
 import { getTeamById, upsertTeam } from "@/db/teams/teams.db";
 import { GITHUB_REPOS } from "@/lib/config/github.constants";
-import { TEAM_DEFINITIONS } from "@/lib/domain/team-definitions";
+import {
+  TEAM_DEFINITIONS,
+  TEAM_DEFINITIONS_BY_LINKED_PROJECT,
+} from "@/lib/domain/team-definitions";
 import type {
   TeamLead,
   TeamLeadRole,
@@ -91,9 +94,7 @@ export async function syncTeamData(): Promise<TeamDataSyncSummary> {
   let skippedIssuesCount = 0;
 
   for (const issue of issues) {
-    const team = TEAM_DEFINITIONS.find(
-      (candidate) => candidate.linkedProject === issue.linkedProject,
-    );
+    const team = TEAM_DEFINITIONS_BY_LINKED_PROJECT[issue.linkedProject];
 
     if (!team) {
       skippedIssuesCount += 1;

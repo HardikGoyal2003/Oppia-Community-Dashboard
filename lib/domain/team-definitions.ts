@@ -1,7 +1,7 @@
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { ANDROID_TEAMS, WEB_TEAMS } from "@/lib/config/teams.constants";
 
-type TeamDefinition = {
+export type TeamDefinition = {
   linkedProject: string;
   platform: ContributionPlatform;
   teamId: string;
@@ -9,7 +9,7 @@ type TeamDefinition = {
   teamName: string;
 };
 
-export const TEAM_DEFINITIONS: TeamDefinition[] = [
+export const TEAM_DEFINITIONS = [
   {
     linkedProject: WEB_TEAMS.LEAP,
     platform: "WEB",
@@ -45,6 +45,37 @@ export const TEAM_DEFINITIONS: TeamDefinition[] = [
     teamKey: "DEV_WORKFLOW_INFRA",
     teamName: ANDROID_TEAMS.DEV_WORKFLOW_INFRA,
   },
-];
+] as const satisfies readonly TeamDefinition[];
 
-export const TEAM_KEYS = TEAM_DEFINITIONS.map((team) => team.teamKey);
+export const TEAM_KEYS: readonly string[] = Object.freeze(
+  TEAM_DEFINITIONS.map((team) => team.teamKey),
+);
+
+/**
+ * Builds a frozen lookup for a team definition field.
+ *
+ * @param getKey The field to index each definition by.
+ * @returns A frozen record keyed by the selected field.
+ */
+function indexTeamDefinitions(
+  getKey: (team: TeamDefinition) => string,
+): Readonly<Record<string, TeamDefinition>> {
+  return Object.freeze(
+    Object.fromEntries(TEAM_DEFINITIONS.map((team) => [getKey(team), team])),
+  );
+}
+
+/** Team definitions indexed by their stable Firestore team id. */
+export const TEAM_DEFINITIONS_BY_ID = indexTeamDefinitions(
+  (team) => team.teamId,
+);
+
+/** Team definitions indexed by the team key stored on user records. */
+export const TEAM_DEFINITIONS_BY_KEY = indexTeamDefinitions(
+  (team) => team.teamKey,
+);
+
+/** Team definitions indexed by their linked GitHub project name. */
+export const TEAM_DEFINITIONS_BY_LINKED_PROJECT = indexTeamDefinitions(
+  (team) => team.linkedProject,
+);
