@@ -15,7 +15,6 @@ import {
 } from "@/db/utils/timestamp.utils";
 import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
@@ -83,7 +82,6 @@ function assertFirestoreUser(
   }
 
   assertTimestamp("User", "createdAt", user.createdAt);
-  assertSchemaVersion(SCHEMA_KEYS.USERS, user.schemaVersion);
 }
 
 /**

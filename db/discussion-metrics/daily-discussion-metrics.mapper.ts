@@ -12,7 +12,6 @@ import {
 } from "@/db/utils/validation.utils";
 import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
@@ -52,10 +51,6 @@ function assertFirestoreDailyDiscussionMetric(
     "unansweredDiscussionsCount must be a non-negative number.",
   );
   assertTimestamp("Discussion metric", "capturedAt", metric.capturedAt);
-  assertSchemaVersion(
-    SCHEMA_KEYS.DAILY_DISCUSSION_METRICS,
-    metric.schemaVersion,
-  );
 }
 
 /**

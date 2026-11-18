@@ -1,7 +1,6 @@
 import { DbValidationError } from "@/db/db.errors";
 import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
@@ -92,8 +91,6 @@ function assertFirestoreReviewCycle(
   assertOptionalStringField("approvedAt", data.approvedAt);
   assertOptionalNumberField("approvalDurationMs", data.approvalDurationMs);
   assertOptionalNumberField("prAdditions", data.prAdditions);
-
-  assertSchemaVersion(SCHEMA_KEYS.REVIEW_CYCLES, data.schemaVersion);
 }
 
 /**

@@ -2,7 +2,6 @@ import { Timestamp } from "firebase-admin/firestore";
 import { DbValidationError } from "@/db/db.errors";
 import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
@@ -115,7 +114,6 @@ function assertFirestoreReviewCycleAnalytics(
   }
 
   assertTimestamp("ReviewCycleAnalytics", "computedAt", data.computedAt);
-  assertSchemaVersion(SCHEMA_KEYS.REVIEW_CYCLE_ANALYTICS, data.schemaVersion);
 }
 
 /**

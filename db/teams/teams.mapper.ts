@@ -18,7 +18,6 @@ import {
 } from "@/db/utils/validation.utils";
 import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
@@ -119,7 +118,6 @@ function assertFirestoreTeam(
   );
 
   assertTimestamp("Team", "lastUpdated", team.lastUpdated);
-  assertSchemaVersion(SCHEMA_KEYS.TEAMS, team.schemaVersion);
 }
 
 /**

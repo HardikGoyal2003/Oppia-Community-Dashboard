@@ -15,7 +15,6 @@ import {
 } from "@/db/utils/validation.utils";
 import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
@@ -86,7 +85,6 @@ function assertFirestoreActionItem(
   assertOptionalTimestamp("ActionItem", "lastNotifiedAt", item.lastNotifiedAt);
   assertTimestamp("ActionItem", "createdAt", item.createdAt);
   assertTimestamp("ActionItem", "updatedAt", item.updatedAt);
-  assertSchemaVersion(SCHEMA_KEYS.ACTION_ITEMS, item.schemaVersion);
 }
 
 /**

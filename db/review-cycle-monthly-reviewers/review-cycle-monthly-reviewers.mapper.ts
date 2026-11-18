@@ -2,7 +2,6 @@ import { Timestamp } from "firebase-admin/firestore";
 import { DbValidationError } from "@/db/db.errors";
 import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
@@ -57,10 +56,6 @@ export function normalizeReviewCycleMonthlyReviewers(
     "ReviewCycleMonthlyReviewers",
     "lastUpdated",
     migrated.lastUpdated,
-  );
-  assertSchemaVersion(
-    SCHEMA_KEYS.REVIEW_CYCLE_MONTHLY_REVIEWERS,
-    migrated.schemaVersion,
   );
   return {
     month: migrated.month,

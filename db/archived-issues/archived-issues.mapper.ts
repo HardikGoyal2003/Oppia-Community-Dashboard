@@ -9,7 +9,6 @@ import {
 } from "@/db/utils/timestamp.utils";
 import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
@@ -100,8 +99,6 @@ function assertFirestoreArchivedIssue(
   if (issue.archivedAt !== undefined) {
     assertTimestamp("Archived issue", "archivedAt", issue.archivedAt);
   }
-
-  assertSchemaVersion(SCHEMA_KEYS.ARCHIVED_ISSUES, issue.schemaVersion);
 }
 
 /**

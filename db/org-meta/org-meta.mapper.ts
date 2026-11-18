@@ -7,7 +7,6 @@ import {
 } from "@/db/utils/timestamp.utils";
 import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
@@ -73,7 +72,6 @@ function assertFirestoreOrgMeta(
   }
 
   assertTimestamp("OrgMeta", "lastUpdated", data.lastUpdated);
-  assertSchemaVersion(SCHEMA_KEYS.ORG_META, data.schemaVersion);
 }
 
 /**

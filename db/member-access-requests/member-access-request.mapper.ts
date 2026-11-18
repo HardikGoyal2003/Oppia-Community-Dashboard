@@ -12,7 +12,6 @@ import { isContributionPlatform } from "@/lib/auth/auth.types";
 import type { MemberAccessRequestStatus } from "@/db/member-access-requests/member-access-request.types";
 import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
@@ -89,10 +88,6 @@ function assertFirestoreMemberAccessRequest(
   }
 
   assertTimestamp("Member access request", "createdAt", request.createdAt);
-  assertSchemaVersion(
-    SCHEMA_KEYS.MEMBER_ACCESS_REQUESTS,
-    request.schemaVersion,
-  );
 }
 
 /**

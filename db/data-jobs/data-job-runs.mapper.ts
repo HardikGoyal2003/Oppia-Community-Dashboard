@@ -12,7 +12,6 @@ import {
 } from "@/db/utils/timestamp.utils";
 import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
@@ -112,7 +111,6 @@ function assertFirestoreDataJobRun(
 
   assertTimestamp("Data job run", "startedAt", run.startedAt);
   assertOptionalTimestamp("Data job run", "finishedAt", run.finishedAt);
-  assertSchemaVersion(SCHEMA_KEYS.DATA_JOB_RUNS, run.schemaVersion);
 }
 
 /**

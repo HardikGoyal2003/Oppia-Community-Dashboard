@@ -14,7 +14,6 @@ import { isContributionPlatform } from "@/lib/auth/auth.types";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
@@ -190,10 +189,6 @@ function assertFirestoreUserJourneyProgress(
 
   assertTimestamp("Journey progress", "createdAt", progress.createdAt);
   assertTimestamp("Journey progress", "updatedAt", progress.updatedAt);
-  assertSchemaVersion(
-    SCHEMA_KEYS.USER_JOURNEY_PROGRESS,
-    progress.schemaVersion,
-  );
 }
 
 /**

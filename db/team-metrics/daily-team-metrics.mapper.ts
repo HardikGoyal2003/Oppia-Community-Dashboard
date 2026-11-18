@@ -13,7 +13,6 @@ import {
 } from "@/db/utils/validation.utils";
 import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
@@ -68,7 +67,6 @@ function assertFirestoreDailyTeamMetric(
     "maxWaitingDays must be a non-negative number.",
   );
   assertTimestamp("Team metric", "capturedAt", metric.capturedAt);
-  assertSchemaVersion(SCHEMA_KEYS.DAILY_TEAM_METRICS, metric.schemaVersion);
 }
 
 /**

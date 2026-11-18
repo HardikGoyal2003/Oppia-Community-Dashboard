@@ -16,7 +16,6 @@ import {
 } from "@/db/utils/validation.utils";
 import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
@@ -114,10 +113,6 @@ function assertFirestoreNotificationDelivery(
   }
 
   assertTimestamp("NotificationDelivery", "recordedAt", delivery.recordedAt);
-  assertSchemaVersion(
-    SCHEMA_KEYS.NOTIFICATION_DELIVERIES,
-    delivery.schemaVersion,
-  );
 }
 
 /**
