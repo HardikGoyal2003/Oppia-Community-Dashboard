@@ -54,12 +54,11 @@ function assertFirestoreDailyTeamMetric(
     "Team metric dateKey must be a YYYY-MM-DD date key.",
   );
 
-  if (typeof metric.unansweredIssuesCount !== "number") {
-    throw new DbValidationError(
-      "unansweredIssuesCount",
-      "Team metric unansweredIssuesCount must be a number.",
-    );
-  }
+  assertNonNegativeNumber(
+    "unansweredIssuesCount",
+    metric.unansweredIssuesCount,
+    "Team metric unansweredIssuesCount must be a non-negative number.",
+  );
 
   assertNonNegativeNumber(
     "maxWaitingDays",
