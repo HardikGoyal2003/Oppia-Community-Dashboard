@@ -1,4 +1,4 @@
-import { getAllUsers } from "@/db/users/users.db";
+import { getAllUsers, type UserRecord } from "@/db/users/users.db";
 import { getTeamById, upsertTeam } from "@/db/teams/teams.db";
 import { GITHUB_REPOS } from "@/lib/config/github.constants";
 import {
@@ -21,11 +21,10 @@ type TeamDataSyncSummary = {
 /**
  * Builds a lookup of team ids to the current team lead and lead trainee users assigned in the users collection.
  *
+ * @param users The user records to derive team leads from.
  * @returns The derived leads keyed by stable team id.
  */
-async function getLeadsByTeamId(): Promise<Map<string, TeamLead[]>> {
-  const users = await getAllUsers();
-
+function buildLeadsByTeamId(users: UserRecord[]): Map<string, TeamLead[]> {
   return new Map(
     TEAM_DEFINITIONS.map((team) => [
       team.teamId,
@@ -49,11 +48,10 @@ async function getLeadsByTeamId(): Promise<Map<string, TeamLead[]>> {
 /**
  * Builds a lookup of team ids to the current team member users assigned in the users collection.
  *
+ * @param users The user records to derive team members from.
  * @returns The derived members keyed by stable team id.
  */
-async function getMembersByTeamId(): Promise<Map<string, TeamMember[]>> {
-  const users = await getAllUsers();
-
+function buildMembersByTeamId(users: UserRecord[]): Map<string, TeamMember[]> {
   return new Map(
     TEAM_DEFINITIONS.map((team) => [
       team.teamId,
@@ -80,13 +78,13 @@ async function getMembersByTeamId(): Promise<Map<string, TeamMember[]>> {
  * @returns A summary of the sync outcome.
  */
 export async function syncTeamData(): Promise<TeamDataSyncSummary> {
-  const [webIssues, androidIssues, leadsByTeamId, membersByTeamId] =
-    await Promise.all([
-      fetchGoodFirstIssues(GITHUB_REPOS.WEB),
-      fetchGoodFirstIssues(GITHUB_REPOS.ANDROID),
-      getLeadsByTeamId(),
-      getMembersByTeamId(),
-    ]);
+  const [webIssues, androidIssues, users] = await Promise.all([
+    fetchGoodFirstIssues(GITHUB_REPOS.WEB),
+    fetchGoodFirstIssues(GITHUB_REPOS.ANDROID),
+    getAllUsers(),
+  ]);
+  const leadsByTeamId = buildLeadsByTeamId(users);
+  const membersByTeamId = buildMembersByTeamId(users);
   const issues = [...webIssues, ...androidIssues];
   const gfiCountByTeam = new Map<string, number>(
     TEAM_DEFINITIONS.map((team) => [team.teamId, 0]),
