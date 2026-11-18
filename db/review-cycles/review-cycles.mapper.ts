@@ -10,7 +10,7 @@ import type { ReviewCycleRecord } from "@/lib/domain/reviewer-teams.types";
 export type FirestoreReviewCycle = ReviewCycleRecord;
 
 /**
- * Asserts that a value is a non-empty string field.
+ * Asserts that a value is a string field.
  *
  * @param field The field name being validated.
  * @param value The raw value.
