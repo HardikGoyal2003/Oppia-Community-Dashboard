@@ -3,6 +3,7 @@ import {
   getActionItemsEmailReplyTo,
   getResendApiKey,
 } from "@/lib/config";
+import { requireEnv } from "@/lib/config/env";
 import type {
   NotificationChannel,
   NotificationChannelResult,
@@ -11,13 +12,13 @@ import type {
 } from "@/lib/domain/notifications.types";
 
 const RESEND_API_ENDPOINT = "https://api.resend.com/emails";
-const LOCAL_DEVELOPMENT_EMAIL = "hardikgoyal1503@gmail.com";
 
 /**
  * Redirects local email delivery away from real recipients.
  *
  * @param recipients The intended email recipients.
  * @returns The safe local recipient in development, otherwise the originals.
+ * @throws {LibConfigError} When LOCAL_DEVELOPMENT_EMAIL is missing in development.
  */
 function getSafeEmailRecipients(
   recipients: NotificationRecipient[],
@@ -29,7 +30,7 @@ function getSafeEmailRecipients(
   return [
     {
       uid: "local-development-email",
-      email: LOCAL_DEVELOPMENT_EMAIL,
+      email: requireEnv("LOCAL_DEVELOPMENT_EMAIL"),
       fullName: "Local development recipient",
     },
   ];
