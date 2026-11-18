@@ -1,4 +1,4 @@
-import { upsertUserOnSignIn, getUserById } from "@/db/users/users.db";
+import { createUserIfNotExists, getUserById } from "@/db/users/users.db";
 import type { JWT } from "next-auth/jwt";
 import type { Account, Profile, Session, User } from "next-auth";
 
@@ -41,7 +41,7 @@ export async function syncUserOnSignIn({
     return false;
   }
 
-  await upsertUserOnSignIn(subjectId, {
+  await createUserIfNotExists(subjectId, {
     email: user.email,
     fullName: user.name ?? "",
     photoURL: user.image ?? "",
