@@ -116,6 +116,54 @@ const SCHEMA_MIGRATIONS: Record<SchemaKey, readonly SchemaMigration[]> = {
 };
 
 /**
+ * Validates that the migration registry is contiguous and consistent with the
+ * supported schema versions.
+ *
+ * @returns Nothing. Throws when the registry is misconfigured.
+ */
+function assertMigrationRegistryInvariants(): void {
+  for (const key of Object.keys(SCHEMA_MIGRATIONS) as SchemaKey[]) {
+    const migrations = SCHEMA_MIGRATIONS[key];
+    const currentVersion = getCurrentSchemaVersion(key);
+    const seenVersions = new Set<number>();
+
+    for (const [index, migration] of migrations.entries()) {
+      if (!Number.isInteger(migration.toVersion) || migration.toVersion <= 0) {
+        throw new DbValidationError(
+          "schemaVersion",
+          `Migration for ${key} must target a positive integer schema version.`,
+        );
+      }
+
+      if (seenVersions.has(migration.toVersion)) {
+        throw new DbValidationError(
+          "schemaVersion",
+          `Duplicate migration for ${key} schema version ${migration.toVersion}.`,
+        );
+      }
+      seenVersions.add(migration.toVersion);
+
+      const expectedVersion = index + 1;
+      if (migration.toVersion !== expectedVersion) {
+        throw new DbValidationError(
+          "schemaVersion",
+          `Migrations for ${key} must be contiguous from version 1; expected ${expectedVersion} but found ${migration.toVersion}.`,
+        );
+      }
+    }
+
+    if (migrations.length !== currentVersion) {
+      throw new DbValidationError(
+        "schemaVersion",
+        `Migrations for ${key} must cover versions 1 through ${currentVersion}.`,
+      );
+    }
+  }
+}
+
+assertMigrationRegistryInvariants();
+
+/**
  * Upgrades a raw Firestore document from its stored schema version to the
  * latest version supported by the application.
  *
