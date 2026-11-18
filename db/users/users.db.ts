@@ -6,8 +6,11 @@ import {
 } from "@/lib/auth/auth.types";
 import { Timestamp } from "firebase-admin/firestore";
 import { DB_PATHS } from "../db-paths";
-import { DbNotFoundError, DbValidationError } from "../db.errors";
-import { getRequiredDocumentRef } from "../utils/document.utils";
+import { DbValidationError } from "../db.errors";
+import {
+  getRequiredDocumentRef,
+  getRequiredTransactionDocumentSnapshot,
+} from "../utils/document.utils";
 import { getUserNotificationsCollection } from "./notifications/notifications.db";
 import { serializeNotification } from "./notifications/notifications.mapper";
 import { normalizeUserDocument, serializeUser } from "./users.mapper";
@@ -85,7 +88,7 @@ function isDocumentAlreadyExistsError(error: object): boolean {
  */
 async function getRequiredUserDocRefByUid(
   uid: string,
-): Promise<FirebaseFirestore.DocumentReference> {
+): Promise<FirebaseFirestore.DocumentReference<FirestoreUser>> {
   const userDocRef = usersCollection.doc(uid);
   return getRequiredDocumentRef("User", userDocRef);
 }
@@ -161,7 +164,7 @@ export async function getAllUsers(): Promise<UserRecord[]> {
 export async function getUsersByPlatform(
   platform?: ContributionPlatform,
 ): Promise<UserRecord[]> {
-  let query: FirebaseFirestore.Query = usersCollection;
+  let query: FirebaseFirestore.Query<FirestoreUser> = usersCollection;
 
   if (platform) {
     query = query.where("platform", "==", platform);
@@ -288,14 +291,9 @@ export async function updateUserRoleAndTeamWithNotificationByUid(
 async function getRequiredUserDocRefInTransaction(
   tx: FirebaseFirestore.Transaction,
   uid: string,
-): Promise<FirebaseFirestore.DocumentReference> {
+): Promise<FirebaseFirestore.DocumentReference<FirestoreUser>> {
   const userDocRef = usersCollection.doc(uid);
-  const snapshot = await tx.get(userDocRef);
-
-  if (!snapshot.exists) {
-    throw new DbNotFoundError("User");
-  }
-
+  await getRequiredTransactionDocumentSnapshot(tx, "User", userDocRef);
   return userDocRef;
 }
 
@@ -309,7 +307,7 @@ async function getRequiredUserDocRefInTransaction(
  */
 function appendNotificationInTransaction(
   tx: FirebaseFirestore.Transaction,
-  userDocRef: FirebaseFirestore.DocumentReference,
+  userDocRef: FirebaseFirestore.DocumentReference<FirestoreUser>,
   message: string,
 ): void {
   tx.set(getUserNotificationsCollection(userDocRef).doc(), {

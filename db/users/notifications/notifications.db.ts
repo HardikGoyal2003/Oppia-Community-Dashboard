@@ -10,6 +10,7 @@ import {
   normalizeNotificationDocument,
   serializeNotification,
 } from "@/db/users/notifications/notifications.mapper";
+import type { FirestoreUser } from "@/db/users/users.mapper";
 
 type NotificationStatusFilter = "READ" | "UNREAD" | "ALL";
 
@@ -21,7 +22,7 @@ type NotificationStatusFilter = "READ" | "UNREAD" | "ALL";
  */
 async function getRequiredUserDocRefByUid(
   uid: string,
-): Promise<FirebaseFirestore.DocumentReference> {
+): Promise<FirebaseFirestore.DocumentReference<FirestoreUser>> {
   const userDocRef = usersCollection.doc(uid);
   return getRequiredDocumentRef("User", userDocRef);
 }
@@ -33,7 +34,7 @@ async function getRequiredUserDocRefByUid(
  * @returns The typed notifications subcollection reference.
  */
 export function getUserNotificationsCollection(
-  userDocRef: FirebaseFirestore.DocumentReference,
+  userDocRef: FirebaseFirestore.DocumentReference<FirestoreUser>,
 ): FirebaseFirestore.CollectionReference<FirestoreNotification> {
   return userDocRef.collection(
     DB_PATHS.USERS.NOTIFICATIONS_SUBCOLLECTION,
@@ -77,7 +78,7 @@ export async function getNotificationsByUid(
   status: NotificationStatusFilter = "ALL",
 ): Promise<Notification[]> {
   const userDocRef = await getRequiredUserDocRefByUid(uid);
-  let query: FirebaseFirestore.Query =
+  let query: FirebaseFirestore.Query<FirestoreNotification> =
     getUserNotificationsCollection(userDocRef);
 
   if (status === "READ") {
