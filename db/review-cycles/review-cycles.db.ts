@@ -198,7 +198,6 @@ export async function findNewCycleRecords(
 ): Promise<Array<Omit<ReviewCycleRecord, "schemaVersion">>> {
   if (records.length === 0) return [];
 
-  const firestore = getAdminFirestore();
   const GET_ALL_CHUNK_SIZE = 300;
   const newRecords: Array<Omit<ReviewCycleRecord, "schemaVersion">> = [];
 
@@ -208,7 +207,7 @@ export async function findNewCycleRecords(
       collection.doc(`${r.reviewerLogin}:${r.prNumber}:${r.assignedAt}`),
     );
 
-    const snapshots = await firestore.getAll(...refs);
+    const snapshots = await db.getAll(...refs);
 
     chunk.forEach((record, i) => {
       if (!snapshots[i].exists) newRecords.push(record);
