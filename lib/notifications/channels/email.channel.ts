@@ -2,7 +2,7 @@ import {
   getActionItemsEmailFrom,
   getActionItemsEmailReplyTo,
   getResendApiKey,
-} from "@/lib/config";
+} from "@/lib/config/server";
 import { requireEnv } from "@/lib/config/env";
 import type {
   NotificationChannel,

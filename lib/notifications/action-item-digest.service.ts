@@ -7,7 +7,7 @@ import {
   markActionItemsNotified,
 } from "@/db/action-items/action-items.db";
 import { getUsersByTeam } from "@/db/users/users.db";
-import { getAppBaseUrl } from "@/lib/config";
+import { getAppBaseUrl } from "@/lib/config/server";
 import { resolveTeamLeadEmail } from "@/lib/config/lead-emails";
 import { syncActionItems } from "@/lib/action-items/action-items.service";
 import type {

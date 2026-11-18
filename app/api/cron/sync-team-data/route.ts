@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { readEnv } from "@/lib/config";
+import { readEnv } from "@/lib/config/server";
 import { syncTeamData } from "@/lib/teams/sync-team-data.service";
 
 function isAuthorizedCronRequest(req: Request): boolean {

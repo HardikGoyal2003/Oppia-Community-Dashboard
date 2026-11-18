@@ -14,7 +14,7 @@ import {
   CONTRIBUTOR_JOURNEY_CONTENT,
   type ContributorJourneyChecklistItem,
   type ContributorJourneyRichNote,
-} from "@/lib/config";
+} from "@/lib/config/contributor-journey.constants";
 import { cn } from "@/lib/utils/classnames.utils";
 import MyContributionJourneyBeforeYouStart from "./my-contribution-journey-before-you-start";
 import JourneyManualCompletionDialog from "./journey-manual-completion-dialog";
