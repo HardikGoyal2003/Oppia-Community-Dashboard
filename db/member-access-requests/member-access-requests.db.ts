@@ -20,12 +20,12 @@ import {
   normalizeMemberAccessRequestDocument,
   normalizeMemberAccessRequestRecord,
   serializeMemberAccessRequest,
-} from "@/db/member-access-requests/member-access-request.mapper";
+} from "@/db/member-access-requests/member-access-requests.mapper";
 import {
   MemberAccessDecision,
   MemberAccessRequestModel,
   MemberAccessRequestRecord,
-} from "./member-access-request.types";
+} from "./member-access-requests.types";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 
 const db = getAdminFirestore();

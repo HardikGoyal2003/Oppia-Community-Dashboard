@@ -1,6 +1,6 @@
 import { getArchivedDiscussions } from "@/db/archived-discussions/archived-discussions.db";
 import type { ArchivedDiscussionRecord } from "@/db/archived-discussions/archived-discussions.mapper";
-import { createDailyDiscussionMetric } from "@/db/discussion-metrics/daily-discussion-metrics.db";
+import { createDailyDiscussionMetric } from "@/db/daily-discussion-metrics/daily-discussion-metrics.db";
 import {
   CONTRIBUTION_PLATFORMS,
   type ContributionPlatform,

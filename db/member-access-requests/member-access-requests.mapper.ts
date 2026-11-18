@@ -2,14 +2,14 @@ import { Timestamp } from "firebase-admin/firestore";
 import type {
   MemberAccessRequestModel,
   MemberAccessRequestRecord,
-} from "@/db/member-access-requests/member-access-request.types";
+} from "@/db/member-access-requests/member-access-requests.types";
 import { DbValidationError } from "@/db/db.errors";
 import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
 import { isContributionPlatform } from "@/lib/auth/auth.types";
-import type { MemberAccessRequestStatus } from "@/db/member-access-requests/member-access-request.types";
+import type { MemberAccessRequestStatus } from "@/db/member-access-requests/member-access-requests.types";
 import {
   SCHEMA_KEYS,
   getCurrentSchemaVersion,

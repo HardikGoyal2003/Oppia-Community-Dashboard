@@ -6,7 +6,7 @@ import {
   getMemberAccessRequestById,
   getPendingMemberAccessRequestsByPlatformAndRoles,
   resolveMemberAccessRequest,
-} from "@/db/member-access-requests/member-access-request.db";
+} from "@/db/member-access-requests/member-access-requests.db";
 import { UserRole } from "@/lib/auth/auth.types";
 import { isAssignableUserRole } from "@/lib/auth/roles";
 import {

@@ -7,7 +7,7 @@ import {
   getPendingMemberAccessRequestsByPlatformAndRoles,
   resolveMemberAccessRequest,
   submitMemberAccessRequest,
-} from "@/db/member-access-requests/member-access-request.db";
+} from "@/db/member-access-requests/member-access-requests.db";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { isAssignableUserRole } from "@/lib/auth/roles";
 import {
