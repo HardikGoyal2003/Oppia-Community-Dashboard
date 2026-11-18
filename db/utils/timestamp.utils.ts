@@ -71,3 +71,13 @@ export function normalizeTimestamp(value: Date | Timestamp): Date {
     "Expected Firestore timestamp value.",
   );
 }
+
+/**
+ * Converts a Date or Firestore Timestamp to a Firestore Timestamp.
+ *
+ * @param value The date or timestamp value.
+ * @returns The Firestore Timestamp representation.
+ */
+export function toFirestoreTimestamp(value: Date | Timestamp): Timestamp {
+  return value instanceof Timestamp ? value : Timestamp.fromDate(value);
+}

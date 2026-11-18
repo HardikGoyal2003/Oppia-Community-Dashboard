@@ -10,6 +10,7 @@ import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
+import { assertNonEmptyString } from "@/db/utils/validation.utils";
 import type {
   TeamReviewerEntry,
   TeamReviewersDocument,
@@ -38,18 +39,16 @@ function assertTeamReviewerEntry(
       "Team entry must be an object.",
     );
   }
-  if (typeof team.teamSlug !== "string" || !team.teamSlug.trim()) {
-    throw new DbValidationError(
-      `teams[${index}].teamSlug`,
-      "teamSlug must be a non-empty string.",
-    );
-  }
-  if (typeof team.teamName !== "string" || !team.teamName.trim()) {
-    throw new DbValidationError(
-      `teams[${index}].teamName`,
-      "teamName must be a non-empty string.",
-    );
-  }
+  assertNonEmptyString(
+    `teams[${index}].teamSlug`,
+    team.teamSlug,
+    "teamSlug must be a non-empty string.",
+  );
+  assertNonEmptyString(
+    `teams[${index}].teamName`,
+    team.teamName,
+    "teamName must be a non-empty string.",
+  );
   if (typeof team.description !== "string") {
     throw new DbValidationError(
       `teams[${index}].description`,
@@ -70,18 +69,16 @@ function assertTeamReviewerEntry(
         "Each member must be an object.",
       );
     }
-    if (typeof m.username !== "string" || !m.username.trim()) {
-      throw new DbValidationError(
-        `teams[${index}].members[${i}].username`,
-        "username must be a non-empty string.",
-      );
-    }
-    if (typeof m.avatarUrl !== "string" || !m.avatarUrl.trim()) {
-      throw new DbValidationError(
-        `teams[${index}].members[${i}].avatarUrl`,
-        "avatarUrl must be a non-empty string.",
-      );
-    }
+    assertNonEmptyString(
+      `teams[${index}].members[${i}].username`,
+      m.username,
+      "username must be a non-empty string.",
+    );
+    assertNonEmptyString(
+      `teams[${index}].members[${i}].avatarUrl`,
+      m.avatarUrl,
+      "avatarUrl must be a non-empty string.",
+    );
   }
 }
 

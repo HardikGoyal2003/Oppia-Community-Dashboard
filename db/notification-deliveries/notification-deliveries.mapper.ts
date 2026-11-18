@@ -10,6 +10,10 @@ import {
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
 import {
+  assertNonEmptyString,
+  assertNonNegativeNumber,
+} from "@/db/utils/validation.utils";
+import {
   SCHEMA_KEYS,
   assertSchemaVersion,
   getCurrentSchemaVersion,
@@ -43,12 +47,11 @@ const DELIVERY_STATUSES: readonly NotificationDeliveryStatus[] = [
 function assertFirestoreNotificationDelivery(
   delivery: FirebaseFirestore.DocumentData,
 ): asserts delivery is FirestoreNotificationDelivery {
-  if (typeof delivery.kind !== "string" || !delivery.kind.trim()) {
-    throw new DbValidationError(
-      "kind",
-      "Delivery kind must be a non-empty string.",
-    );
-  }
+  assertNonEmptyString(
+    "kind",
+    delivery.kind,
+    "Delivery kind must be a non-empty string.",
+  );
 
   if (!NOTIFICATION_CHANNELS.includes(delivery.channel)) {
     throw new DbValidationError(
@@ -57,19 +60,16 @@ function assertFirestoreNotificationDelivery(
     );
   }
 
-  if (typeof delivery.teamKey !== "string" || !delivery.teamKey.trim()) {
-    throw new DbValidationError(
-      "teamKey",
-      "Delivery teamKey must be a non-empty string.",
-    );
-  }
-
-  if (typeof delivery.periodKey !== "string" || !delivery.periodKey.trim()) {
-    throw new DbValidationError(
-      "periodKey",
-      "Delivery periodKey must be a non-empty string.",
-    );
-  }
+  assertNonEmptyString(
+    "teamKey",
+    delivery.teamKey,
+    "Delivery teamKey must be a non-empty string.",
+  );
+  assertNonEmptyString(
+    "periodKey",
+    delivery.periodKey,
+    "Delivery periodKey must be a non-empty string.",
+  );
 
   if (
     !Array.isArray(delivery.recipientUids) ||
@@ -92,16 +92,11 @@ function assertFirestoreNotificationDelivery(
     );
   }
 
-  if (
-    typeof delivery.itemCount !== "number" ||
-    Number.isNaN(delivery.itemCount) ||
-    delivery.itemCount < 0
-  ) {
-    throw new DbValidationError(
-      "itemCount",
-      "Delivery itemCount must be a non-negative number.",
-    );
-  }
+  assertNonNegativeNumber(
+    "itemCount",
+    delivery.itemCount,
+    "Delivery itemCount must be a non-negative number.",
+  );
 
   if (!DELIVERY_STATUSES.includes(delivery.status)) {
     throw new DbValidationError(

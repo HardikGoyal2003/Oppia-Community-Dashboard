@@ -10,6 +10,7 @@ import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
+import { assertDateKey } from "@/db/utils/validation.utils";
 import type { ReviewCycleBackfillState } from "@/lib/domain/review-cycle-backfill.types";
 
 export type FirestoreReviewCycleBackfillState = {
@@ -20,25 +21,6 @@ export type FirestoreReviewCycleBackfillState = {
   updatedAt: Timestamp;
   schemaVersion: number;
 };
-
-/**
- * Asserts that a raw value is a `YYYY-MM-DD` date key.
- *
- * @param field The field name being validated.
- * @param value The raw value.
- * @returns Nothing. Throws when the value is not a date key.
- */
-function assertDateKey(
-  field: string,
-  value: string | undefined,
-): asserts value is string {
-  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    throw new DbValidationError(
-      field,
-      `${field} must be a YYYY-MM-DD date key.`,
-    );
-  }
-}
 
 /**
  * Validates a raw Firestore review-cycle backfill state document.

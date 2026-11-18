@@ -3,6 +3,7 @@ import { DbValidationError } from "@/db/db.errors";
 import {
   assertTimestamp,
   normalizeTimestamp,
+  toFirestoreTimestamp,
 } from "@/db/utils/timestamp.utils";
 import {
   SCHEMA_KEYS,
@@ -109,10 +110,7 @@ export function serializeOrgMeta(
   return {
     orgMembers: orgMeta.orgMembers,
     collaborators: orgMeta.collaborators,
-    lastUpdated:
-      orgMeta.lastUpdated instanceof Timestamp
-        ? orgMeta.lastUpdated
-        : Timestamp.fromDate(orgMeta.lastUpdated),
+    lastUpdated: toFirestoreTimestamp(orgMeta.lastUpdated),
     schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.ORG_META),
   };
 }

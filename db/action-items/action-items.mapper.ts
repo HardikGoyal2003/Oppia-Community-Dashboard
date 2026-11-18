@@ -10,6 +10,10 @@ import {
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
 import {
+  assertNonEmptyString,
+  assertNonNegativeNumber,
+} from "@/db/utils/validation.utils";
+import {
   SCHEMA_KEYS,
   assertSchemaVersion,
   getCurrentSchemaVersion,
@@ -49,41 +53,6 @@ const ACTION_ITEM_PRIORITIES: readonly ActionItemPriority[] = [
 ];
 
 /**
- * Validates that a field is a non-empty string.
- *
- * @param value The string candidate.
- * @param field The Firestore field name being validated.
- * @returns Nothing. Throws when the value is not a non-empty string.
- */
-function assertNonEmptyString(
-  value: string,
-  field: string,
-): asserts value is string {
-  if (typeof value !== "string" || !value.trim()) {
-    throw new DbValidationError(field, `${field} must be a non-empty string.`);
-  }
-}
-
-/**
- * Validates that a numeric field is present and non-negative.
- *
- * @param value The numeric field candidate.
- * @param field The Firestore field name being validated.
- * @returns Nothing. Throws when the value is invalid.
- */
-function assertNonNegativeNumber(
-  value: number | undefined,
-  field: string,
-): asserts value is number {
-  if (typeof value !== "number" || Number.isNaN(value) || value < 0) {
-    throw new DbValidationError(
-      field,
-      `${field} must be a non-negative number.`,
-    );
-  }
-}
-
-/**
  * Validates the raw Firestore action item document shape.
  *
  * @param item The raw Firestore action item data.
@@ -92,13 +61,11 @@ function assertNonNegativeNumber(
 function assertFirestoreActionItem(
   item: FirebaseFirestore.DocumentData,
 ): asserts item is FirestoreActionItem {
-  assertNonEmptyString(item.teamKey, "teamKey");
-  assertNonEmptyString(item.teamName, "teamName");
-
-  assertNonEmptyString(item.ruleKey, "ruleKey");
-
-  assertNonEmptyString(item.message, "message");
-  assertNonEmptyString(item.reason, "reason");
+  assertNonEmptyString("teamKey", item.teamKey);
+  assertNonEmptyString("teamName", item.teamName);
+  assertNonEmptyString("ruleKey", item.ruleKey);
+  assertNonEmptyString("message", item.message);
+  assertNonEmptyString("reason", item.reason);
 
   if (!ACTION_ITEM_PRIORITIES.includes(item.priority)) {
     throw new DbValidationError(
@@ -107,7 +74,7 @@ function assertFirestoreActionItem(
     );
   }
 
-  assertNonNegativeNumber(item.notificationCount, "notificationCount");
+  assertNonNegativeNumber("notificationCount", item.notificationCount);
 
   assertTimestamp("ActionItem", "detectedAt", item.detectedAt);
   assertTimestamp("ActionItem", "lastDetectedAt", item.lastDetectedAt);
@@ -136,8 +103,8 @@ export function normalizeActionItemDocument(params: {
 }): ActionItemModel {
   const { id, teamId, data } = params;
 
-  assertNonEmptyString(id, "id");
-  assertNonEmptyString(teamId, "teamId");
+  assertNonEmptyString("id", id);
+  assertNonEmptyString("teamId", teamId);
 
   const migratedData = migrateDocument(SCHEMA_KEYS.ACTION_ITEMS, data);
   assertFirestoreActionItem(migratedData);

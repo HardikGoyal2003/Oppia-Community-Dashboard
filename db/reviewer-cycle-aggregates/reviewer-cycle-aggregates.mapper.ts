@@ -10,6 +10,7 @@ import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
+import { assertFiniteNumber } from "@/db/utils/validation.utils";
 
 export type ReviewerCycleAggregateDocument = {
   completedReviews: number;
@@ -30,21 +31,6 @@ type FirestoreReviewerCycleAggregate = Omit<
   ReviewerCycleAggregateDocument,
   "lastUpdated"
 > & { lastUpdated: Timestamp };
-
-/**
- * Validates a finite numeric field.
- * @param field Field name.
- * @param value Raw field value.
- * @returns Nothing.
- */
-function assertFiniteNumber(
-  field: string,
-  value: FirebaseFirestore.DocumentData[string],
-): asserts value is number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new DbValidationError(field, `${field} must be a finite number.`);
-  }
-}
 
 /**
  * Validates an array of string values.

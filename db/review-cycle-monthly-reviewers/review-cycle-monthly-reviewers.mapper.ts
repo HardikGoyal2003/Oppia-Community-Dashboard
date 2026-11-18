@@ -10,6 +10,7 @@ import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
+import { assertMonthKey } from "@/db/utils/validation.utils";
 
 /**
  * Reviewer logins that submitted a review in a given month.
@@ -30,18 +31,6 @@ type FirestoreReviewCycleMonthlyReviewers = Omit<
 > & { lastUpdated: Timestamp };
 
 /**
- * Asserts that a raw value is a `YYYY-MM` month key.
- *
- * @param month The raw month value.
- * @returns Nothing. Throws when the value is not a month key.
- */
-function assertMonthKey(month: FirebaseFirestore.DocumentData[string]): void {
-  if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) {
-    throw new DbValidationError("month", "month must be a YYYY-MM key.");
-  }
-}
-
-/**
  * Normalizes a raw monthly reviewers document.
  *
  * @param data The raw Firestore document data.
@@ -54,7 +43,7 @@ export function normalizeReviewCycleMonthlyReviewers(
     SCHEMA_KEYS.REVIEW_CYCLE_MONTHLY_REVIEWERS,
     data,
   );
-  assertMonthKey(migrated.month);
+  assertMonthKey("month", migrated.month);
   if (
     !Array.isArray(migrated.logins) ||
     migrated.logins.some((login) => typeof login !== "string")

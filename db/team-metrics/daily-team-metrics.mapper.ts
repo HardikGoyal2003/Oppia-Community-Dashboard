@@ -7,6 +7,10 @@ import {
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
 import {
+  assertNonEmptyString,
+  assertNonNegativeNumber,
+} from "@/db/utils/validation.utils";
+import {
   SCHEMA_KEYS,
   assertSchemaVersion,
   getCurrentSchemaVersion,
@@ -18,25 +22,6 @@ export type FirestoreDailyTeamMetric = Omit<DailyTeamMetric, "capturedAt"> & {
 };
 
 /**
- * Validates that a numeric field is present and non-negative.
- *
- * @param value The numeric value candidate.
- * @param field The Firestore field name being validated.
- * @returns Nothing. Throws when the value is invalid.
- */
-function assertNonNegativeNumber(
-  value: number | undefined,
-  field: string,
-): asserts value is number {
-  if (typeof value !== "number" || Number.isNaN(value) || value < 0) {
-    throw new DbValidationError(
-      field,
-      `${field} must be a non-negative number.`,
-    );
-  }
-}
-
-/**
  * Validates the raw Firestore team-metric document shape.
  *
  * @param metric The raw Firestore team metric data.
@@ -45,19 +30,16 @@ function assertNonNegativeNumber(
 function assertFirestoreDailyTeamMetric(
   metric: FirebaseFirestore.DocumentData,
 ): asserts metric is FirestoreDailyTeamMetric {
-  if (typeof metric.teamId !== "string" || !metric.teamId.trim()) {
-    throw new DbValidationError(
-      "teamId",
-      "Team metric teamId must be a non-empty string.",
-    );
-  }
-
-  if (typeof metric.teamName !== "string" || !metric.teamName.trim()) {
-    throw new DbValidationError(
-      "teamName",
-      "Team metric teamName must be a non-empty string.",
-    );
-  }
+  assertNonEmptyString(
+    "teamId",
+    metric.teamId,
+    "Team metric teamId must be a non-empty string.",
+  );
+  assertNonEmptyString(
+    "teamName",
+    metric.teamName,
+    "Team metric teamName must be a non-empty string.",
+  );
 
   if (metric.platform !== "WEB" && metric.platform !== "ANDROID") {
     throw new DbValidationError(
@@ -66,12 +48,11 @@ function assertFirestoreDailyTeamMetric(
     );
   }
 
-  if (typeof metric.dateKey !== "string" || !metric.dateKey.trim()) {
-    throw new DbValidationError(
-      "dateKey",
-      "Team metric dateKey must be a non-empty string.",
-    );
-  }
+  assertNonEmptyString(
+    "dateKey",
+    metric.dateKey,
+    "Team metric dateKey must be a non-empty string.",
+  );
 
   if (typeof metric.unansweredIssuesCount !== "number") {
     throw new DbValidationError(
@@ -80,7 +61,11 @@ function assertFirestoreDailyTeamMetric(
     );
   }
 
-  assertNonNegativeNumber(metric.maxWaitingDays, "maxWaitingDays");
+  assertNonNegativeNumber(
+    "maxWaitingDays",
+    metric.maxWaitingDays,
+    "maxWaitingDays must be a non-negative number.",
+  );
   assertTimestamp("Team metric", "capturedAt", metric.capturedAt);
   assertSchemaVersion(SCHEMA_KEYS.DAILY_TEAM_METRICS, metric.schemaVersion);
 }

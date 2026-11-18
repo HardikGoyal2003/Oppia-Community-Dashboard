@@ -7,6 +7,10 @@ import {
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
 import {
+  assertNonEmptyString,
+  assertNonNegativeNumber,
+} from "@/db/utils/validation.utils";
+import {
   SCHEMA_KEYS,
   assertSchemaVersion,
   getCurrentSchemaVersion,
@@ -19,25 +23,6 @@ export type FirestoreDailyDiscussionMetric = Omit<
 > & {
   capturedAt: Timestamp;
 };
-
-/**
- * Validates that a numeric field is present and non-negative.
- *
- * @param value The numeric value candidate.
- * @param field The Firestore field name being validated.
- * @returns Nothing. Throws when the value is invalid.
- */
-function assertNonNegativeNumber(
-  value: number | undefined,
-  field: string,
-): asserts value is number {
-  if (typeof value !== "number" || Number.isNaN(value) || value < 0) {
-    throw new DbValidationError(
-      field,
-      `${field} must be a non-negative number.`,
-    );
-  }
-}
 
 /**
  * Validates the raw Firestore discussion-metric document shape.
@@ -55,16 +40,16 @@ function assertFirestoreDailyDiscussionMetric(
     );
   }
 
-  if (typeof metric.dateKey !== "string" || !metric.dateKey.trim()) {
-    throw new DbValidationError(
-      "dateKey",
-      "Discussion metric dateKey must be a non-empty string.",
-    );
-  }
+  assertNonEmptyString(
+    "dateKey",
+    metric.dateKey,
+    "Discussion metric dateKey must be a non-empty string.",
+  );
 
   assertNonNegativeNumber(
-    metric.unansweredDiscussionsCount,
     "unansweredDiscussionsCount",
+    metric.unansweredDiscussionsCount,
+    "unansweredDiscussionsCount must be a non-negative number.",
   );
   assertTimestamp("Discussion metric", "capturedAt", metric.capturedAt);
   assertSchemaVersion(
