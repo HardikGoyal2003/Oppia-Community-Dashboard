@@ -60,7 +60,7 @@ type GitHubReviewResponse = {
   user: { login: string } | null;
   state: string;
   body: string | null;
-  submitted_at: string;
+  submitted_at: string | null;
 };
 
 export type GitHubPullResponse = {
@@ -82,7 +82,8 @@ type TimelineEvent = {
   event: string;
   assignee?: { login: string } | null;
   requested_team?: { slug: string } | null;
-  created_at: string;
+  /** Absent for event types GitHub does not timestamp (for example, commits). */
+  created_at?: string;
 };
 
 export type OpenPRAssignment = {
@@ -133,6 +134,7 @@ function getMostRecentAssignments(
     const login = event.assignee?.login;
     if (!login) continue;
     if (!currentAssigneeLogins.has(login)) continue;
+    if (!event.created_at) continue;
     result.set(login, event.created_at);
   }
 
@@ -296,6 +298,7 @@ function extractCyclesFromPR(
     const events: CycleEvent[] = [];
 
     for (const e of timelineEvents) {
+      if (!e.created_at) continue;
       if (e.event === "assigned" && e.assignee?.login === login) {
         events.push({ type: "assigned", timestamp: e.created_at });
       }
@@ -305,16 +308,19 @@ function extractCyclesFromPR(
     }
 
     for (const r of reviews) {
-      if (r.user?.login === login && isCountedReview(r)) {
+      if (r.user?.login === login && isCountedReview(r) && r.submitted_at) {
         events.push({ type: "reviewed", timestamp: r.submitted_at });
       }
     }
 
-    events.sort(
-      (a, b) =>
-        (parseTimestampMs(a.timestamp) ?? 0) -
-        (parseTimestampMs(b.timestamp) ?? 0),
-    );
+    // Malformed timestamps keep their original position (a `0` comparator)
+    // instead of sorting to the front as an epoch timestamp would.
+    events.sort((a, b) => {
+      const leftMs = parseTimestampMs(a.timestamp);
+      const rightMs = parseTimestampMs(b.timestamp);
+
+      return leftMs === null || rightMs === null ? 0 : leftMs - rightMs;
+    });
 
     let cycleStart = "";
     let inCycle = false;
@@ -423,7 +429,12 @@ function extractReviewerPRStats(
 
   for (const login of reviewerLogins) {
     const userReviews = reviews
-      .filter((r) => r.user?.login === login && isCountedReview(r))
+      .filter(
+        (r) =>
+          r.user?.login === login &&
+          isCountedReview(r) &&
+          r.submitted_at !== null,
+      )
       .sort(
         (a, b) =>
           (parseTimestampMs(a.submitted_at) ?? 0) -

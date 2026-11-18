@@ -752,7 +752,11 @@ export type GitHubTimelineEventPayload = {
   event: string;
   assignee?: GitHubUser | null;
   requested_team?: { slug: string } | null;
-  created_at: string;
+  /**
+   * Absent on event types GitHub does not timestamp, such as `committed`
+   * (which carries commit author/committer dates instead) and `reviewed`.
+   */
+  created_at?: string;
 };
 
 /**
@@ -767,6 +771,7 @@ export function parseGitHubTimelineEvent(
   context: string,
 ): GitHubTimelineEventPayload {
   const record = expectRecord(value, context);
+  const createdAt = expectNullableString(record, "created_at", context);
 
   return {
     event: expectString(record, "event", context),
@@ -775,7 +780,7 @@ export function parseGitHubTimelineEvent(
       record.requested_team === null || record.requested_team === undefined
         ? null
         : parseTeamRef(record.requested_team, `${context}.requested_team`),
-    created_at: expectString(record, "created_at", context),
+    ...(createdAt === null ? {} : { created_at: createdAt }),
   };
 }
 
@@ -784,7 +789,8 @@ export type GitHubReviewPayload = {
   user: GitHubUser | null;
   state: string;
   body: string | null;
-  submitted_at: string;
+  /** Null for pending drafts, which GitHub has not submitted yet. */
+  submitted_at: string | null;
 };
 
 /**
@@ -804,7 +810,7 @@ export function parseGitHubReview(
     user: parseNullableGitHubUser(record.user, `${context}.user`),
     state: expectString(record, "state", context),
     body: expectNullableString(record, "body", context),
-    submitted_at: expectString(record, "submitted_at", context),
+    submitted_at: expectNullableString(record, "submitted_at", context),
   };
 }
 
