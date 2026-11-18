@@ -1,4 +1,3 @@
-import { Timestamp } from "firebase-admin/firestore";
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import type {
   DerivedJourneyKey,
@@ -10,7 +9,7 @@ import { getRequiredDocumentRef } from "@/db/utils/document.utils";
 import {
   FirestoreUserJourneyProgress,
   normalizeUserJourneyProgressDocument,
-  serializeDerivedProgressState,
+  serializeDerivedJourneyStateUpdate,
   serializeUserJourneyProgress,
 } from "./user-journey-progress.mapper";
 
@@ -117,8 +116,5 @@ export async function setDerivedJourneyStateByUid(
 ): Promise<void> {
   const docRef = await getRequiredJourneyProgressDocRefByUid(uid);
 
-  await docRef.update({
-    [`derivedState.${key}`]: serializeDerivedProgressState(state),
-    updatedAt: Timestamp.now(),
-  });
+  await docRef.update(serializeDerivedJourneyStateUpdate(key, state));
 }

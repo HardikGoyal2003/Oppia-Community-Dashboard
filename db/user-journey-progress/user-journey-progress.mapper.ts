@@ -6,6 +6,7 @@ import {
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
 import type {
+  DerivedJourneyKey,
   DerivedProgressState,
   ManualProgressState,
   UserJourneyProgressModel,
@@ -327,5 +328,22 @@ export function serializeUserJourneyProgress(
     platform: progress.platform,
     updatedAt: Timestamp.fromDate(progress.updatedAt),
     schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.USER_JOURNEY_PROGRESS),
+  };
+}
+
+/**
+ * Builds the Firestore update payload for one derived journey state entry.
+ *
+ * @param key The derived journey key to update.
+ * @param state The derived progress state to persist.
+ * @returns The Firestore-ready partial update document.
+ */
+export function serializeDerivedJourneyStateUpdate(
+  key: DerivedJourneyKey,
+  state: DerivedProgressState,
+): Record<string, FirestoreDerivedProgressState | Timestamp> {
+  return {
+    [`derivedState.${key}`]: serializeDerivedProgressState(state),
+    updatedAt: Timestamp.now(),
   };
 }
