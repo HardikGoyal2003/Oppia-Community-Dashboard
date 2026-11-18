@@ -91,8 +91,5 @@ export async function getRecentReviewCyclePrStats(
     .orderBy("prNumber", "desc")
     .limit(limit)
     .get();
-  return snapshot.docs
-    .map((doc) => doc.data())
-    .filter((data): data is FirebaseFirestore.DocumentData => Boolean(data))
-    .map((data) => normalizeReviewCyclePrStats(data));
+  return snapshot.docs.map((doc) => normalizeReviewCyclePrStats(doc.data()));
 }
