@@ -1,5 +1,6 @@
 import { requestGitHubRestAll } from "./github.rest";
 import { fetchGitHubRateLimit } from "./github.rate-limit";
+import { parseGitHubTeam, parseGitHubTeamMember } from "./github.validation";
 
 const ORG = "oppia";
 const WEB_TEAM_SLUG = "all-web-dev-teams";
@@ -49,6 +50,7 @@ export async function fetchWebReviewerTeams(): Promise<FetchedTeam[]> {
 
   const childTeams = await requestGitHubRestAll<GitHubTeamResponse>(
     `/orgs/${ORG}/teams/${WEB_TEAM_SLUG}/teams`,
+    parseGitHubTeam,
   );
 
   console.log(`Found ${childTeams.length} web sub-teams.`);
@@ -65,6 +67,7 @@ export async function fetchWebReviewerTeams(): Promise<FetchedTeam[]> {
 
     const members = await requestGitHubRestAll<GitHubTeamMemberResponse>(
       `/orgs/${ORG}/teams/${team.slug}/members`,
+      parseGitHubTeamMember,
     );
 
     teamsWithMembers.push({
@@ -82,7 +85,7 @@ export async function fetchWebReviewerTeams(): Promise<FetchedTeam[]> {
 
   const rate = await fetchGitHubRateLimit();
   console.log("\nRate Limit (REST):");
-  console.log(rate.core);
+  console.log(rate.core ?? "unavailable");
 
   return teamsWithMembers;
 }

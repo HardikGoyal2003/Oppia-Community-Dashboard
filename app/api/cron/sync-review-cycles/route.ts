@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { readEnv } from "@/lib/config";
+import { readEnv } from "@/lib/config/server";
 import { syncReviewCycles } from "@/lib/team-activity/sync-review-cycles.service";
 
 function isAuthorizedCronRequest(req: Request): boolean {

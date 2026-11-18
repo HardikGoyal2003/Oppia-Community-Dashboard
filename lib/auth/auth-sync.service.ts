@@ -77,43 +77,26 @@ export async function syncJwtWithUser(token: JWT): Promise<JWT> {
 
   token.invalidUser = false;
   token.role = dbUser.role;
+  token.team = dbUser.team ?? null;
+  token.platform = dbUser.platform ?? null;
   token.githubUsername = dbUser.githubUsername;
 
   return token;
 }
 
 /**
- * Hydrates the NextAuth session from the Firestore user record.
+ * Hydrates the NextAuth session from the JWT, which already carries the role,
+ * team, platform, and GitHub username copied over by the JWT callback. This
+ * avoids a second Firestore read on every session request.
  *
  * @param session The mutable session object from the NextAuth callback.
  * @param token The JWT token that identifies the current user.
  * @returns The updated session payload.
  */
-export async function syncSessionWithUser(
-  session: Session,
-  token: JWT,
-): Promise<Session> {
-  if (token.invalidUser) {
-    return {
-      ...session,
-      invalidUser: true,
-      user: undefined,
-    };
-  }
-
+export function syncSessionWithUser(session: Session, token: JWT): Session {
   const userId = token.userId ?? token.sub;
 
-  if (!userId) {
-    return {
-      ...session,
-      invalidUser: true,
-      user: undefined,
-    };
-  }
-
-  const dbUser = await getUserById(userId);
-
-  if (!dbUser) {
+  if (token.invalidUser || !userId || !token.role || !token.githubUsername) {
     return {
       ...session,
       invalidUser: true,
@@ -127,10 +110,10 @@ export async function syncSessionWithUser(
     user: {
       ...session.user,
       id: userId,
-      role: dbUser.role,
-      team: dbUser.team ?? null,
-      platform: dbUser.platform ?? null,
-      githubUsername: dbUser.githubUsername,
+      role: token.role,
+      team: token.team ?? null,
+      platform: token.platform ?? null,
+      githubUsername: token.githubUsername,
     },
   };
 }

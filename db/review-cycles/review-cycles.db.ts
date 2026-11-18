@@ -9,7 +9,12 @@ import type {
   ReviewerTeamsAnalytics,
   ReviewCycleRecord,
 } from "@/lib/domain/reviewer-teams.types";
-import { getIstDateKey, getIstWeekStartDateKey } from "@/lib/utils/date.utils";
+import {
+  getIstDateKey,
+  getIstWeekStartDateKey,
+  parseDateValue,
+  parseTimestampMs,
+} from "@/lib/utils/date.utils";
 import { DB_PATHS } from "@/db/db-paths";
 import {
   type FirestoreReviewCycle,
@@ -265,9 +270,11 @@ function accumulateCycle(
     existing.reviewedPrCount++;
     existing.completedReviewSubmissions += data.reviewSubmissionCount ?? 0;
     if ((data.reviewSubmissionCount ?? 0) > 0) {
-      existing.activeWeeks.add(
-        getIstWeekStartDateKey(new Date(data.completedAt)),
-      );
+      const completedAt = parseDateValue(data.completedAt);
+
+      if (completedAt) {
+        existing.activeWeeks.add(getIstWeekStartDateKey(completedAt));
+      }
     }
 
     if (data.reviewRoundsBeforeApproval !== null) {
@@ -344,7 +351,15 @@ export async function getReviewCycleAggregatesForLogins(
 function buildReviewerFact(
   record: Omit<ReviewCycleRecord, "schemaVersion">,
 ): ReviewCyclePrReviewerFact {
-  const completedAt = new Date(record.completedAt);
+  const completedAt = parseDateValue(record.completedAt);
+
+  if (!completedAt) {
+    throw new DbValidationError(
+      "completedAt",
+      "Review cycle completedAt must be a valid date.",
+    );
+  }
+
   return {
     weekStart: getIstWeekStartDateKey(completedAt),
     month: getIstDateKey(completedAt).slice(0, 7),
@@ -484,16 +499,19 @@ function buildScatter(
     .filter(hasApprovalTiming)
     .sort((a, b) => b.prNumber - a.prNumber)
     .slice(0, PR_SIZE_SCATTER_LIMIT)
-    .map((stats) => ({
-      prNumber: stats.prNumber,
-      additions: stats.additions,
-      reviewTimeHours:
-        Math.max(
-          0,
-          new Date(stats.lastApprovedAt).getTime() -
-            new Date(stats.firstAssignedAt).getTime(),
-        ) / 3_600_000,
-    }))
+    .map((stats) => {
+      const approvedAtMs = parseTimestampMs(stats.lastApprovedAt);
+      const assignedAtMs = parseTimestampMs(stats.firstAssignedAt);
+
+      return {
+        prNumber: stats.prNumber,
+        additions: stats.additions,
+        reviewTimeHours:
+          approvedAtMs === null || assignedAtMs === null
+            ? 0
+            : Math.max(0, approvedAtMs - assignedAtMs) / 3_600_000,
+      };
+    })
     .sort((a, b) => a.additions - b.additions);
 }
 

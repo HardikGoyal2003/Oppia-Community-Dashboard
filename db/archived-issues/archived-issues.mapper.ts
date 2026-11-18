@@ -1,3 +1,4 @@
+import { parseDateValue } from "@/lib/utils/date.utils";
 import { Timestamp } from "firebase-admin/firestore";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type { Issue } from "@/lib/domain/issues.types";
@@ -157,13 +158,20 @@ export function serializeArchivedIssue(
   platform: ContributionPlatform,
   archivedBy: string,
 ): FirestoreArchivedIssue {
+  const lastCommentCreatedAt = parseDateValue(issue.lastCommentCreatedAt);
+
+  if (!lastCommentCreatedAt) {
+    throw new DbValidationError(
+      "lastCommentCreatedAt",
+      "Archived issue lastCommentCreatedAt must be a valid date.",
+    );
+  }
+
   return {
     issueNumber: issue.issueNumber,
     issueUrl: issue.issueUrl,
     issueTitle: issue.issueTitle,
-    lastCommentCreatedAt: Timestamp.fromDate(
-      new Date(issue.lastCommentCreatedAt),
-    ),
+    lastCommentCreatedAt: Timestamp.fromDate(lastCommentCreatedAt),
     linkedProject: issue.linkedProject,
     platform,
     archivedBy,

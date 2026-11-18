@@ -1,3 +1,58 @@
+/** A value accepted by the shared date parsing helpers. */
+export type DateInput = string | number | Date | null | undefined;
+
+/**
+ * Parses a date-like value into a `Date`, applying a single invalid-date policy.
+ *
+ * External timestamps (GitHub payloads, Firestore documents, cached data) may be
+ * missing or malformed. Callers should handle `null` instead of propagating
+ * `NaN` into filtering, sorting, or metric calculations.
+ *
+ * @param value The date-like value to parse.
+ * @returns The parsed date, or null when the value is missing or invalid.
+ */
+export function parseDateValue(value: DateInput): Date | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/**
+ * Parses a date-like value into epoch milliseconds.
+ *
+ * @param value The date-like value to parse.
+ * @returns The timestamp in milliseconds, or null when missing or invalid.
+ */
+export function parseTimestampMs(value: DateInput): number | null {
+  return parseDateValue(value)?.getTime() ?? null;
+}
+
+/**
+ * Compares two date-like values.
+ *
+ * @param left The left date-like value.
+ * @param right The right date-like value.
+ * @returns A negative, zero, or positive comparison result, or null when either
+ *   value is missing or invalid.
+ */
+export function compareDateInputs(
+  left: DateInput,
+  right: DateInput,
+): number | null {
+  const leftMs = parseTimestampMs(left);
+  const rightMs = parseTimestampMs(right);
+
+  if (leftMs === null || rightMs === null) {
+    return null;
+  }
+
+  return leftMs - rightMs;
+}
+
 /**
  * Formats a day of month with its English ordinal suffix.
  *

@@ -47,9 +47,6 @@ export async function handleAuthJwt(token: JWT): Promise<JWT> {
  * @param token The raw NextAuth JWT token.
  * @returns The synchronized session payload.
  */
-export async function handleAuthSession(
-  session: Session,
-  token: JWT,
-): Promise<Session> {
+export function handleAuthSession(session: Session, token: JWT): Session {
   return syncSessionWithUser(session, token);
 }

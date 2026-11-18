@@ -3,6 +3,10 @@ import { DbInvalidStateError, DbValidationError } from "@/db/db.errors";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { GITHUB_REPOS } from "@/lib/config/github.constants";
 import { requestGitHubRest } from "@/lib/github/github.rest";
+import {
+  parseGitHubIssueDetail,
+  parseGitHubPullRequestDetail,
+} from "@/lib/github/github.validation";
 import type {
   JourneyVerificationKind,
   JourneyVerificationResult,
@@ -127,6 +131,7 @@ async function verifyFirstIssueClaim(
   );
   const issue = await requestGitHubRest<GitHubIssueResponse>(
     `/repos/${owner}/${repo}/issues/${issueNumber}`,
+    parseGitHubIssueDetail,
   );
 
   if (issue.pull_request) {
@@ -192,6 +197,7 @@ async function verifyMergedPullRequest(
   );
   const pr = await requestGitHubRest<GitHubPullRequestResponse>(
     `/repos/${owner}/${repo}/pulls/${issueNumber}`,
+    parseGitHubPullRequestDetail,
   );
 
   if (

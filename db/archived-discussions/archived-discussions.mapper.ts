@@ -1,3 +1,4 @@
+import { parseDateValue } from "@/lib/utils/date.utils";
 import { Timestamp } from "firebase-admin/firestore";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type { Discussion } from "@/lib/domain/discussions.types";
@@ -142,11 +143,20 @@ export function serializeArchivedDiscussion(
   platform: ContributionPlatform,
   archivedBy: string,
 ): FirestoreArchivedDiscussion {
+  const createdAt = parseDateValue(discussion.createdAt);
+
+  if (!createdAt) {
+    throw new DbValidationError(
+      "createdAt",
+      "Archived discussion createdAt must be a valid date.",
+    );
+  }
+
   return {
     discussionNumber: discussion.discussionNumber,
     discussionUrl: discussion.discussionUrl,
     discussionTitle: discussion.discussionTitle,
-    createdAt: Timestamp.fromDate(new Date(discussion.createdAt)),
+    createdAt: Timestamp.fromDate(createdAt),
     platform,
     archivedBy,
     archivedAt: Timestamp.now(),

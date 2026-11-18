@@ -8,7 +8,7 @@ import {
   resolveMemberAccessRequest,
 } from "@/db/member-access-requests/member-access-request.db";
 import { UserRole } from "@/lib/auth/auth.types";
-import { isValidUserRole } from "@/lib/utils/roles.utils";
+import { isAssignableUserRole } from "@/lib/auth/roles";
 import {
   DbInvalidStateError,
   DbNotFoundError,
@@ -145,7 +145,7 @@ export async function PATCH(req: Request) {
     let notificationMessage: string;
 
     if (decision === "ACCEPT") {
-      if (!isValidUserRole(request.role)) {
+      if (!isAssignableUserRole(request.role)) {
         return NextResponse.json(
           { error: "Invalid role in request." },
           { status: 400 },

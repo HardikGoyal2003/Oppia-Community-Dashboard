@@ -10,7 +10,7 @@ import {
   submitMemberAccessRequest,
 } from "@/db/member-access-requests/member-access-request.db";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
-import { isValidUserRole } from "@/lib/utils/roles.utils";
+import { isAssignableUserRole } from "@/lib/auth/roles";
 import {
   DbInvalidStateError,
   DbNotFoundError,
@@ -86,7 +86,7 @@ export async function POST(req: Request) {
   const role = typeof body.role === "string" ? body.role.trim() : "";
   const note = typeof body.note === "string" ? body.note.trim() : "";
 
-  if (!team || !role || !isValidUserRole(role)) {
+  if (!team || !role || !isAssignableUserRole(role)) {
     return NextResponse.json(
       { error: "Missing or invalid fields: team, role." },
       { status: 400 },
@@ -196,7 +196,7 @@ export async function PATCH(req: Request) {
     let notificationMessage: string;
 
     if (decision === "ACCEPT") {
-      if (!isValidUserRole(request.role)) {
+      if (!isAssignableUserRole(request.role)) {
         return NextResponse.json(
           { error: "Invalid role in request." },
           { status: 400 },

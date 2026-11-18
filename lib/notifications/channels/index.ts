@@ -11,7 +11,7 @@ import { inAppNotificationChannel } from "./in-app.channel";
  * transport (Google Chat, Slack, ...) means creating a channel module and
  * registering it here — nothing else changes.
  */
-export const NOTIFICATION_CHANNELS: NotificationChannel[] = [
+export const NOTIFICATION_CHANNELS = [
   inAppNotificationChannel,
   emailNotificationChannel,
-];
+] as const satisfies readonly NotificationChannel[];

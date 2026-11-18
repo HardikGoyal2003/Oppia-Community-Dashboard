@@ -24,7 +24,7 @@ export async function fetchGoodFirstIssues(
 
   const rate = await fetchGitHubRateLimit();
   console.log("\nRate Limit (GraphQL):");
-  console.log(rate.graphql);
+  console.log(rate.graphql ?? "unavailable");
 
   return mapGitHubGoodFirstIssueNodes(issues);
 }

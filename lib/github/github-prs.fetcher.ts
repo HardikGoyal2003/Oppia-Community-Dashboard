@@ -1,8 +1,15 @@
+import { parseTimestampMs } from "@/lib/utils/date.utils";
 import { requestGitHubRest, requestGitHubRestAll } from "./github.rest";
 import { requestGitHubGraphQL } from "./github.request";
 import { fetchGitHubRateLimit } from "./github.rate-limit";
-import fs from "fs";
-import path from "path";
+import {
+  parseGitHubInlineComment,
+  parseGitHubPullRequest,
+  parseGitHubReview,
+  parseGitHubTimelineEvent,
+  parseIssueCountRecord,
+  parseSearchResponse,
+} from "./github.validation";
 
 const ORG = "oppia";
 const REPO = "oppia";
@@ -50,10 +57,10 @@ type CycleRecordsResult = {
 };
 
 type GitHubReviewResponse = {
-  user: { login: string };
+  user: { login: string } | null;
   state: string;
   body: string | null;
-  submitted_at: string;
+  submitted_at: string | null;
 };
 
 export type GitHubPullResponse = {
@@ -65,7 +72,7 @@ export type GitHubPullResponse = {
   user: { login: string } | null;
   assignees: Array<{ login: string }> | null;
   requested_teams: Array<{ slug: string }>;
-  pull_request?: Record<string, string>;
+  pull_request?: object;
   /** Present on single-PR REST responses, absent from search results. */
   additions?: number;
   changed_files?: number;
@@ -75,7 +82,8 @@ type TimelineEvent = {
   event: string;
   assignee?: { login: string } | null;
   requested_team?: { slug: string } | null;
-  created_at: string;
+  /** Absent for event types GitHub does not timestamp (for example, commits). */
+  created_at?: string;
 };
 
 export type OpenPRAssignment = {
@@ -86,7 +94,7 @@ export type OpenPRAssignment = {
 };
 
 type InlineComment = {
-  user: { login: string };
+  user: { login: string } | null;
   body: string;
 };
 
@@ -126,6 +134,7 @@ function getMostRecentAssignments(
     const login = event.assignee?.login;
     if (!login) continue;
     if (!currentAssigneeLogins.has(login)) continue;
+    if (!event.created_at) continue;
     result.set(login, event.created_at);
   }
 
@@ -143,6 +152,7 @@ export async function fetchAssignedPRs(): Promise<MemberPRMap> {
 
   const prs = await requestGitHubRestAll<GitHubPullResponse>(
     `/repos/${ORG}/${REPO}/pulls?state=open`,
+    parseGitHubPullRequest,
   );
 
   console.log(`Found ${prs.length} open PRs.`);
@@ -163,18 +173,8 @@ export async function fetchAssignedPRs(): Promise<MemberPRMap> {
 
     const timelineEvents = await requestGitHubRestAll<TimelineEvent>(
       `/repos/${ORG}/${REPO}/issues/${pr.number}/timeline`,
+      parseGitHubTimelineEvent,
     );
-
-    if (pr.number === 26078) {
-      const logFile = path.join(process.cwd(), "logs", "debug.log");
-
-      fs.mkdirSync(path.dirname(logFile), { recursive: true });
-
-      fs.appendFileSync(
-        logFile,
-        `[${new Date().toISOString()}] PR ${pr.number}\n${JSON.stringify(timelineEvents, null, 2)}\n\n`,
-      );
-    }
 
     const assignmentTimestamps = getMostRecentAssignments(
       timelineEvents,
@@ -199,7 +199,7 @@ export async function fetchAssignedPRs(): Promise<MemberPRMap> {
 
   const rate = await fetchGitHubRateLimit();
   console.log("\nRate Limit (REST):");
-  console.log(rate.core);
+  console.log(rate.core ?? "unavailable");
 
   return map;
 }
@@ -292,12 +292,13 @@ function extractCyclesFromPR(
     const commentCount = stats?.commentCount ?? 0;
     const reviewSubmissionCount = stats?.reviewSubmissionCount ?? 0;
     const approvedAt = stats?.approvedAt ?? null;
-    const approvedAtMs = approvedAt ? new Date(approvedAt).getTime() : null;
+    const approvedAtMs = parseTimestampMs(approvedAt);
     let approvalAttached = false;
 
     const events: CycleEvent[] = [];
 
     for (const e of timelineEvents) {
+      if (!e.created_at) continue;
       if (e.event === "assigned" && e.assignee?.login === login) {
         events.push({ type: "assigned", timestamp: e.created_at });
       }
@@ -307,15 +308,19 @@ function extractCyclesFromPR(
     }
 
     for (const r of reviews) {
-      if (r.user?.login === login && isCountedReview(r)) {
+      if (r.user?.login === login && isCountedReview(r) && r.submitted_at) {
         events.push({ type: "reviewed", timestamp: r.submitted_at });
       }
     }
 
-    events.sort(
-      (a, b) =>
-        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-    );
+    // Malformed timestamps keep their original position (a `0` comparator)
+    // instead of sorting to the front as an epoch timestamp would.
+    events.sort((a, b) => {
+      const leftMs = parseTimestampMs(a.timestamp);
+      const rightMs = parseTimestampMs(b.timestamp);
+
+      return leftMs === null || rightMs === null ? 0 : leftMs - rightMs;
+    });
 
     let cycleStart = "";
     let inCycle = false;
@@ -337,8 +342,13 @@ function extractCyclesFromPR(
         cycleStart = event.timestamp;
       } else {
         if (inCycle) {
-          const eventMs = new Date(event.timestamp).getTime();
-          const cycleStartMs = new Date(cycleStart).getTime();
+          const eventMs = parseTimestampMs(event.timestamp);
+          const cycleStartMs = parseTimestampMs(cycleStart);
+
+          if (eventMs === null || cycleStartMs === null) {
+            continue;
+          }
+
           const durationMs = eventMs - cycleStartMs;
           // Approvals are PR-level, but an approval only belongs to a cycle
           // when it happened while that cycle was open. Without the upper
@@ -419,11 +429,16 @@ function extractReviewerPRStats(
 
   for (const login of reviewerLogins) {
     const userReviews = reviews
-      .filter((r) => r.user?.login === login && isCountedReview(r))
+      .filter(
+        (r) =>
+          r.user?.login === login &&
+          isCountedReview(r) &&
+          r.submitted_at !== null,
+      )
       .sort(
         (a, b) =>
-          new Date(a.submitted_at).getTime() -
-          new Date(b.submitted_at).getTime(),
+          (parseTimestampMs(a.submitted_at) ?? 0) -
+          (parseTimestampMs(b.submitted_at) ?? 0),
       );
 
     let reviewRoundsBeforeApproval: number | null = null;
@@ -471,15 +486,19 @@ async function fetchPRTimelineAndReviews(prNumber: number): Promise<{
     await Promise.all([
       requestGitHubRestAll<TimelineEvent>(
         `/repos/${ORG}/${REPO}/issues/${prNumber}/timeline`,
+        parseGitHubTimelineEvent,
       ),
       requestGitHubRestAll<GitHubReviewResponse>(
         `/repos/${ORG}/${REPO}/pulls/${prNumber}/reviews`,
+        parseGitHubReview,
       ),
       requestGitHubRestAll<InlineComment>(
         `/repos/${ORG}/${REPO}/pulls/${prNumber}/comments`,
+        parseGitHubInlineComment,
       ),
       requestGitHubRest<GitHubPullResponse>(
         `/repos/${ORG}/${REPO}/pulls/${prNumber}`,
+        parseGitHubPullRequest,
       ),
     ]);
   return { timelineEvents, reviews, inlineComments, pullRequest };
@@ -506,6 +525,7 @@ async function searchPullRequests(
       GitHubSearchResponse<GitHubPullResponse>
     >(
       `/search/issues?q=${query}&sort=${sort}&order=desc&per_page=${SEARCH_PER_PAGE}&page=${page}`,
+      parseSearchResponse(parseGitHubPullRequest),
     );
 
     items.push(...searchResult.items);
@@ -624,7 +644,7 @@ export async function extractCycleRecordsForPR(
 async function logRestRateLimit(): Promise<void> {
   const rate = await fetchGitHubRateLimit();
   console.log("\nRate Limit (REST):");
-  console.log(rate.core);
+  console.log(rate.core ?? "unavailable");
 }
 
 /**
@@ -786,7 +806,7 @@ export async function fetchAuthoredPrCounts(
 
     const data = await requestGitHubGraphQL<
       Record<string, { issueCount: number }>
-    >(query, variables);
+    >(query, parseIssueCountRecord, variables);
 
     chunk.forEach((login, index) => {
       result.set(login, data[`u${index}`]?.issueCount ?? 0);

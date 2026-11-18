@@ -1,4 +1,5 @@
 import { Timestamp } from "firebase-admin/firestore";
+import { isContributionPlatform } from "@/lib/auth/auth.types";
 import type {
   ContributionPlatform,
   UserModel,
@@ -14,8 +15,6 @@ import {
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
-
-const CONTRIBUTION_PLATFORMS: ContributionPlatform[] = ["WEB", "ANDROID"];
 
 export type FirestoreUser = {
   email: string;
@@ -72,10 +71,7 @@ function assertFirestoreUser(
     );
   }
 
-  if (
-    user.platform !== null &&
-    !CONTRIBUTION_PLATFORMS.includes(user.platform)
-  ) {
+  if (user.platform !== null && !isContributionPlatform(user.platform)) {
     throw new DbValidationError(
       "platform",
       "User platform must be WEB, ANDROID, or null.",

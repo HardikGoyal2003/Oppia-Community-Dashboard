@@ -1,7 +1,7 @@
 import type { UserRole } from "./roles";
 import { isUserRole } from "./roles";
 
-export const ROLE_LABELS: Record<UserRole, string> = {
+export const ROLE_LABELS = {
   SUPER_ADMIN: "Super Admin",
   CONTRIBUTOR: "Contributor",
   TEAM_MEMBER: "Team Member",
@@ -9,7 +9,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   TEAM_LEAD: "Team Lead",
   ADMIN: "Admin",
   ALUMNI: "Alumni",
-};
+} as const satisfies Record<UserRole, string>;
 
 /**
  * Formats a role value for display using the canonical role labels when available.

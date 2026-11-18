@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { readEnv } from "@/lib/config";
+import { readEnv } from "@/lib/config/server";
 import { sendWeeklyActionItemDigest } from "@/lib/notifications/action-item-digest.service";
 
 function isAuthorizedCronRequest(req: Request): boolean {

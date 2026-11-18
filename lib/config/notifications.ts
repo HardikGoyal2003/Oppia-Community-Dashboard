@@ -1,4 +1,5 @@
-import { readEnv, readEnvWithDefault } from "./env";
+import { LibConfigError } from "@/lib/lib.errors";
+import { readEnv, readEnvWithDefault, requireEnv } from "./env";
 
 /**
  * Returns the Resend API key when configured.
@@ -36,16 +37,33 @@ export function getActionItemsEmailReplyTo(): string {
 
 /**
  * Returns the public base URL of the dashboard for absolute links in emails.
- * Falls back to the Vercel deployment URL, then to relative paths.
  *
- * @returns The app base URL without a trailing slash, or an empty string.
+ * The URL must be configured explicitly and use HTTPS so emailed links never
+ * point at an insecure or guessed host.
+ *
+ * @returns The app base URL without a trailing slash.
+ * @throws {LibConfigError} When NEXT_PUBLIC_APP_URL is missing, malformed, or
+ *   not HTTPS.
  */
 export function getAppBaseUrl(): string {
-  const explicitUrl = readEnv("NEXT_PUBLIC_APP_URL");
+  const explicitUrl = requireEnv("NEXT_PUBLIC_APP_URL").trim();
 
-  if (explicitUrl) {
-    return explicitUrl.replace(/\/+$/, "");
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(explicitUrl);
+  } catch {
+    throw new LibConfigError(
+      "NEXT_PUBLIC_APP_URL",
+      `Invalid NEXT_PUBLIC_APP_URL: ${explicitUrl}`,
+    );
   }
 
-  return "http://oppia-community-dashboard.com";
+  if (parsedUrl.protocol !== "https:") {
+    throw new LibConfigError(
+      "NEXT_PUBLIC_APP_URL",
+      "NEXT_PUBLIC_APP_URL must use HTTPS for email links",
+    );
+  }
+
+  return explicitUrl.replace(/\/+$/, "");
 }

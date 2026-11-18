@@ -1,3 +1,4 @@
+import { parseTimestampMs } from "@/lib/utils/date.utils";
 import type { OrgMetaRecord } from "@/db/org-meta/org-meta.mapper";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import {
@@ -45,9 +46,9 @@ export async function fetchUnansweredDiscussions(
 
     const latestActivity = getLatestDiscussionActivity(discussion);
     const lastActivityAt = latestActivity?.createdAt ?? discussion.createdAt;
-    const ts = new Date(lastActivityAt).getTime();
+    const ts = parseTimestampMs(lastActivityAt);
 
-    if (Number.isNaN(ts) || ts < cutoffTime) {
+    if (ts === null || ts < cutoffTime) {
       return false;
     }
 
@@ -78,7 +79,7 @@ export async function fetchUnansweredDiscussions(
 
   const rate = await fetchGitHubRateLimit();
   console.log("\nRate Limit:");
-  console.log(rate.graphql);
+  console.log(rate.graphql ?? "unavailable");
 
   return mapGitHubDiscussionNodes(filtered);
 }

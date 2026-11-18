@@ -8,7 +8,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import { getKnownRoleDisplayLabel } from "@/lib/auth/role-display";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
-import { isValidUserRole } from "@/lib/utils/roles.utils";
+import { isAssignableUserRole } from "@/lib/auth/roles";
 import { DbNotFoundError, DbValidationError } from "@/db/db.errors";
 
 type ManagedUser = Pick<
@@ -89,7 +89,13 @@ export async function PATCH(req: Request) {
     typeof body.githubUsername === "string" ? body.githubUsername.trim() : "";
   const reason = typeof body.reason === "string" ? body.reason.trim() : "";
 
-  if (!uid || !role || !isValidUserRole(role) || !githubUsername || !reason) {
+  if (
+    !uid ||
+    !role ||
+    !isAssignableUserRole(role) ||
+    !githubUsername ||
+    !reason
+  ) {
     return NextResponse.json(
       { error: "Invalid payload for user update." },
       { status: 400 },

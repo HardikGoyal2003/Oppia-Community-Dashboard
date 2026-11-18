@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { readEnv } from "@/lib/config";
+import { readEnv } from "@/lib/config/server";
 import { captureDailyUnansweredIssueMetrics } from "@/lib/team-metrics/capture-daily-team-metrics.service";
 
 function isAuthorizedCronRequest(req: Request): boolean {

@@ -3,8 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import { getKnownRoleDisplayLabel } from "@/lib/auth/role-display";
 import { UserRole } from "@/lib/auth/auth.types";
-import { TEAM_LEAD_ASSIGNABLE_ROLES } from "@/lib/auth/roles";
-import { isValidUserRole } from "@/lib/utils/roles.utils";
+import {
+  isAssignableUserRole,
+  isTeamLeadAssignableRole,
+} from "@/lib/auth/roles";
 import {
   getUserById,
   getUsersByTeam,
@@ -49,7 +51,7 @@ function toTeamMemberSummary(member: UserRecord): TeamMemberSummary {
 }
 
 function isAllowedRole(role: UserRole): boolean {
-  return TEAM_LEAD_ASSIGNABLE_ROLES.includes(role);
+  return isTeamLeadAssignableRole(role);
 }
 
 function getUserAccessUpdatedMessage(
@@ -113,7 +115,7 @@ export async function PATCH(req: Request) {
   const requestedTeam = typeof body.team === "string" ? body.team.trim() : "";
   const reason = typeof body.reason === "string" ? body.reason.trim() : "";
 
-  if (!uid || !role || !isValidUserRole(role) || !reason) {
+  if (!uid || !role || !isAssignableUserRole(role) || !reason) {
     return NextResponse.json(
       { error: "Invalid payload for user update." },
       { status: 400 },

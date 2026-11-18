@@ -1,5 +1,13 @@
-import { requireEnv } from "@/lib/config/env";
 import { LibInvalidStateError } from "@/lib/lib.errors";
+import { getGitHubToken } from "./github.auth";
+import {
+  expectArray,
+  expectRecord,
+  GitHubPayloadError,
+  type JsonObject,
+  type JsonValue,
+  type Validator,
+} from "./github.validation";
 
 const API_URL = "https://api.github.com/graphql";
 
@@ -9,18 +17,47 @@ type GraphQLErrorPayload = {
   path?: string[];
 };
 
-type GraphQLSuccessResponse<T> = {
-  data?: T;
-  errors?: GraphQLErrorPayload[];
-};
-
 /**
- * Resolves the GitHub token at request time so optional imports do not fail eagerly.
+ * Parses the raw GraphQL errors field without trusting its shape.
  *
- * @returns The configured GitHub token.
+ * @param value The raw errors value.
+ * @returns The parsed GraphQL errors.
+ * @throws {GitHubGraphQLError} When the errors field is malformed.
  */
-function getGitHubToken(): string {
-  return requireEnv("GITHUB_TOKEN");
+function parseGraphQLErrors(value: JsonValue): GraphQLErrorPayload[] {
+  return expectArray(value, "GitHub GraphQL response.errors").map(
+    (entry, index) => {
+      try {
+        const record = expectRecord(
+          entry,
+          `GitHub GraphQL response.errors[${index}]`,
+        );
+        const path =
+          record.path === undefined
+            ? undefined
+            : expectArray(
+                record.path,
+                `GitHub GraphQL response.errors[${index}].path`,
+              ).map((segment) => String(segment));
+
+        return {
+          message:
+            typeof record.message === "string" ? record.message : undefined,
+          type: typeof record.type === "string" ? record.type : undefined,
+          path,
+        };
+      } catch (error) {
+        if (error instanceof GitHubPayloadError) {
+          throw new GitHubGraphQLError(
+            "GitHub GraphQL response contained malformed errors.",
+            [error.message],
+          );
+        }
+
+        throw error;
+      }
+    },
+  );
 }
 
 /**
@@ -39,17 +76,31 @@ export class GitHubGraphQLError extends LibInvalidStateError {
 /**
  * Validates that a GraphQL response contains a usable data payload.
  *
- * @param response The parsed GraphQL response body.
- * @returns Nothing. Throws when the payload is missing or malformed.
+ * @param value The raw parsed GraphQL response body.
+ * @returns The parsed data and errors fields.
+ * @throws {GitHubGraphQLError} When the envelope is not an object.
  */
-function assertGraphQLData<T>(
-  response: GraphQLSuccessResponse<T>,
-): asserts response is { data: T; errors?: GraphQLErrorPayload[] } {
-  if (!("data" in response) || response.data === undefined) {
-    throw new GitHubGraphQLError(
-      "GitHub GraphQL response did not contain a data payload.",
-      [],
-    );
+function parseGraphQLEnvelope(value: JsonValue): {
+  data?: JsonValue;
+  errors?: GraphQLErrorPayload[];
+} {
+  try {
+    const record = expectRecord(value, "GitHub GraphQL response");
+
+    return {
+      ...(record.data === undefined ? {} : { data: record.data }),
+      ...(record.errors === undefined
+        ? {}
+        : { errors: parseGraphQLErrors(record.errors) }),
+    };
+  } catch (error) {
+    if (error instanceof GitHubPayloadError) {
+      throw new GitHubGraphQLError("GitHub GraphQL response was malformed.", [
+        error.message,
+      ]);
+    }
+
+    throw error;
   }
 }
 
@@ -76,13 +127,15 @@ function buildGraphQLError(errors: GraphQLErrorPayload[]): GitHubGraphQLError {
  * Executes a GitHub GraphQL request and returns the validated data payload.
  *
  * @param query The GraphQL query string to execute.
+ * @param validate Validator for the expected `data` payload.
  * @param variables The variables to send with the request.
  * @returns The validated GraphQL data payload.
  * @throws {GitHubGraphQLError} When GitHub returns an HTTP or GraphQL error, or the response is malformed.
  */
 export async function requestGitHubGraphQL<T>(
   query: string,
-  variables = {},
+  validate: Validator<T>,
+  variables: JsonObject = {},
 ): Promise<T> {
   const res = await fetch(API_URL, {
     method: "POST",
@@ -100,13 +153,29 @@ export async function requestGitHubGraphQL<T>(
     );
   }
 
-  const response = (await res.json()) as GraphQLSuccessResponse<T>;
+  const response = parseGraphQLEnvelope((await res.json()) as JsonValue);
 
   if (response.errors && response.errors.length > 0) {
     throw buildGraphQLError(response.errors);
   }
 
-  assertGraphQLData(response);
+  if (response.data === undefined) {
+    throw new GitHubGraphQLError(
+      "GitHub GraphQL response did not contain a data payload.",
+      [],
+    );
+  }
 
-  return response.data;
+  try {
+    return validate(response.data, "GitHub GraphQL response.data");
+  } catch (error) {
+    if (error instanceof GitHubPayloadError) {
+      throw new GitHubGraphQLError(
+        "GitHub GraphQL response contained an unexpected payload.",
+        [error.message],
+      );
+    }
+
+    throw error;
+  }
 }
