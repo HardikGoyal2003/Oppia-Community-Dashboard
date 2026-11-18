@@ -47,26 +47,6 @@ function assertFirestoreNotification(
 }
 
 /**
- * Normalizes notification timestamps after reading notification documents.
- *
- * @param value The raw notification records.
- * @returns The notifications with normalized Date instances.
- */
-function normalizeNotifications(
-  value: Array<FirestoreNotification & { id: string }>,
-): Notification[] {
-  return value.map((notification) => {
-    return {
-      id: notification.id,
-      message: notification.message,
-      read: notification.read,
-      createdAt: normalizeTimestamp(notification.createdAt),
-      schemaVersion: notification.schemaVersion,
-    };
-  });
-}
-
-/**
  * Normalizes raw Firestore notification document data into the app model.
  *
  * @param notification The raw Firestore notification document data with its id.
@@ -82,7 +62,13 @@ export function normalizeNotificationDocument(
   );
   assertFirestoreNotification(migratedNotification);
 
-  return normalizeNotifications([{ id, ...migratedNotification }])[0];
+  return {
+    id,
+    message: migratedNotification.message,
+    read: migratedNotification.read,
+    createdAt: normalizeTimestamp(migratedNotification.createdAt),
+    schemaVersion: migratedNotification.schemaVersion,
+  };
 }
 
 /**
