@@ -119,7 +119,7 @@ Fields:
 - `platform: "WEB" | "ANDROID"`
 - `dateKey: string` **(IST-normalized YYYY-MM-DD reporting day bucket)**
 - `capturedAt: Timestamp`
-- `unansweredIssuesCount: number`
+- `unansweredIssuesCount: number` **(visible team issues whose last comment was more than 1 day old at capture time; last comment must still fall within the 15-day fetch window)**
 - `maxWaitingDays: number`
 - `schemaVersion: number`
 

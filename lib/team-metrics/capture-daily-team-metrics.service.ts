@@ -24,6 +24,24 @@ type TeamMetricCaptureSummary = {
 };
 
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
+const MIN_WAITING_DAYS = 1;
+
+/**
+ * Computes how many days an issue has been waiting for a response, measured
+ * from its most recent comment.
+ *
+ * @param issue The issue to measure.
+ * @param capturedAt The snapshot time.
+ * @returns The waiting time in days, clamped to 0 for future comment times.
+ */
+function getWaitingDays(issue: GitHubIssue, capturedAt: Date): number {
+  return (
+    Math.max(
+      capturedAt.getTime() - new Date(issue.lastCommentCreatedAt).getTime(),
+      0,
+    ) / DAY_IN_MILLISECONDS
+  );
+}
 
 /**
  * Computes the maximum number of days any issue has been waiting for a response.
@@ -33,21 +51,10 @@ const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
  * @returns The max waiting time in days, or 0 when there are no issues.
  */
 function getMaxWaitingDays(issues: GitHubIssue[], capturedAt: Date): number {
-  if (issues.length === 0) {
-    return 0;
-  }
-
-  const capturedAtMillis = capturedAt.getTime();
-
-  return issues.reduce((max, issue) => {
-    const waitingDays =
-      Math.max(
-        capturedAtMillis - new Date(issue.lastCommentCreatedAt).getTime(),
-        0,
-      ) / DAY_IN_MILLISECONDS;
-
-    return Math.max(max, waitingDays);
-  }, 0);
+  return issues.reduce(
+    (max, issue) => Math.max(max, getWaitingDays(issue, capturedAt)),
+    0,
+  );
 }
 
 /**
@@ -108,6 +115,8 @@ function getVisibleIssues(
 
 /**
  * Captures one day's unanswered-issue metric for every configured team on a single platform.
+ * Only issues that have been waiting for more than a day since their most recent
+ * comment are counted.
  *
  * @param platform The platform to capture.
  * @param capturedAt The capture timestamp.
@@ -149,7 +158,9 @@ async function capturePlatformTeamMetrics(
       platform,
       teamId: team.teamId,
       teamName: team.teamName,
-      unansweredIssuesCount: teamIssues.length,
+      unansweredIssuesCount: teamIssues.filter(
+        (issue) => getWaitingDays(issue, capturedAt) > MIN_WAITING_DAYS,
+      ).length,
       maxWaitingDays: getMaxWaitingDays(teamIssues, capturedAt),
     };
   });
