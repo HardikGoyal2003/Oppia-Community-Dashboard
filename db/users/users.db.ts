@@ -47,13 +47,12 @@ function chunkValues<T>(values: T[], size: number): T[][] {
 }
 
 /**
- * Validates the GitHub username requirement for non-contributor roles.
+ * Validates that a GitHub username is provided.
  *
- * @param role The role being assigned.
  * @param githubUsername The GitHub username associated with the user.
- * @returns Nothing. Throws when the role requires a GitHub username and one is missing.
+ * @returns Nothing. Throws when the GitHub username is missing or blank.
  */
-function assertGithubUsernameForRole(githubUsername: string) {
+function assertGithubUsernameProvided(githubUsername: string) {
   if (!githubUsername.trim()) {
     throw new DbValidationError(
       "githubUsername",
@@ -104,7 +103,7 @@ export async function createUserIfNotExists(
   uid: string,
   data: Omit<UserModel, "createdAt" | "schemaVersion">,
 ): Promise<void> {
-  assertGithubUsernameForRole(data.githubUsername);
+  assertGithubUsernameProvided(data.githubUsername);
 
   const ref = usersCollection.doc(uid);
   const now = Timestamp.now();
@@ -258,7 +257,7 @@ export async function updateUserRoleAndTeamWithNotificationByUid(
   githubUsername: string,
   message: string,
 ): Promise<void> {
-  assertGithubUsernameForRole(githubUsername);
+  assertGithubUsernameProvided(githubUsername);
 
   const userDocRef = await getRequiredUserDocRefByUid(uid);
   const notificationRef = getUserNotificationsCollection(userDocRef).doc();
@@ -338,7 +337,7 @@ export async function updateUserRoleAndTeamWithNotificationInTransaction(
   githubUsername: string,
   message: string,
 ): Promise<void> {
-  assertGithubUsernameForRole(githubUsername);
+  assertGithubUsernameProvided(githubUsername);
 
   const userDocRef = await getRequiredUserDocRefInTransaction(tx, uid);
 
