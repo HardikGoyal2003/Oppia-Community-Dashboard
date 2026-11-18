@@ -22,7 +22,6 @@ import {
   reviewCycleAggregateToDocument,
   upsertReviewerCycleAggregates,
 } from "@/db/reviewer-cycle-aggregates/reviewer-cycle-aggregates.db";
-import { withReviewAnalyticsLock } from "@/db/review-analytics-lock/review-analytics-lock.db";
 
 type SyncSummary = {
   completedCyclesCount: number;
@@ -270,9 +269,7 @@ export async function refreshReviewerStats(
  * - `reviewCycleAnalytics/WEB` — folds the new facts into the org-wide analytics
  *   snapshot, so dashboard reads stay a single document fetch.
  *
- * Only persists cycles for reviewers who belong to a reviewer team. The
- * Firestore write and analytics phase runs under an exclusive lease so
- * concurrent syncs cannot double-count contributions or overwrite snapshots.
+ * Only persists cycles for reviewers who belong to a reviewer team.
  *
  * @param options Optional sync settings.
  * @returns A summary of the sync operation.
@@ -293,6 +290,12 @@ export async function syncReviewCycles(
 
   const filtered = allCompleted.filter((c) => knownLogins.has(c.reviewerLogin));
 
+  const newRecords = await findNewCycleRecords(filtered);
+
+  if (filtered.length > 0) {
+    await upsertReviewCycles(filtered);
+  }
+
   const affectedLogins = new Set<string>();
   for (const cycle of filtered) {
     affectedLogins.add(cycle.reviewerLogin);
@@ -304,24 +307,16 @@ export async function syncReviewCycles(
     affectedLogins.add(login);
   }
 
-  return withReviewAnalyticsLock(async () => {
-    const newRecords = await findNewCycleRecords(filtered);
+  const contributions = await applyReviewCycleContributions(newRecords);
 
-    if (filtered.length > 0) {
-      await upsertReviewCycles(filtered);
-    }
+  const updatedReviewersCount =
+    affectedLogins.size === 0
+      ? 0
+      : await refreshReviewerStats(affectedLogins, contributions);
 
-    const contributions = await applyReviewCycleContributions(newRecords);
-
-    const updatedReviewersCount =
-      affectedLogins.size === 0
-        ? 0
-        : await refreshReviewerStats(affectedLogins, contributions);
-
-    return {
-      completedCyclesCount: allCompleted.length,
-      newCyclesCount: newRecords.length,
-      updatedReviewersCount,
-    };
-  });
+  return {
+    completedCyclesCount: allCompleted.length,
+    newCyclesCount: newRecords.length,
+    updatedReviewersCount,
+  };
 }

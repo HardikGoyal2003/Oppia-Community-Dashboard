@@ -147,11 +147,6 @@ function buildSchemaCollectionTargets(): SchemaCollectionTarget[] {
       query: db.collection(DB_PATHS.REVIEW_CYCLE_BACKFILL.COLLECTION),
     },
     {
-      key: SCHEMA_KEYS.REVIEW_ANALYTICS_LOCKS,
-      label: DB_PATHS.REVIEW_ANALYTICS_LOCKS.COLLECTION,
-      query: db.collection(DB_PATHS.REVIEW_ANALYTICS_LOCKS.COLLECTION),
-    },
-    {
       key: SCHEMA_KEYS.TEAMS,
       label: DB_PATHS.TEAMS.COLLECTION,
       query: db.collection(DB_PATHS.TEAMS.COLLECTION),

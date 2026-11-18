@@ -20,7 +20,6 @@ import {
 } from "@/db/review-cycles/review-cycles.db";
 import { getTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
 import { getAllUsers, updateUserRoles } from "@/db/users/users.db";
-import { withReviewAnalyticsLock } from "@/db/review-analytics-lock/review-analytics-lock.db";
 import { LibInvalidStateError } from "@/lib/lib.errors";
 import { runReviewCycleBackfillStep } from "@/lib/team-activity/backfill-review-cycles.service";
 import { refreshReviewerStats } from "@/lib/team-activity/sync-review-cycles.service";
@@ -234,8 +233,7 @@ async function backfillSchemaVersionsJob(
  * current window is checkpointed. If the platform terminates a run, the next
  * run resumes from the saved window and PR set instead of starting over.
  * Requires reviewer teams to be synced first, since only cycles belonging to
- * known team members are persisted. The whole run holds an exclusive
- * review-analytics lease so it cannot race the daily sync or repair job.
+ * known team members are persisted.
  *
  * @param context The data-job execution context.
  * @returns A summary of the backfill results.
@@ -245,157 +243,155 @@ async function backfillReviewCyclesJob(
 ): Promise<DataJobResult> {
   void context.dryRun;
 
-  return withReviewAnalyticsLock(async () => {
-    const teamDoc = await getTeamReviewers("WEB");
-    if (!teamDoc || teamDoc.teams.length === 0) {
-      throw new LibInvalidStateError(
-        "ReviewCycleBackfill",
-        "No reviewer teams found. Run Sync Reviewer Teams before backfilling review cycles.",
-      );
+  const teamDoc = await getTeamReviewers("WEB");
+  if (!teamDoc || teamDoc.teams.length === 0) {
+    throw new LibInvalidStateError(
+      "ReviewCycleBackfill",
+      "No reviewer teams found. Run Sync Reviewer Teams before backfilling review cycles.",
+    );
+  }
+
+  const knownLogins = new Set<string>();
+  for (const team of teamDoc.teams) {
+    for (const member of team.members) {
+      knownLogins.add(member.username);
     }
+  }
 
-    const knownLogins = new Set<string>();
-    for (const team of teamDoc.teams) {
-      for (const member of team.members) {
-        knownLogins.add(member.username);
-      }
-    }
+  const deadlineMs = Date.now() + REVIEW_CYCLE_BACKFILL_TIME_BUDGET_MS;
+  const todayKey = toUtcDateKey(new Date());
+  const defaultStartKey = REVIEW_CYCLE_BACKFILL_START_DATE_KEY;
 
-    const deadlineMs = Date.now() + REVIEW_CYCLE_BACKFILL_TIME_BUDGET_MS;
-    const todayKey = toUtcDateKey(new Date());
-    const defaultStartKey = REVIEW_CYCLE_BACKFILL_START_DATE_KEY;
-
-    const savedState = await getReviewCycleBackfillState();
-    const targetEndKey = savedState
-      ? maxDateKey(savedState.targetEnd, todayKey)
-      : todayKey;
-    const windowStartKey = savedState
-      ? minDateKey(savedState.windowStart, defaultStartKey)
-      : defaultStartKey;
-    const windowWasExtended =
-      savedState !== null && windowStartKey !== savedState.windowStart;
-    const windowEndKey = savedState
-      ? windowWasExtended
-        ? minDateKey(
-            maxDateKey(savedState.windowEnd, windowStartKey),
-            targetEndKey,
-          )
-        : savedState.windowEnd
-      : minDateKey(
-          addDaysToDateKey(
-            defaultStartKey,
-            REVIEW_CYCLE_BACKFILL_WINDOW_DAYS - 1,
-          ),
+  const savedState = await getReviewCycleBackfillState();
+  const targetEndKey = savedState
+    ? maxDateKey(savedState.targetEnd, todayKey)
+    : todayKey;
+  const windowStartKey = savedState
+    ? minDateKey(savedState.windowStart, defaultStartKey)
+    : defaultStartKey;
+  const windowWasExtended =
+    savedState !== null && windowStartKey !== savedState.windowStart;
+  const windowEndKey = savedState
+    ? windowWasExtended
+      ? minDateKey(
+          maxDateKey(savedState.windowEnd, windowStartKey),
           targetEndKey,
-        );
+        )
+      : savedState.windowEnd
+    : minDateKey(
+        addDaysToDateKey(
+          defaultStartKey,
+          REVIEW_CYCLE_BACKFILL_WINDOW_DAYS - 1,
+        ),
+        targetEndKey,
+      );
 
-    let state: Omit<ReviewCycleBackfillState, "schemaVersion"> = savedState
-      ? {
-          ...savedState,
-          windowStart: windowStartKey,
-          windowEnd: windowEndKey,
-          targetEnd: targetEndKey,
-          // PR progress belongs to the old, narrower window and cannot be reused
-          // once the window is widened back to the fixed start date.
-          processedPrNumbers: windowWasExtended
-            ? []
-            : savedState.processedPrNumbers,
-          updatedAt: new Date(),
-        }
-      : {
-          windowStart: windowStartKey,
-          windowEnd: windowEndKey,
-          targetEnd: targetEndKey,
-          processedPrNumbers: [],
-          updatedAt: new Date(),
-        };
-
-    let windowsCompleted = 0;
-    let prsProcessed = 0;
-    let cyclesWritten = 0;
-    const affectedLogins = new Set<string>();
-    const newCycleRecords: Array<Omit<ReviewCycleRecord, "schemaVersion">> = [];
-
-    while (state.windowStart <= state.targetEnd && Date.now() < deadlineMs) {
-      const step = await runReviewCycleBackfillStep({
-        sinceDate: new Date(`${state.windowStart}T00:00:00.000Z`),
-        untilDate: new Date(`${state.windowEnd}T23:59:59.999Z`),
-        processedPrNumbers: new Set(state.processedPrNumbers),
-        knownLogins,
-        deadlineMs,
-      });
-
-      if (step.records.length > 0) {
-        // Only merge cycles that are not already stored, so re-running the job
-        // after it completes cannot count the same cycle twice.
-        newCycleRecords.push(...(await findNewCycleRecords(step.records)));
-        await upsertReviewCycles(step.records);
-        cyclesWritten += step.records.length;
-        for (const record of step.records) {
-          affectedLogins.add(record.reviewerLogin);
-        }
+  let state: Omit<ReviewCycleBackfillState, "schemaVersion"> = savedState
+    ? {
+        ...savedState,
+        windowStart: windowStartKey,
+        windowEnd: windowEndKey,
+        targetEnd: targetEndKey,
+        // PR progress belongs to the old, narrower window and cannot be reused
+        // once the window is widened back to the fixed start date.
+        processedPrNumbers: windowWasExtended
+          ? []
+          : savedState.processedPrNumbers,
+        updatedAt: new Date(),
       }
-      for (const login of step.authorLogins) {
-        affectedLogins.add(login);
+    : {
+        windowStart: windowStartKey,
+        windowEnd: windowEndKey,
+        targetEnd: targetEndKey,
+        processedPrNumbers: [],
+        updatedAt: new Date(),
+      };
+
+  let windowsCompleted = 0;
+  let prsProcessed = 0;
+  let cyclesWritten = 0;
+  const affectedLogins = new Set<string>();
+  const newCycleRecords: Array<Omit<ReviewCycleRecord, "schemaVersion">> = [];
+
+  while (state.windowStart <= state.targetEnd && Date.now() < deadlineMs) {
+    const step = await runReviewCycleBackfillStep({
+      sinceDate: new Date(`${state.windowStart}T00:00:00.000Z`),
+      untilDate: new Date(`${state.windowEnd}T23:59:59.999Z`),
+      processedPrNumbers: new Set(state.processedPrNumbers),
+      knownLogins,
+      deadlineMs,
+    });
+
+    if (step.records.length > 0) {
+      // Only merge cycles that are not already stored, so re-running the job
+      // after it completes cannot count the same cycle twice.
+      newCycleRecords.push(...(await findNewCycleRecords(step.records)));
+      await upsertReviewCycles(step.records);
+      cyclesWritten += step.records.length;
+      for (const record of step.records) {
+        affectedLogins.add(record.reviewerLogin);
       }
-      prsProcessed += step.processedPrNumbers.length;
+    }
+    for (const login of step.authorLogins) {
+      affectedLogins.add(login);
+    }
+    prsProcessed += step.processedPrNumbers.length;
 
-      if (step.complete) {
-        windowsCompleted++;
-        const nextStart = addDaysToDateKey(state.windowEnd, 1);
-        state = {
-          windowStart: nextStart,
-          windowEnd: minDateKey(
-            addDaysToDateKey(nextStart, REVIEW_CYCLE_BACKFILL_WINDOW_DAYS - 1),
-            state.targetEnd,
-          ),
-          targetEnd: state.targetEnd,
-          processedPrNumbers: [],
-          updatedAt: new Date(),
-        };
-      } else {
-        state = {
-          ...state,
-          processedPrNumbers: Array.from(
-            new Set([...state.processedPrNumbers, ...step.processedPrNumbers]),
-          ),
-          updatedAt: new Date(),
-        };
-      }
-
-      await saveReviewCycleBackfillState(state);
-
-      if (!step.complete) break;
+    if (step.complete) {
+      windowsCompleted++;
+      const nextStart = addDaysToDateKey(state.windowEnd, 1);
+      state = {
+        windowStart: nextStart,
+        windowEnd: minDateKey(
+          addDaysToDateKey(nextStart, REVIEW_CYCLE_BACKFILL_WINDOW_DAYS - 1),
+          state.targetEnd,
+        ),
+        targetEnd: state.targetEnd,
+        processedPrNumbers: [],
+        updatedAt: new Date(),
+      };
+    } else {
+      state = {
+        ...state,
+        processedPrNumbers: Array.from(
+          new Set([...state.processedPrNumbers, ...step.processedPrNumbers]),
+        ),
+        updatedAt: new Date(),
+      };
     }
 
-    const completed = state.windowStart > state.targetEnd;
+    await saveReviewCycleBackfillState(state);
 
-    // Merge only the cycles this invocation added. A full rebuild is reserved for
-    // the explicit Repair Reviewer Analytics job, so resuming this job does not
-    // re-read the entire review-cycle history on every run.
-    const contributions = await applyReviewCycleContributions(newCycleRecords);
+    if (!step.complete) break;
+  }
 
-    const updatedReviewersCount =
-      affectedLogins.size === 0
-        ? 0
-        : await refreshReviewerStats(affectedLogins, contributions);
+  const completed = state.windowStart > state.targetEnd;
 
-    if (completed) {
-      await clearReviewCycleBackfillState();
-    }
+  // Merge only the cycles this invocation added. A full rebuild is reserved for
+  // the explicit Repair Reviewer Analytics job, so resuming this job does not
+  // re-read the entire review-cycle history on every run.
+  const contributions = await applyReviewCycleContributions(newCycleRecords);
 
-    const progressSummary = completed
-      ? "Backfill complete."
-      : `Partial progress — run the job again to continue window ${state.windowStart} to ${state.windowEnd}${
-          state.processedPrNumbers.length > 0
-            ? ` (${state.processedPrNumbers.length} PR(s) already done in this window)`
-            : ""
-        }.`;
+  const updatedReviewersCount =
+    affectedLogins.size === 0
+      ? 0
+      : await refreshReviewerStats(affectedLogins, contributions);
 
-    return {
-      summary: `Review cycle backfill processed ${windowsCompleted} window(s), ${prsProcessed} PR(s), ${cyclesWritten} cycle(s). ${updatedReviewersCount} reviewer(s) refreshed. ${progressSummary}`,
-    };
-  });
+  if (completed) {
+    await clearReviewCycleBackfillState();
+  }
+
+  const progressSummary = completed
+    ? "Backfill complete."
+    : `Partial progress — run the job again to continue window ${state.windowStart} to ${state.windowEnd}${
+        state.processedPrNumbers.length > 0
+          ? ` (${state.processedPrNumbers.length} PR(s) already done in this window)`
+          : ""
+      }.`;
+
+  return {
+    summary: `Review cycle backfill processed ${windowsCompleted} window(s), ${prsProcessed} PR(s), ${cyclesWritten} cycle(s). ${updatedReviewersCount} reviewer(s) refreshed. ${progressSummary}`,
+  };
 }
 
 /**
@@ -404,8 +400,7 @@ async function backfillReviewCyclesJob(
  *
  * Normal syncs and backfills merge incrementally. This is the explicit repair
  * path for analytics left inconsistent by an invocation that stopped between
- * writing cycles and applying their contributions. It holds the same exclusive
- * lease as every other analytics mutation.
+ * writing cycles and applying their contributions.
  *
  * @param context The data-job execution context.
  * @returns A summary of the repair results.
@@ -415,18 +410,16 @@ async function repairReviewerAnalyticsJob(
 ): Promise<DataJobResult> {
   void context.dryRun;
 
-  return withReviewAnalyticsLock(async () => {
-    const analytics = await refreshReviewCycleAnalytics();
-    const updatedReviewersCount = await refreshReviewerStats(
-      undefined,
-      new Map(),
-      true,
-    );
+  const analytics = await refreshReviewCycleAnalytics();
+  const updatedReviewersCount = await refreshReviewerStats(
+    undefined,
+    new Map(),
+    true,
+  );
 
-    return {
-      summary: `Reviewer analytics repaired. Rebuilt ${analytics.prSizeScatter.length} scatter point(s) and refreshed ${updatedReviewersCount} reviewer(s).`,
-    };
-  });
+  return {
+    summary: `Reviewer analytics repaired. Rebuilt ${analytics.prSizeScatter.length} scatter point(s) and refreshed ${updatedReviewersCount} reviewer(s).`,
+  };
 }
 
 const DATA_JOB_REGISTRY: RegisteredDataJob[] = [
