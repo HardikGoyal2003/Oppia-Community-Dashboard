@@ -60,21 +60,59 @@ function assertGithubUsernameForRole(githubUsername: string) {
 }
 
 /**
- * Determines whether a Firestore create failure represents an existing document.
- *
- * @param error The thrown Firestore error candidate.
- * @returns True when the error indicates the document already exists.
+ * Identity fields refreshed from the GitHub profile on every sign-in.
  */
-function isDocumentAlreadyExistsError(error: object): boolean {
-  if ("code" in error && error.code === 6) {
-    return true;
-  }
+export type SignInUserData = {
+  email: string;
+  fullName: string;
+  photoURL: string;
+  githubUsername: string;
+};
 
-  if ("message" in error && typeof error.message === "string") {
-    return error.message.toUpperCase().includes("ALREADY_EXISTS");
-  }
+/**
+ * Creates a user on first sign-in, or refreshes their identity fields on later
+ * sign-ins.
+ *
+ * Role, team, and platform are only initialized when the document is created so
+ * that dashboard-managed access is never reset by signing in again.
+ *
+ * @param uid The user id to write under.
+ * @param data The user payload to persist.
+ * @returns A promise that resolves when the user has been created or updated.
+ */
+export async function upsertUserOnSignIn(
+  uid: string,
+  data: SignInUserData & Pick<UserModel, "role" | "team" | "platform">,
+): Promise<void> {
+  assertGithubUsernameForRole(data.githubUsername);
 
-  return false;
+  const ref = usersCollection.doc(uid);
+
+  await usersCollection.firestore.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(ref);
+    const identity = {
+      email: data.email,
+      fullName: data.fullName,
+      photoURL: data.photoURL,
+      githubUsername: data.githubUsername,
+    };
+
+    if (snapshot.exists) {
+      transaction.update(ref, identity);
+      return;
+    }
+
+    transaction.create(
+      ref,
+      serializeUser({
+        ...identity,
+        role: data.role,
+        team: data.team,
+        platform: data.platform,
+        createdAt: Timestamp.now(),
+      }),
+    );
+  });
 }
 
 /**
@@ -88,42 +126,6 @@ async function getRequiredUserDocRefByUid(
 ): Promise<FirebaseFirestore.DocumentReference> {
   const userDocRef = usersCollection.doc(uid);
   return getRequiredDocumentRef("User", userDocRef);
-}
-
-/**
- * Creates a user document on first login when one does not already exist.
- *
- * @param uid The user id to write under.
- * @param data The user payload to persist.
- * @returns A promise that resolves when the user has been ensured in Firestore.
- */
-export async function createUserIfNotExists(
-  uid: string,
-  data: Omit<UserModel, "createdAt" | "schemaVersion">,
-): Promise<void> {
-  assertGithubUsernameForRole(data.githubUsername);
-
-  const ref = usersCollection.doc(uid);
-  const now = Timestamp.now();
-
-  try {
-    await ref.create(
-      serializeUser({
-        ...data,
-        createdAt: now,
-      }),
-    );
-  } catch (error) {
-    if (
-      error &&
-      typeof error === "object" &&
-      isDocumentAlreadyExistsError(error)
-    ) {
-      return;
-    }
-
-    throw error;
-  }
 }
 
 /**
