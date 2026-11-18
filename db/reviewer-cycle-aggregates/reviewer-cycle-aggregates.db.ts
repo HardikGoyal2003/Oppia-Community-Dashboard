@@ -82,7 +82,7 @@ export async function upsertReviewerCycleAggregates(
   entries: Array<{ login: string; aggregate: ReviewerCycleAggregateDocument }>,
 ): Promise<void> {
   for (let start = 0; start < entries.length; start += BATCH_SIZE) {
-    const batch = db.batch();
+    const batch = collection.firestore.batch();
 
     for (const entry of entries.slice(start, start + BATCH_SIZE)) {
       batch.set(

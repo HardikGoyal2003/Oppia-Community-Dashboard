@@ -125,7 +125,7 @@ export async function upsertReviewCycles(
   records: Array<Omit<ReviewCycleRecord, "schemaVersion">>,
 ): Promise<void> {
   for (let start = 0; start < records.length; start += WRITE_BATCH_SIZE) {
-    const batch = db.batch();
+    const batch = collection.firestore.batch();
 
     for (const record of records.slice(start, start + WRITE_BATCH_SIZE)) {
       const key = `${record.reviewerLogin}:${record.prNumber}:${record.assignedAt}`;
@@ -166,7 +166,7 @@ export async function deleteReviewCyclesForReviewers(
       offset < snapshot.docs.length;
       offset += WRITE_BATCH_SIZE
     ) {
-      const batch = db.batch();
+      const batch = collection.firestore.batch();
 
       for (const doc of snapshot.docs.slice(
         offset,

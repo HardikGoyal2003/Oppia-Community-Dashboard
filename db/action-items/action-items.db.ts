@@ -172,7 +172,7 @@ export async function upsertActionItems(
   }
 
   for (const chunk of chunkValues(writes, FIRESTORE_BATCH_LIMIT)) {
-    const batch = db.batch();
+    const batch = actionItemsCollectionGroup.firestore.batch();
 
     for (const write of chunk) {
       batch.set(write.ref, write.data);
@@ -196,7 +196,7 @@ export async function deleteActionItems(
   );
 
   for (const chunk of chunkValues(writes, FIRESTORE_BATCH_LIMIT)) {
-    const batch = db.batch();
+    const batch = actionItemsCollectionGroup.firestore.batch();
 
     for (const ref of chunk) {
       batch.delete(ref);
@@ -234,7 +234,7 @@ export async function markActionItemsNotified(
   }
 
   for (const chunk of chunkValues(writes, FIRESTORE_BATCH_LIMIT)) {
-    const batch = db.batch();
+    const batch = actionItemsCollectionGroup.firestore.batch();
 
     for (const write of chunk) {
       batch.update(write.ref, write.data);

@@ -41,7 +41,7 @@ export async function upsertReviewers(
   const BATCH_SIZE = 400;
 
   for (let start = 0; start < entries.length; start += BATCH_SIZE) {
-    const batch = db.batch();
+    const batch = collection.firestore.batch();
 
     for (const { login, doc } of entries.slice(start, start + BATCH_SIZE)) {
       batch.set(collection.doc(login), serializeReviewer(doc));

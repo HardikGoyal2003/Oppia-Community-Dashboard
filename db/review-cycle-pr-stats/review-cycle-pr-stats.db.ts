@@ -59,7 +59,7 @@ export async function upsertReviewCyclePrStats(
   documents: Array<Omit<ReviewCyclePrStatsDocument, "schemaVersion">>,
 ): Promise<void> {
   for (let start = 0; start < documents.length; start += BATCH_SIZE) {
-    const batch = db.batch();
+    const batch = collection.firestore.batch();
 
     for (const document of documents.slice(start, start + BATCH_SIZE)) {
       batch.set(
