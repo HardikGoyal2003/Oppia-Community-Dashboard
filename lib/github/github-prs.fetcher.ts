@@ -7,6 +7,55 @@ import path from "path";
 const ORG = "oppia";
 const REPO = "oppia";
 
+const SEARCH_PER_PAGE = 100;
+const SEARCH_MAX_PAGES = 10;
+
+type GitHubSearchResponse<T> = {
+  items: T[];
+  total_count: number;
+};
+
+export type CycleRecord = {
+  reviewerLogin: string;
+  prNumber: number;
+  prTitle: string;
+  prUrl: string;
+  assignedAt: string;
+  completedAt: string;
+  durationMs: number;
+  reviewRoundsBeforeApproval: number | null;
+  commentCount: number;
+  /** Non-pending review submissions made by the reviewer on this PR. */
+  reviewSubmissionCount: number;
+  /** Timestamp of the reviewer's first approval on this PR, if any. */
+  approvedAt: string | null;
+  /** Assignment → first approval duration in ms, if approved. */
+  approvalDurationMs: number | null;
+  /** Lines added by the PR (size proxy), if known. */
+  prAdditions: number | null;
+};
+
+export type CycleRecordsResult = {
+  completed: CycleRecord[];
+  pending: Array<{
+    reviewerLogin: string;
+    prNumber: number;
+    prTitle: string;
+    prUrl: string;
+    assignedAt: string;
+  }>;
+  reviewerPRStats: Map<string, Map<number, ReviewerPRStats>>;
+  /** Authors of every PR scanned in the window, used for authored-count refresh. */
+  authorLogins: Set<string>;
+};
+
+type GitHubReviewResponse = {
+  user: { login: string };
+  state: string;
+  body: string | null;
+  submitted_at: string;
+};
+
 export type GitHubPullResponse = {
   number: number;
   title: string;
@@ -34,6 +83,25 @@ export type OpenPRAssignment = {
   title: string;
   url: string;
   assignedAt: string;
+};
+
+type InlineComment = {
+  user: { login: string };
+  body: string;
+};
+
+export type ReviewerPRStats = {
+  reviewRoundsBeforeApproval: number | null;
+  commentCount: number;
+  /** Counted review submissions (approved, changes requested, or commented). */
+  reviewSubmissionCount: number;
+  /** Timestamp of this reviewer's first approval on the PR, if any. */
+  approvedAt: string | null;
+};
+
+type CycleEvent = {
+  type: "assigned" | "unassigned" | "reviewed";
+  timestamp: string;
 };
 
 export type MemberPRMap = Map<string, OpenPRAssignment[]>;
@@ -235,47 +303,6 @@ export async function fetchTeamAssignedPRs(
   return map;
 }
 
-export type CycleRecord = {
-  reviewerLogin: string;
-  prNumber: number;
-  prTitle: string;
-  prUrl: string;
-  assignedAt: string;
-  completedAt: string;
-  durationMs: number;
-  reviewRoundsBeforeApproval: number | null;
-  commentCount: number;
-  /** Non-pending review submissions made by the reviewer on this PR. */
-  reviewSubmissionCount: number;
-  /** Timestamp of the reviewer's first approval on this PR, if any. */
-  approvedAt: string | null;
-  /** Assignment → first approval duration in ms, if approved. */
-  approvalDurationMs: number | null;
-  /** Lines added by the PR (size proxy), if known. */
-  prAdditions: number | null;
-};
-
-export type CycleRecordsResult = {
-  completed: CycleRecord[];
-  pending: Array<{
-    reviewerLogin: string;
-    prNumber: number;
-    prTitle: string;
-    prUrl: string;
-    assignedAt: string;
-  }>;
-  reviewerPRStats: Map<string, Map<number, ReviewerPRStats>>;
-  /** Authors of every PR scanned in the window, used for authored-count refresh. */
-  authorLogins: Set<string>;
-};
-
-type GitHubReviewResponse = {
-  user: { login: string };
-  state: string;
-  body: string | null;
-  submitted_at: string;
-};
-
 /**
  * Review states that count as a submitted review.
  *
@@ -297,25 +324,6 @@ const COUNTED_REVIEW_STATES = new Set([
 function isCountedReview(review: GitHubReviewResponse): boolean {
   return COUNTED_REVIEW_STATES.has(review.state);
 }
-
-type InlineComment = {
-  user: { login: string };
-  body: string;
-};
-
-export type ReviewerPRStats = {
-  reviewRoundsBeforeApproval: number | null;
-  commentCount: number;
-  /** Counted review submissions (approved, changes requested, or commented). */
-  reviewSubmissionCount: number;
-  /** Timestamp of this reviewer's first approval on the PR, if any. */
-  approvedAt: string | null;
-};
-
-type CycleEvent = {
-  type: "assigned" | "unassigned" | "reviewed";
-  timestamp: string;
-};
 
 /**
  * Computes review cycles from timeline and review events per assignee.
@@ -726,14 +734,6 @@ async function fetchPRTimelineAndReviews(prNumber: number): Promise<{
     ]);
   return { timelineEvents, reviews, inlineComments, pullRequest };
 }
-
-const SEARCH_PER_PAGE = 100;
-const SEARCH_MAX_PAGES = 10;
-
-type GitHubSearchResponse<T> = {
-  items: T[];
-  total_count: number;
-};
 
 /**
  * Fetches all pages of a GitHub search query.
