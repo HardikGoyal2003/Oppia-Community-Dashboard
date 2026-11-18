@@ -38,6 +38,44 @@ function assertFirestoreReviewer(
       "pendingReviews must be an array.",
     );
   }
+  for (const review of data.pendingReviews) {
+    if (!review || typeof review !== "object" || Array.isArray(review)) {
+      throw new DbValidationError(
+        "pendingReviews",
+        "Each pending review must be an object.",
+      );
+    }
+
+    const pendingReview = review as Record<
+      string,
+      FirebaseFirestore.DocumentData[string]
+    >;
+
+    if (typeof pendingReview.prNumber !== "number") {
+      throw new DbValidationError(
+        "pendingReviews.prNumber",
+        "Each pending review prNumber must be a number.",
+      );
+    }
+    if (typeof pendingReview.title !== "string") {
+      throw new DbValidationError(
+        "pendingReviews.title",
+        "Each pending review title must be a string.",
+      );
+    }
+    if (typeof pendingReview.url !== "string") {
+      throw new DbValidationError(
+        "pendingReviews.url",
+        "Each pending review url must be a string.",
+      );
+    }
+    if (typeof pendingReview.assignedAt !== "string") {
+      throw new DbValidationError(
+        "pendingReviews.assignedAt",
+        "Each pending review assignedAt must be a string.",
+      );
+    }
+  }
   if (
     data.completedReviews !== undefined &&
     typeof data.completedReviews !== "number"
