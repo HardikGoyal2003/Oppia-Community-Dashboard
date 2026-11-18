@@ -1,3 +1,4 @@
+import { parseTimestampMs } from "@/lib/utils/date.utils";
 import type { OrgMetaRecord } from "@/db/org-meta/org-meta.mapper";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { mapGitHubIssueNodes } from "./github-issues.mapper";
@@ -45,9 +46,9 @@ export async function fetchUnansweredIssues(
       return false;
     }
 
-    const ts = new Date(lastComment.createdAt).getTime();
+    const ts = parseTimestampMs(lastComment.createdAt);
 
-    if (ts < cutoffTime) {
+    if (ts === null || ts < cutoffTime) {
       return false;
     }
 

@@ -5,7 +5,7 @@ import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { GITHUB_REPOS } from "@/lib/config/github.constants";
 import { fetchUnansweredDiscussions } from "@/lib/github/github-unanswered-discussions.fetcher";
 import type { GitHubDiscussion } from "@/lib/github/github.types";
-import { getIstDateKey } from "@/lib/utils/date.utils";
+import { compareDateInputs, getIstDateKey } from "@/lib/utils/date.utils";
 
 type DiscussionMetricCaptureSummary = {
   capturedAt: Date;
@@ -51,10 +51,12 @@ function countVisibleDiscussions(
       return false;
     }
 
-    return (
-      new Date(discussion.lastCommentCreatedAt).getTime() >
-      new Date(archived.archivedAt).getTime()
+    const comparison = compareDateInputs(
+      discussion.lastCommentCreatedAt,
+      archived.archivedAt,
     );
+
+    return comparison !== null && comparison > 0;
   }).length;
 }
 

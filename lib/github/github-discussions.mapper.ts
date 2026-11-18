@@ -1,4 +1,5 @@
 import { LibMappingError } from "@/lib/lib.errors";
+import { parseTimestampMs } from "@/lib/utils/date.utils";
 import type { GitHubDiscussion, GitHubDiscussionNode } from "./github.types";
 
 type DiscussionActivity = {
@@ -66,10 +67,14 @@ function getNewerActivity(
     return { createdAt, authorLogin };
   }
 
-  const currentTime = new Date(current.createdAt).getTime();
-  const candidateTime = new Date(createdAt).getTime();
+  const currentTime = parseTimestampMs(current.createdAt);
+  const candidateTime = parseTimestampMs(createdAt);
 
-  if (Number.isNaN(candidateTime) || candidateTime <= currentTime) {
+  if (candidateTime === null) {
+    return current;
+  }
+
+  if (currentTime !== null && candidateTime <= currentTime) {
     return current;
   }
 

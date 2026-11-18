@@ -8,7 +8,11 @@ import { GITHUB_REPOS } from "@/lib/config/github.constants";
 import { TEAM_DEFINITIONS } from "@/lib/domain/team-definitions";
 import { fetchUnansweredIssues } from "@/lib/github/github-unanswered-issues.fetcher";
 import type { GitHubIssue } from "@/lib/github/github.types";
-import { getIstDateKey } from "@/lib/utils/date.utils";
+import {
+  compareDateInputs,
+  getIstDateKey,
+  parseTimestampMs,
+} from "@/lib/utils/date.utils";
 
 type TeamMetricCaptureSummary = {
   capturedAt: Date;
@@ -35,11 +39,14 @@ const MIN_WAITING_DAYS = 1;
  * @returns The waiting time in days, clamped to 0 for future comment times.
  */
 function getWaitingDays(issue: GitHubIssue, capturedAt: Date): number {
+  const lastCommentMs = parseTimestampMs(issue.lastCommentCreatedAt);
+
+  if (lastCommentMs === null) {
+    return 0;
+  }
+
   return (
-    Math.max(
-      capturedAt.getTime() - new Date(issue.lastCommentCreatedAt).getTime(),
-      0,
-    ) / DAY_IN_MILLISECONDS
+    Math.max(capturedAt.getTime() - lastCommentMs, 0) / DAY_IN_MILLISECONDS
   );
 }
 
@@ -88,11 +95,16 @@ function getVisibleIssues(
     .filter((issue) => {
       const liveIssue = liveIssuesByNumber.get(issue.issueNumber);
 
-      return (
-        liveIssue !== undefined &&
-        new Date(liveIssue.lastCommentCreatedAt) >
-          new Date(issue.lastCommentCreatedAt)
+      if (liveIssue === undefined) {
+        return false;
+      }
+
+      const comparison = compareDateInputs(
+        liveIssue.lastCommentCreatedAt,
+        issue.lastCommentCreatedAt,
       );
+
+      return comparison !== null && comparison > 0;
     })
     .map((issue) => issue.issueNumber);
 

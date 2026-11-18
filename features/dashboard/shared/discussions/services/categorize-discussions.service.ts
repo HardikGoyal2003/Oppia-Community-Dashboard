@@ -1,3 +1,4 @@
+import { parseTimestampMs } from "@/lib/utils/date.utils";
 import type { Discussion } from "@/lib/domain/discussions.types";
 import type { GitHubDiscussion } from "@/lib/github/github.types";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
@@ -5,9 +6,10 @@ import type { CategorizedProjectDiscussions } from "../../../dashboard.types";
 import { unarchiveDiscussionForPlatform } from "./archived-discussions-api.service";
 
 function getWaitingTimestamp(discussion: Discussion): number {
-  return new Date(
-    discussion.lastCommentCreatedAt ?? discussion.createdAt,
-  ).getTime();
+  return (
+    parseTimestampMs(discussion.lastCommentCreatedAt ?? discussion.createdAt) ??
+    0
+  );
 }
 
 function sortDiscussionsByWaitingTime(discussions: Discussion[]): Discussion[] {

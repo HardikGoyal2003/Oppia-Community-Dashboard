@@ -1,3 +1,4 @@
+import { parseTimestampMs } from "@/lib/utils/date.utils";
 import { requestGitHubRest, requestGitHubRestAll } from "./github.rest";
 import { requestGitHubGraphQL } from "./github.request";
 import { fetchGitHubRateLimit } from "./github.rate-limit";
@@ -289,7 +290,7 @@ function extractCyclesFromPR(
     const commentCount = stats?.commentCount ?? 0;
     const reviewSubmissionCount = stats?.reviewSubmissionCount ?? 0;
     const approvedAt = stats?.approvedAt ?? null;
-    const approvedAtMs = approvedAt ? new Date(approvedAt).getTime() : null;
+    const approvedAtMs = parseTimestampMs(approvedAt);
     let approvalAttached = false;
 
     const events: CycleEvent[] = [];
@@ -311,7 +312,8 @@ function extractCyclesFromPR(
 
     events.sort(
       (a, b) =>
-        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+        (parseTimestampMs(a.timestamp) ?? 0) -
+        (parseTimestampMs(b.timestamp) ?? 0),
     );
 
     let cycleStart = "";
@@ -334,8 +336,13 @@ function extractCyclesFromPR(
         cycleStart = event.timestamp;
       } else {
         if (inCycle) {
-          const eventMs = new Date(event.timestamp).getTime();
-          const cycleStartMs = new Date(cycleStart).getTime();
+          const eventMs = parseTimestampMs(event.timestamp);
+          const cycleStartMs = parseTimestampMs(cycleStart);
+
+          if (eventMs === null || cycleStartMs === null) {
+            continue;
+          }
+
           const durationMs = eventMs - cycleStartMs;
           // Approvals are PR-level, but an approval only belongs to a cycle
           // when it happened while that cycle was open. Without the upper
@@ -419,8 +426,8 @@ function extractReviewerPRStats(
       .filter((r) => r.user?.login === login && isCountedReview(r))
       .sort(
         (a, b) =>
-          new Date(a.submitted_at).getTime() -
-          new Date(b.submitted_at).getTime(),
+          (parseTimestampMs(a.submitted_at) ?? 0) -
+          (parseTimestampMs(b.submitted_at) ?? 0),
       );
 
     let reviewRoundsBeforeApproval: number | null = null;

@@ -1,3 +1,4 @@
+import { parseTimestampMs } from "@/lib/utils/date.utils";
 import { GitHubGraphQLError, requestGitHubGraphQL } from "./github.request";
 import type {
   GitHubDiscussionNode,
@@ -366,8 +367,9 @@ export async function fetchRecentDiscussionNodes(
     // Discussions are ordered by UPDATED_AT descending, so once the oldest
     // discussion on a page falls outside the window, every later page will too.
     const oldestUpdatedAt = nodes.at(-1)?.updatedAt;
+    const oldestUpdatedAtMs = parseTimestampMs(oldestUpdatedAt);
 
-    if (oldestUpdatedAt && new Date(oldestUpdatedAt).getTime() < cutoffTime) {
+    if (oldestUpdatedAtMs !== null && oldestUpdatedAtMs < cutoffTime) {
       break;
     }
 

@@ -1,3 +1,5 @@
+import { parseTimestampMs } from "@/lib/utils/date.utils";
+
 const CRON_REFRESH_INTERVAL_MS = 3 * 24 * 60 * 60 * 1000;
 
 /**
@@ -13,9 +15,9 @@ export function computeTtlFromLastUpdated(
     return CRON_REFRESH_INTERVAL_MS;
   }
 
-  const lastUpdated = new Date(lastUpdatedIso).getTime();
+  const lastUpdated = parseTimestampMs(lastUpdatedIso);
 
-  if (Number.isNaN(lastUpdated)) {
+  if (lastUpdated === null) {
     return CRON_REFRESH_INTERVAL_MS;
   }
 

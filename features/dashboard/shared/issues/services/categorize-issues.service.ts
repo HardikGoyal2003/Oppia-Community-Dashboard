@@ -1,3 +1,4 @@
+import { compareDateInputs } from "@/lib/utils/date.utils";
 import { GitHubIssue } from "@/lib/github/github.types";
 import type { Issue } from "@/lib/domain/issues.types";
 import { getIssueBucket } from "@/lib/domain/issue-buckets";
@@ -8,8 +9,10 @@ import { unarchiveIssueForPlatform } from "./archived-issues-api.service";
 function sortIssuesByWaitingTime(issues: Issue[]): Issue[] {
   return [...issues].sort(
     (left, right) =>
-      new Date(left.lastCommentCreatedAt).getTime() -
-      new Date(right.lastCommentCreatedAt).getTime(),
+      compareDateInputs(
+        left.lastCommentCreatedAt,
+        right.lastCommentCreatedAt,
+      ) ?? 0,
   );
 }
 
