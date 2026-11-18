@@ -7,13 +7,17 @@ import { getReviewers, upsertReviewers } from "@/db/reviewers/reviewers.db";
 import type { ReviewerDocument } from "@/lib/domain/reviewer-teams.types";
 import { getReviewerTeamLogins } from "@/lib/team-activity/reviewer-team-logins";
 import {
-  upsertReviewCycles,
   findNewCycleRecords,
-  getReviewCycleAggregatesForLogins,
-  applyReviewCycleContributions,
-  type ReviewCycleAggregate,
-  type ReviewCycleLoginContribution,
+  upsertReviewCycles,
 } from "@/db/review-cycles/review-cycles.db";
+import {
+  applyReviewCycleContributions,
+  getReviewCycleAggregatesForLogins,
+} from "@/lib/team-activity/review-cycle-analytics.service";
+import type {
+  ReviewCycleAggregate,
+  ReviewCycleLoginContribution,
+} from "@/lib/reviewer-teams/review-cycle-analytics";
 import {
   getReviewerCycleAggregates,
   upsertReviewerCycleAggregates,

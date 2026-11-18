@@ -5,7 +5,7 @@ import {
 import type {
   ReviewCycleAggregate,
   ReviewCycleLoginContribution,
-} from "@/db/review-cycles/review-cycles.db";
+} from "@/lib/reviewer-teams/review-cycle-analytics";
 import type { ReviewerCycleAggregateDocument } from "@/db/reviewer-cycle-aggregates/reviewer-cycle-aggregates.mapper";
 
 /**

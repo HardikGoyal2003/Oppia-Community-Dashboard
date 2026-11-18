@@ -13,11 +13,13 @@ import {
   saveReviewCycleBackfillState,
 } from "@/db/review-cycle-backfill/review-cycle-backfill.db";
 import {
-  applyReviewCycleContributions,
   findNewCycleRecords,
-  refreshReviewCycleAnalytics,
   upsertReviewCycles,
 } from "@/db/review-cycles/review-cycles.db";
+import {
+  applyReviewCycleContributions,
+  refreshReviewCycleAnalytics,
+} from "@/lib/team-activity/review-cycle-analytics.service";
 import { getTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
 import { getAllUsers, updateUserRoles } from "@/db/users/users.db";
 import { LibInvalidStateError } from "@/lib/lib.errors";
