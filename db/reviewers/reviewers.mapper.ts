@@ -76,101 +76,58 @@ function assertFirestoreReviewer(
       );
     }
   }
-  if (
-    data.completedReviews !== undefined &&
-    typeof data.completedReviews !== "number"
-  ) {
-    throw new DbValidationError(
-      "completedReviews",
-      "completedReviews must be a number.",
-    );
-  }
-  if (
-    data.reviewedPrCount !== undefined &&
-    typeof data.reviewedPrCount !== "number"
-  ) {
-    throw new DbValidationError(
-      "reviewedPrCount",
-      "reviewedPrCount must be a number.",
-    );
-  }
-  if (
-    data.approvedPrCount !== undefined &&
-    typeof data.approvedPrCount !== "number"
-  ) {
-    throw new DbValidationError(
-      "approvedPrCount",
-      "approvedPrCount must be a number.",
-    );
-  }
-  if (
-    data.avgReviewTimeHours !== undefined &&
-    data.avgReviewTimeHours !== null &&
-    typeof data.avgReviewTimeHours !== "number"
-  ) {
-    throw new DbValidationError(
-      "avgReviewTimeHours",
-      "avgReviewTimeHours must be a number or null.",
-    );
-  }
-  if (
-    data.avgReviewRoundsBeforeApproval !== undefined &&
-    data.avgReviewRoundsBeforeApproval !== null &&
-    typeof data.avgReviewRoundsBeforeApproval !== "number"
-  ) {
-    throw new DbValidationError(
-      "avgReviewRoundsBeforeApproval",
-      "avgReviewRoundsBeforeApproval must be a number or null.",
-    );
-  }
-  if (
-    data.avgCommentsPerReview !== undefined &&
-    data.avgCommentsPerReview !== null &&
-    typeof data.avgCommentsPerReview !== "number"
-  ) {
-    throw new DbValidationError(
-      "avgCommentsPerReview",
-      "avgCommentsPerReview must be a number or null.",
-    );
-  }
-  if (
-    data.completedReviewSubmissions !== undefined &&
-    typeof data.completedReviewSubmissions !== "number"
-  ) {
-    throw new DbValidationError(
-      "completedReviewSubmissions",
-      "completedReviewSubmissions must be a number.",
-    );
-  }
-  if (
-    data.authoredPrCount !== undefined &&
-    typeof data.authoredPrCount !== "number"
-  ) {
-    throw new DbValidationError(
-      "authoredPrCount",
-      "authoredPrCount must be a number.",
-    );
-  }
-  if (
-    data.avgTimeToApprovalHours !== undefined &&
-    data.avgTimeToApprovalHours !== null &&
-    typeof data.avgTimeToApprovalHours !== "number"
-  ) {
-    throw new DbValidationError(
-      "avgTimeToApprovalHours",
-      "avgTimeToApprovalHours must be a number or null.",
-    );
-  }
-  if (
-    data.avgReviewsPerWeek !== undefined &&
-    data.avgReviewsPerWeek !== null &&
-    typeof data.avgReviewsPerWeek !== "number"
-  ) {
-    throw new DbValidationError(
-      "avgReviewsPerWeek",
-      "avgReviewsPerWeek must be a number or null.",
-    );
-  }
+  type RawReviewerValue =
+    | FirebaseFirestore.DocumentData[string]
+    | null
+    | undefined;
+  const assertFiniteNumberField = (
+    field: string,
+    value: RawReviewerValue,
+  ): void => {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      throw new DbValidationError(field, `${field} must be a finite number.`);
+    }
+  };
+  const assertNullableFiniteNumberField = (
+    field: string,
+    value: RawReviewerValue,
+  ): void => {
+    if (
+      value !== null &&
+      (typeof value !== "number" || !Number.isFinite(value))
+    ) {
+      throw new DbValidationError(
+        field,
+        `${field} must be a finite number or null.`,
+      );
+    }
+  };
+
+  assertFiniteNumberField("completedReviews", data.completedReviews);
+  assertFiniteNumberField("reviewedPrCount", data.reviewedPrCount);
+  assertFiniteNumberField("approvedPrCount", data.approvedPrCount);
+  assertNullableFiniteNumberField(
+    "avgReviewTimeHours",
+    data.avgReviewTimeHours,
+  );
+  assertNullableFiniteNumberField(
+    "avgReviewRoundsBeforeApproval",
+    data.avgReviewRoundsBeforeApproval,
+  );
+  assertNullableFiniteNumberField(
+    "avgCommentsPerReview",
+    data.avgCommentsPerReview,
+  );
+  assertFiniteNumberField(
+    "completedReviewSubmissions",
+    data.completedReviewSubmissions,
+  );
+  assertFiniteNumberField("authoredPrCount", data.authoredPrCount);
+  assertNullableFiniteNumberField(
+    "avgTimeToApprovalHours",
+    data.avgTimeToApprovalHours,
+  );
+  assertNullableFiniteNumberField("avgReviewsPerWeek", data.avgReviewsPerWeek);
   assertTimestamp("Reviewer", "lastUpdated", data.lastUpdated);
 }
 
@@ -191,36 +148,16 @@ export function normalizeReviewer(
   return {
     teams: migrated.teams,
     pendingReviews: migrated.pendingReviews,
-    completedReviews: migrated.completedReviews ?? 0,
-    reviewedPrCount: migrated.reviewedPrCount ?? 0,
-    completedReviewSubmissions: migrated.completedReviewSubmissions ?? 0,
-    approvedPrCount: migrated.approvedPrCount ?? 0,
-    authoredPrCount: migrated.authoredPrCount ?? 0,
-    avgReviewTimeHours:
-      migrated.avgReviewTimeHours !== undefined &&
-      migrated.avgReviewTimeHours !== null
-        ? migrated.avgReviewTimeHours
-        : null,
-    avgTimeToApprovalHours:
-      migrated.avgTimeToApprovalHours !== undefined &&
-      migrated.avgTimeToApprovalHours !== null
-        ? migrated.avgTimeToApprovalHours
-        : null,
-    avgReviewRoundsBeforeApproval:
-      migrated.avgReviewRoundsBeforeApproval !== undefined &&
-      migrated.avgReviewRoundsBeforeApproval !== null
-        ? migrated.avgReviewRoundsBeforeApproval
-        : null,
-    avgCommentsPerReview:
-      migrated.avgCommentsPerReview !== undefined &&
-      migrated.avgCommentsPerReview !== null
-        ? migrated.avgCommentsPerReview
-        : null,
-    avgReviewsPerWeek:
-      migrated.avgReviewsPerWeek !== undefined &&
-      migrated.avgReviewsPerWeek !== null
-        ? migrated.avgReviewsPerWeek
-        : null,
+    completedReviews: migrated.completedReviews,
+    reviewedPrCount: migrated.reviewedPrCount,
+    completedReviewSubmissions: migrated.completedReviewSubmissions,
+    approvedPrCount: migrated.approvedPrCount,
+    authoredPrCount: migrated.authoredPrCount,
+    avgReviewTimeHours: migrated.avgReviewTimeHours,
+    avgTimeToApprovalHours: migrated.avgTimeToApprovalHours,
+    avgReviewRoundsBeforeApproval: migrated.avgReviewRoundsBeforeApproval,
+    avgCommentsPerReview: migrated.avgCommentsPerReview,
+    avgReviewsPerWeek: migrated.avgReviewsPerWeek,
     lastUpdated: normalizeTimestamp(migrated.lastUpdated),
     schemaVersion: migrated.schemaVersion,
   };

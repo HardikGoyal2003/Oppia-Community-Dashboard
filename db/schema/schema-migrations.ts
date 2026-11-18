@@ -157,7 +157,53 @@ const SCHEMA_MIGRATIONS: Record<SchemaKey, readonly SchemaMigration[]> = {
   [SCHEMA_KEYS.MEMBER_ACCESS_REQUESTS]: [addSchemaVersionField(1)],
   [SCHEMA_KEYS.NOTIFICATION_DELIVERIES]: [addSchemaVersionField(1)],
   [SCHEMA_KEYS.ORG_META]: [addSchemaVersionField(1)],
-  [SCHEMA_KEYS.REVIEWERS]: [addSchemaVersionField(1)],
+  [SCHEMA_KEYS.REVIEWERS]: [
+    {
+      toVersion: 1,
+      migrate: (document) => ({
+        teams: Array.isArray(document.teams) ? document.teams : document.teams,
+        pendingReviews: Array.isArray(document.pendingReviews)
+          ? document.pendingReviews
+          : document.pendingReviews,
+        completedReviews:
+          document.completedReviews === undefined
+            ? 0
+            : document.completedReviews,
+        reviewedPrCount:
+          document.reviewedPrCount === undefined ? 0 : document.reviewedPrCount,
+        completedReviewSubmissions:
+          document.completedReviewSubmissions === undefined
+            ? 0
+            : document.completedReviewSubmissions,
+        approvedPrCount:
+          document.approvedPrCount === undefined ? 0 : document.approvedPrCount,
+        authoredPrCount:
+          document.authoredPrCount === undefined ? 0 : document.authoredPrCount,
+        avgReviewTimeHours:
+          document.avgReviewTimeHours === undefined
+            ? null
+            : document.avgReviewTimeHours,
+        avgTimeToApprovalHours:
+          document.avgTimeToApprovalHours === undefined
+            ? null
+            : document.avgTimeToApprovalHours,
+        avgReviewRoundsBeforeApproval:
+          document.avgReviewRoundsBeforeApproval === undefined
+            ? null
+            : document.avgReviewRoundsBeforeApproval,
+        avgCommentsPerReview:
+          document.avgCommentsPerReview === undefined
+            ? null
+            : document.avgCommentsPerReview,
+        avgReviewsPerWeek:
+          document.avgReviewsPerWeek === undefined
+            ? null
+            : document.avgReviewsPerWeek,
+        lastUpdated: document.lastUpdated,
+        schemaVersion: 1,
+      }),
+    },
+  ],
   [SCHEMA_KEYS.REVIEW_CYCLES]: [addSchemaVersionField(1)],
   [SCHEMA_KEYS.REVIEWER_CYCLE_AGGREGATES]: [addSchemaVersionField(1)],
   [SCHEMA_KEYS.REVIEW_CYCLE_PR_STATS]: [addSchemaVersionField(1)],
