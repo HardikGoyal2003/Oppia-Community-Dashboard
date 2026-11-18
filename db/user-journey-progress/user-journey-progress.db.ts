@@ -5,7 +5,10 @@ import type {
   UserJourneyProgressModel,
 } from "@/lib/domain/contributor-journey.types";
 import { DB_PATHS } from "@/db/db-paths";
-import { getRequiredDocumentRef } from "@/db/utils/document.utils";
+import {
+  getRequiredTransactionDocumentSnapshot,
+  updateRequiredDocument,
+} from "@/db/utils/document.utils";
 import {
   FirestoreUserJourneyProgress,
   normalizeUserJourneyProgressDocument,
@@ -17,21 +20,6 @@ const db = getAdminFirestore();
 const userJourneyProgressCollection = db.collection(
   DB_PATHS.USER_JOURNEY_PROGRESS.COLLECTION,
 ) as FirebaseFirestore.CollectionReference<FirestoreUserJourneyProgress>;
-
-/**
- * Resolves a user journey progress document reference and guarantees it exists.
- *
- * @param uid The user id whose journey progress document is required.
- * @returns The existing journey progress document reference.
- */
-async function getRequiredJourneyProgressDocRefByUid(
-  uid: string,
-): Promise<FirebaseFirestore.DocumentReference<FirestoreUserJourneyProgress>> {
-  return getRequiredDocumentRef(
-    "User journey progress",
-    userJourneyProgressCollection.doc(uid),
-  );
-}
 
 /**
  * Retrieves stored user journey progress by uid.
@@ -78,11 +66,15 @@ export async function markManualJourneyItemCompletedByUid(
   uid: string,
   itemId: string,
 ): Promise<void> {
-  const docRef = await getRequiredJourneyProgressDocRefByUid(uid);
+  const docRef = userJourneyProgressCollection.doc(uid);
 
   await userJourneyProgressCollection.firestore.runTransaction(
     async (transaction) => {
-      const snap = await transaction.get(docRef);
+      const snap = await getRequiredTransactionDocumentSnapshot(
+        transaction,
+        "User journey progress",
+        docRef,
+      );
       const progress = normalizeUserJourneyProgressDocument(snap.data()!);
       const currentState = progress.manualProgress[itemId];
 
@@ -114,7 +106,9 @@ export async function setDerivedJourneyStateByUid(
   key: DerivedJourneyKey,
   state: DerivedProgressState,
 ): Promise<void> {
-  const docRef = await getRequiredJourneyProgressDocRefByUid(uid);
-
-  await docRef.update(serializeDerivedJourneyStateUpdate(key, state));
+  await updateRequiredDocument(
+    "User journey progress",
+    userJourneyProgressCollection.doc(uid),
+    serializeDerivedJourneyStateUpdate(key, state),
+  );
 }
