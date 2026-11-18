@@ -39,6 +39,23 @@ function addSchemaVersionField(version: number): SchemaMigration {
 }
 
 /**
+ * Determines whether a value is a valid GFI count.
+ *
+ * @param value The raw value to inspect.
+ * @returns True when the value is a finite, non-negative integer.
+ */
+function isValidGfiCount(
+  value: FirebaseFirestore.DocumentData[string],
+): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value >= 0 &&
+    Number.isInteger(value)
+  );
+}
+
+/**
  * Builds the migration that collapses the per-domain GFI count object into a
  * single total GFI count.
  *
@@ -48,32 +65,71 @@ function collapseTeamGfiCounts(): SchemaMigration {
   return {
     toVersion: 2,
     migrate: (document) => {
-      const rawCounts = document.gfiCounts;
-      const counts =
-        rawCounts !== null && typeof rawCounts === "object"
-          ? (rawCounts as Record<string, number | undefined>)
-          : null;
-      const totalFromCounts = [
+      const legacyFields = [
         "backend",
         "frontend",
         "fullstack",
         "uncategorized",
-      ].reduce((sum, field) => {
-        const value = counts?.[field];
+      ] as const;
 
-        return (
-          sum +
-          (typeof value === "number" && Number.isFinite(value) ? value : 0)
+      if (
+        document.gfiCount !== undefined &&
+        !isValidGfiCount(document.gfiCount)
+      ) {
+        throw new DbValidationError(
+          "gfiCount",
+          "gfiCount must be a finite non-negative integer.",
         );
-      }, 0);
-      const existingTotal =
-        typeof document.gfiCount === "number" &&
-        Number.isFinite(document.gfiCount)
-          ? document.gfiCount
-          : 0;
+      }
+
+      const hasExistingGfiCount = isValidGfiCount(document.gfiCount);
+      const rawCounts = document.gfiCounts;
+      let gfiCount = hasExistingGfiCount ? document.gfiCount : 0;
+
+      if (rawCounts !== undefined) {
+        if (
+          rawCounts === null ||
+          typeof rawCounts !== "object" ||
+          Array.isArray(rawCounts)
+        ) {
+          throw new DbValidationError(
+            "gfiCounts",
+            "Legacy gfiCounts must be an object when present.",
+          );
+        }
+
+        const counts = rawCounts as Record<
+          string,
+          FirebaseFirestore.DocumentData[string]
+        >;
+        let hasLegacyCount = false;
+        let derivedTotal = 0;
+
+        for (const field of legacyFields) {
+          if (!(field in counts)) {
+            continue;
+          }
+
+          const value = counts[field];
+          if (!isValidGfiCount(value)) {
+            throw new DbValidationError(
+              `gfiCounts.${field}`,
+              "Legacy GFI counts must be finite non-negative integers.",
+            );
+          }
+
+          hasLegacyCount = true;
+          derivedTotal += value;
+        }
+
+        if (!hasExistingGfiCount && hasLegacyCount) {
+          gfiCount = derivedTotal;
+        }
+      }
+
       const migratedDocument: FirebaseFirestore.DocumentData = {
         ...document,
-        gfiCount: counts ? totalFromCounts : existingTotal,
+        gfiCount,
         schemaVersion: 2,
       };
 
