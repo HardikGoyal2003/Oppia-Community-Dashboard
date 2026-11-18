@@ -10,26 +10,32 @@ export const USER_ROLES = [
 
 export type UserRole = (typeof USER_ROLES)[number];
 
-export const ASSIGNABLE_USER_ROLES: UserRole[] = [
+/**
+ * Roles an admin may assign through the role manager. `SUPER_ADMIN` is
+ * intentionally excluded because it is not granted from the dashboard.
+ */
+export const ASSIGNABLE_USER_ROLES = [
   "CONTRIBUTOR",
   "TEAM_MEMBER",
   "LEAD_TRAINEE",
   "TEAM_LEAD",
   "ADMIN",
   "ALUMNI",
-];
+] as const satisfies readonly UserRole[];
 
-export const REQUESTABLE_USER_ROLES: UserRole[] = [
+/** Roles a contributor may request through the access-request flow. */
+export const REQUESTABLE_USER_ROLES = [
   "TEAM_MEMBER",
   "TEAM_LEAD",
   "ADMIN",
-];
+] as const satisfies readonly UserRole[];
 
-export const TEAM_LEAD_ASSIGNABLE_ROLES: UserRole[] = [
+/** Roles a team lead may assign to members of their own team. */
+export const TEAM_LEAD_ASSIGNABLE_ROLES = [
   "TEAM_MEMBER",
   "LEAD_TRAINEE",
   "ALUMNI",
-];
+] as const satisfies readonly UserRole[];
 
 /**
  * Validates whether the provided value is a supported user role.

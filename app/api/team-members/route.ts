@@ -49,7 +49,7 @@ function toTeamMemberSummary(member: UserRecord): TeamMemberSummary {
 }
 
 function isAllowedRole(role: UserRole): boolean {
-  return TEAM_LEAD_ASSIGNABLE_ROLES.includes(role);
+  return TEAM_LEAD_ASSIGNABLE_ROLES.some((allowed) => allowed === role);
 }
 
 function getUserAccessUpdatedMessage(
