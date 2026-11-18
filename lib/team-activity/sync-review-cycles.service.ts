@@ -15,13 +15,15 @@ import {
   type ReviewCycleLoginContribution,
 } from "@/db/review-cycles/review-cycles.db";
 import {
+  getReviewerCycleAggregates,
+  upsertReviewerCycleAggregates,
+} from "@/db/reviewer-cycle-aggregates/reviewer-cycle-aggregates.db";
+import {
   aggregateDocumentToReviewCycleAggregate,
   applyReviewCycleContribution,
   createEmptyReviewerCycleAggregate,
-  getReviewerCycleAggregates,
   reviewCycleAggregateToDocument,
-  upsertReviewerCycleAggregates,
-} from "@/db/reviewer-cycle-aggregates/reviewer-cycle-aggregates.db";
+} from "@/lib/team-activity/reviewer-cycle-aggregate";
 
 type SyncSummary = {
   completedCyclesCount: number;
