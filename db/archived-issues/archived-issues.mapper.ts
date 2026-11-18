@@ -164,6 +164,8 @@ export function serializeArchivedIssue(
     );
   }
 
+  const archivedAt = parseDateValue(issue.archivedAt) ?? new Date();
+
   return {
     issueNumber: issue.issueNumber,
     issueUrl: issue.issueUrl,
@@ -172,7 +174,7 @@ export function serializeArchivedIssue(
     linkedProject: issue.linkedProject,
     platform,
     archivedBy,
-    archivedAt: Timestamp.now(),
+    archivedAt: Timestamp.fromDate(archivedAt),
     schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.ARCHIVED_ISSUES),
   };
 }

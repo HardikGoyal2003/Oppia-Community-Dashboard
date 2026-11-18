@@ -146,6 +146,8 @@ export function serializeArchivedDiscussion(
     );
   }
 
+  const archivedAt = parseDateValue(discussion.archivedAt) ?? new Date();
+
   return {
     discussionNumber: discussion.discussionNumber,
     discussionUrl: discussion.discussionUrl,
@@ -153,7 +155,7 @@ export function serializeArchivedDiscussion(
     createdAt: Timestamp.fromDate(createdAt),
     platform,
     archivedBy,
-    archivedAt: Timestamp.now(),
+    archivedAt: Timestamp.fromDate(archivedAt),
     schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.ARCHIVED_DISCUSSIONS),
   };
 }
