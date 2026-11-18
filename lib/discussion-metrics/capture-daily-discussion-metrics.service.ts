@@ -1,7 +1,10 @@
 import { getArchivedDiscussions } from "@/db/archived-discussions/archived-discussions.db";
 import type { ArchivedDiscussionRecord } from "@/db/archived-discussions/archived-discussions.mapper";
 import { createDailyDiscussionMetric } from "@/db/discussion-metrics/daily-discussion-metrics.db";
-import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import {
+  CONTRIBUTION_PLATFORMS,
+  type ContributionPlatform,
+} from "@/lib/auth/auth.types";
 import { GITHUB_REPOS } from "@/lib/config/github.constants";
 import { fetchUnansweredDiscussions } from "@/lib/github/github-unanswered-discussions.fetcher";
 import type { GitHubDiscussion } from "@/lib/github/github.types";
@@ -16,7 +19,7 @@ type DiscussionMetricCaptureSummary = {
   }>;
 };
 
-const PLATFORMS: ContributionPlatform[] = ["WEB", "ANDROID"];
+const PLATFORMS = CONTRIBUTION_PLATFORMS;
 
 /**
  * Counts live unanswered discussions that are not currently archived.

@@ -8,7 +8,7 @@ import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
-import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import { isContributionPlatform } from "@/lib/auth/auth.types";
 import type { MemberAccessRequestStatus } from "@/db/member-access-requests/member-access-request.types";
 import {
   SCHEMA_KEYS,
@@ -17,8 +17,7 @@ import {
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
 
-const CONTRIBUTION_PLATFORMS: ContributionPlatform[] = ["WEB", "ANDROID"];
-const MEMBER_ACCESS_REQUEST_STATUSES: MemberAccessRequestStatus[] = [
+const MEMBER_ACCESS_REQUEST_STATUSES: readonly MemberAccessRequestStatus[] = [
   "PENDING",
   "ACCEPTED",
   "REJECTED",
@@ -75,7 +74,7 @@ function assertFirestoreMemberAccessRequest(
     );
   }
 
-  if (!CONTRIBUTION_PLATFORMS.includes(request.platform)) {
+  if (!isContributionPlatform(request.platform)) {
     throw new DbValidationError(
       "platform",
       "Member access request platform must be WEB or ANDROID.",

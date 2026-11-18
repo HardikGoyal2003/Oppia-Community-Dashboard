@@ -10,6 +10,7 @@ import type {
   UserJourneyProgressModel,
 } from "@/lib/domain/contributor-journey.types";
 import { DERIVED_JOURNEY_KEYS } from "@/lib/domain/contributor-journey.types";
+import { isContributionPlatform } from "@/lib/auth/auth.types";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import {
   SCHEMA_KEYS,
@@ -37,8 +38,6 @@ export type FirestoreUserJourneyProgress = {
   updatedAt: Timestamp;
   schemaVersion: number;
 };
-
-const CONTRIBUTION_PLATFORMS: ContributionPlatform[] = ["WEB", "ANDROID"];
 
 /**
  * Validates one stored manual journey progress entry.
@@ -143,7 +142,7 @@ function assertDerivedProgressState(
 function assertFirestoreUserJourneyProgress(
   progress: FirebaseFirestore.DocumentData,
 ): asserts progress is FirestoreUserJourneyProgress {
-  if (!CONTRIBUTION_PLATFORMS.includes(progress.platform)) {
+  if (!isContributionPlatform(progress.platform)) {
     throw new DbValidationError(
       "platform",
       "Journey progress platform must be WEB or ANDROID.",

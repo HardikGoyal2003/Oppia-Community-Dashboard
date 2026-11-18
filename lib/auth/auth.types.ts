@@ -4,7 +4,22 @@ import type { UserRole } from "./roles";
 
 export type { UserRole } from "./roles";
 
-export type ContributionPlatform = "WEB" | "ANDROID";
+/** Supported contribution platforms. */
+export const CONTRIBUTION_PLATFORMS = ["WEB", "ANDROID"] as const;
+
+export type ContributionPlatform = (typeof CONTRIBUTION_PLATFORMS)[number];
+
+/**
+ * Validates whether the provided value is a supported contribution platform.
+ *
+ * @param value The raw platform candidate.
+ * @returns True when the value is a supported contribution platform.
+ */
+export function isContributionPlatform(
+  value: string,
+): value is ContributionPlatform {
+  return CONTRIBUTION_PLATFORMS.some((platform) => platform === value);
+}
 
 export interface Notification extends SchemaVersioned {
   id: string;

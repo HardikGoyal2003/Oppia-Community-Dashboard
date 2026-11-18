@@ -2,7 +2,10 @@ import { getDailyTeamMetricsSinceDateKey } from "@/db/team-metrics/daily-team-me
 import { getTeams } from "@/db/teams/teams.db";
 import { TEAM_DEFINITIONS_BY_KEY } from "@/lib/domain/team-definitions";
 import type { TeamModel } from "@/lib/domain/teams.types";
-import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import {
+  CONTRIBUTION_PLATFORMS,
+  type ContributionPlatform,
+} from "@/lib/auth/auth.types";
 import { getDiscussionMetricHistory } from "@/lib/discussion-metrics/discussion-metrics.service";
 import { getIstDateKeyDaysAgo } from "@/lib/utils/date.utils";
 
@@ -12,7 +15,7 @@ const MINIMUM_GFI_POOL_SIZE = 15;
 /** Unanswered discussions at or above this count are escalated to high priority. */
 const HIGH_PRIORITY_DISCUSSION_COUNT = 3;
 
-const PLATFORMS: ContributionPlatform[] = ["WEB", "ANDROID"];
+const PLATFORMS = CONTRIBUTION_PLATFORMS;
 
 type UnansweredDiscussionsByPlatform = Record<ContributionPlatform, number>;
 

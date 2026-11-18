@@ -27,13 +27,13 @@ export type ContributorJourneyChecklistItem = {
 
 export type ContributorJourneyTask = {
   id: string;
-  items: ContributorJourneyChecklistItem[];
+  items: readonly ContributorJourneyChecklistItem[];
   title: string;
 };
 
 export type ContributorJourneyContent = {
   intro: string;
-  tasks: ContributorJourneyTask[];
+  tasks: readonly ContributorJourneyTask[];
 };
 
 const webPhaseOneItems: ContributorJourneyChecklistItem[] = [
@@ -814,18 +814,52 @@ const androidJourneyTasks: ContributorJourneyTask[] = [
   },
 ];
 
-export const CONTRIBUTOR_JOURNEY_CONTENT: Record<
-  ContributionPlatform,
-  ContributorJourneyContent
-> = {
-  ANDROID: {
+/**
+ * Freezes one checklist item so its static content cannot be mutated at runtime.
+ *
+ * @param item The checklist item to freeze.
+ * @returns The frozen checklist item.
+ */
+function freezeJourneyItem(
+  item: ContributorJourneyChecklistItem,
+): ContributorJourneyChecklistItem {
+  return Object.freeze({ ...item });
+}
+
+/**
+ * Recursively freezes journey content so its static tasks and items cannot be
+ * mutated at runtime.
+ *
+ * @param content The journey content to freeze.
+ * @returns The frozen journey content.
+ */
+function freezeJourneyContent(
+  content: ContributorJourneyContent,
+): ContributorJourneyContent {
+  const tasks = content.tasks.map((task) =>
+    Object.freeze({
+      ...task,
+      items: Object.freeze(task.items.map(freezeJourneyItem)),
+    }),
+  );
+
+  return Object.freeze({
+    intro: content.intro,
+    tasks: Object.freeze(tasks),
+  });
+}
+
+export const CONTRIBUTOR_JOURNEY_CONTENT: Readonly<
+  Record<ContributionPlatform, ContributorJourneyContent>
+> = Object.freeze({
+  ANDROID: freezeJourneyContent({
     intro:
       "A task-by-task checklist to help you get from first login to first contribution without losing momentum.",
     tasks: androidJourneyTasks,
-  },
-  WEB: {
+  }),
+  WEB: freezeJourneyContent({
     intro:
       "A task-by-task checklist to help you get from first login to first contribution without losing momentum.",
     tasks: webJourneyTasks,
-  },
-};
+  }),
+});

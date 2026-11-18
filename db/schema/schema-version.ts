@@ -48,7 +48,7 @@ export type SchemaKey = (typeof SCHEMA_KEYS)[keyof typeof SCHEMA_KEYS];
  *
  * Never reuse or renumber a published version.
  */
-export const SCHEMA_VERSIONS: Record<SchemaKey, number> = {
+export const SCHEMA_VERSIONS = Object.freeze({
   [SCHEMA_KEYS.ACTION_ITEMS]: 1,
   [SCHEMA_KEYS.ARCHIVED_DISCUSSIONS]: 1,
   [SCHEMA_KEYS.ARCHIVED_ISSUES]: 1,
@@ -70,7 +70,7 @@ export const SCHEMA_VERSIONS: Record<SchemaKey, number> = {
   [SCHEMA_KEYS.USER_JOURNEY_PROGRESS]: 1,
   [SCHEMA_KEYS.USER_NOTIFICATIONS]: 1,
   [SCHEMA_KEYS.USERS]: 1,
-};
+} satisfies Record<SchemaKey, number>);
 
 /**
  * Returns the latest schema version supported for a model.
