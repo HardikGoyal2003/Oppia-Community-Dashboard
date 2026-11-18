@@ -39,11 +39,7 @@ export type FirestoreActionItem = Omit<
 > &
   TimestampedActionItemFields;
 
-type FirestoreActionItemNotificationUpdate = {
-  firstNotifiedAt: Timestamp;
-  lastNotifiedAt: Timestamp;
-  notificationCount: number;
-};
+/* FirestoreActionItemNotificationUpdate removed: notification updates use transactions. */
 
 const ACTION_ITEM_PRIORITIES: readonly ActionItemPriority[] = [
   "high",
@@ -163,22 +159,4 @@ export function serializeActionItem(
   };
 }
 
-/**
- * Serializes the notification bookkeeping patch for action items after a digest.
- *
- * @param previousFirstNotifiedAt The item's existing first notification time.
- * @param notifiedAt The current notification time.
- * @param nextNotificationCount The incremented notification counter.
- * @returns The Firestore-ready partial update document.
- */
-export function serializeActionItemNotificationUpdate(
-  previousFirstNotifiedAt: Date | null,
-  notifiedAt: Date,
-  nextNotificationCount: number,
-): FirestoreActionItemNotificationUpdate {
-  return {
-    firstNotifiedAt: Timestamp.fromDate(previousFirstNotifiedAt ?? notifiedAt),
-    lastNotifiedAt: Timestamp.fromDate(notifiedAt),
-    notificationCount: nextNotificationCount,
-  };
-}
+/* serializeActionItemNotificationUpdate removed: notification updates use transactions. */

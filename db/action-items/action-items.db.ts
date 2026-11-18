@@ -1,3 +1,4 @@
+import { FieldValue } from "firebase-admin/firestore";
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DB_PATHS } from "@/db/db-paths";
 import { DbValidationError } from "@/db/db.errors";
@@ -10,7 +11,6 @@ import {
   type FirestoreActionItem,
   normalizeActionItemDocument,
   serializeActionItem,
-  serializeActionItemNotificationUpdate,
 } from "./action-items.mapper";
 
 const db = getAdminFirestore();
@@ -194,37 +194,38 @@ export async function deleteActionItems(
 /**
  * Marks items as notified by the latest digest.
  *
+ * Uses per-document transactions so concurrent digest runs do not lose
+ * notification count increments or overwrite an existing first notification time.
+ *
  * @param items The items that were included in a digest.
  * @param notifiedAt The time the digest was delivered.
- * @returns A promise that resolves when all batches are committed.
+ * @returns A promise that resolves when all updates are committed.
  */
 export async function markActionItemsNotified(
   items: ActionItemModel[],
   notifiedAt: Date,
 ): Promise<void> {
-  const writes: Array<{
-    ref: FirebaseFirestore.DocumentReference<FirestoreActionItem>;
-    data: Partial<FirestoreActionItem>;
-  }> = [];
-
   for (const item of items) {
-    writes.push({
-      ref: getActionItemDocumentRef(item.teamId, item.id),
-      data: serializeActionItemNotificationUpdate(
-        item.firstNotifiedAt,
-        notifiedAt,
-        item.notificationCount + 1,
-      ),
+    const ref = getActionItemDocumentRef(item.teamId, item.id);
+
+    await actionItemsCollectionGroup.firestore.runTransaction(async (tx) => {
+      const snapshot = await tx.get(ref);
+
+      if (!snapshot.exists) {
+        return;
+      }
+
+      const data = snapshot.data();
+      const update: FirebaseFirestore.UpdateData<FirestoreActionItem> = {
+        notificationCount: FieldValue.increment(1),
+        lastNotifiedAt: notifiedAt,
+      };
+
+      if (!data?.firstNotifiedAt) {
+        update.firstNotifiedAt = notifiedAt;
+      }
+
+      tx.update(ref, update);
     });
-  }
-
-  for (const chunk of chunkValues(writes, FIRESTORE_WRITE_BATCH_SIZE)) {
-    const batch = actionItemsCollectionGroup.firestore.batch();
-
-    for (const write of chunk) {
-      batch.update(write.ref, write.data);
-    }
-
-    await batch.commit();
   }
 }
