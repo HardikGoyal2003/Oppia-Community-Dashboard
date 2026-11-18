@@ -3,6 +3,7 @@ import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import type { DataJobRun } from "@/lib/domain/data-jobs.types";
 import { DB_PATHS } from "@/db/db-paths";
 import { getRequiredDocumentSnapshot } from "@/db/utils/document.utils";
+import { logDbError } from "@/db/db-logger";
 import {
   type FirestoreDataJobRun,
   normalizeDataJobRunDocument,
@@ -108,7 +109,7 @@ export async function listDataJobRuns(limit = 20): Promise<DataJobRun[]> {
     try {
       await batch.commit();
     } catch (error) {
-      console.error("Failed to mark stale data job runs as failed.", error);
+      logDbError("Failed to mark stale data job runs as failed.", error);
     }
   }
 

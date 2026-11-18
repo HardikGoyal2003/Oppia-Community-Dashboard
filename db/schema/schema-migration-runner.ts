@@ -1,5 +1,6 @@
 import { DB_PATHS } from "@/db/db-paths";
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
+import { logDbError } from "@/db/db-logger";
 import {
   isDocumentAtCurrentSchemaVersion,
   migrateDocument,
@@ -240,7 +241,7 @@ export async function backfillSchemaVersions(options: {
         }
 
         summary.failedCount += 1;
-        console.error(
+        logDbError(
           `Failed to persist migrated document ${chunk[index].ref.path}.`,
           result.reason,
         );
@@ -288,7 +289,7 @@ export async function backfillSchemaVersions(options: {
         }
       } catch (error) {
         summary.failedCount += 1;
-        console.error(
+        logDbError(
           `Failed to backfill schema version for ${target.label}/${doc.id}.`,
           error,
         );
