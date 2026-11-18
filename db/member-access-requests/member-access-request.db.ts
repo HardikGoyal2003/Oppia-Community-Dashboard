@@ -108,7 +108,7 @@ export async function submitMemberAccessRequest(
     .where("status", "==", "PENDING");
   const newRequestRef = collectionRef.doc();
 
-  await db.runTransaction(async (tx) => {
+  await memberAccessRequestsCollection.firestore.runTransaction(async (tx) => {
     const existingPending = await tx.get(pendingQuery);
 
     if (!existingPending.empty) {
@@ -167,7 +167,7 @@ export async function resolveMemberAccessRequest(
 ): Promise<MemberAccessRequestRecord> {
   const requestRef = memberAccessRequestsCollection.doc(requestId);
 
-  return db.runTransaction(async (tx) => {
+  return memberAccessRequestsCollection.firestore.runTransaction(async (tx) => {
     const snapshot = await getRequiredTransactionDocumentSnapshot(
       tx,
       "Member access request",
