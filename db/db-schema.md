@@ -110,7 +110,7 @@ Fields:
 
 Document id:
 
-- `${teamId}_${capturedAtMillis}`
+- `${teamId}_${dateKey}`
 
 Fields:
 
@@ -127,7 +127,7 @@ Fields:
 
 Document id:
 
-- `${platform}_${capturedAtMillis}`
+- `${platform}_${dateKey}`
 
 Fields:
 

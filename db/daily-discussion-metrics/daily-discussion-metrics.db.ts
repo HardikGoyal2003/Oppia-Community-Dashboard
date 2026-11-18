@@ -17,18 +17,18 @@ const dailyDiscussionMetricsCollection = db.collection(
  * Builds a daily-discussion-metric snapshot document id.
  *
  * @param platform The contribution platform the snapshot belongs to.
- * @param capturedAt The exact snapshot timestamp.
+ * @param dateKey The IST-normalized reporting day key.
  * @returns The daily discussion metric document id.
  */
 function getDailyDiscussionMetricSnapshotDocId(
   platform: ContributionPlatform,
-  capturedAt: Date,
+  dateKey: string,
 ): string {
-  return `${platform}_${capturedAt.getTime()}`;
+  return `${platform}_${dateKey}`;
 }
 
 /**
- * Creates a daily unanswered-discussions snapshot for a platform.
+ * Creates or updates a daily unanswered-discussions snapshot for a platform.
  *
  * @param metric The daily discussion metric to persist.
  * @returns A promise that resolves when the document has been written.
@@ -37,9 +37,7 @@ export async function createDailyDiscussionMetric(
   metric: Omit<DailyDiscussionMetric, "schemaVersion">,
 ): Promise<void> {
   await dailyDiscussionMetricsCollection
-    .doc(
-      getDailyDiscussionMetricSnapshotDocId(metric.platform, metric.capturedAt),
-    )
+    .doc(getDailyDiscussionMetricSnapshotDocId(metric.platform, metric.dateKey))
     .set(serializeDailyDiscussionMetric(metric));
 }
 

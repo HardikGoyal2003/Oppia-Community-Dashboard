@@ -16,18 +16,18 @@ const dailyTeamMetricsCollection = db.collection(
  * Builds a daily-team-metric snapshot document id.
  *
  * @param teamId The stable team id.
- * @param capturedAt The exact snapshot timestamp.
+ * @param dateKey The IST-normalized reporting day key.
  * @returns The daily team metric document id.
  */
 function getDailyTeamMetricSnapshotDocId(
   teamId: string,
-  capturedAt: Date,
+  dateKey: string,
 ): string {
-  return `${teamId}_${capturedAt.getTime()}`;
+  return `${teamId}_${dateKey}`;
 }
 
 /**
- * Creates a daily unanswered-issues snapshot for a team.
+ * Creates or updates a daily unanswered-issues snapshot for a team.
  *
  * @param metric The daily team metric to persist.
  * @returns A promise that resolves when the document has been written.
@@ -36,7 +36,7 @@ export async function createDailyTeamMetric(
   metric: Omit<DailyTeamMetric, "schemaVersion">,
 ): Promise<void> {
   await dailyTeamMetricsCollection
-    .doc(getDailyTeamMetricSnapshotDocId(metric.teamId, metric.capturedAt))
+    .doc(getDailyTeamMetricSnapshotDocId(metric.teamId, metric.dateKey))
     .set(serializeDailyTeamMetric(metric));
 }
 
