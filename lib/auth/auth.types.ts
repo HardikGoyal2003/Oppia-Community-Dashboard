@@ -46,6 +46,8 @@ declare module "next-auth/jwt" {
     invalidUser?: boolean;
     userId?: string;
     role?: UserRole;
+    team?: string | null;
+    platform?: ContributionPlatform | null;
     githubUsername?: string;
   }
 }
