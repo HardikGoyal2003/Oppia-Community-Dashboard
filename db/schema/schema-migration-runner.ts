@@ -167,6 +167,11 @@ function buildSchemaCollectionTargets(): SchemaCollectionTarget[] {
       query: db.collection(DB_PATHS.ORG_META.COLLECTION),
     },
     {
+      key: SCHEMA_KEYS.UNREGISTERED_MEMBERS,
+      label: DB_PATHS.UNREGISTERED_MEMBERS.COLLECTION,
+      query: db.collection(DB_PATHS.UNREGISTERED_MEMBERS.COLLECTION),
+    },
+    {
       key: SCHEMA_KEYS.USER_JOURNEY_PROGRESS,
       label: DB_PATHS.USER_JOURNEY_PROGRESS.COLLECTION,
       query: db.collection(DB_PATHS.USER_JOURNEY_PROGRESS.COLLECTION),

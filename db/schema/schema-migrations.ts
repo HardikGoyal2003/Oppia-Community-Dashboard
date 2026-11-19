@@ -166,6 +166,7 @@ const SCHEMA_MIGRATIONS: Record<SchemaKey, readonly SchemaMigration[]> = {
   [SCHEMA_KEYS.REVIEW_CYCLE_BACKFILL]: [addSchemaVersionField(1)],
   [SCHEMA_KEYS.TEAM_REVIEWERS]: [addSchemaVersionField(1)],
   [SCHEMA_KEYS.TEAMS]: [addSchemaVersionField(1), collapseTeamGfiCounts()],
+  [SCHEMA_KEYS.UNREGISTERED_MEMBERS]: [addSchemaVersionField(1)],
   [SCHEMA_KEYS.USER_JOURNEY_PROGRESS]: [addSchemaVersionField(1)],
   [SCHEMA_KEYS.USER_NOTIFICATIONS]: [addSchemaVersionField(1)],
   [SCHEMA_KEYS.USERS]: [addSchemaVersionField(1)],

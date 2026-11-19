@@ -10,6 +10,7 @@ import { syncOrgMeta } from "@/lib/org-meta/sync-org-meta.service";
 import { syncReviewerTeams } from "@/lib/team-activity/sync-reviewer-teams.service";
 import { syncReviewCycles } from "@/lib/team-activity/sync-review-cycles.service";
 import { syncPendingReviews } from "@/lib/team-activity/sync-pending-reviews.service";
+import { syncTeamRoster } from "@/lib/team-roster/sync-team-roster.service";
 import { sendWeeklyActionItemDigest } from "@/lib/notifications/action-item-digest.service";
 
 const CRON_JOBS: CronJobDefinition[] = [
@@ -54,6 +55,12 @@ const CRON_JOBS: CronJobDefinition[] = [
     name: "Sync Pending Reviews",
     description:
       "Fetch current open PR assignments and replace pendingReviews on current reviewer-team members only, leaving review cycle history and metrics untouched. Runs daily; run after Sync Review Cycles, never concurrently.",
+  },
+  {
+    key: "sync_team_roster",
+    name: "Sync Team Roster",
+    description:
+      "Read each web team's public roster sheet, flag active members who are not registered on the dashboard, and resolve items when they register or leave the roster. Runs daily; team reports and the weekly digest read the resulting action items.",
   },
   {
     key: "send_action_item_digest",
@@ -215,6 +222,26 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
           "Cron job completed.",
           `Pending reviews synced: ${result.pendingReviewsCount}.`,
           `Updated reviewers: ${result.updatedReviewersCount}.`,
+          `Finished at: ${finishedAt.toLocaleString("en-IN")}.`,
+        ].join("\n"),
+      };
+    }
+    case "sync_team_roster": {
+      const result = await syncTeamRoster();
+      const finishedAt = new Date();
+
+      return {
+        finishedAt,
+        jobKey: job.key,
+        jobName: job.name,
+        startedAt,
+        summary: [
+          "Cron job completed.",
+          `Open roster gaps: ${result.totalOpenCount}.`,
+          ...result.teams.map(
+            (team) =>
+              `${team.teamKey}: ${team.missingCount} missing, ${team.newlyFlaggedCount} new, ${team.resolvedCount} resolved, ${team.activeMemberCount} active roster rows${team.error ? ` — ERROR: ${team.error}` : ""}.`,
+          ),
           `Finished at: ${finishedAt.toLocaleString("en-IN")}.`,
         ].join("\n"),
       };
