@@ -6,6 +6,7 @@ import {
   DbValidationError,
   PendingMemberAccessRequestError,
 } from "@/db/db.errors";
+import { chunkValues } from "@/db/utils/batch.utils";
 import {
   getRequiredDocumentSnapshot,
   getRequiredTransactionDocumentSnapshot,
@@ -73,25 +74,49 @@ export async function getPendingMemberAccessRequestsByPlatformAndRoles(
   roles?: string[],
   team?: string,
 ): Promise<MemberAccessRequestRecord[]> {
-  let query: FirebaseFirestore.Query<FirestoreMemberAccessRequest> =
-    memberAccessRequestsCollection.where("status", "==", "PENDING");
+  const buildQuery = (
+    roleChunk?: string[],
+  ): FirebaseFirestore.Query<FirestoreMemberAccessRequest> => {
+    let query: FirebaseFirestore.Query<FirestoreMemberAccessRequest> =
+      memberAccessRequestsCollection.where("status", "==", "PENDING");
 
-  if (platform) {
-    query = query.where("platform", "==", platform);
+    if (platform) {
+      query = query.where("platform", "==", platform);
+    }
+
+    if (roleChunk && roleChunk.length > 0) {
+      query = query.where("role", "in", roleChunk);
+    }
+
+    if (team) {
+      query = query.where("team", "==", team);
+    }
+
+    return query.orderBy("createdAt", "desc");
+  };
+
+  const roleChunks =
+    roles && roles.length > 0 ? chunkValues(roles, 30) : [undefined];
+
+  const snapshots = await Promise.all(
+    roleChunks.map((roleChunk) => buildQuery(roleChunk).get()),
+  );
+
+  const recordsById = new Map<string, MemberAccessRequestRecord>();
+
+  for (const snapshot of snapshots) {
+    for (const doc of snapshot.docs) {
+      if (!recordsById.has(doc.id)) {
+        recordsById.set(
+          doc.id,
+          normalizeMemberAccessRequestRecord(doc.id, doc.data()),
+        );
+      }
+    }
   }
 
-  if (roles && roles.length > 0) {
-    query = query.where("role", "in", roles);
-  }
-
-  if (team) {
-    query = query.where("team", "==", team);
-  }
-
-  const snapshot = await query.orderBy("createdAt", "desc").get();
-
-  return snapshot.docs.map((doc) =>
-    normalizeMemberAccessRequestRecord(doc.id, doc.data()),
+  return Array.from(recordsById.values()).sort(
+    (left, right) => right.createdAt.getTime() - left.createdAt.getTime(),
   );
 }
 
