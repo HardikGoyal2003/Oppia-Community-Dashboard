@@ -39,8 +39,6 @@ export type FirestoreActionItem = Omit<
 > &
   TimestampedActionItemFields;
 
-/* FirestoreActionItemNotificationUpdate removed: notification updates use transactions. */
-
 const ACTION_ITEM_PRIORITIES: readonly ActionItemPriority[] = [
   "high",
   "medium",
@@ -158,5 +156,3 @@ export function serializeActionItem(
     schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.ACTION_ITEMS),
   };
 }
-
-/* serializeActionItemNotificationUpdate removed: notification updates use transactions. */
