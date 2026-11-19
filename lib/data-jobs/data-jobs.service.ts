@@ -12,10 +12,7 @@ import {
   getReviewCycleBackfillState,
   saveReviewCycleBackfillState,
 } from "@/db/review-cycle-backfill/review-cycle-backfill.db";
-import {
-  findNewCycleRecords,
-  upsertReviewCycles,
-} from "@/db/review-cycles/review-cycles.db";
+import { createNewReviewCycles } from "@/db/review-cycles/review-cycles.db";
 import {
   applyReviewCycleContributions,
   refreshReviewCycleAnalytics,
@@ -326,11 +323,11 @@ async function backfillReviewCyclesJob(
     });
 
     if (step.records.length > 0) {
-      // Only merge cycles that are not already stored, so re-running the job
-      // after it completes cannot count the same cycle twice.
-      newCycleRecords.push(...(await findNewCycleRecords(step.records)));
-      await upsertReviewCycles(step.records);
-      cyclesWritten += step.records.length;
+      // Claim only cycles that are not already stored, so concurrent runs do
+      // not double-count and only claimed records have contributions applied.
+      const createdRecords = await createNewReviewCycles(step.records);
+      newCycleRecords.push(...createdRecords);
+      cyclesWritten += createdRecords.length;
       for (const record of step.records) {
         affectedLogins.add(record.reviewerLogin);
       }

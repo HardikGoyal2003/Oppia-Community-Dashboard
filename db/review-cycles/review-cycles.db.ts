@@ -1,9 +1,6 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DbValidationError } from "@/db/db.errors";
-import {
-  FIRESTORE_READ_CHUNK_SIZE,
-  FIRESTORE_WRITE_BATCH_SIZE,
-} from "@/db/utils/batch.utils";
+import { FIRESTORE_WRITE_BATCH_SIZE } from "@/db/utils/batch.utils";
 import { DB_PATHS } from "@/db/db-paths";
 import type {
   ReviewerTeamsAnalytics,
@@ -112,39 +109,88 @@ export async function deleteReviewCyclesForReviewers(
 }
 
 /**
- * Given a list of candidate cycle records, returns only those whose
- * corresponding Firestore doc does not yet exist.
+ * Builds the Firestore document id for a review cycle record.
  *
- * Uses composite key `${reviewerLogin}:${prNumber}:${assignedAt}`.
- *
- * @param records The candidate cycle records.
- * @returns The subset of records that are new (not yet in Firestore).
+ * @param record The review cycle record.
+ * @returns The composite review cycle document id.
  */
-export async function findNewCycleRecords(
+function getReviewCycleDocumentId(
+  record: Omit<ReviewCycleRecord, "schemaVersion">,
+): string {
+  return `${record.reviewerLogin}:${record.prNumber}:${record.assignedAt}`;
+}
+
+/**
+ * Determines whether a Firestore create failure means the document already exists.
+ *
+ * @param error The thrown error candidate.
+ * @returns True when the error indicates an existing document.
+ */
+function isDocumentAlreadyExistsError(
+  error: object | string | number | boolean | null | undefined,
+): boolean {
+  return (
+    !!error &&
+    typeof error === "object" &&
+    "code" in error &&
+    (error as { code?: number }).code === 6
+  );
+}
+
+/**
+ * Claims review cycle records by creating their documents.
+ *
+ * Only records whose documents did not already exist are returned, so callers
+ * can safely apply contributions exactly once per claimed cycle. Concurrent
+ * claims for the same cycle will not both succeed.
+ *
+ * @param records The candidate cycle records to claim.
+ * @returns The subset of records that were actually created.
+ */
+export async function createNewReviewCycles(
   records: Array<Omit<ReviewCycleRecord, "schemaVersion">>,
 ): Promise<Array<Omit<ReviewCycleRecord, "schemaVersion">>> {
   if (records.length === 0) return [];
 
-  const newRecords: Array<Omit<ReviewCycleRecord, "schemaVersion">> = [];
+  const uniqueRecords = Array.from(
+    new Map(
+      records.map((record) => [getReviewCycleDocumentId(record), record]),
+    ).values(),
+  );
+  const createdRecords: Array<Omit<ReviewCycleRecord, "schemaVersion">> = [];
+  const claimChunkSize = 50;
 
-  for (
-    let start = 0;
-    start < records.length;
-    start += FIRESTORE_READ_CHUNK_SIZE
-  ) {
-    const chunk = records.slice(start, start + FIRESTORE_READ_CHUNK_SIZE);
-    const refs = chunk.map((r) =>
-      collection.doc(`${r.reviewerLogin}:${r.prNumber}:${r.assignedAt}`),
+  for (let start = 0; start < uniqueRecords.length; start += claimChunkSize) {
+    const chunk = uniqueRecords.slice(start, start + claimChunkSize);
+    const results = await Promise.all(
+      chunk.map(async (record) => {
+        try {
+          await collection
+            .doc(getReviewCycleDocumentId(record))
+            .create(serializeReviewCycle(record));
+          return record;
+        } catch (error) {
+          if (
+            isDocumentAlreadyExistsError(
+              error as object | string | number | boolean | null | undefined,
+            )
+          ) {
+            return null;
+          }
+
+          throw error;
+        }
+      }),
     );
 
-    const snapshots = await collection.firestore.getAll(...refs);
-
-    chunk.forEach((record, i) => {
-      if (!snapshots[i].exists) newRecords.push(record);
-    });
+    for (const record of results) {
+      if (record) {
+        createdRecords.push(record);
+      }
+    }
   }
 
-  return newRecords;
+  return createdRecords;
 }
 
 /**

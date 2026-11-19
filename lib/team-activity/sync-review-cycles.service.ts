@@ -6,10 +6,7 @@ import {
 import { getReviewers, upsertReviewers } from "@/db/reviewers/reviewers.db";
 import type { ReviewerDocument } from "@/lib/domain/reviewer-teams.types";
 import { getReviewerTeamLogins } from "@/lib/team-activity/reviewer-team-logins";
-import {
-  findNewCycleRecords,
-  upsertReviewCycles,
-} from "@/db/review-cycles/review-cycles.db";
+import { createNewReviewCycles } from "@/db/review-cycles/review-cycles.db";
 import {
   applyReviewCycleContributions,
   getReviewCycleAggregatesForLogins,
@@ -297,11 +294,7 @@ export async function syncReviewCycles(
 
   const filtered = allCompleted.filter((c) => knownLogins.has(c.reviewerLogin));
 
-  const newRecords = await findNewCycleRecords(filtered);
-
-  if (filtered.length > 0) {
-    await upsertReviewCycles(filtered);
-  }
+  const newRecords = await createNewReviewCycles(filtered);
 
   const affectedLogins = new Set<string>();
   for (const cycle of filtered) {
