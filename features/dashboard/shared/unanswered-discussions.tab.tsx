@@ -21,7 +21,7 @@ import {
   computeTtlFromLastUpdated,
   getCachedData,
   setCachedData,
-} from "@/lib/utils/local-storage-cache";
+} from "@/lib/utils/local-storage-cache.utils";
 import { MonitorSmartphone } from "lucide-react";
 import { cn } from "@/lib/utils/classnames.utils";
 
