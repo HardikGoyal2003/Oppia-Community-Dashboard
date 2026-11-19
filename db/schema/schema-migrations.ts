@@ -157,30 +157,7 @@ const SCHEMA_MIGRATIONS: Record<SchemaKey, readonly SchemaMigration[]> = {
   [SCHEMA_KEYS.MEMBER_ACCESS_REQUESTS]: [addSchemaVersionField(1)],
   [SCHEMA_KEYS.NOTIFICATION_DELIVERIES]: [addSchemaVersionField(1)],
   [SCHEMA_KEYS.ORG_META]: [addSchemaVersionField(1)],
-  [SCHEMA_KEYS.REVIEWERS]: [
-    {
-      toVersion: 1,
-      migrate: (document) => ({
-        ...document,
-        teams: Array.isArray(document.teams) ? document.teams : [],
-        pendingReviews: Array.isArray(document.pendingReviews)
-          ? document.pendingReviews
-          : [],
-        completedReviews: document.completedReviews ?? 0,
-        reviewedPrCount: document.reviewedPrCount ?? 0,
-        completedReviewSubmissions: document.completedReviewSubmissions ?? 0,
-        approvedPrCount: document.approvedPrCount ?? 0,
-        authoredPrCount: document.authoredPrCount ?? 0,
-        avgReviewTimeHours: document.avgReviewTimeHours ?? null,
-        avgTimeToApprovalHours: document.avgTimeToApprovalHours ?? null,
-        avgReviewRoundsBeforeApproval:
-          document.avgReviewRoundsBeforeApproval ?? null,
-        avgCommentsPerReview: document.avgCommentsPerReview ?? null,
-        avgReviewsPerWeek: document.avgReviewsPerWeek ?? null,
-        schemaVersion: 1,
-      }),
-    },
-  ],
+  [SCHEMA_KEYS.REVIEWERS]: [addSchemaVersionField(1)],
   [SCHEMA_KEYS.REVIEW_CYCLES]: [addSchemaVersionField(1)],
   [SCHEMA_KEYS.REVIEWER_CYCLE_AGGREGATES]: [addSchemaVersionField(1)],
   [SCHEMA_KEYS.REVIEW_CYCLE_PR_STATS]: [addSchemaVersionField(1)],
