@@ -57,6 +57,51 @@ export function assertFiniteNumber(
 }
 
 /**
+ * Asserts that a value is a positive integer.
+ *
+ * @param field The field name being validated.
+ * @param value The value to validate.
+ * @param message Optional custom validation message.
+ * @returns Nothing. Throws when the value is not a positive integer.
+ */
+export function assertPositiveInteger(
+  field: string,
+  value: number | string | boolean | object | null | undefined,
+  message = `${field} must be a positive integer.`,
+): asserts value is number {
+  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
+    throw new DbValidationError(field, message);
+  }
+}
+
+/**
+ * Asserts that a value is an HTTP(S) URL string.
+ *
+ * @param field The field name being validated.
+ * @param value The value to validate.
+ * @param message Optional custom validation message.
+ * @returns Nothing. Throws when the value is not a valid HTTP(S) URL.
+ */
+export function assertHttpUrl(
+  field: string,
+  value: number | string | boolean | object | null | undefined,
+  message = `${field} must be a valid URL.`,
+): asserts value is string {
+  if (typeof value !== "string") {
+    throw new DbValidationError(field, message);
+  }
+
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      throw new Error("invalid protocol");
+    }
+  } catch {
+    throw new DbValidationError(field, message);
+  }
+}
+
+/**
  * Asserts that a raw value is a non-negative finite number.
  *
  * @param field The field name being validated.
