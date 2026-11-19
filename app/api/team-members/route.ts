@@ -1,65 +1,19 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
-import { getKnownRoleDisplayLabel } from "@/lib/auth/role-display";
 import { UserRole } from "@/lib/auth/auth.types";
-import {
-  getUserById,
-  getUsersByTeam,
-  type UserRecord,
-  updateUserRoleAndTeamWithNotificationByUid,
-} from "@/db/users/users.db";
 import {
   DbAuthorizationError,
   DbNotFoundError,
   DbValidationError,
-} from "@/db/db.errors";
-
-type TeamMemberSummary = Pick<
-  UserRecord,
-  "id" | "fullName" | "githubUsername" | "platform" | "role" | "team"
->;
+} from "@/lib/errors";
+import {
+  getTeamMembers,
+  updateTeamMemberAccess,
+} from "@/lib/users/users.service";
 
 function canManageTeamMembers(role: UserRole): boolean {
   return role === "TEAM_LEAD" || role === "LEAD_TRAINEE";
-}
-
-/**
- * Selects only the member fields required by the team-members UI.
- *
- * Email addresses and profile URLs are intentionally excluded because team
- * leads only need identity and role information to manage their team.
- *
- * @param member The full team member record.
- * @returns The minimal member payload exposed to the client.
- */
-function toTeamMemberSummary(member: UserRecord): TeamMemberSummary {
-  return {
-    id: member.id,
-    fullName: member.fullName,
-    githubUsername: member.githubUsername,
-    platform: member.platform,
-    role: member.role,
-    team: member.team,
-  };
-}
-
-function getUserAccessUpdatedMessage(
-  role: UserRole,
-  team: string | null,
-  reason: string,
-  changedByGithubUsername?: string,
-): string {
-  const roleLabel = getKnownRoleDisplayLabel(role);
-  const teamLabel = team ?? "Unassigned";
-  const actor = changedByGithubUsername ?? "Team Lead";
-
-  return [
-    `Your access details were updated by ${actor}.`,
-    `New role: ${roleLabel}`,
-    `New team: ${teamLabel}`,
-    `Reason: ${reason}`,
-  ].join("\n");
 }
 
 export async function GET() {
@@ -76,10 +30,7 @@ export async function GET() {
     );
   }
 
-  const allMembers = await getUsersByTeam(session.user.team);
-  const members = allMembers
-    .filter((m) => m.role !== "ALUMNI")
-    .map(toTeamMemberSummary);
+  const members = await getTeamMembers(session.user.team);
   return NextResponse.json(members);
 }
 
@@ -122,28 +73,17 @@ export async function PATCH(req: Request) {
   }
 
   try {
-    const target = await getUserById(uid);
-
-    if (!target) {
-      return NextResponse.json({ error: "User not found." }, { status: 404 });
-    }
-
-    await updateUserRoleAndTeamWithNotificationByUid(
+    await updateTeamMemberAccess({
       uid,
-      role as UserRole,
-      callerTeam,
-      target.githubUsername,
-      getUserAccessUpdatedMessage(
-        role as UserRole,
-        callerTeam,
-        reason,
-        session.user.githubUsername,
-      ),
-      {
+      role: role as UserRole,
+      team: callerTeam,
+      reason,
+      actor: {
         role: session.user.role,
         team: session.user.team ?? null,
+        githubUsername: session.user.githubUsername,
       },
-    );
+    });
   } catch (error) {
     if (error instanceof DbAuthorizationError) {
       return NextResponse.json({ error: error.message }, { status: 403 });
