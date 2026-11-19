@@ -6,15 +6,13 @@ import {
   fetchUnansweredDiscussions,
   GitHubGraphQLError,
 } from "@/lib/github/github.fetcher";
-import { getOrgMeta } from "@/db/org-meta/org-meta.db";
-import type { OrgMetaRecord } from "@/db/org-meta/org-meta.mapper";
+import {
+  getStoredOrgMeta,
+  isValidCachedOrgMeta,
+  toFetcherOrgMeta,
+  type FetcherOrgMeta,
+} from "@/lib/org-meta/org-meta.service";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
-
-type CachedOrgMeta = {
-  orgMembers: string[];
-  collaborators: { login: string; permission: string }[];
-  lastUpdated: string;
-};
 
 function parsePlatform(
   value: string | null | undefined,
@@ -26,26 +24,6 @@ function canSelectPlatform(role: string | undefined): boolean {
   return role === "ADMIN" || role === "SUPER_ADMIN";
 }
 
-function isValidCachedOrgMeta(data: object | null): data is CachedOrgMeta {
-  if (typeof data !== "object" || data === null) return false;
-  const obj = data as Partial<CachedOrgMeta>;
-  return (
-    Array.isArray(obj.orgMembers) &&
-    Array.isArray(obj.collaborators) &&
-    typeof obj.lastUpdated === "string"
-  );
-}
-
-function toOrgMetaRecord(
-  cached: CachedOrgMeta,
-): Omit<OrgMetaRecord, "schemaVersion"> {
-  return {
-    orgMembers: cached.orgMembers,
-    collaborators: cached.collaborators,
-    lastUpdated: new Date(cached.lastUpdated),
-  };
-}
-
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
 
@@ -54,13 +32,13 @@ export async function POST(req: Request) {
   }
 
   try {
-    let clientOrgMeta: Omit<OrgMetaRecord, "schemaVersion"> | undefined;
+    let clientOrgMeta: FetcherOrgMeta | undefined;
     let requestedPlatform: ContributionPlatform | null = null;
 
     try {
       const body = await req.json();
       if (body.orgMeta && isValidCachedOrgMeta(body.orgMeta)) {
-        clientOrgMeta = toOrgMetaRecord(body.orgMeta);
+        clientOrgMeta = toFetcherOrgMeta(body.orgMeta);
       }
       requestedPlatform = parsePlatform(body.platform);
     } catch {
@@ -96,16 +74,10 @@ export async function POST(req: Request) {
       clientOrgMeta,
     );
 
-    const orgMeta = await getOrgMeta(platform);
+    const orgMeta = await getStoredOrgMeta(platform);
     return NextResponse.json({
       discussions,
-      orgMeta: orgMeta
-        ? {
-            orgMembers: orgMeta.orgMembers,
-            collaborators: orgMeta.collaborators,
-            lastUpdated: orgMeta.lastUpdated.toISOString(),
-          }
-        : null,
+      orgMeta,
     });
   } catch (error) {
     console.error(error);
