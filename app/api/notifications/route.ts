@@ -4,8 +4,8 @@ import { authOptions } from "@/lib/auth/auth.options";
 import {
   getNotificationsByUid,
   markNotificationAsReadByUid,
-} from "@/db/users/notifications/notifications.db";
-import { DbNotFoundError } from "@/db/db.errors";
+} from "@/lib/notifications/user-notifications.service";
+import { DbNotFoundError } from "@/lib/errors";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
