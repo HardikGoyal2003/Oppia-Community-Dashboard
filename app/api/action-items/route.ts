@@ -2,14 +2,9 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import {
-  compareActionItemsForDisplay,
+  getSyncedActionItems,
   getTeamIdForKey,
-  syncActionItems,
 } from "@/lib/action-items/action-items.service";
-import {
-  getActionItems,
-  getActionItemsByTeamId,
-} from "@/db/action-items/action-items.db";
 
 function canManageOwnTeamActionItems(role: string): boolean {
   return role === "TEAM_LEAD" || role === "LEAD_TRAINEE";
@@ -40,54 +35,43 @@ export async function GET(req: Request) {
 
   if (isLead && !team) {
     return NextResponse.json(
-      { error: "Your team assignment is incomplete." },
+      { error: "You are not assigned to any team." },
       { status: 400 },
     );
   }
 
   try {
-    const syncSummary = await syncActionItems();
-    let items: Awaited<ReturnType<typeof getActionItems>>;
+    let teamId: string | null | undefined;
 
     if (isLead) {
-      // Leads only need their own team's items; the read is scoped to the
-      // team's subcollection.
-      const teamId = getTeamIdForKey(team!);
-
+      teamId = getTeamIdForKey(team!);
       if (!teamId) {
-        return NextResponse.json(
-          { error: "Your team assignment is incomplete." },
-          { status: 400 },
-        );
+        return NextResponse.json({ error: "Unknown team." }, { status: 400 });
       }
-
-      items = await getActionItemsByTeamId(teamId);
     } else {
-      items = await getActionItems();
-
       const teamFilter = new URL(req.url).searchParams.get("team");
-
       if (teamFilter) {
-        items = items.filter((item) => item.teamKey === teamFilter);
+        teamId = getTeamIdForKey(teamFilter);
+        if (!teamId) {
+          return NextResponse.json({ error: "Unknown team." }, { status: 400 });
+        }
       }
     }
 
-    items.sort(compareActionItemsForDisplay);
+    const items = await getSyncedActionItems({ teamId });
 
     return NextResponse.json({
       items,
-      sync: syncSummary,
-      generatedAt: new Date().toISOString(),
+      count: items.length,
     });
   } catch (error) {
-    console.error(error);
-
+    console.error("Failed to fetch action items:", error);
     return NextResponse.json(
       {
         error:
           error instanceof Error
             ? error.message
-            : "Failed to load action items.",
+            : "Failed to fetch action items.",
       },
       { status: 500 },
     );

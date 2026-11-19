@@ -1,6 +1,7 @@
 import {
   deleteActionItems,
   getActionItems,
+  getActionItemsByTeamId,
   upsertActionItems,
 } from "@/db/action-items/action-items.db";
 import {
@@ -159,4 +160,22 @@ export function compareActionItemsForDisplay(
   }
 
   return right.detectedAt.getTime() - left.detectedAt.getTime();
+}
+
+/**
+ * Syncs action items and returns the items visible for the requested scope.
+ *
+ * @param scope The requested action-item scope.
+ * @returns The synced and sorted action items for the scope.
+ */
+export async function getSyncedActionItems(scope: {
+  teamId?: string | null;
+}): Promise<ActionItemModel[]> {
+  await syncActionItems();
+
+  const items = scope.teamId
+    ? await getActionItemsByTeamId(scope.teamId)
+    : await getActionItems();
+
+  return items.sort(compareActionItemsForDisplay);
 }
