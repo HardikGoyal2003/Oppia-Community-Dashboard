@@ -1,9 +1,6 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DB_PATHS } from "@/db/db-paths";
-import {
-  getRequiredDocumentRef,
-  getRequiredTransactionDocumentSnapshot,
-} from "@/db/utils/document.utils";
+import { getRequiredTransactionDocumentSnapshot } from "@/db/utils/document.utils";
 import type { FirestoreUser } from "./users.mapper";
 import type { FirestoreNotification } from "./notifications/notifications.mapper";
 
@@ -13,19 +10,6 @@ const db = getAdminFirestore();
 export const usersCollection = db.collection(
   DB_PATHS.USERS.COLLECTION,
 ) as FirebaseFirestore.CollectionReference<FirestoreUser>;
-
-/**
- * Resolves a user document reference by uid and guarantees that the document exists.
- *
- * @param uid The user id to fetch.
- * @returns The existing Firestore user document reference.
- */
-export async function getRequiredUserDocRefByUid(
-  uid: string,
-): Promise<FirebaseFirestore.DocumentReference<FirestoreUser>> {
-  const userDocRef = usersCollection.doc(uid);
-  return getRequiredDocumentRef("User", userDocRef);
-}
 
 /**
  * Resolves a user document reference inside a transaction and guarantees it exists.

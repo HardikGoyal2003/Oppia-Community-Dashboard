@@ -34,24 +34,6 @@ export async function getRequiredDocumentSnapshot<
 }
 
 /**
- * Resolves a document reference and guarantees that the referenced document exists.
- *
- * @param resource The resource name used for not-found errors.
- * @param docRef The document reference to validate.
- * @returns The same document reference when the document exists.
- * @throws {DbNotFoundError} When the referenced document does not exist.
- */
-export async function getRequiredDocumentRef<
-  T = FirebaseFirestore.DocumentData,
->(
-  resource: string,
-  docRef: FirebaseFirestore.DocumentReference<T>,
-): Promise<FirebaseFirestore.DocumentReference<T>> {
-  await getRequiredDocumentSnapshot(resource, docRef);
-  return docRef;
-}
-
-/**
  * Updates a document and maps a missing-document failure to a typed not-found error.
  *
  * @param resource The resource name used for not-found errors.
