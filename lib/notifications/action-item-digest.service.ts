@@ -22,7 +22,7 @@ import { NOTIFICATION_CHANNELS } from "@/lib/notifications/channels";
 import {
   buildWeeklyActionItemsDigest,
   type WeeklyDigestItem,
-} from "@/lib/notifications/templates/action-items-weekly-digest";
+} from "@/lib/notifications/templates/action-items-weekly-digest.template";
 import { getIstDateKey, getIstWeekStartDateKey } from "@/lib/utils/date.utils";
 
 /** Delivery kind recorded for weekly action-item digests. */
