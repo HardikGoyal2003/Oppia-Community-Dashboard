@@ -182,6 +182,36 @@ export async function getUsersByTeam(teamKey: string): Promise<UserRecord[]> {
 }
 
 /**
+ * Retrieves users whose role is one of the provided roles.
+ *
+ * @param roles The user roles to include.
+ * @returns The normalized user models with document ids attached.
+ */
+export async function getUsersByRoles(
+  roles: readonly UserRole[],
+): Promise<UserRecord[]> {
+  if (roles.length === 0) {
+    return [];
+  }
+
+  const uniqueRoles = [...new Set(roles)];
+  const snaps = await Promise.all(
+    chunkValues(uniqueRoles, 30).map((roleChunk) =>
+      usersCollection.where("role", "in", roleChunk).get(),
+    ),
+  );
+
+  return snaps.flatMap((snap) =>
+    snap.docs.map((doc) => {
+      return {
+        id: doc.id,
+        ...normalizeUserDocument(doc.data()),
+      };
+    }),
+  );
+}
+
+/**
  * Updates the role of many users using batched writes.
  *
  * This is intended for bulk maintenance jobs where the user documents were

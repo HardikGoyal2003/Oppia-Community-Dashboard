@@ -1,4 +1,4 @@
-import { getAllUsers, type UserRecord } from "@/db/users/users.db";
+import { getUsersByRoles, type UserRecord } from "@/db/users/users.db";
 import { getTeamById, upsertTeam } from "@/db/teams/teams.db";
 import { GITHUB_REPOS } from "@/lib/config/github.constants";
 import {
@@ -81,7 +81,7 @@ export async function syncTeamData(): Promise<TeamDataSyncSummary> {
   const [webIssues, androidIssues, users] = await Promise.all([
     fetchGoodFirstIssues(GITHUB_REPOS.WEB),
     fetchGoodFirstIssues(GITHUB_REPOS.ANDROID),
-    getAllUsers(),
+    getUsersByRoles(["TEAM_LEAD", "LEAD_TRAINEE", "TEAM_MEMBER"]),
   ]);
   const leadsByTeamId = buildLeadsByTeamId(users);
   const membersByTeamId = buildMembersByTeamId(users);
