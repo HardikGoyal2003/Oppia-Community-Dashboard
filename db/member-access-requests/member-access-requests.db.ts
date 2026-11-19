@@ -11,6 +11,7 @@ import {
   getRequiredDocumentSnapshot,
   getRequiredTransactionDocumentSnapshot,
 } from "@/db/utils/document.utils";
+import { assertNonEmptyId } from "@/db/utils/validation.utils";
 import {
   appendUserNotificationInTransaction,
   updateUserRoleAndTeamWithNotificationInTransaction,
@@ -38,21 +39,6 @@ const TEAM_LEAD_MANAGEABLE_REQUEST_ROLES: readonly string[] = [
   "TEAM_MEMBER",
   "LEAD_TRAINEE",
 ];
-
-/**
- * Validates that a member-access request document id is present.
- *
- * @param requestId The request document id.
- * @returns Nothing. Throws when the id is invalid.
- */
-function assertRequestId(requestId: string): void {
-  if (typeof requestId !== "string" || !requestId.trim()) {
-    throw new DbValidationError(
-      "requestId",
-      "requestId must be a non-empty string.",
-    );
-  }
-}
 
 /** Actor context required to authorize member-access request resolution. */
 export type ResolveMemberAccessRequestActor = {
@@ -186,7 +172,7 @@ export async function submitMemberAccessRequest(
 export async function getMemberAccessRequestById(
   requestId: string,
 ): Promise<MemberAccessRequestRecord> {
-  assertRequestId(requestId);
+  assertNonEmptyId("requestId", requestId);
   const requestRef = memberAccessRequestsCollection.doc(requestId);
   const snapshot = await getRequiredDocumentSnapshot(
     "Member access request",
@@ -260,7 +246,7 @@ export async function resolveMemberAccessRequest(
   notificationMessage: string,
   actor: ResolveMemberAccessRequestActor,
 ): Promise<MemberAccessRequestRecord> {
-  assertRequestId(requestId);
+  assertNonEmptyId("requestId", requestId);
   const requestRef = memberAccessRequestsCollection.doc(requestId);
 
   return memberAccessRequestsCollection.firestore.runTransaction(async (tx) => {
