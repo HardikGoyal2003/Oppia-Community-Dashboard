@@ -1,10 +1,12 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
-import type { Issue } from "@/lib/domain/issues.types";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import { DbValidationError } from "@/db/db.errors";
 import { DB_PATHS } from "../db-paths";
 import {
+  type ArchiveIssueInput,
   type ArchivedIssueRecord,
   type FirestoreArchivedIssue,
+  assertArchiveIssueInput,
   normalizeArchivedIssueDocument,
   serializeArchivedIssue,
 } from "./archived-issues.mapper";
@@ -55,13 +57,21 @@ export async function getArchivedIssues(
  * @returns A promise that resolves when the archive record has been written.
  */
 export async function archiveIssue(
-  issue: Issue,
+  issue: ArchiveIssueInput,
   platform: ContributionPlatform,
   archivedBy: string,
 ): Promise<void> {
+  assertArchiveIssueInput(issue);
+  if (typeof archivedBy !== "string" || !archivedBy.trim()) {
+    throw new DbValidationError(
+      "archivedBy",
+      "archivedBy must be a non-empty string.",
+    );
+  }
+
   await archivedIssuesCollection
     .doc(getArchivedIssueDocId(platform, issue.issueNumber))
-    .set(serializeArchivedIssue(issue, platform, archivedBy));
+    .set(serializeArchivedIssue(issue, platform, archivedBy, new Date()));
 }
 
 /**
@@ -75,6 +85,17 @@ export async function unarchiveIssue(
   issueNumber: number,
   platform: ContributionPlatform,
 ): Promise<void> {
+  if (
+    typeof issueNumber !== "number" ||
+    !Number.isInteger(issueNumber) ||
+    issueNumber <= 0
+  ) {
+    throw new DbValidationError(
+      "issueNumber",
+      "issueNumber must be a positive integer.",
+    );
+  }
+
   await archivedIssuesCollection
     .doc(getArchivedIssueDocId(platform, issueNumber))
     .delete();

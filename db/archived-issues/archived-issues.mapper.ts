@@ -13,6 +13,84 @@ import {
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
 
+export type ArchiveIssueInput = {
+  issueNumber: number;
+  issueUrl: string;
+  issueTitle: string;
+  lastCommentCreatedAt: string;
+  linkedProject: string;
+};
+
+/**
+ * Validates that a value is a positive integer.
+ *
+ * @param field The field name being validated.
+ * @param value The value to validate.
+ * @returns Nothing. Throws when the value is invalid.
+ */
+function assertPositiveInteger(
+  field: string,
+  value: number | string | boolean | object | null | undefined,
+): asserts value is number {
+  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
+    throw new DbValidationError(field, `${field} must be a positive integer.`);
+  }
+}
+
+/**
+ * Validates that a value is an HTTP(S) URL string.
+ *
+ * @param field The field name being validated.
+ * @param value The value to validate.
+ * @returns Nothing. Throws when the value is invalid.
+ */
+function assertUrlShape(
+  field: string,
+  value: number | string | boolean | object | null | undefined,
+): asserts value is string {
+  if (typeof value !== "string") {
+    throw new DbValidationError(field, `${field} must be a valid URL.`);
+  }
+
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      throw new Error("invalid protocol");
+    }
+  } catch {
+    throw new DbValidationError(field, `${field} must be a valid URL.`);
+  }
+}
+
+/**
+ * Validates archived issue input at the DB boundary.
+ *
+ * @param issue The archived issue input to validate.
+ * @returns Nothing. Throws when the input is invalid.
+ */
+export function assertArchiveIssueInput(issue: ArchiveIssueInput): void {
+  assertPositiveInteger("issueNumber", issue.issueNumber);
+  assertUrlShape("issueUrl", issue.issueUrl);
+  if (typeof issue.issueTitle !== "string" || !issue.issueTitle.trim()) {
+    throw new DbValidationError(
+      "issueTitle",
+      "issueTitle must be a non-empty string.",
+    );
+  }
+  if (typeof issue.lastCommentCreatedAt !== "string") {
+    throw new DbValidationError(
+      "lastCommentCreatedAt",
+      "lastCommentCreatedAt must be a valid date string.",
+    );
+  }
+  if (typeof issue.linkedProject !== "string") {
+    throw new DbValidationError(
+      "linkedProject",
+      "linkedProject must be a string.",
+    );
+  }
+}
+
 export type FirestoreArchivedIssue = {
   issueNumber: number;
   issueUrl: string;
@@ -137,16 +215,20 @@ export function normalizeArchivedIssueDocument(
 /**
  * Serializes an archived issue for Firestore storage.
  *
- * @param issue The normalized archived issue.
+ * @param issue The validated archived issue input.
  * @param platform The contribution platform to persist.
  * @param archivedBy The GitHub username of the user who archived the issue.
+ * @param archivedAt The server-generated archive timestamp.
  * @returns The Firestore-ready archived issue document.
  */
 export function serializeArchivedIssue(
-  issue: Issue,
+  issue: ArchiveIssueInput,
   platform: ContributionPlatform,
   archivedBy: string,
+  archivedAt: Date,
 ): FirestoreArchivedIssue {
+  assertArchiveIssueInput(issue);
+
   const lastCommentCreatedAt = parseDateValue(issue.lastCommentCreatedAt);
 
   if (!lastCommentCreatedAt) {
@@ -155,8 +237,6 @@ export function serializeArchivedIssue(
       "Archived issue lastCommentCreatedAt must be a valid date.",
     );
   }
-
-  const archivedAt = parseDateValue(issue.archivedAt) ?? new Date();
 
   return {
     issueNumber: issue.issueNumber,

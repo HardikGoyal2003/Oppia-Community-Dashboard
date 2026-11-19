@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
+import { DbValidationError } from "@/db/db.errors";
 import {
   archiveDiscussion,
   getArchivedDiscussions,
@@ -34,6 +35,8 @@ function isDiscussion(
 
   return (
     typeof value.discussionNumber === "number" &&
+    Number.isInteger(value.discussionNumber) &&
+    value.discussionNumber > 0 &&
     typeof value.discussionUrl === "string" &&
     typeof value.discussionTitle === "string" &&
     typeof value.createdAt === "string"
@@ -92,11 +95,24 @@ export async function POST(req: Request) {
     );
   }
 
-  await archiveDiscussion(
-    body.discussion,
-    platform,
-    session.user.githubUsername,
-  );
+  try {
+    await archiveDiscussion(
+      {
+        discussionNumber: body.discussion.discussionNumber,
+        discussionUrl: body.discussion.discussionUrl,
+        discussionTitle: body.discussion.discussionTitle,
+        createdAt: body.discussion.createdAt,
+      },
+      platform,
+      session.user.githubUsername,
+    );
+  } catch (error) {
+    if (error instanceof DbValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    throw error;
+  }
+
   return NextResponse.json({ success: true });
 }
 
@@ -117,13 +133,26 @@ export async function DELETE(req: Request) {
       ? requestedPlatform
       : session.user.platform;
 
-  if (!platform || typeof body.discussionNumber !== "number") {
+  if (
+    !platform ||
+    typeof body.discussionNumber !== "number" ||
+    !Number.isInteger(body.discussionNumber) ||
+    body.discussionNumber <= 0
+  ) {
     return NextResponse.json(
       { error: "Invalid archived discussion payload." },
       { status: 400 },
     );
   }
 
-  await unarchiveDiscussion(body.discussionNumber, platform);
+  try {
+    await unarchiveDiscussion(body.discussionNumber, platform);
+  } catch (error) {
+    if (error instanceof DbValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    throw error;
+  }
+
   return NextResponse.json({ success: true });
 }

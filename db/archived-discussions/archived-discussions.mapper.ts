@@ -13,6 +13,82 @@ import {
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
 
+export type ArchiveDiscussionInput = {
+  discussionNumber: number;
+  discussionUrl: string;
+  discussionTitle: string;
+  createdAt: string;
+};
+
+/**
+ * Validates that a value is a positive integer.
+ *
+ * @param field The field name being validated.
+ * @param value The value to validate.
+ * @returns Nothing. Throws when the value is invalid.
+ */
+function assertPositiveInteger(
+  field: string,
+  value: number | string | boolean | object | null | undefined,
+): asserts value is number {
+  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
+    throw new DbValidationError(field, `${field} must be a positive integer.`);
+  }
+}
+
+/**
+ * Validates that a value is an HTTP(S) URL string.
+ *
+ * @param field The field name being validated.
+ * @param value The value to validate.
+ * @returns Nothing. Throws when the value is invalid.
+ */
+function assertUrlShape(
+  field: string,
+  value: number | string | boolean | object | null | undefined,
+): asserts value is string {
+  if (typeof value !== "string") {
+    throw new DbValidationError(field, `${field} must be a valid URL.`);
+  }
+
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      throw new Error("invalid protocol");
+    }
+  } catch {
+    throw new DbValidationError(field, `${field} must be a valid URL.`);
+  }
+}
+
+/**
+ * Validates archived discussion input at the DB boundary.
+ *
+ * @param discussion The archived discussion input to validate.
+ * @returns Nothing. Throws when the input is invalid.
+ */
+export function assertArchiveDiscussionInput(
+  discussion: ArchiveDiscussionInput,
+): void {
+  assertPositiveInteger("discussionNumber", discussion.discussionNumber);
+  assertUrlShape("discussionUrl", discussion.discussionUrl);
+  if (
+    typeof discussion.discussionTitle !== "string" ||
+    !discussion.discussionTitle.trim()
+  ) {
+    throw new DbValidationError(
+      "discussionTitle",
+      "discussionTitle must be a non-empty string.",
+    );
+  }
+  if (typeof discussion.createdAt !== "string") {
+    throw new DbValidationError(
+      "createdAt",
+      "createdAt must be a valid date string.",
+    );
+  }
+}
+
 export type FirestoreArchivedDiscussion = {
   discussionNumber: number;
   discussionUrl: string;
@@ -127,16 +203,20 @@ export function normalizeArchivedDiscussionDocument(
 /**
  * Serializes an archived discussion for Firestore storage.
  *
- * @param discussion The normalized archived discussion.
+ * @param discussion The validated archived discussion input.
  * @param platform The contribution platform to persist.
  * @param archivedBy The GitHub username of the user who archived the discussion.
+ * @param archivedAt The server-generated archive timestamp.
  * @returns The Firestore-ready archived discussion document.
  */
 export function serializeArchivedDiscussion(
-  discussion: Discussion,
+  discussion: ArchiveDiscussionInput,
   platform: ContributionPlatform,
   archivedBy: string,
+  archivedAt: Date,
 ): FirestoreArchivedDiscussion {
+  assertArchiveDiscussionInput(discussion);
+
   const createdAt = parseDateValue(discussion.createdAt);
 
   if (!createdAt) {
@@ -145,8 +225,6 @@ export function serializeArchivedDiscussion(
       "Archived discussion createdAt must be a valid date.",
     );
   }
-
-  const archivedAt = parseDateValue(discussion.archivedAt) ?? new Date();
 
   return {
     discussionNumber: discussion.discussionNumber,

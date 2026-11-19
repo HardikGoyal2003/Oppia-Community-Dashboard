@@ -1,10 +1,12 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
-import type { Discussion } from "@/lib/domain/discussions.types";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import { DbValidationError } from "@/db/db.errors";
 import { DB_PATHS } from "../db-paths";
 import {
+  type ArchiveDiscussionInput,
   type ArchivedDiscussionRecord,
   type FirestoreArchivedDiscussion,
+  assertArchiveDiscussionInput,
   normalizeArchivedDiscussionDocument,
   serializeArchivedDiscussion,
 } from "./archived-discussions.mapper";
@@ -55,13 +57,23 @@ export async function getArchivedDiscussions(
  * @returns A promise that resolves when the archive record has been written.
  */
 export async function archiveDiscussion(
-  discussion: Discussion,
+  discussion: ArchiveDiscussionInput,
   platform: ContributionPlatform,
   archivedBy: string,
 ): Promise<void> {
+  assertArchiveDiscussionInput(discussion);
+  if (typeof archivedBy !== "string" || !archivedBy.trim()) {
+    throw new DbValidationError(
+      "archivedBy",
+      "archivedBy must be a non-empty string.",
+    );
+  }
+
   await archivedDiscussionsCollection
     .doc(getArchivedDiscussionDocId(platform, discussion.discussionNumber))
-    .set(serializeArchivedDiscussion(discussion, platform, archivedBy));
+    .set(
+      serializeArchivedDiscussion(discussion, platform, archivedBy, new Date()),
+    );
 }
 
 /**
@@ -75,6 +87,17 @@ export async function unarchiveDiscussion(
   discussionNumber: number,
   platform: ContributionPlatform,
 ): Promise<void> {
+  if (
+    typeof discussionNumber !== "number" ||
+    !Number.isInteger(discussionNumber) ||
+    discussionNumber <= 0
+  ) {
+    throw new DbValidationError(
+      "discussionNumber",
+      "discussionNumber must be a positive integer.",
+    );
+  }
+
   await archivedDiscussionsCollection
     .doc(getArchivedDiscussionDocId(platform, discussionNumber))
     .delete();
