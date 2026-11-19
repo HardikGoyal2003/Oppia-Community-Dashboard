@@ -1,5 +1,6 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DbValidationError } from "@/db/db.errors";
+import { logDbError } from "@/db/db-logger";
 import type { ReviewCycleBackfillState } from "@/lib/domain/review-cycle-backfill.types";
 import { DB_PATHS } from "@/db/db-paths";
 import {
@@ -18,8 +19,8 @@ const stateDoc = db
 /**
  * Reads the persisted backfill progress, if a backfill is in flight.
  *
- * A state document written by an older, incompatible shape is discarded so a
- * stale checkpoint can never block the job.
+ * Validation failures are logged and rethrown so incompatible or corrupt
+ * checkpoints are not silently discarded.
  *
  * @returns The stored backfill state, or null when none exists.
  */
@@ -33,8 +34,7 @@ export async function getReviewCycleBackfillState(): Promise<ReviewCycleBackfill
     return normalizeReviewCycleBackfillState(data);
   } catch (error) {
     if (error instanceof DbValidationError) {
-      await stateDoc.delete();
-      return null;
+      logDbError("Failed to read review cycle backfill state.", error);
     }
     throw error;
   }
