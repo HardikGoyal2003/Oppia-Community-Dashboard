@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
-import { DbValidationError } from "@/db/db.errors";
+import { DbValidationError } from "@/lib/errors";
 import {
   archiveIssue,
   getArchivedIssues,
   unarchiveIssue,
-} from "@/db/archived-issues/archived-issues.db";
+} from "@/lib/archived-issues/archived-issues.service";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type { Issue } from "@/lib/domain/issues.types";
 
