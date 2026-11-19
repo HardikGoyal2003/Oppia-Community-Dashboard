@@ -1,5 +1,7 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { DB_PATHS } from "@/db/db-paths";
+import { buildReviewCyclePrStatsDocId } from "@/db/reviewer-doc-ids";
 import {
   FIRESTORE_READ_CHUNK_SIZE,
   FIRESTORE_WRITE_BATCH_SIZE,
@@ -19,10 +21,12 @@ const collection = db.collection(
 /**
  * Reads PR stats documents for the supplied PR numbers.
  *
+ * @param platform The repository platform the PRs belong to.
  * @param prNumbers The PR numbers to read.
  * @returns PR stats keyed by PR number. Missing documents are omitted.
  */
 export async function getReviewCyclePrStats(
+  platform: ContributionPlatform,
   prNumbers: number[],
 ): Promise<Map<number, ReviewCyclePrStatsDocument>> {
   const result = new Map<number, ReviewCyclePrStatsDocument>();
@@ -37,7 +41,9 @@ export async function getReviewCyclePrStats(
   ) {
     const chunk = unique.slice(start, start + FIRESTORE_READ_CHUNK_SIZE);
     const snapshots = await collection.firestore.getAll(
-      ...chunk.map((prNumber) => collection.doc(String(prNumber))),
+      ...chunk.map((prNumber) =>
+        collection.doc(buildReviewCyclePrStatsDocId(platform, prNumber)),
+      ),
     );
 
     snapshots.forEach((snapshot, index) => {
@@ -54,10 +60,12 @@ export async function getReviewCyclePrStats(
 /**
  * Writes PR stats documents in chunks.
  *
+ * @param platform The repository platform the PRs belong to.
  * @param documents The PR stats to persist.
  * @returns A promise that resolves after every chunk is written.
  */
 export async function upsertReviewCyclePrStats(
+  platform: ContributionPlatform,
   documents: Array<Omit<ReviewCyclePrStatsDocument, "schemaVersion">>,
 ): Promise<void> {
   for (
@@ -72,7 +80,9 @@ export async function upsertReviewCyclePrStats(
       start + FIRESTORE_WRITE_BATCH_SIZE,
     )) {
       batch.set(
-        collection.doc(String(document.prNumber)),
+        collection.doc(
+          buildReviewCyclePrStatsDocId(platform, document.prNumber),
+        ),
         serializeReviewCyclePrStats(document),
       );
     }
@@ -84,13 +94,17 @@ export async function upsertReviewCyclePrStats(
 /**
  * Reads the most recently created PR stats documents.
  *
+ * @firestore-index reviewCyclePrStats platform, prNumber
+ * @param platform The repository platform the PRs belong to.
  * @param limit Maximum number of documents to read.
- * @returns PR stats ordered by descending PR number.
+ * @returns PR stats for the platform ordered by descending PR number.
  */
 export async function getRecentReviewCyclePrStats(
+  platform: ContributionPlatform,
   limit: number,
 ): Promise<ReviewCyclePrStatsDocument[]> {
   const snapshot = await collection
+    .where("platform", "==", platform)
     .orderBy("prNumber", "desc")
     .limit(limit)
     .get();

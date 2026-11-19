@@ -1,5 +1,7 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { DB_PATHS } from "@/db/db-paths";
+import { buildReviewCycleMonthlyReviewersDocId } from "@/db/reviewer-doc-ids";
 import {
   FIRESTORE_READ_CHUNK_SIZE,
   FIRESTORE_WRITE_BATCH_SIZE,
@@ -19,10 +21,12 @@ const collection = db.collection(
 /**
  * Writes monthly reviewer documents in chunks.
  *
+ * @param platform The repository platform the reviewers belong to.
  * @param documents The monthly documents to persist.
  * @returns A promise that resolves after every chunk is written.
  */
 export async function upsertReviewCycleMonthlyReviewers(
+  platform: ContributionPlatform,
   documents: Array<Omit<ReviewCycleMonthlyReviewersDocument, "schemaVersion">>,
 ): Promise<void> {
   for (
@@ -37,7 +41,9 @@ export async function upsertReviewCycleMonthlyReviewers(
       start + FIRESTORE_WRITE_BATCH_SIZE,
     )) {
       batch.set(
-        collection.doc(document.month),
+        collection.doc(
+          buildReviewCycleMonthlyReviewersDocId(platform, document.month),
+        ),
         serializeReviewCycleMonthlyReviewers(document),
       );
     }
@@ -49,10 +55,12 @@ export async function upsertReviewCycleMonthlyReviewers(
 /**
  * Reads monthly reviewer documents for the supplied month keys.
  *
+ * @param platform The repository platform the reviewers belong to.
  * @param months The month keys to read.
  * @returns Monthly reviewers keyed by month. Missing months are omitted.
  */
 export async function getReviewCycleMonthlyReviewers(
+  platform: ContributionPlatform,
   months: string[],
 ): Promise<Map<string, ReviewCycleMonthlyReviewersDocument>> {
   const result = new Map<string, ReviewCycleMonthlyReviewersDocument>();
@@ -67,7 +75,9 @@ export async function getReviewCycleMonthlyReviewers(
   ) {
     const chunk = unique.slice(start, start + FIRESTORE_READ_CHUNK_SIZE);
     const snapshots = await collection.firestore.getAll(
-      ...chunk.map((month) => collection.doc(month)),
+      ...chunk.map((month) =>
+        collection.doc(buildReviewCycleMonthlyReviewersDocId(platform, month)),
+      ),
     );
 
     snapshots.forEach((snapshot, index) => {

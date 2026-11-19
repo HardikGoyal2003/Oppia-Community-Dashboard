@@ -9,10 +9,16 @@ import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
-import { assertDateKey } from "@/db/utils/validation.utils";
+import {
+  assertContributionPlatform,
+  assertDateKey,
+} from "@/db/utils/validation.utils";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type { ReviewCycleBackfillState } from "@/lib/domain/review-cycle-backfill.types";
 
 export type FirestoreReviewCycleBackfillState = {
+  /** Repository platform this checkpoint belongs to. */
+  platform: ContributionPlatform;
   windowStart: string;
   windowEnd: string;
   targetEnd: string;
@@ -30,6 +36,7 @@ export type FirestoreReviewCycleBackfillState = {
 function assertFirestoreReviewCycleBackfillState(
   data: FirebaseFirestore.DocumentData,
 ): asserts data is FirestoreReviewCycleBackfillState {
+  assertContributionPlatform("platform", data.platform);
   assertDateKey("windowStart", data.windowStart);
   assertDateKey("windowEnd", data.windowEnd);
   assertDateKey("targetEnd", data.targetEnd);
@@ -59,6 +66,7 @@ export function normalizeReviewCycleBackfillState(
   const migrated = migrateDocument(SCHEMA_KEYS.REVIEW_CYCLE_BACKFILL, data);
   assertFirestoreReviewCycleBackfillState(migrated);
   return {
+    platform: migrated.platform,
     windowStart: migrated.windowStart,
     windowEnd: migrated.windowEnd,
     targetEnd: migrated.targetEnd,
@@ -78,6 +86,7 @@ export function serializeReviewCycleBackfillState(
   state: Omit<ReviewCycleBackfillState, "schemaVersion">,
 ): FirestoreReviewCycleBackfillState {
   return {
+    platform: state.platform,
     windowStart: state.windowStart,
     windowEnd: state.windowEnd,
     targetEnd: state.targetEnd,

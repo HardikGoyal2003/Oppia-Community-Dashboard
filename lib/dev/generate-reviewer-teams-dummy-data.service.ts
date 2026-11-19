@@ -5,7 +5,7 @@ import {
   upsertReviewCycles,
 } from "@/db/review-cycles/review-cycles.db";
 import { refreshReviewCycleAnalytics } from "@/lib/team-activity/review-cycle-analytics.service";
-import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import { REVIEWER_REPORT_PLATFORM } from "@/lib/team-activity/reviewer-platform.constants";
 import type {
   PendingReview,
   ReviewCycleRecord,
@@ -230,7 +230,7 @@ function buildAvatarUrl(username: string): string {
  * @returns A summary of the written reviewer documents.
  */
 export async function generateReviewerTeamsDummyData(): Promise<ReviewerTeamsDummyDataSummary> {
-  const platform: ContributionPlatform = "WEB";
+  const platform = REVIEWER_REPORT_PLATFORM;
   const lastUpdated = new Date();
   const now = Date.now();
 
@@ -299,6 +299,7 @@ export async function generateReviewerTeamsDummyData(): Promise<ReviewerTeamsDum
     );
 
     const doc: Omit<ReviewerDocument, "schemaVersion"> = {
+      platform,
       teams: Array.from(teams).sort(),
       pendingReviews,
       completedReviews: sample.completedReviews,
@@ -317,7 +318,7 @@ export async function generateReviewerTeamsDummyData(): Promise<ReviewerTeamsDum
       lastUpdated,
     };
 
-    await upsertReviewer(username, doc);
+    await upsertReviewer(platform, username, doc);
     pendingReviewsWritten += pendingReviews.length;
 
     const cycleCount = 6 + (member % 6);
@@ -333,6 +334,7 @@ export async function generateReviewerTeamsDummyData(): Promise<ReviewerTeamsDum
         : null;
 
       cycles.push({
+        platform,
         reviewerLogin: username,
         prNumber,
         prTitle: `Sample PR #${prNumber}`,
@@ -358,11 +360,12 @@ export async function generateReviewerTeamsDummyData(): Promise<ReviewerTeamsDum
   // timestamps would otherwise add duplicate records alongside the old ones.
   // Replace the sample reviewers' namespace before writing the new sample.
   const cyclesCleared = await deleteReviewCyclesForReviewers(
+    platform,
     Array.from(reviewerToTeams.keys()),
   );
 
-  await upsertReviewCycles(cycles);
-  await refreshReviewCycleAnalytics();
+  await upsertReviewCycles(platform, cycles);
+  await refreshReviewCycleAnalytics(platform);
 
   return {
     teamsWritten: SAMPLE_TEAMS.length,

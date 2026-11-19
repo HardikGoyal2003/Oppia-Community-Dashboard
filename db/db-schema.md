@@ -233,7 +233,7 @@ Fields:
 
 Document id:
 
-- platform string (e.g. `WEB`)
+- platform string (e.g. `WEB` or `ANDROID`)
 
 Fields:
 
@@ -241,14 +241,17 @@ Fields:
 - `lastUpdated: Timestamp`
 - `schemaVersion: number`
 
+All reviewer-report collections below are platform-scoped. Document ids carry a platform prefix (or are the platform itself for singleton docs), and every document stores a `platform` field. Web and Android reviewer data can therefore coexist in the same collections without future migrations.
+
 ### `reviewers`
 
 Document id:
 
-- GitHub login string
+- `${platform}_${githubLogin}` (e.g. `WEB_octocat`, `ANDROID_octocat`)
 
 Fields:
 
+- `platform: "WEB" | "ANDROID"`
 - `teams: string[]`
 - `pendingReviews: Array<{ prNumber: number, title: string, url: string, assignedAt: string }>`
 - `completedReviews?: number`
@@ -268,10 +271,11 @@ Fields:
 
 Document id:
 
-- `${reviewerLogin}:${prNumber}:${assignedAt}`
+- `${platform}_${reviewerLogin}:${prNumber}:${assignedAt}`
 
 Fields:
 
+- `platform: "WEB" | "ANDROID"`
 - `reviewerLogin: string`
 - `prNumber: number`
 - `prTitle: string`
@@ -291,10 +295,11 @@ Fields:
 
 Document id:
 
-- platform string (e.g. `WEB`)
+- platform string (e.g. `WEB` or `ANDROID`)
 
 Fields:
 
+- `platform: "WEB" | "ANDROID"`
 - `weeklyReviews: Array<{ weekStart: string, reviews: number }>`
 - `monthlyUniqueReviewers: Array<{ month: string, uniqueReviewers: number }>`
 - `topApprovers: Array<{ username: string, approvals: number, sharePct: number }>`
@@ -309,10 +314,11 @@ The snapshot holds only the dashboard payload. Incremental merge state lives in 
 
 Document id:
 
-- PR number string
+- `${platform}_${prNumber}`
 
 Fields:
 
+- `platform: "WEB" | "ANDROID"`
 - `prNumber: number`
 - `additions: number | null`
 - `firstAssignedAt: string | null` — earliest review assignment on the PR
@@ -325,10 +331,11 @@ Fields:
 
 Document id:
 
-- `YYYY-MM` month key
+- `${platform}_${YYYY-MM}` month key
 
 Fields:
 
+- `platform: "WEB" | "ANDROID"`
 - `month: string`
 - `logins: string[]` — distinct reviewers who submitted a review that month
 - `lastUpdated: Timestamp`
@@ -338,10 +345,11 @@ Fields:
 
 Document id:
 
-- GitHub login string
+- `${platform}_${githubLogin}`
 
 Fields:
 
+- `platform: "WEB" | "ANDROID"`
 - Incremental reviewer cycle counters and totals used to update reviewer metrics without scanning `reviewCycles`
 - `completedReviews: number`
 - `reviewedPrCount: number`
@@ -360,10 +368,11 @@ Fields:
 
 Document id:
 
-- `state`
+- platform string (e.g. `WEB` or `ANDROID`)
 
 Fields:
 
+- `platform: "WEB" | "ANDROID"`
 - `windowStart: string`
 - `windowEnd: string`
 - `targetEnd: string`

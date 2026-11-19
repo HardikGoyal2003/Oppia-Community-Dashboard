@@ -1,5 +1,7 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { DB_PATHS } from "@/db/db-paths";
+import { buildReviewerCycleAggregateDocId } from "@/db/reviewer-doc-ids";
 import { FIRESTORE_WRITE_BATCH_SIZE } from "@/db/utils/batch.utils";
 import {
   normalizeReviewerCycleAggregate,
@@ -20,16 +22,20 @@ const collection = db.collection(
 
 /**
  * Reads aggregate documents for the supplied reviewer logins.
+ * @param platform The repository platform the reviewers belong to.
  * @param logins Reviewer logins to read.
  * @returns Aggregates keyed by login.
  */
 export async function getReviewerCycleAggregates(
+  platform: ContributionPlatform,
   logins: string[],
 ): Promise<Map<string, ReviewerCycleAggregateDocument>> {
   const result = new Map<string, ReviewerCycleAggregateDocument>();
   if (logins.length === 0) return result;
   const snapshots = await collection.firestore.getAll(
-    ...logins.map((login) => collection.doc(login)),
+    ...logins.map((login) =>
+      collection.doc(buildReviewerCycleAggregateDocId(platform, login)),
+    ),
   );
   snapshots.forEach((snapshot, index) => {
     const data = snapshot.data();
@@ -42,10 +48,12 @@ export async function getReviewerCycleAggregates(
 
 /**
  * Writes reviewer aggregate documents in chunks.
+ * @param platform The repository platform the reviewers belong to.
  * @param entries Aggregates keyed by reviewer login.
  * @returns A promise that resolves after every chunk is written.
  */
 export async function upsertReviewerCycleAggregates(
+  platform: ContributionPlatform,
   entries: Array<{ login: string; aggregate: ReviewerCycleAggregateWrite }>,
 ): Promise<void> {
   for (
@@ -60,7 +68,7 @@ export async function upsertReviewerCycleAggregates(
       start + FIRESTORE_WRITE_BATCH_SIZE,
     )) {
       batch.set(
-        collection.doc(entry.login),
+        collection.doc(buildReviewerCycleAggregateDocId(platform, entry.login)),
         serializeReviewerCycleAggregate(entry.aggregate),
       );
     }

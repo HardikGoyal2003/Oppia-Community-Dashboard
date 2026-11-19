@@ -11,6 +11,8 @@ import {
   applyReviewCycleContributions,
   getReviewCycleAggregatesForLogins,
 } from "@/lib/team-activity/review-cycle-analytics.service";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import { REVIEWER_REPORT_PLATFORM } from "./reviewer-platform.constants";
 import type {
   ReviewCycleAggregate,
   ReviewCycleLoginContribution,
@@ -160,12 +162,14 @@ function metricsEqual(left: ReviewerMetrics, right: ReviewerMetrics): boolean {
  * @param logins The reviewers to refresh. Omit to refresh every known reviewer.
  * @param contributions Per-reviewer cycle contributions from this invocation.
  * @param rebuildFromCycles Whether to rebuild aggregate state from history.
+ * @param platform The repository platform the reviewers belong to.
  * @returns The number of reviewer documents actually written.
  */
 export async function refreshReviewerStats(
   logins?: Iterable<string>,
   contributions: Map<string, ReviewCycleLoginContribution> = new Map(),
   rebuildFromCycles = false,
+  platform: ContributionPlatform = REVIEWER_REPORT_PLATFORM,
 ): Promise<number> {
   const knownLogins = await getReviewerTeamLogins();
   if (knownLogins.size === 0) return 0;
@@ -181,8 +185,8 @@ export async function refreshReviewerStats(
   const [aggregateDocuments, reviewerDocs, authoredCounts] = await Promise.all([
     rebuildFromCycles
       ? Promise.resolve(new Map())
-      : getReviewerCycleAggregates(targetLogins),
-    getReviewers(targetLogins),
+      : getReviewerCycleAggregates(platform, targetLogins),
+    getReviewers(platform, targetLogins),
     fetchAuthoredPrCounts(targetLogins),
   ]);
 
@@ -191,7 +195,7 @@ export async function refreshReviewerStats(
     : targetLogins.filter((login) => !aggregateDocuments.has(login));
   const bootstrapped =
     missingLogins.length > 0
-      ? await getReviewCycleAggregatesForLogins(missingLogins)
+      ? await getReviewCycleAggregatesForLogins(platform, missingLogins)
       : new Map<string, ReviewCycleAggregate>();
   const aggregates = new Map<string, ReviewCycleAggregate>();
   const aggregateWrites: Array<{
@@ -207,8 +211,8 @@ export async function refreshReviewerStats(
       // so the contribution must not be applied again for these logins.
       const bootstrappedAggregate = bootstrapped.get(login);
       const aggregate = bootstrappedAggregate
-        ? reviewCycleAggregateToDocument(bootstrappedAggregate)
-        : createEmptyReviewerCycleAggregate();
+        ? reviewCycleAggregateToDocument(platform, bootstrappedAggregate)
+        : createEmptyReviewerCycleAggregate(platform);
 
       aggregateWrites.push({ login, aggregate });
       aggregates.set(login, aggregateDocumentToReviewCycleAggregate(aggregate));
@@ -226,7 +230,7 @@ export async function refreshReviewerStats(
     aggregates.set(login, aggregateDocumentToReviewCycleAggregate(aggregate));
   }
 
-  await upsertReviewerCycleAggregates(aggregateWrites);
+  await upsertReviewerCycleAggregates(platform, aggregateWrites);
 
   const updates: Array<{
     login: string;
@@ -246,6 +250,7 @@ export async function refreshReviewerStats(
     updates.push({
       login,
       doc: {
+        platform,
         teams: existing?.teams ?? [],
         pendingReviews: existing?.pendingReviews ?? [],
         ...metrics,
@@ -254,7 +259,7 @@ export async function refreshReviewerStats(
     });
   }
 
-  await upsertReviewers(updates);
+  await upsertReviewers(platform, updates);
 
   return updates.length;
 }
@@ -264,14 +269,16 @@ export async function refreshReviewerStats(
  *
  * Processes open PRs updated in the sync window + PRs closed within the
  * window, extracts completed cycles from their timelines, and writes:
- * - `reviewCycles/{key}` — completed cycles (idempotent merge)
- * - `reviewers/{login}` — refreshes the reviewers that were active in the
- *   window (cycle authors) or authored one of the scanned PRs. Reviewers
+ * - `reviewCycles/{platform}_{login}:{pr}:{assignedAt}` — completed cycles
+ *   (idempotent merge)
+ * - `reviewers/{platform}_{login}` — refreshes the reviewers that were active in
+ *   the window (cycle authors) or authored one of the scanned PRs. Reviewers
  *   outside that set are left untouched.
- * - `reviewCyclePrStats/{prNumber}` and `reviewCycleMonthlyReviewers/{month}` —
- *   bounded incremental inputs updated when the window produced cycle records.
- * - `reviewCycleAnalytics/WEB` — folds the new facts into the org-wide analytics
- *   snapshot, so dashboard reads stay a single document fetch.
+ * - `reviewCyclePrStats/{platform}_{pr}` and
+ *   `reviewCycleMonthlyReviewers/{platform}_{month}` — bounded incremental
+ *   inputs updated when the window produced cycle records.
+ * - `reviewCycleAnalytics/{platform}` — folds the new facts into the platform's
+ *   analytics snapshot, so dashboard reads stay a single document fetch.
  *
  * Only persists cycles for reviewers who belong to a reviewer team.
  *
@@ -281,6 +288,7 @@ export async function refreshReviewerStats(
 export async function syncReviewCycles(
   options?: SyncReviewCyclesOptions,
 ): Promise<SyncSummary> {
+  const platform = REVIEWER_REPORT_PLATFORM;
   const sinceDate =
     options?.sinceDate ?? new Date(Date.now() - 24 * 60 * 60 * 1000);
 
@@ -294,7 +302,10 @@ export async function syncReviewCycles(
 
   const filtered = allCompleted.filter((c) => knownLogins.has(c.reviewerLogin));
 
-  const newRecords = await createNewReviewCycles(filtered);
+  const newRecords = await createNewReviewCycles(
+    platform,
+    filtered.map((cycle) => ({ ...cycle, platform })),
+  );
 
   const affectedLogins = new Set<string>();
   for (const cycle of filtered) {
@@ -307,12 +318,20 @@ export async function syncReviewCycles(
     affectedLogins.add(login);
   }
 
-  const contributions = await applyReviewCycleContributions(newRecords);
+  const contributions = await applyReviewCycleContributions(
+    platform,
+    newRecords,
+  );
 
   const updatedReviewersCount =
     affectedLogins.size === 0
       ? 0
-      : await refreshReviewerStats(affectedLogins, contributions);
+      : await refreshReviewerStats(
+          affectedLogins,
+          contributions,
+          false,
+          platform,
+        );
 
   return {
     completedCyclesCount: allCompleted.length,

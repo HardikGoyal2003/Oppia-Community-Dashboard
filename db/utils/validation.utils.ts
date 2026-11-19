@@ -1,4 +1,8 @@
 import { DbValidationError } from "@/db/db.errors";
+import {
+  isContributionPlatform,
+  type ContributionPlatform,
+} from "@/lib/auth/auth.types";
 
 type RawValue = FirebaseFirestore.DocumentData[string];
 
@@ -170,6 +174,24 @@ export function assertMonthKey(
 
   const month = Number(value.slice(5, 7));
   if (month < 1 || month > 12) {
+    throw new DbValidationError(field, message);
+  }
+}
+
+/**
+ * Asserts that a raw value is a supported contribution platform.
+ *
+ * @param field The field name being validated.
+ * @param value The raw value.
+ * @param message Optional custom validation message.
+ * @returns Nothing. Throws when the value is not a supported platform.
+ */
+export function assertContributionPlatform(
+  field: string,
+  value: RawValue,
+  message = `${field} must be a supported contribution platform.`,
+): asserts value is ContributionPlatform {
+  if (typeof value !== "string" || !isContributionPlatform(value)) {
     throw new DbValidationError(field, message);
   }
 }

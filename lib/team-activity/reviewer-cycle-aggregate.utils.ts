@@ -1,3 +1,4 @@
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type {
   ReviewCycleAggregate,
   ReviewCycleLoginContribution,
@@ -12,10 +13,14 @@ export type ReviewerCycleAggregateWrite = Omit<
 /**
  * Creates an empty persisted reviewer aggregate.
  *
+ * @param platform The repository platform the aggregate belongs to.
  * @returns An empty aggregate document.
  */
-export function createEmptyReviewerCycleAggregate(): ReviewerCycleAggregateWrite {
+export function createEmptyReviewerCycleAggregate(
+  platform: ContributionPlatform,
+): ReviewerCycleAggregateWrite {
   return {
+    platform,
     completedReviews: 0,
     reviewedPrCount: 0,
     approvedPrCount: 0,
@@ -116,13 +121,16 @@ export function aggregateDocumentToReviewCycleAggregate(
 /**
  * Converts a calculation aggregate into a stored aggregate document.
  *
+ * @param platform The repository platform the aggregate belongs to.
  * @param aggregate The calculation aggregate.
  * @returns The stored aggregate document.
  */
 export function reviewCycleAggregateToDocument(
+  platform: ContributionPlatform,
   aggregate: ReviewCycleAggregate,
 ): ReviewerCycleAggregateWrite {
   return {
+    platform,
     completedReviews: aggregate.completedReviews,
     reviewedPrCount: aggregate.reviewedPrCount,
     approvedPrCount: aggregate.approvedPrCount,

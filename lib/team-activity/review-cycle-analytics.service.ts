@@ -1,3 +1,4 @@
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type {
   ReviewerTeamsAnalytics,
   ReviewCycleRecord,
@@ -37,13 +38,15 @@ import {
  * collection, so a daily sync does not scan historical cycles for reviewers
  * it will not update.
  *
+ * @param platform The repository platform the cycles belong to.
  * @param logins The reviewer logins to aggregate.
  * @returns A map of login to aggregate stats.
  */
 export async function getReviewCycleAggregatesForLogins(
+  platform: ContributionPlatform,
   logins: string[],
 ): Promise<Map<string, ReviewCycleAggregate>> {
-  const records = await getReviewCyclesByReviewerLogins(logins);
+  const records = await getReviewCyclesByReviewerLogins(platform, logins);
   if (records.length === 0) return new Map();
   return aggregateCycleRecords(records);
 }
@@ -55,12 +58,13 @@ export async function getReviewCycleAggregatesForLogins(
  * `reviewCycleMonthlyReviewers`) as well as the analytics snapshot, so later
  * incremental updates stay consistent.
  *
+ * @param platform The repository platform to rebuild.
  * @returns The rebuilt analytics.
  */
-async function rebuildReviewCycleAnalytics(): Promise<
-  Omit<ReviewerTeamsAnalytics, "schemaVersion">
-> {
-  const records = await getAllReviewCycles();
+async function rebuildReviewCycleAnalytics(
+  platform: ContributionPlatform,
+): Promise<Omit<ReviewerTeamsAnalytics, "schemaVersion">> {
+  const records = await getAllReviewCycles(platform);
 
   const prStats = new Map<
     number,
@@ -72,7 +76,8 @@ async function rebuildReviewCycleAnalytics(): Promise<
 
   for (const data of records) {
     const stats =
-      prStats.get(data.prNumber) ?? createPrStatsDocument(data.prNumber);
+      prStats.get(data.prNumber) ??
+      createPrStatsDocument(platform, data.prNumber);
 
     if (data.prAdditions !== null) stats.additions = data.prAdditions;
 
@@ -111,6 +116,7 @@ async function rebuildReviewCycleAnalytics(): Promise<
   }
 
   const analytics = buildAnalytics(
+    platform,
     weeklyReviews,
     monthlyLogins,
     approvalsByReviewer,
@@ -118,16 +124,18 @@ async function rebuildReviewCycleAnalytics(): Promise<
   );
 
   await Promise.all([
-    upsertReviewCyclePrStats(Array.from(prStats.values())),
+    upsertReviewCyclePrStats(platform, Array.from(prStats.values())),
     upsertReviewCycleMonthlyReviewers(
+      platform,
       Array.from(monthlyLogins.entries()).map(([month, logins]) => ({
+        platform,
         month,
         logins: Array.from(logins).sort(),
         lastUpdated: new Date(),
       })),
     ),
   ]);
-  await saveReviewCycleAnalyticsSnapshot(analytics);
+  await saveReviewCycleAnalyticsSnapshot(platform, analytics);
 
   return analytics;
 }
@@ -135,12 +143,13 @@ async function rebuildReviewCycleAnalytics(): Promise<
 /**
  * Recomputes org-wide reviewer analytics and all bounded aggregate documents.
  *
+ * @param platform The repository platform to rebuild.
  * @returns The freshly computed analytics.
  */
-export async function refreshReviewCycleAnalytics(): Promise<
-  Omit<ReviewerTeamsAnalytics, "schemaVersion">
-> {
-  return rebuildReviewCycleAnalytics();
+export async function refreshReviewCycleAnalytics(
+  platform: ContributionPlatform,
+): Promise<Omit<ReviewerTeamsAnalytics, "schemaVersion">> {
+  return rebuildReviewCycleAnalytics(platform);
 }
 
 /**
@@ -151,16 +160,18 @@ export async function refreshReviewCycleAnalytics(): Promise<
  * snapshot predates monthly documents, a full rebuild runs once to rewrite them
  * before incremental updates continue.
  *
+ * @param platform The repository platform the contributions belong to.
  * @param contributions Per-reviewer contributions for this batch.
  * @returns Nothing.
  */
 async function applyAnalyticsContributions(
+  platform: ContributionPlatform,
   contributions: Map<string, ReviewCycleLoginContribution>,
 ): Promise<void> {
-  const current = await getReviewCycleAnalyticsSnapshot();
+  const current = await getReviewCycleAnalyticsSnapshot(platform);
 
   if (!current) {
-    await rebuildReviewCycleAnalytics();
+    await rebuildReviewCycleAnalytics(platform);
     return;
   }
 
@@ -175,13 +186,14 @@ async function applyAnalyticsContributions(
   }
 
   const monthlyDocs = await getReviewCycleMonthlyReviewers(
+    platform,
     Array.from(new Set([...snapshotMonths, ...affectedMonths])),
   );
 
   // A snapshot from before monthly documents existed cannot be updated
   // incrementally without losing per-month membership.
   if (snapshotMonths.some((month) => !monthlyDocs.has(month))) {
-    await rebuildReviewCycleAnalytics();
+    await rebuildReviewCycleAnalytics(platform);
     return;
   }
 
@@ -222,9 +234,11 @@ async function applyAnalyticsContributions(
   }
 
   const recentPrStats = await getRecentReviewCyclePrStats(
+    platform,
     PR_SIZE_SCATTER_LIMIT,
   );
   const analytics = buildAnalytics(
+    platform,
     weeklyReviews,
     monthlyLogins,
     approvalsByReviewer,
@@ -233,13 +247,15 @@ async function applyAnalyticsContributions(
 
   await Promise.all([
     upsertReviewCycleMonthlyReviewers(
+      platform,
       Array.from(affectedMonths).map((month) => ({
+        platform,
         month,
         logins: Array.from(monthlyLogins.get(month) ?? []).sort(),
         lastUpdated: new Date(),
       })),
     ),
-    saveReviewCycleAnalyticsSnapshot(analytics),
+    saveReviewCycleAnalyticsSnapshot(platform, analytics),
   ]);
 }
 
@@ -251,10 +267,12 @@ async function applyAnalyticsContributions(
  * membership documents. Also returns the per-reviewer contribution so the
  * caller can update `reviewerCycleAggregates` without re-reading cycles.
  *
+ * @param platform The repository platform the cycles belong to.
  * @param records The newly persisted cycle records.
  * @returns Per-reviewer contributions keyed by login.
  */
 export async function applyReviewCycleContributions(
+  platform: ContributionPlatform,
   records: Array<Omit<ReviewCycleRecord, "schemaVersion">>,
 ): Promise<Map<string, ReviewCycleLoginContribution>> {
   const contributions = new Map<string, ReviewCycleLoginContribution>();
@@ -270,7 +288,10 @@ export async function applyReviewCycleContributions(
     byPr.set(record.prNumber, existing);
   }
 
-  const prStats = await getReviewCyclePrStats(Array.from(byPr.keys()));
+  const prStats = await getReviewCyclePrStats(
+    platform,
+    Array.from(byPr.keys()),
+  );
   const updatedPrStats: Array<
     Omit<ReviewCyclePrStatsDocument, "schemaVersion">
   > = [];
@@ -279,7 +300,7 @@ export async function applyReviewCycleContributions(
     const existing = prStats.get(prNumber);
     const stats = existing
       ? { ...existing, reviewers: { ...existing.reviewers } }
-      : createPrStatsDocument(prNumber);
+      : createPrStatsDocument(platform, prNumber);
 
     for (const record of prRecords) {
       const contribution = contributions.get(record.reviewerLogin) ?? {
@@ -320,8 +341,8 @@ export async function applyReviewCycleContributions(
     updatedPrStats.push(stats);
   }
 
-  await upsertReviewCyclePrStats(updatedPrStats);
-  await applyAnalyticsContributions(contributions);
+  await upsertReviewCyclePrStats(platform, updatedPrStats);
+  await applyAnalyticsContributions(platform, contributions);
 
   return contributions;
 }

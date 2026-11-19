@@ -9,7 +9,11 @@ import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
-import { assertMonthKey } from "@/db/utils/validation.utils";
+import {
+  assertContributionPlatform,
+  assertMonthKey,
+} from "@/db/utils/validation.utils";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 
 /**
  * Reviewer logins that submitted a review in a given month.
@@ -18,6 +22,8 @@ import { assertMonthKey } from "@/db/utils/validation.utils";
  * the reviewer team instead of growing inside the analytics snapshot.
  */
 export type ReviewCycleMonthlyReviewersDocument = {
+  /** Repository platform this monthly membership belongs to. */
+  platform: ContributionPlatform;
   month: string;
   logins: string[];
   lastUpdated: Date;
@@ -42,6 +48,7 @@ export function normalizeReviewCycleMonthlyReviewers(
     SCHEMA_KEYS.REVIEW_CYCLE_MONTHLY_REVIEWERS,
     data,
   );
+  assertContributionPlatform("platform", migrated.platform);
   assertMonthKey("month", migrated.month);
   if (
     !Array.isArray(migrated.logins) ||
@@ -58,6 +65,7 @@ export function normalizeReviewCycleMonthlyReviewers(
     migrated.lastUpdated,
   );
   return {
+    platform: migrated.platform,
     month: migrated.month,
     logins: migrated.logins,
     lastUpdated: normalizeTimestamp(migrated.lastUpdated),

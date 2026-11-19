@@ -21,6 +21,7 @@ import { getTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
 import { getAllUsers, updateUserRoles } from "@/db/users/users.db";
 import { LibInvalidStateError } from "@/lib/lib.errors";
 import { runReviewCycleBackfillStep } from "@/lib/team-activity/backfill-review-cycles.service";
+import { REVIEWER_REPORT_PLATFORM } from "@/lib/team-activity/reviewer-platform.constants";
 import { refreshReviewerStats } from "@/lib/team-activity/sync-review-cycles.service";
 import type { ReviewCycleBackfillState } from "@/lib/domain/review-cycle-backfill.types";
 import type { ReviewCycleRecord } from "@/lib/domain/reviewer-teams.types";
@@ -243,7 +244,8 @@ async function backfillReviewCyclesJob(
 ): Promise<DataJobResult> {
   void context.dryRun;
 
-  const teamDoc = await getTeamReviewers("WEB");
+  const platform = REVIEWER_REPORT_PLATFORM;
+  const teamDoc = await getTeamReviewers(platform);
   if (!teamDoc || teamDoc.teams.length === 0) {
     throw new LibInvalidStateError(
       "ReviewCycleBackfill",
@@ -262,7 +264,7 @@ async function backfillReviewCyclesJob(
   const todayKey = toUtcDateKey(new Date());
   const defaultStartKey = REVIEW_CYCLE_BACKFILL_START_DATE_KEY;
 
-  const savedState = await getReviewCycleBackfillState();
+  const savedState = await getReviewCycleBackfillState(platform);
   const targetEndKey = savedState
     ? maxDateKey(savedState.targetEnd, todayKey)
     : todayKey;
@@ -289,6 +291,7 @@ async function backfillReviewCyclesJob(
   let state: Omit<ReviewCycleBackfillState, "schemaVersion"> = savedState
     ? {
         ...savedState,
+        platform,
         windowStart: windowStartKey,
         windowEnd: windowEndKey,
         targetEnd: targetEndKey,
@@ -300,6 +303,7 @@ async function backfillReviewCyclesJob(
         updatedAt: new Date(),
       }
     : {
+        platform,
         windowStart: windowStartKey,
         windowEnd: windowEndKey,
         targetEnd: targetEndKey,
@@ -325,7 +329,10 @@ async function backfillReviewCyclesJob(
     if (step.records.length > 0) {
       // Claim only cycles that are not already stored, so concurrent runs do
       // not double-count and only claimed records have contributions applied.
-      const createdRecords = await createNewReviewCycles(step.records);
+      const createdRecords = await createNewReviewCycles(
+        platform,
+        step.records.map((record) => ({ ...record, platform })),
+      );
       newCycleRecords.push(...createdRecords);
       cyclesWritten += createdRecords.length;
       for (const record of step.records) {
@@ -341,6 +348,7 @@ async function backfillReviewCyclesJob(
       windowsCompleted++;
       const nextStart = addDaysToDateKey(state.windowEnd, 1);
       state = {
+        platform,
         windowStart: nextStart,
         windowEnd: minDateKey(
           addDaysToDateKey(nextStart, REVIEW_CYCLE_BACKFILL_WINDOW_DAYS - 1),
@@ -360,7 +368,7 @@ async function backfillReviewCyclesJob(
       };
     }
 
-    await saveReviewCycleBackfillState(state);
+    await saveReviewCycleBackfillState(platform, state);
 
     if (!step.complete) break;
   }
@@ -370,15 +378,23 @@ async function backfillReviewCyclesJob(
   // Merge only the cycles this invocation added. A full rebuild is reserved for
   // the explicit Repair Reviewer Analytics job, so resuming this job does not
   // re-read the entire review-cycle history on every run.
-  const contributions = await applyReviewCycleContributions(newCycleRecords);
+  const contributions = await applyReviewCycleContributions(
+    platform,
+    newCycleRecords,
+  );
 
   const updatedReviewersCount =
     affectedLogins.size === 0
       ? 0
-      : await refreshReviewerStats(affectedLogins, contributions);
+      : await refreshReviewerStats(
+          affectedLogins,
+          contributions,
+          false,
+          platform,
+        );
 
   if (completed) {
-    await clearReviewCycleBackfillState();
+    await clearReviewCycleBackfillState(platform);
   }
 
   const progressSummary = completed
@@ -410,11 +426,13 @@ async function repairReviewerAnalyticsJob(
 ): Promise<DataJobResult> {
   void context.dryRun;
 
-  const analytics = await refreshReviewCycleAnalytics();
+  const platform = REVIEWER_REPORT_PLATFORM;
+  const analytics = await refreshReviewCycleAnalytics(platform);
   const updatedReviewersCount = await refreshReviewerStats(
     undefined,
     new Map(),
     true,
+    platform,
   );
 
   return {

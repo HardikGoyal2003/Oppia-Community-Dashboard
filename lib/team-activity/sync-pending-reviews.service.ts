@@ -1,6 +1,7 @@
 import { fetchAssignedPRs } from "@/lib/github/github.fetcher";
 import { getReviewers, upsertReviewers } from "@/db/reviewers/reviewers.db";
 import { getReviewerTeamLogins } from "@/lib/team-activity/reviewer-team-logins.service";
+import { REVIEWER_REPORT_PLATFORM } from "./reviewer-platform.constants";
 import type {
   PendingReview,
   ReviewerDocument,
@@ -16,6 +17,7 @@ type SyncSummary = {
  * no stored reviewer document yet. Metrics are filled in by the cycle sync.
  */
 const EMPTY_REVIEWER: Omit<ReviewerDocument, "schemaVersion"> = {
+  platform: REVIEWER_REPORT_PLATFORM,
   teams: [],
   pendingReviews: [],
   completedReviews: 0,
@@ -56,7 +58,7 @@ function pendingReviewsEqual(
 }
 
 /**
- * Syncs pending reviews from GitHub into `reviewers/{login}.pendingReviews`.
+ * Syncs pending reviews from GitHub into `reviewers/{platform}_{login}.pendingReviews`.
  *
  * Fetches open PR assignments via `fetchAssignedPRs`, ignores assignees who
  * are not current reviewer-team members, and updates only the
@@ -73,6 +75,7 @@ function pendingReviewsEqual(
  * @returns A summary of the sync operation.
  */
 export async function syncPendingReviews(): Promise<SyncSummary> {
+  const platform = REVIEWER_REPORT_PLATFORM;
   const teamLogins = await getReviewerTeamLogins();
 
   if (teamLogins.size === 0) {
@@ -84,7 +87,7 @@ export async function syncPendingReviews(): Promise<SyncSummary> {
 
   const [memberPRs, reviewerDocs] = await Promise.all([
     fetchAssignedPRs(),
-    getReviewers(Array.from(teamLogins)),
+    getReviewers(platform, Array.from(teamLogins)),
   ]);
 
   const updates: Array<{
@@ -125,7 +128,7 @@ export async function syncPendingReviews(): Promise<SyncSummary> {
     });
   }
 
-  await upsertReviewers(updates);
+  await upsertReviewers(platform, updates);
 
   return {
     pendingReviewsCount: totalPending,

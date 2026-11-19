@@ -1,5 +1,6 @@
 import { fetchWebReviewerTeams } from "@/lib/github/github.fetcher";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import { REVIEWER_REPORT_PLATFORM } from "./reviewer-platform.constants";
 import { upsertTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
 import { getReviewers, upsertReviewers } from "@/db/reviewers/reviewers.db";
 import type {
@@ -34,13 +35,16 @@ function sameTeams(current: string[], next: string[]): boolean {
 /**
  * Builds a blank reviewer document for a newly discovered team member.
  *
+ * @param platform The repository platform the reviewer belongs to.
  * @param teams The team slugs the member currently belongs to.
  * @returns The reviewer document to persist.
  */
 function buildEmptyReviewer(
+  platform: ContributionPlatform,
   teams: string[],
 ): Omit<ReviewerDocument, "schemaVersion"> {
   return {
+    platform,
     teams,
     pendingReviews: [],
     completedReviews: 0,
@@ -71,7 +75,7 @@ function buildEmptyReviewer(
  * @returns A summary of the sync operation.
  */
 export async function syncReviewerTeams(): Promise<SyncSummary> {
-  const platform: ContributionPlatform = "WEB";
+  const platform = REVIEWER_REPORT_PLATFORM;
 
   const fetchedTeams = await fetchWebReviewerTeams();
 
@@ -106,6 +110,7 @@ export async function syncReviewerTeams(): Promise<SyncSummary> {
   // write. Existing docs keep their metrics; only changed memberships are
   // rewritten.
   const existingReviewers = await getReviewers(
+    platform,
     Array.from(memberToTeams.keys()),
   );
   const updates: Array<{
@@ -117,7 +122,7 @@ export async function syncReviewerTeams(): Promise<SyncSummary> {
     const existing = existingReviewers.get(login);
 
     if (!existing) {
-      updates.push({ login, doc: buildEmptyReviewer(teams) });
+      updates.push({ login, doc: buildEmptyReviewer(platform, teams) });
       initialDocsCreated++;
       continue;
     }
@@ -129,7 +134,7 @@ export async function syncReviewerTeams(): Promise<SyncSummary> {
     }
   }
 
-  await upsertReviewers(updates);
+  await upsertReviewers(platform, updates);
 
   const totalMembersCount = fetchedTeams.reduce(
     (sum, team) => sum + team.members.length,
