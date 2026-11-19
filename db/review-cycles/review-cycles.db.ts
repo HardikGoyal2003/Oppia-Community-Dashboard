@@ -1,7 +1,12 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DbValidationError } from "@/db/db.errors";
 import { FIRESTORE_WRITE_BATCH_SIZE } from "@/db/utils/batch.utils";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { DB_PATHS } from "@/db/db-paths";
+import {
+  buildReviewCycleAnalyticsDocId,
+  buildReviewCycleDocId,
+} from "@/db/reviewer-doc-ids";
 import type {
   ReviewerTeamsAnalytics,
   ReviewCycleRecord,
@@ -21,11 +26,21 @@ const db = getAdminFirestore();
 const collection = db.collection(
   DB_PATHS.REVIEW_CYCLES.COLLECTION,
 ) as FirebaseFirestore.CollectionReference<FirestoreReviewCycle>;
-const analyticsDoc = db
-  .collection(DB_PATHS.REVIEW_CYCLE_ANALYTICS.COLLECTION)
-  .doc(
-    DB_PATHS.REVIEW_CYCLE_ANALYTICS.SNAPSHOT_DOC,
-  ) as FirebaseFirestore.DocumentReference<FirestoreReviewCycleAnalytics>;
+/**
+ * Returns the analytics snapshot document for a platform.
+ *
+ * @param platform The repository platform the snapshot belongs to.
+ * @returns The platform-scoped analytics document reference.
+ */
+function getAnalyticsDoc(
+  platform: ContributionPlatform,
+): FirebaseFirestore.DocumentReference<FirestoreReviewCycleAnalytics> {
+  return db
+    .collection(DB_PATHS.REVIEW_CYCLE_ANALYTICS.COLLECTION)
+    .doc(
+      buildReviewCycleAnalyticsDocId(platform),
+    ) as FirebaseFirestore.DocumentReference<FirestoreReviewCycleAnalytics>;
+}
 
 /** Firestore `in` filters accept at most 30 comparison values. */
 const AGGREGATE_LOGIN_CHUNK_SIZE = 30;
@@ -35,10 +50,12 @@ const AGGREGATE_LOGIN_CHUNK_SIZE = 30;
  *
  * A 2-month backfill can produce well over the Firestore batch limit.
  *
+ * @param platform The repository platform the cycles belong to.
  * @param records The cycle records to persist.
  * @returns A promise that resolves when all batch writes complete.
  */
 export async function upsertReviewCycles(
+  platform: ContributionPlatform,
   records: Array<Omit<ReviewCycleRecord, "schemaVersion">>,
 ): Promise<void> {
   for (
@@ -52,7 +69,12 @@ export async function upsertReviewCycles(
       start,
       start + FIRESTORE_WRITE_BATCH_SIZE,
     )) {
-      const key = `${record.reviewerLogin}:${record.prNumber}:${record.assignedAt}`;
+      const key = buildReviewCycleDocId(
+        platform,
+        record.reviewerLogin,
+        record.prNumber,
+        record.assignedAt,
+      );
       batch.set(collection.doc(key), serializeReviewCycle(record), {
         merge: true,
       });
@@ -68,10 +90,12 @@ export async function upsertReviewCycles(
  * The dummy-data generator uses this to replace its sample reviewers' cycles,
  * so repeated runs do not accumulate duplicates under new document keys.
  *
+ * @param platform The repository platform the cycles belong to.
  * @param logins The reviewer logins whose cycles should be deleted.
  * @returns The number of deleted documents.
  */
 export async function deleteReviewCyclesForReviewers(
+  platform: ContributionPlatform,
   logins: string[],
 ): Promise<number> {
   const uniqueLogins = Array.from(new Set(logins));
@@ -83,7 +107,10 @@ export async function deleteReviewCyclesForReviewers(
     start += AGGREGATE_LOGIN_CHUNK_SIZE
   ) {
     const chunk = uniqueLogins.slice(start, start + AGGREGATE_LOGIN_CHUNK_SIZE);
-    const snapshot = await collection.where("reviewerLogin", "in", chunk).get();
+    const snapshot = await collection
+      .where("platform", "==", platform)
+      .where("reviewerLogin", "in", chunk)
+      .get();
 
     for (
       let offset = 0;
@@ -111,13 +138,20 @@ export async function deleteReviewCyclesForReviewers(
 /**
  * Builds the Firestore document id for a review cycle record.
  *
+ * @param platform The repository platform the cycle belongs to.
  * @param record The review cycle record.
  * @returns The composite review cycle document id.
  */
 function getReviewCycleDocumentId(
+  platform: ContributionPlatform,
   record: Omit<ReviewCycleRecord, "schemaVersion">,
 ): string {
-  return `${record.reviewerLogin}:${record.prNumber}:${record.assignedAt}`;
+  return buildReviewCycleDocId(
+    platform,
+    record.reviewerLogin,
+    record.prNumber,
+    record.assignedAt,
+  );
 }
 
 /**
@@ -144,17 +178,22 @@ function isDocumentAlreadyExistsError(
  * can safely apply contributions exactly once per claimed cycle. Concurrent
  * claims for the same cycle will not both succeed.
  *
+ * @param platform The repository platform the cycles belong to.
  * @param records The candidate cycle records to claim.
  * @returns The subset of records that were actually created.
  */
 export async function createNewReviewCycles(
+  platform: ContributionPlatform,
   records: Array<Omit<ReviewCycleRecord, "schemaVersion">>,
 ): Promise<Array<Omit<ReviewCycleRecord, "schemaVersion">>> {
   if (records.length === 0) return [];
 
   const uniqueRecords = Array.from(
     new Map(
-      records.map((record) => [getReviewCycleDocumentId(record), record]),
+      records.map((record) => [
+        getReviewCycleDocumentId(platform, record),
+        record,
+      ]),
     ).values(),
   );
   const createdRecords: Array<Omit<ReviewCycleRecord, "schemaVersion">> = [];
@@ -166,7 +205,7 @@ export async function createNewReviewCycles(
       chunk.map(async (record) => {
         try {
           await collection
-            .doc(getReviewCycleDocumentId(record))
+            .doc(getReviewCycleDocumentId(platform, record))
             .create(serializeReviewCycle(record));
           return record;
         } catch (error) {
@@ -200,10 +239,13 @@ export async function createNewReviewCycles(
  * review-cycles collection on every page load. The snapshot is refreshed by
  * the cycle sync and the backfill job.
  *
+ * @param platform The repository platform the snapshot belongs to.
  * @returns The stored analytics, or null when no snapshot exists.
  */
-export async function getReviewCycleAnalyticsSnapshot(): Promise<ReviewerTeamsAnalytics | null> {
-  const snapshot = await analyticsDoc.get();
+export async function getReviewCycleAnalyticsSnapshot(
+  platform: ContributionPlatform,
+): Promise<ReviewerTeamsAnalytics | null> {
+  const snapshot = await getAnalyticsDoc(platform).get();
   if (!snapshot.exists) return null;
   const data = snapshot.data();
   if (!data) return null;
@@ -219,32 +261,39 @@ export async function getReviewCycleAnalyticsSnapshot(): Promise<ReviewerTeamsAn
 /**
  * Saves the reviewer analytics snapshot document.
  *
+ * @param platform The repository platform the snapshot belongs to.
  * @param analytics The analytics payload to persist.
  * @returns A promise that resolves when the snapshot is written.
  */
 export async function saveReviewCycleAnalyticsSnapshot(
+  platform: ContributionPlatform,
   analytics: Omit<ReviewerTeamsAnalytics, "schemaVersion">,
 ): Promise<void> {
-  await analyticsDoc.set(serializeReviewCycleAnalytics(analytics));
+  await getAnalyticsDoc(platform).set(serializeReviewCycleAnalytics(analytics));
 }
 
 /**
  * Retrieves all review cycles, normalized.
  *
- * @returns All normalized review cycle records.
+ * @param platform The repository platform the cycles belong to.
+ * @returns All normalized review cycle records for the platform.
  */
-export async function getAllReviewCycles(): Promise<ReviewCycleRecord[]> {
-  const snapshot = await collection.get();
+export async function getAllReviewCycles(
+  platform: ContributionPlatform,
+): Promise<ReviewCycleRecord[]> {
+  const snapshot = await collection.where("platform", "==", platform).get();
   return snapshot.docs.map((doc) => normalizeReviewCycle(doc.data()));
 }
 
 /**
  * Retrieves normalized review cycles for the given reviewer logins.
  *
+ * @param platform The repository platform the cycles belong to.
  * @param logins The reviewer logins to fetch.
  * @returns The matching normalized review cycle records.
  */
 export async function getReviewCyclesByReviewerLogins(
+  platform: ContributionPlatform,
   logins: string[],
 ): Promise<ReviewCycleRecord[]> {
   const uniqueLogins = Array.from(new Set(logins));
@@ -258,7 +307,10 @@ export async function getReviewCyclesByReviewerLogins(
     start += AGGREGATE_LOGIN_CHUNK_SIZE
   ) {
     const chunk = uniqueLogins.slice(start, start + AGGREGATE_LOGIN_CHUNK_SIZE);
-    const snapshot = await collection.where("reviewerLogin", "in", chunk).get();
+    const snapshot = await collection
+      .where("platform", "==", platform)
+      .where("reviewerLogin", "in", chunk)
+      .get();
     snapshot.forEach((doc) => records.push(normalizeReviewCycle(doc.data())));
   }
 

@@ -1,4 +1,5 @@
 import { DbValidationError } from "@/db/db.errors";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type {
   ReviewerApprovalShare,
   ReviewerTeamsAnalytics,
@@ -224,13 +225,16 @@ export function laterTimestamp(
 /**
  * Converts per-PR facts into a fresh PR stats document.
  *
+ * @param platform The repository platform the PR belongs to.
  * @param prNumber The PR number.
  * @returns An empty PR stats document.
  */
 export function createPrStatsDocument(
+  platform: ContributionPlatform,
   prNumber: number,
 ): Omit<ReviewCyclePrStatsDocument, "schemaVersion"> {
   return {
+    platform,
     prNumber,
     additions: null,
     firstAssignedAt: null,
@@ -290,6 +294,7 @@ export function buildScatter(
 /**
  * Assembles the dashboard analytics payload from its bounded inputs.
  *
+ * @param platform The repository platform the analytics belong to.
  * @param weeklyReviews Weekly submission counts keyed by week start.
  * @param monthlyLogins Reviewer logins keyed by month.
  * @param approvalsByReviewer Approval counts keyed by reviewer login.
@@ -297,6 +302,7 @@ export function buildScatter(
  * @returns The analytics payload.
  */
 export function buildAnalytics(
+  platform: ContributionPlatform,
   weeklyReviews: Map<string, number>,
   monthlyLogins: Map<string, Set<string>>,
   approvalsByReviewer: Map<string, number>,
@@ -318,6 +324,7 @@ export function buildAnalytics(
     .sort((a, b) => b.approvals - a.approvals);
 
   return {
+    platform,
     weeklyReviews: Array.from(weeklyReviews.entries())
       .map(([weekStart, reviews]) => ({ weekStart, reviews }))
       .sort((a, b) => a.weekStart.localeCompare(b.weekStart)),

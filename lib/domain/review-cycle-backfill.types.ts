@@ -1,3 +1,4 @@
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type { SchemaVersioned } from "@/lib/domain/schema.types";
 
 /**
@@ -8,6 +9,8 @@ import type { SchemaVersioned } from "@/lib/domain/schema.types";
  * PR-level progress is checkpointed so a timeout never repeats work.
  */
 export type ReviewCycleBackfillState = SchemaVersioned & {
+  /** Repository platform this checkpoint belongs to. */
+  platform: ContributionPlatform;
   /** Inclusive `YYYY-MM-DD` start of the current window. */
   windowStart: string;
   /** Inclusive `YYYY-MM-DD` end of the current window. */

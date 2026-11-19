@@ -6,6 +6,7 @@ import {
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
 import { assertTimestamp } from "@/db/utils/timestamp.utils";
+import { assertContributionPlatform } from "@/db/utils/validation.utils";
 import type { ReviewerTeamsAnalytics } from "@/lib/domain/reviewer-teams.types";
 
 /**
@@ -52,6 +53,7 @@ function assertArrayOfObjects(
 function assertFirestoreReviewCycleAnalytics(
   data: FirebaseFirestore.DocumentData,
 ): asserts data is FirestoreReviewCycleAnalytics {
+  assertContributionPlatform("platform", data.platform);
   assertArrayOfObjects("weeklyReviews", data.weeklyReviews);
   for (const point of data.weeklyReviews) {
     if (
@@ -146,6 +148,7 @@ export function normalizeReviewCycleAnalytics(
   const migrated = migrateDocument(SCHEMA_KEYS.REVIEW_CYCLE_ANALYTICS, data);
   assertFirestoreReviewCycleAnalytics(migrated);
   return {
+    platform: migrated.platform,
     weeklyReviews: migrated.weeklyReviews,
     monthlyUniqueReviewers: migrated.monthlyUniqueReviewers,
     topApprovers: migrated.topApprovers,

@@ -1,7 +1,5 @@
 import { getTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
-import type { ContributionPlatform } from "@/lib/auth/auth.types";
-
-const REVIEWER_TEAMS_PLATFORM: ContributionPlatform = "WEB";
+import { REVIEWER_REPORT_PLATFORM } from "./reviewer-platform.constants";
 
 /**
  * Returns the GitHub logins that currently belong to the reviewer teams.
@@ -13,7 +11,7 @@ const REVIEWER_TEAMS_PLATFORM: ContributionPlatform = "WEB";
  * @returns The set of current reviewer logins.
  */
 export async function getReviewerTeamLogins(): Promise<Set<string>> {
-  const teamDoc = await getTeamReviewers(REVIEWER_TEAMS_PLATFORM);
+  const teamDoc = await getTeamReviewers(REVIEWER_REPORT_PLATFORM);
   const logins = new Set<string>();
 
   if (!teamDoc) return logins;

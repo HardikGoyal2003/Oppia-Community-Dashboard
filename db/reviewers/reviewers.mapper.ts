@@ -9,6 +9,7 @@ import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
+import { assertContributionPlatform } from "@/db/utils/validation.utils";
 import type { ReviewerDocument } from "@/lib/domain/reviewer-teams.types";
 
 export type FirestoreReviewer = Omit<ReviewerDocument, "lastUpdated"> & {
@@ -24,6 +25,7 @@ export type FirestoreReviewer = Omit<ReviewerDocument, "lastUpdated"> & {
 function assertFirestoreReviewer(
   data: FirebaseFirestore.DocumentData,
 ): asserts data is FirestoreReviewer {
+  assertContributionPlatform("platform", data.platform);
   if (!Array.isArray(data.teams)) {
     throw new DbValidationError("teams", "teams must be an array of strings.");
   }
@@ -146,6 +148,7 @@ export function normalizeReviewer(
   const migrated = migrateDocument(SCHEMA_KEYS.REVIEWERS, data);
   assertFirestoreReviewer(migrated);
   return {
+    platform: migrated.platform,
     teams: migrated.teams,
     pendingReviews: migrated.pendingReviews,
     completedReviews: migrated.completedReviews,
@@ -173,6 +176,7 @@ export function serializeReviewer(
   doc: Omit<ReviewerDocument, "schemaVersion">,
 ): FirestoreReviewer {
   return {
+    platform: doc.platform,
     teams: doc.teams,
     pendingReviews: doc.pendingReviews,
     completedReviews: doc.completedReviews,

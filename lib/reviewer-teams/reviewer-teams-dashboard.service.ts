@@ -1,6 +1,8 @@
 import { getTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
 import { getReviewers } from "@/db/reviewers/reviewers.db";
 import { getReviewCycleAnalyticsSnapshot } from "@/db/review-cycles/review-cycles.db";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import { REVIEWER_REPORT_PLATFORM } from "@/lib/team-activity/reviewer-platform.constants";
 import {
   SCHEMA_KEYS,
   getCurrentSchemaVersion,
@@ -26,10 +28,14 @@ export class ReviewerTeamsDataNotFoundError extends Error {
 /**
  * Builds an empty analytics payload for when no snapshot has been generated yet.
  *
+ * @param platform The repository platform the analytics belong to.
  * @returns An analytics payload with no data.
  */
-function emptyAnalytics(): ReviewerTeamsAnalytics {
+function emptyAnalytics(
+  platform: ContributionPlatform,
+): ReviewerTeamsAnalytics {
   return {
+    platform,
     weeklyReviews: [],
     monthlyUniqueReviewers: [],
     topApprovers: [],
@@ -113,13 +119,14 @@ function buildMember(
 }
 
 /**
- * Builds the reviewer-teams dashboard payload for the web platform.
+ * Builds the reviewer-teams dashboard payload for the configured platform.
  *
  * @returns The assembled reviewer-teams dashboard document.
  * @throws {ReviewerTeamsDataNotFoundError} When team reviewer data is missing.
  */
 export async function getReviewerTeamsDashboard(): Promise<ReviewerTeamsDocument> {
-  const doc = await getTeamReviewers("WEB");
+  const platform = REVIEWER_REPORT_PLATFORM;
+  const doc = await getTeamReviewers(platform);
 
   if (!doc) {
     throw new ReviewerTeamsDataNotFoundError(
@@ -132,11 +139,11 @@ export async function getReviewerTeamsDashboard(): Promise<ReviewerTeamsDocument
   );
 
   const [reviewerMap, analyticsSnapshot] = await Promise.all([
-    getReviewers(memberLogins),
-    getReviewCycleAnalyticsSnapshot(),
+    getReviewers(platform, memberLogins),
+    getReviewCycleAnalyticsSnapshot(platform),
   ]);
 
-  const analytics = analyticsSnapshot ?? emptyAnalytics();
+  const analytics = analyticsSnapshot ?? emptyAnalytics(platform);
   const nowMs = Date.now();
 
   const teams = doc.teams
@@ -157,7 +164,7 @@ export async function getReviewerTeamsDashboard(): Promise<ReviewerTeamsDocument
     }));
 
   return {
-    platform: "WEB",
+    platform,
     lastSyncedAt: doc.lastUpdated,
     teams,
     analytics,

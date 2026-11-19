@@ -9,9 +9,15 @@ import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
-import { assertFiniteNumber } from "@/db/utils/validation.utils";
+import {
+  assertContributionPlatform,
+  assertFiniteNumber,
+} from "@/db/utils/validation.utils";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 
 export type ReviewerCycleAggregateDocument = {
+  /** Repository platform these counters belong to. */
+  platform: ContributionPlatform;
   completedReviews: number;
   reviewedPrCount: number;
   approvedPrCount: number;
@@ -58,6 +64,7 @@ export function normalizeReviewerCycleAggregate(
   data: FirebaseFirestore.DocumentData,
 ): ReviewerCycleAggregateDocument {
   const migrated = migrateDocument(SCHEMA_KEYS.REVIEWER_CYCLE_AGGREGATES, data);
+  assertContributionPlatform("platform", migrated.platform);
   for (const field of [
     "completedReviews",
     "reviewedPrCount",
@@ -78,6 +85,7 @@ export function normalizeReviewerCycleAggregate(
     migrated.lastUpdated,
   );
   return {
+    platform: migrated.platform,
     completedReviews: migrated.completedReviews,
     reviewedPrCount: migrated.reviewedPrCount,
     approvedPrCount: migrated.approvedPrCount,

@@ -56,10 +56,8 @@ export const DB_PATHS = Object.freeze({
   }),
   REVIEW_CYCLE_ANALYTICS: Object.freeze({
     COLLECTION: "reviewCycleAnalytics",
-    SNAPSHOT_DOC: "WEB",
   }),
   REVIEW_CYCLE_BACKFILL: Object.freeze({
     COLLECTION: "reviewCycleBackfill",
-    STATE_DOC: "state",
   }),
 });

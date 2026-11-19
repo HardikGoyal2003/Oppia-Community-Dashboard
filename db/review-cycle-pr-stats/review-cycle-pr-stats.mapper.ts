@@ -9,7 +9,11 @@ import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
-import { assertFiniteNumber } from "@/db/utils/validation.utils";
+import {
+  assertContributionPlatform,
+  assertFiniteNumber,
+} from "@/db/utils/validation.utils";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 
 /**
  * Per-reviewer facts derived from a reviewer's cycles on one PR.
@@ -29,6 +33,8 @@ export type ReviewCyclePrReviewerFact = {
 };
 
 export type ReviewCyclePrStatsDocument = {
+  /** Repository platform the PR belongs to. */
+  platform: ContributionPlatform;
   prNumber: number;
   additions: number | null;
   /** Earliest review assignment across every reviewer on the PR. */
@@ -95,6 +101,7 @@ function assertReviewerFact(
 function assertFirestoreReviewCyclePrStats(
   data: FirebaseFirestore.DocumentData,
 ): asserts data is FirestoreReviewCyclePrStats {
+  assertContributionPlatform("platform", data.platform);
   assertFiniteNumber("prNumber", data.prNumber);
   if (data.additions !== null) {
     assertFiniteNumber(
@@ -138,6 +145,7 @@ export function normalizeReviewCyclePrStats(
   const migrated = migrateDocument(SCHEMA_KEYS.REVIEW_CYCLE_PR_STATS, data);
   assertFirestoreReviewCyclePrStats(migrated);
   return {
+    platform: migrated.platform,
     prNumber: migrated.prNumber,
     additions: migrated.additions,
     firstAssignedAt:

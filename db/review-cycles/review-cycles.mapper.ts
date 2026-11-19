@@ -4,7 +4,10 @@ import {
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
-import { assertFiniteNumber } from "@/db/utils/validation.utils";
+import {
+  assertContributionPlatform,
+  assertFiniteNumber,
+} from "@/db/utils/validation.utils";
 import type { ReviewCycleRecord } from "@/lib/domain/reviewer-teams.types";
 
 export type FirestoreReviewCycle = ReviewCycleRecord;
@@ -67,6 +70,7 @@ function assertOptionalStringField(
 function assertFirestoreReviewCycle(
   data: FirebaseFirestore.DocumentData,
 ): void {
+  assertContributionPlatform("platform", data.platform);
   assertStringField("reviewerLogin", data.reviewerLogin);
   assertFiniteNumber("prNumber", data.prNumber, "prNumber must be a number.");
   assertStringField("prTitle", data.prTitle);
@@ -143,6 +147,7 @@ export function normalizeReviewCycle(
   assertFirestoreReviewCycle(migrated);
 
   return {
+    platform: migrated.platform,
     reviewerLogin: migrated.reviewerLogin,
     prNumber: migrated.prNumber,
     prTitle: migrated.prTitle,

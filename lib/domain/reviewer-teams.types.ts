@@ -1,3 +1,4 @@
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type { SchemaVersioned } from "@/lib/domain/schema.types";
 
 /* Team doc member (no PR data — just identity) */
@@ -26,6 +27,8 @@ export type TeamReviewersDocument = SchemaVersioned & {
 };
 
 export type ReviewerDocument = SchemaVersioned & {
+  /** Repository platform these reviewer metrics belong to. */
+  platform: ContributionPlatform;
   teams: string[];
   pendingReviews: PendingReview[];
   /** Completed review cycles (assignment → first review or unassignment). */
@@ -50,6 +53,8 @@ export type ReviewerDocument = SchemaVersioned & {
 };
 
 export type ReviewCycleRecord = SchemaVersioned & {
+  /** Repository platform the PR belongs to. */
+  platform: ContributionPlatform;
   reviewerLogin: string;
   prNumber: number;
   prTitle: string;
@@ -124,6 +129,8 @@ export type ReviewerPrSizePoint = {
 };
 
 export type ReviewerTeamsAnalytics = SchemaVersioned & {
+  /** Repository platform this snapshot was computed for. */
+  platform: ContributionPlatform;
   weeklyReviews: ReviewerWeeklyPoint[];
   monthlyUniqueReviewers: ReviewerMonthlyUniquePoint[];
   topApprovers: ReviewerApprovalShare[];
@@ -139,7 +146,7 @@ type ReviewerTeam = {
 };
 
 export type ReviewerTeamsDocument = {
-  platform: string;
+  platform: ContributionPlatform;
   lastSyncedAt: Date;
   teams: ReviewerTeam[];
   analytics: ReviewerTeamsAnalytics;
