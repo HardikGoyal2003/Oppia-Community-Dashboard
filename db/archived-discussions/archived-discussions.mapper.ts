@@ -8,6 +8,11 @@ import {
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
 import {
+  assertHttpUrl,
+  assertNonEmptyString,
+  assertPositiveInteger,
+} from "@/db/utils/validation.utils";
+import {
   SCHEMA_KEYS,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
@@ -21,47 +26,6 @@ export type ArchiveDiscussionInput = {
 };
 
 /**
- * Validates that a value is a positive integer.
- *
- * @param field The field name being validated.
- * @param value The value to validate.
- * @returns Nothing. Throws when the value is invalid.
- */
-function assertPositiveInteger(
-  field: string,
-  value: number | string | boolean | object | null | undefined,
-): asserts value is number {
-  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
-    throw new DbValidationError(field, `${field} must be a positive integer.`);
-  }
-}
-
-/**
- * Validates that a value is an HTTP(S) URL string.
- *
- * @param field The field name being validated.
- * @param value The value to validate.
- * @returns Nothing. Throws when the value is invalid.
- */
-function assertUrlShape(
-  field: string,
-  value: number | string | boolean | object | null | undefined,
-): asserts value is string {
-  if (typeof value !== "string") {
-    throw new DbValidationError(field, `${field} must be a valid URL.`);
-  }
-
-  try {
-    const url = new URL(value);
-    if (url.protocol !== "http:" && url.protocol !== "https:") {
-      throw new Error("invalid protocol");
-    }
-  } catch {
-    throw new DbValidationError(field, `${field} must be a valid URL.`);
-  }
-}
-
-/**
  * Validates archived discussion input at the DB boundary.
  *
  * @param discussion The archived discussion input to validate.
@@ -71,16 +35,8 @@ export function assertArchiveDiscussionInput(
   discussion: ArchiveDiscussionInput,
 ): void {
   assertPositiveInteger("discussionNumber", discussion.discussionNumber);
-  assertUrlShape("discussionUrl", discussion.discussionUrl);
-  if (
-    typeof discussion.discussionTitle !== "string" ||
-    !discussion.discussionTitle.trim()
-  ) {
-    throw new DbValidationError(
-      "discussionTitle",
-      "discussionTitle must be a non-empty string.",
-    );
-  }
+  assertHttpUrl("discussionUrl", discussion.discussionUrl);
+  assertNonEmptyString("discussionTitle", discussion.discussionTitle);
   if (typeof discussion.createdAt !== "string") {
     throw new DbValidationError(
       "createdAt",

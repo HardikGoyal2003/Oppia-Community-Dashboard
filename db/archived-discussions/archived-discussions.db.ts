@@ -1,7 +1,10 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
-import { DbValidationError } from "@/db/db.errors";
 import { DB_PATHS } from "../db-paths";
+import {
+  assertNonEmptyId,
+  assertPositiveInteger,
+} from "@/db/utils/validation.utils";
 import {
   type ArchiveDiscussionInput,
   type ArchivedDiscussionRecord,
@@ -62,12 +65,7 @@ export async function archiveDiscussion(
   archivedBy: string,
 ): Promise<void> {
   assertArchiveDiscussionInput(discussion);
-  if (typeof archivedBy !== "string" || !archivedBy.trim()) {
-    throw new DbValidationError(
-      "archivedBy",
-      "archivedBy must be a non-empty string.",
-    );
-  }
+  assertNonEmptyId("archivedBy", archivedBy);
 
   await archivedDiscussionsCollection
     .doc(getArchivedDiscussionDocId(platform, discussion.discussionNumber))
@@ -87,16 +85,7 @@ export async function unarchiveDiscussion(
   discussionNumber: number,
   platform: ContributionPlatform,
 ): Promise<void> {
-  if (
-    typeof discussionNumber !== "number" ||
-    !Number.isInteger(discussionNumber) ||
-    discussionNumber <= 0
-  ) {
-    throw new DbValidationError(
-      "discussionNumber",
-      "discussionNumber must be a positive integer.",
-    );
-  }
+  assertPositiveInteger("discussionNumber", discussionNumber);
 
   await archivedDiscussionsCollection
     .doc(getArchivedDiscussionDocId(platform, discussionNumber))

@@ -1,7 +1,10 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
-import { DbValidationError } from "@/db/db.errors";
 import { DB_PATHS } from "../db-paths";
+import {
+  assertNonEmptyId,
+  assertPositiveInteger,
+} from "@/db/utils/validation.utils";
 import {
   type ArchiveIssueInput,
   type ArchivedIssueRecord,
@@ -62,12 +65,7 @@ export async function archiveIssue(
   archivedBy: string,
 ): Promise<void> {
   assertArchiveIssueInput(issue);
-  if (typeof archivedBy !== "string" || !archivedBy.trim()) {
-    throw new DbValidationError(
-      "archivedBy",
-      "archivedBy must be a non-empty string.",
-    );
-  }
+  assertNonEmptyId("archivedBy", archivedBy);
 
   await archivedIssuesCollection
     .doc(getArchivedIssueDocId(platform, issue.issueNumber))
@@ -85,16 +83,7 @@ export async function unarchiveIssue(
   issueNumber: number,
   platform: ContributionPlatform,
 ): Promise<void> {
-  if (
-    typeof issueNumber !== "number" ||
-    !Number.isInteger(issueNumber) ||
-    issueNumber <= 0
-  ) {
-    throw new DbValidationError(
-      "issueNumber",
-      "issueNumber must be a positive integer.",
-    );
-  }
+  assertPositiveInteger("issueNumber", issueNumber);
 
   await archivedIssuesCollection
     .doc(getArchivedIssueDocId(platform, issueNumber))

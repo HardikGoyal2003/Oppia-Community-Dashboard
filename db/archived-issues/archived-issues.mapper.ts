@@ -8,6 +8,11 @@ import {
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
 import {
+  assertHttpUrl,
+  assertNonEmptyString,
+  assertPositiveInteger,
+} from "@/db/utils/validation.utils";
+import {
   SCHEMA_KEYS,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
@@ -22,47 +27,6 @@ export type ArchiveIssueInput = {
 };
 
 /**
- * Validates that a value is a positive integer.
- *
- * @param field The field name being validated.
- * @param value The value to validate.
- * @returns Nothing. Throws when the value is invalid.
- */
-function assertPositiveInteger(
-  field: string,
-  value: number | string | boolean | object | null | undefined,
-): asserts value is number {
-  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
-    throw new DbValidationError(field, `${field} must be a positive integer.`);
-  }
-}
-
-/**
- * Validates that a value is an HTTP(S) URL string.
- *
- * @param field The field name being validated.
- * @param value The value to validate.
- * @returns Nothing. Throws when the value is invalid.
- */
-function assertUrlShape(
-  field: string,
-  value: number | string | boolean | object | null | undefined,
-): asserts value is string {
-  if (typeof value !== "string") {
-    throw new DbValidationError(field, `${field} must be a valid URL.`);
-  }
-
-  try {
-    const url = new URL(value);
-    if (url.protocol !== "http:" && url.protocol !== "https:") {
-      throw new Error("invalid protocol");
-    }
-  } catch {
-    throw new DbValidationError(field, `${field} must be a valid URL.`);
-  }
-}
-
-/**
  * Validates archived issue input at the DB boundary.
  *
  * @param issue The archived issue input to validate.
@@ -70,13 +34,8 @@ function assertUrlShape(
  */
 export function assertArchiveIssueInput(issue: ArchiveIssueInput): void {
   assertPositiveInteger("issueNumber", issue.issueNumber);
-  assertUrlShape("issueUrl", issue.issueUrl);
-  if (typeof issue.issueTitle !== "string" || !issue.issueTitle.trim()) {
-    throw new DbValidationError(
-      "issueTitle",
-      "issueTitle must be a non-empty string.",
-    );
-  }
+  assertHttpUrl("issueUrl", issue.issueUrl);
+  assertNonEmptyString("issueTitle", issue.issueTitle);
   if (typeof issue.lastCommentCreatedAt !== "string") {
     throw new DbValidationError(
       "lastCommentCreatedAt",
