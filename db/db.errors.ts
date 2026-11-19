@@ -61,3 +61,13 @@ export class PendingMemberAccessRequestError extends DbError {
     this.request = request;
   }
 }
+
+/**
+ * Error raised when an actor is not authorized to perform a DB command.
+ */
+export class DbAuthorizationError extends DbError {
+  constructor(message = "Not authorized to perform this action.") {
+    super(message);
+    this.name = "DbAuthorizationError";
+  }
+}

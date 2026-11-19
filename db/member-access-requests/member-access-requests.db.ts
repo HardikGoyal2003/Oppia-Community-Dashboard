@@ -1,6 +1,7 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DB_PATHS } from "@/db/db-paths";
 import {
+  DbAuthorizationError,
   DbInvalidStateError,
   DbValidationError,
   PendingMemberAccessRequestError,
@@ -26,7 +27,23 @@ import {
   MemberAccessRequestModel,
   MemberAccessRequestRecord,
 } from "./member-access-requests.types";
-import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import type { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
+
+const ADMIN_MANAGEABLE_REQUEST_ROLES: readonly string[] = [
+  "TEAM_LEAD",
+  "ADMIN",
+];
+const TEAM_LEAD_MANAGEABLE_REQUEST_ROLES: readonly string[] = [
+  "TEAM_MEMBER",
+  "LEAD_TRAINEE",
+];
+
+/** Actor context required to authorize member-access request resolution. */
+export type ResolveMemberAccessRequestActor = {
+  role: UserRole;
+  team: string | null;
+  platform: ContributionPlatform | null;
+};
 
 const db = getAdminFirestore();
 const memberAccessRequestsCollection = db.collection(
@@ -139,20 +156,68 @@ export async function getMemberAccessRequestById(
 }
 
 /**
+ * Asserts that an actor may resolve a member-access request.
+ *
+ * @param actor The actor attempting to resolve the request.
+ * @param request The pending request to resolve.
+ * @returns Nothing. Throws when the actor is not authorized.
+ */
+function assertCanResolveMemberAccessRequest(
+  actor: ResolveMemberAccessRequestActor,
+  request: MemberAccessRequestRecord,
+): void {
+  if (actor.role === "ADMIN" || actor.role === "SUPER_ADMIN") {
+    if (!ADMIN_MANAGEABLE_REQUEST_ROLES.includes(request.role)) {
+      throw new DbAuthorizationError(
+        "You do not have permission to resolve requests for this role.",
+      );
+    }
+    return;
+  }
+
+  if (actor.role === "TEAM_LEAD" || actor.role === "LEAD_TRAINEE") {
+    if (!TEAM_LEAD_MANAGEABLE_REQUEST_ROLES.includes(request.role)) {
+      throw new DbAuthorizationError(
+        "You do not have permission to resolve requests for this role.",
+      );
+    }
+
+    if (!actor.team || request.team !== actor.team) {
+      throw new DbAuthorizationError(
+        "You do not have permission to resolve requests for another team.",
+      );
+    }
+
+    if (!actor.platform || request.platform !== actor.platform) {
+      throw new DbAuthorizationError(
+        "You do not have permission to resolve requests for another platform.",
+      );
+    }
+
+    return;
+  }
+
+  throw new DbAuthorizationError();
+}
+
+/**
  * Resolves the pending member-access request for a request id.
  *
  * The request status, user role/team, and notification are written in one
  * transaction so an authorized decision either commits fully or not at all.
+ * Authorization is re-checked inside the transaction.
  *
  * @param requestId The member-access request document id.
  * @param decision The resolution decision to apply.
  * @param notificationMessage The notification to append to the requester.
+ * @param actor The actor resolving the request.
  * @returns The normalized request record that was resolved.
  */
 export async function resolveMemberAccessRequest(
   requestId: string,
   decision: MemberAccessDecision,
   notificationMessage: string,
+  actor: ResolveMemberAccessRequestActor,
 ): Promise<MemberAccessRequestRecord> {
   const requestRef = memberAccessRequestsCollection.doc(requestId);
 
@@ -174,6 +239,8 @@ export async function resolveMemberAccessRequest(
         "Member access request is no longer pending.",
       );
     }
+
+    assertCanResolveMemberAccessRequest(actor, request);
 
     if (decision === "ACCEPT") {
       if (!isAssignableUserRole(request.role)) {

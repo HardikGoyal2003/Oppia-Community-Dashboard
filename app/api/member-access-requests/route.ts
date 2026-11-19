@@ -11,6 +11,7 @@ import {
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { isAssignableUserRole } from "@/lib/auth/roles";
 import {
+  DbAuthorizationError,
   DbInvalidStateError,
   DbNotFoundError,
   DbValidationError,
@@ -183,16 +184,6 @@ export async function PATCH(req: Request) {
   try {
     const request = await getMemberAccessRequestById(requestId);
 
-    if (!ADMIN_MANAGEABLE_ROLES.includes(request.role)) {
-      return NextResponse.json(
-        {
-          error:
-            "You do not have permission to resolve requests for this role.",
-        },
-        { status: 403 },
-      );
-    }
-
     let notificationMessage: string;
 
     if (decision === "ACCEPT") {
@@ -211,8 +202,16 @@ export async function PATCH(req: Request) {
       );
     }
 
-    await resolveMemberAccessRequest(requestId, decision, notificationMessage);
+    await resolveMemberAccessRequest(requestId, decision, notificationMessage, {
+      role: session.user.role,
+      team: session.user.team ?? null,
+      platform: session.user.platform ?? null,
+    });
   } catch (error) {
+    if (error instanceof DbAuthorizationError) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+
     if (error instanceof DbNotFoundError) {
       return NextResponse.json({ error: error.message }, { status: 404 });
     }
