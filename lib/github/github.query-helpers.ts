@@ -246,7 +246,7 @@ export async function fetchRecentIssueNodes(
             title
             url
             state
-            comments(first: 20, orderBy: { field: UPDATED_AT, direction: DESC }) {
+            comments(first: 1, orderBy: { field: UPDATED_AT, direction: DESC }) {
               nodes {
                 author { login }
                 createdAt

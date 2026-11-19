@@ -1,14 +1,17 @@
 import { parseTimestampMs } from "@/lib/utils/date.utils";
 import type { OrgMetaRecord } from "@/db/org-meta/org-meta.mapper";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
-import {
-  getEffectiveLatestIssueComment,
-  mapGitHubIssueNodes,
-} from "./github-issues.mapper";
+import { mapGitHubIssueNodes } from "./github-issues.mapper";
 import { resolveMaintainerAccess } from "./github-maintainers";
 import { fetchRecentIssueNodes } from "./github.query-helpers";
 import { fetchGitHubRateLimit } from "./github.rate-limit";
 import type { GitHubIssue, GitHubRepoTarget } from "./github.types";
+
+const IGNORED_UNANSWERED_COMMENTERS = new Set([
+  "oppia-github-app",
+  "github-actions",
+  "github-actions[bot]",
+]);
 
 /**
  * Fetches unanswered issues whose latest recent comment came from a non-maintainer.
@@ -43,7 +46,7 @@ export async function fetchUnansweredIssues(
       return false;
     }
 
-    const lastComment = getEffectiveLatestIssueComment(issue);
+    const lastComment = issue.comments.nodes[0];
 
     if (!lastComment) {
       return false;
@@ -65,7 +68,7 @@ export async function fetchUnansweredIssues(
       orgMembers.has(commenter) ||
       collabAll.has(commenter) ||
       maintainers.has(commenter) ||
-      commenter === "oppia-github-app";
+      IGNORED_UNANSWERED_COMMENTERS.has(commenter);
 
     return !isAllowed;
   });
