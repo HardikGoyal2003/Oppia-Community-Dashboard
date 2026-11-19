@@ -60,15 +60,15 @@ export async function saveUserJourneyProgressByUid(
  *
  * @param uid The user id to update.
  * @param itemId The stable manual item id to mark complete.
- * @returns A promise that resolves when the write finishes.
+ * @returns The persisted journey progress model after the write attempt.
  */
 export async function markManualJourneyItemCompletedByUid(
   uid: string,
   itemId: string,
-): Promise<void> {
+): Promise<UserJourneyProgressModel> {
   const docRef = userJourneyProgressCollection.doc(uid);
 
-  await userJourneyProgressCollection.firestore.runTransaction(
+  return userJourneyProgressCollection.firestore.runTransaction(
     async (transaction) => {
       const snap = await getRequiredTransactionDocumentSnapshot(
         transaction,
@@ -79,16 +79,21 @@ export async function markManualJourneyItemCompletedByUid(
       const currentState = progress.manualProgress[itemId];
 
       if (currentState?.completed) {
-        return;
+        return progress;
       }
+
+      const completedAt = new Date();
+      const updatedAt = new Date();
 
       progress.manualProgress[itemId] = {
         completed: true,
-        completedAt: new Date(),
+        completedAt,
       };
-      progress.updatedAt = new Date();
+      progress.updatedAt = updatedAt;
 
       transaction.set(docRef, serializeUserJourneyProgress(progress));
+
+      return progress;
     },
   );
 }
@@ -99,16 +104,20 @@ export async function markManualJourneyItemCompletedByUid(
  * @param uid The user id to update.
  * @param key The derived journey key to update.
  * @param state The derived progress state to persist.
- * @returns A promise that resolves when the write finishes.
+ * @returns The persisted derived progress state and document update timestamp.
  */
 export async function setDerivedJourneyStateByUid(
   uid: string,
   key: DerivedJourneyKey,
   state: DerivedProgressState,
-): Promise<void> {
+): Promise<{ state: DerivedProgressState; updatedAt: Date }> {
+  const updatedAt = new Date();
+
   await updateRequiredDocument(
     "User journey progress",
     userJourneyProgressCollection.doc(uid),
-    serializeDerivedJourneyStateUpdate(key, state),
+    serializeDerivedJourneyStateUpdate(key, state, updatedAt),
   );
+
+  return { state, updatedAt };
 }

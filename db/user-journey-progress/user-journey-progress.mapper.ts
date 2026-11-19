@@ -336,14 +336,16 @@ export function serializeUserJourneyProgress(
  *
  * @param key The derived journey key to update.
  * @param state The derived progress state to persist.
+ * @param updatedAt The document update timestamp to persist.
  * @returns The Firestore-ready partial update document.
  */
 export function serializeDerivedJourneyStateUpdate(
   key: DerivedJourneyKey,
   state: DerivedProgressState,
+  updatedAt: Date,
 ): Record<string, FirestoreDerivedProgressState | Timestamp> {
   return {
     [`derivedState.${key}`]: serializeDerivedProgressState(state),
-    updatedAt: Timestamp.now(),
+    updatedAt: Timestamp.fromDate(updatedAt),
   };
 }

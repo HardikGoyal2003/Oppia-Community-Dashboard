@@ -430,12 +430,12 @@ export async function markContributorJourneyManualItemCompletedByUid(
     );
   }
 
-  await markManualJourneyItemCompletedByUid(uid, itemId);
+  const persistedProgress = await markManualJourneyItemCompletedByUid(
+    uid,
+    itemId,
+  );
 
-  ensured.progress.manualProgress[itemId] = {
-    completed: true,
-    completedAt: new Date(),
+  return {
+    ...persistedProgress,
   };
-
-  return ensured.progress;
 }
