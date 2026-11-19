@@ -20,7 +20,7 @@ type ResolveActor = {
   role: UserRole;
   team: string | null;
   platform: ContributionPlatform | null;
-  githubUsername?: string;
+  githubUsername: string;
 };
 
 type SubmitMemberAccessRequestInput = {
@@ -79,18 +79,21 @@ function getTeamPromotionMessage(role: UserRole, team: string): string {
  *
  * @param reason The decline reason.
  * @param changedByGithubUsername The GitHub username of the actor.
- * @param defaultActorLabel The fallback actor label.
  * @returns The decline notification message.
  */
 function getDeclineMessage(
   reason: string,
-  changedByGithubUsername: string | undefined,
-  defaultActorLabel: string,
+  changedByGithubUsername: string,
 ): string {
-  const actor = changedByGithubUsername ?? defaultActorLabel;
+  if (!changedByGithubUsername.trim()) {
+    throw new DbValidationError(
+      "githubUsername",
+      "Actor GitHub username is required.",
+    );
+  }
 
   return [
-    `Thank you for your request. ${actor} reviewed it and we are unable to approve it at this moment.`,
+    `Thank you for your request. ${changedByGithubUsername} reviewed it and we are unable to approve it at this moment.`,
     `Reason: ${reason}`,
     "Please refine your request and apply again. We appreciate your interest in contributing with us.",
   ].join("\n");
@@ -166,7 +169,6 @@ export async function resolveAdminMemberAccessRequest(input: {
     notificationMessage = getDeclineMessage(
       input.reason,
       input.actor.githubUsername,
-      "Admin",
     );
   }
 
@@ -207,7 +209,6 @@ export async function resolveTeamMemberAccessRequest(input: {
     notificationMessage = getDeclineMessage(
       input.reason,
       input.actor.githubUsername,
-      "Team Lead",
     );
   }
 

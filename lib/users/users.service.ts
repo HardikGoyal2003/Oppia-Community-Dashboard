@@ -1,6 +1,6 @@
 import { getKnownRoleDisplayLabel } from "@/lib/auth/role-display";
 import type { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
-import { DbNotFoundError } from "@/lib/errors";
+import { DbNotFoundError, DbValidationError } from "@/lib/errors";
 import {
   getUserById,
   getUsersByPlatform,
@@ -23,7 +23,7 @@ export type TeamMemberSummary = Pick<
 type UserUpdateActor = {
   role: UserRole;
   team: string | null;
-  githubUsername?: string;
+  githubUsername: string;
 };
 
 /**
@@ -33,22 +33,26 @@ type UserUpdateActor = {
  * @param team The new team, or null when unassigned.
  * @param reason The reason provided for the change.
  * @param changedByGithubUsername The GitHub username of the actor.
- * @param defaultActorLabel The fallback actor label when no username is available.
  * @returns The formatted notification message.
  */
 function getUserAccessUpdatedMessage(
   role: UserRole,
   team: string | null,
   reason: string,
-  changedByGithubUsername: string | undefined,
-  defaultActorLabel: string,
+  changedByGithubUsername: string,
 ): string {
+  if (!changedByGithubUsername.trim()) {
+    throw new DbValidationError(
+      "githubUsername",
+      "Actor GitHub username is required.",
+    );
+  }
+
   const roleLabel = getKnownRoleDisplayLabel(role);
   const teamLabel = team ?? "Unassigned";
-  const actor = changedByGithubUsername ?? defaultActorLabel;
 
   return [
-    `Your access details were updated by ${actor}.`,
+    `Your access details were updated by ${changedByGithubUsername}.`,
     `New role: ${roleLabel}`,
     `New team: ${teamLabel}`,
     `Reason: ${reason}`,
@@ -127,7 +131,6 @@ export async function updateManagedUserAccess(input: {
       input.team,
       input.reason,
       input.actor.githubUsername,
-      "Admin",
     ),
     {
       role: input.actor.role,
@@ -195,7 +198,6 @@ export async function updateTeamMemberAccess(input: {
       input.team,
       input.reason,
       input.actor.githubUsername,
-      "Team Lead",
     ),
     {
       role: input.actor.role,
