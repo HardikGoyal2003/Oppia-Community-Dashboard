@@ -1,6 +1,6 @@
 import { fetchAssignedPRs } from "@/lib/github/github.fetcher";
 import { getReviewers, upsertReviewers } from "@/db/reviewers/reviewers.db";
-import { getReviewerTeamLogins } from "@/lib/team-activity/reviewer-team-logins";
+import { getReviewerTeamLogins } from "@/lib/team-activity/reviewer-team-logins.service";
 import type {
   PendingReview,
   ReviewerDocument,

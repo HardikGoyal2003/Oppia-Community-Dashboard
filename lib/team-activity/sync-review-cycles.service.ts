@@ -5,7 +5,7 @@ import {
 } from "@/lib/github/github.fetcher";
 import { getReviewers, upsertReviewers } from "@/db/reviewers/reviewers.db";
 import type { ReviewerDocument } from "@/lib/domain/reviewer-teams.types";
-import { getReviewerTeamLogins } from "@/lib/team-activity/reviewer-team-logins";
+import { getReviewerTeamLogins } from "@/lib/team-activity/reviewer-team-logins.service";
 import { createNewReviewCycles } from "@/db/review-cycles/review-cycles.db";
 import {
   applyReviewCycleContributions,
