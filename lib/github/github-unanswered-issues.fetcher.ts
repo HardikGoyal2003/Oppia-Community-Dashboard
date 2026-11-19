@@ -1,7 +1,10 @@
 import { parseTimestampMs } from "@/lib/utils/date.utils";
 import type { OrgMetaRecord } from "@/db/org-meta/org-meta.mapper";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
-import { mapGitHubIssueNodes } from "./github-issues.mapper";
+import {
+  getEffectiveLatestIssueComment,
+  mapGitHubIssueNodes,
+} from "./github-issues.mapper";
 import { resolveMaintainerAccess } from "./github-maintainers";
 import { fetchRecentIssueNodes } from "./github.query-helpers";
 import { fetchGitHubRateLimit } from "./github.rate-limit";
@@ -40,7 +43,7 @@ export async function fetchUnansweredIssues(
       return false;
     }
 
-    const lastComment = issue.comments.nodes[0];
+    const lastComment = getEffectiveLatestIssueComment(issue);
 
     if (!lastComment) {
       return false;

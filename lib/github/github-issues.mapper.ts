@@ -1,6 +1,45 @@
 import { LibMappingError } from "@/lib/lib.errors";
 import { GitHubIssue, GitHubIssueNode } from "./github.types";
 
+type IssueCommentNode = GitHubIssueNode["comments"]["nodes"][number];
+
+const EXCLUDED_LAST_COMMENT_LOGINS = new Set([
+  "github-actions",
+  "github-actions[bot]",
+]);
+
+/**
+ * Determines whether a comment author should be excluded from unanswered-issue
+ * last-comment evaluation.
+ *
+ * @param login The comment author's GitHub login.
+ * @returns True when the author is an excluded automated account.
+ */
+function isExcludedLastCommentAuthor(login: string | undefined): boolean {
+  return (
+    login !== undefined && EXCLUDED_LAST_COMMENT_LOGINS.has(login.toLowerCase())
+  );
+}
+
+/**
+ * Returns the most recent issue comment that should count for unanswered-issue
+ * last-comment evaluation.
+ *
+ * @param issue The raw GitHub issue node.
+ * @returns The effective latest comment, or null when none qualifies.
+ */
+export function getEffectiveLatestIssueComment(
+  issue: GitHubIssueNode,
+): IssueCommentNode | null {
+  for (const comment of issue.comments.nodes) {
+    if (!isExcludedLastCommentAuthor(comment.author?.login)) {
+      return comment;
+    }
+  }
+
+  return null;
+}
+
 /**
  * Validates that a GitHub issue node contains the fields required by the dashboard formatter.
  *
@@ -8,7 +47,7 @@ import { GitHubIssue, GitHubIssueNode } from "./github.types";
  * @returns Nothing. Throws when required issue fields are missing.
  */
 function assertFormattableIssue(issue: GitHubIssueNode): void {
-  const latestComment = issue.comments.nodes[0];
+  const latestComment = getEffectiveLatestIssueComment(issue);
 
   if (!latestComment?.createdAt) {
     throw new LibMappingError(
@@ -73,12 +112,13 @@ function assertNormalizedGitHubIssue(issue: GitHubIssue): void {
 export function mapGitHubIssueNodes(rawData: GitHubIssueNode[]): GitHubIssue[] {
   return rawData.map((issue) => {
     assertFormattableIssue(issue);
+    const latestComment = getEffectiveLatestIssueComment(issue)!;
 
     const normalizedIssue: GitHubIssue = {
       issueNumber: issue.number,
       issueUrl: issue.url,
       issueTitle: issue.title,
-      lastCommentCreatedAt: issue.comments.nodes[0].createdAt,
+      lastCommentCreatedAt: latestComment.createdAt,
       linkedProject: issue.projectsV2.nodes[0]?.title || "",
     };
 
