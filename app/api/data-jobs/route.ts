@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
-import { DbNotFoundError } from "@/db/db.errors";
+import { DbNotFoundError } from "@/lib/errors";
 import {
   listAvailableDataJobs,
   listRecentDataJobRuns,
