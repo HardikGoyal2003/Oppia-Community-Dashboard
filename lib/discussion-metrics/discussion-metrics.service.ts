@@ -1,4 +1,4 @@
-import { getDailyDiscussionMetricsSinceDateKey } from "@/db/discussion-metrics/daily-discussion-metrics.db";
+import { getDailyDiscussionMetricsSinceDateKey } from "@/db/daily-discussion-metrics/daily-discussion-metrics.db";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { getIstDateKeyDaysAgo } from "@/lib/utils/date.utils";
 

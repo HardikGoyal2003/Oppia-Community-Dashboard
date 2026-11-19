@@ -1,6 +1,7 @@
 import {
   deleteActionItems,
   getActionItems,
+  getActionItemsByTeamId,
   upsertActionItems,
 } from "@/db/action-items/action-items.db";
 import {
@@ -12,10 +13,6 @@ import {
   TEAM_DEFINITIONS_BY_KEY,
 } from "@/lib/domain/team-definitions";
 import { getTeamReportsSnapshot } from "@/lib/team-reports/team-reports.service";
-import {
-  SCHEMA_KEYS,
-  getCurrentSchemaVersion,
-} from "@/db/schema/schema-version";
 
 /**
  * Builds the document id for an action item. Items live at
@@ -69,7 +66,7 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
     existingItems.map((item) => [`${item.teamId}/${item.id}`, item]),
   );
   const now = new Date();
-  const itemsToUpsert: ActionItemModel[] = [];
+  const itemsToUpsert: Array<Omit<ActionItemModel, "schemaVersion">> = [];
   const touchedKeys = new Set<string>();
 
   let createdCount = 0;
@@ -103,15 +100,15 @@ export async function syncActionItems(): Promise<ActionItemSyncSummary> {
           notificationCount: 0,
           createdAt: now,
           updatedAt: now,
-          schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.ACTION_ITEMS),
         });
         continue;
       }
 
       updatedCount += 1;
+      const { schemaVersion: _schemaVersion, ...priorItem } = prior;
 
       itemsToUpsert.push({
-        ...prior,
+        ...priorItem,
         teamName: report.teamName,
         message: step.message,
         priority: step.priority,
@@ -163,4 +160,22 @@ export function compareActionItemsForDisplay(
   }
 
   return right.detectedAt.getTime() - left.detectedAt.getTime();
+}
+
+/**
+ * Syncs action items and returns the items visible for the requested scope.
+ *
+ * @param scope The requested action-item scope.
+ * @returns The synced and sorted action items for the scope.
+ */
+export async function getSyncedActionItems(scope: {
+  teamId?: string | null;
+}): Promise<ActionItemModel[]> {
+  await syncActionItems();
+
+  const items = scope.teamId
+    ? await getActionItemsByTeamId(scope.teamId)
+    : await getActionItems();
+
+  return items.sort(compareActionItemsForDisplay);
 }

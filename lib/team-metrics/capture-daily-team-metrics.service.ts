@@ -2,7 +2,7 @@ import {
   unarchiveIssue,
   getArchivedIssues,
 } from "@/db/archived-issues/archived-issues.db";
-import { createDailyTeamMetric } from "@/db/team-metrics/daily-team-metrics.db";
+import { createDailyTeamMetric } from "@/db/daily-team-metrics/daily-team-metrics.db";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { GITHUB_REPOS } from "@/lib/config/github.constants";
 import { TEAM_DEFINITIONS } from "@/lib/domain/team-definitions";

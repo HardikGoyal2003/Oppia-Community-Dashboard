@@ -1,19 +1,17 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { DbValidationError } from "@/db/db.errors";
-import type { ContributionPlatform } from "@/lib/auth/auth.types";
-import type {
-  TeamLead,
-  TeamLeadRole,
-  TeamMember,
-  TeamModel,
-} from "@/lib/domain/teams.types";
+import type { TeamLead, TeamMember, TeamModel } from "@/lib/domain/teams.types";
 import {
   assertTimestamp,
   normalizeTimestamp,
+  toFirestoreTimestamp,
 } from "@/db/utils/timestamp.utils";
 import {
+  assertNonEmptyString,
+  assertNonNegativeNumber,
+} from "@/db/utils/validation.utils";
+import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
@@ -21,36 +19,6 @@ import { migrateDocument } from "@/db/schema/schema-migrations";
 export type FirestoreTeam = Omit<TeamModel, "lastUpdated"> & {
   lastUpdated: Timestamp;
 };
-/**
- * Validates that a numeric field is present and non-negative.
- *
- * @param value The numeric value candidate.
- * @param field The Firestore field name being validated.
- * @returns Nothing. Throws when the value is invalid.
- */
-function assertNonNegativeNumber(
-  value: number | undefined,
-  field: string,
-): asserts value is number {
-  if (typeof value !== "number" || Number.isNaN(value) || value < 0) {
-    throw new DbValidationError(
-      field,
-      `${field} must be a non-negative number.`,
-    );
-  }
-}
-
-/**
- * Validates the total GFI count stored on a team document.
- *
- * @param gfiCount The total GFI count candidate.
- * @returns Nothing. Throws when the value is invalid.
- */
-function assertFirestoreGfiCount(
-  gfiCount: number | undefined,
-): asserts gfiCount is number {
-  assertNonNegativeNumber(gfiCount, "gfiCount");
-}
 
 /**
  * Validates the nested team leads array stored on a team document.
@@ -66,19 +34,16 @@ function assertFirestoreTeamLeads(
   }
 
   for (const lead of leads) {
-    if (typeof lead.uid !== "string" || !lead.uid.trim()) {
-      throw new DbValidationError(
-        "leads.uid",
-        "Each team lead uid must be a non-empty string.",
-      );
-    }
-
-    if (typeof lead.username !== "string" || !lead.username.trim()) {
-      throw new DbValidationError(
-        "leads.username",
-        "Each team lead username must be a non-empty string.",
-      );
-    }
+    assertNonEmptyString(
+      "leads.uid",
+      lead.uid,
+      "Each team lead uid must be a non-empty string.",
+    );
+    assertNonEmptyString(
+      "leads.username",
+      lead.username,
+      "Each team lead username must be a non-empty string.",
+    );
 
     if (lead.role !== "TEAM_LEAD" && lead.role !== "LEAD_TRAINEE") {
       throw new DbValidationError(
@@ -103,19 +68,16 @@ function assertFirestoreTeamMembers(
   }
 
   for (const member of members) {
-    if (typeof member.uid !== "string" || !member.uid.trim()) {
-      throw new DbValidationError(
-        "members.uid",
-        "Each team member uid must be a non-empty string.",
-      );
-    }
-
-    if (typeof member.username !== "string" || !member.username.trim()) {
-      throw new DbValidationError(
-        "members.username",
-        "Each team member username must be a non-empty string.",
-      );
-    }
+    assertNonEmptyString(
+      "members.uid",
+      member.uid,
+      "Each team member uid must be a non-empty string.",
+    );
+    assertNonEmptyString(
+      "members.username",
+      member.username,
+      "Each team member username must be a non-empty string.",
+    );
   }
 }
 
@@ -128,12 +90,11 @@ function assertFirestoreTeamMembers(
 function assertFirestoreTeam(
   team: FirebaseFirestore.DocumentData,
 ): asserts team is FirestoreTeam {
-  if (typeof team.teamName !== "string" || !team.teamName.trim()) {
-    throw new DbValidationError(
-      "teamName",
-      "Team teamName must be a non-empty string.",
-    );
-  }
+  assertNonEmptyString(
+    "teamName",
+    team.teamName,
+    "Team teamName must be a non-empty string.",
+  );
 
   if (team.platform !== "WEB" && team.platform !== "ANDROID") {
     throw new DbValidationError(
@@ -144,10 +105,13 @@ function assertFirestoreTeam(
 
   assertFirestoreTeamLeads(team.leads);
   assertFirestoreTeamMembers(team.members);
-  assertFirestoreGfiCount(team.gfiCount);
+  assertNonNegativeNumber(
+    "gfiCount",
+    team.gfiCount,
+    "gfiCount must be a non-negative number.",
+  );
 
   assertTimestamp("Team", "lastUpdated", team.lastUpdated);
-  assertSchemaVersion(SCHEMA_KEYS.TEAMS, team.schemaVersion);
 }
 
 /**
@@ -166,7 +130,7 @@ export function normalizeTeamDocument(
     gfiCount: migratedTeam.gfiCount,
     lastUpdated: normalizeTimestamp(migratedTeam.lastUpdated),
     leads: migratedTeam.leads.map((lead) => ({
-      role: lead.role as TeamLeadRole,
+      role: lead.role,
       uid: lead.uid,
       username: lead.username,
     })),
@@ -174,7 +138,7 @@ export function normalizeTeamDocument(
       uid: member.uid,
       username: member.username,
     })),
-    platform: migratedTeam.platform as ContributionPlatform,
+    platform: migratedTeam.platform,
     teamName: migratedTeam.teamName,
     schemaVersion: migratedTeam.schemaVersion,
   };
@@ -202,10 +166,7 @@ export function serializeTeam(
       uid: member.uid,
       username: member.username,
     })),
-    lastUpdated:
-      team.lastUpdated instanceof Timestamp
-        ? team.lastUpdated
-        : Timestamp.fromDate(team.lastUpdated),
+    lastUpdated: toFirestoreTimestamp(team.lastUpdated),
     platform: team.platform,
     teamName: team.teamName,
     schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.TEAMS),

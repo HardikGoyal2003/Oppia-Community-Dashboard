@@ -16,7 +16,7 @@ Fields:
 - `fullName: string`
 - `photoURL: string`
 - `githubUsername: string`
-- `role: "SUPER_ADMIN" | "ADMIN" | "TEAM_LEAD" | "LEAD_TRAINEE" | "TEAM_MEMBER" | "CONTRIBUTOR"`
+- `role: "SUPER_ADMIN" | "ADMIN" | "TEAM_LEAD" | "LEAD_TRAINEE" | "TEAM_MEMBER" | "CONTRIBUTOR" | "ALUMNI"`
 - `team: "LEAP" | "CORE" | "DEV_WORKFLOW" | "CLAM" | "DEV_WORKFLOW_INFRA" | null` **(Can be null when a new user sign-in on the dashboard)**
 - `platform: "WEB" | "ANDROID" | null` **(Can be null when a new user sign-in on the dashboard)**
 - `createdAt: Timestamp`
@@ -52,7 +52,7 @@ Fields:
 - `linkedProject: string`
 - `platform: "WEB" | "ANDROID"`
 - `archivedBy: string`
-- `archivedAt: Timestamp`
+- `archivedAt?: Timestamp`
 - `schemaVersion: number`
 
 ### `archivedDiscussions`
@@ -110,7 +110,7 @@ Fields:
 
 Document id:
 
-- `${teamId}_${capturedAtMillis}`
+- `${teamId}_${dateKey}`
 
 Fields:
 
@@ -127,7 +127,7 @@ Fields:
 
 Document id:
 
-- `${platform}_${capturedAtMillis}`
+- `${platform}_${dateKey}`
 
 Fields:
 
@@ -172,7 +172,7 @@ Fields:
 - `channel: "EMAIL" | "IN_APP"`
 - `teamKey: string`
 - `periodKey: string` **(IST week-start date key for weekly digests)**
-- `actionItemIds: string[]` **(exact action-item document ids included in the delivery)**
+- `actionItemIds?: string[]` **(exact action-item document ids included in the delivery; defaults to an empty array when absent)**
 - `recipientUids: string[]`
 - `itemCount: number`
 - `status: "SENT" | "SKIPPED" | "FAILED"`
@@ -251,16 +251,16 @@ Fields:
 
 - `teams: string[]`
 - `pendingReviews: Array<{ prNumber: number, title: string, url: string, assignedAt: string }>`
-- `completedReviews: number`
-- `reviewedPrCount: number`
-- `completedReviewSubmissions: number`
-- `approvedPrCount: number`
-- `authoredPrCount: number`
-- `avgReviewTimeHours: number | null`
-- `avgTimeToApprovalHours: number | null`
-- `avgReviewRoundsBeforeApproval: number | null`
-- `avgCommentsPerReview: number | null`
-- `avgReviewsPerWeek: number | null`
+- `completedReviews?: number`
+- `reviewedPrCount?: number`
+- `completedReviewSubmissions?: number`
+- `approvedPrCount?: number`
+- `authoredPrCount?: number`
+- `avgReviewTimeHours?: number | null`
+- `avgTimeToApprovalHours?: number | null`
+- `avgReviewRoundsBeforeApproval?: number | null`
+- `avgCommentsPerReview?: number | null`
+- `avgReviewsPerWeek?: number | null`
 - `lastUpdated: Timestamp`
 - `schemaVersion: number`
 
@@ -373,7 +373,7 @@ Fields:
 
 ## Derived Type Summary
 
-Normalized app-layer models convert Firestore timestamps as follows:
+Normalized app-layer models convert Firestore timestamps to JavaScript `Date` values as follows:
 
 - `users.createdAt -> Date`
 - `users/{uid}/notifications.createdAt -> Date`
@@ -390,7 +390,20 @@ Normalized app-layer models convert Firestore timestamps as follows:
 - `dailyDiscussionMetrics.capturedAt -> Date`
 - `dataJobRuns.startedAt -> Date`
 - `dataJobRuns.finishedAt -> Date | null`
+- `orgMeta.lastUpdated -> Date`
+- `userJourneyProgress.createdAt -> Date`
+- `userJourneyProgress.updatedAt -> Date`
+- `userJourneyProgress.derivedState[*].completedAt -> Date | null`
+- `userJourneyProgress.manualProgress[*].completedAt -> Date | null`
 - `teamReviewers.lastUpdated -> Date`
 - `reviewers.lastUpdated -> Date`
-- `reviewCycleAnalytics.computedAt -> Date`
+- `reviewCyclePrStats.lastUpdated -> Date`
+- `reviewCycleMonthlyReviewers.lastUpdated -> Date`
+- `reviewerCycleAggregates.lastUpdated -> Date`
 - `reviewCycleBackfill.updatedAt -> Date`
+
+Notes:
+
+- `reviewCycleAnalytics` is returned as the stored analytics payload (including `schemaVersion`); its `computedAt` Firestore timestamp is not exposed by the normalizer.
+- Archived issues and discussions normalize stored timestamps to ISO strings in their app-layer records.
+- Review cycle records store `assignedAt`, `completedAt`, and optional `approvedAt` as ISO strings rather than Firestore timestamps.

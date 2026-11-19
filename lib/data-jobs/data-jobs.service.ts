@@ -12,12 +12,11 @@ import {
   getReviewCycleBackfillState,
   saveReviewCycleBackfillState,
 } from "@/db/review-cycle-backfill/review-cycle-backfill.db";
+import { createNewReviewCycles } from "@/db/review-cycles/review-cycles.db";
 import {
   applyReviewCycleContributions,
-  findNewCycleRecords,
   refreshReviewCycleAnalytics,
-  upsertReviewCycles,
-} from "@/db/review-cycles/review-cycles.db";
+} from "@/lib/team-activity/review-cycle-analytics.service";
 import { getTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
 import { getAllUsers, updateUserRoles } from "@/db/users/users.db";
 import { LibInvalidStateError } from "@/lib/lib.errors";
@@ -215,13 +214,14 @@ async function backfillSchemaVersionsJob(
 ): Promise<DataJobResult> {
   const summary = await backfillSchemaVersions({ dryRun: context.dryRun });
   const suffix = context.dryRun ? " (dry run — no changes persisted)" : ".";
+  const action = context.dryRun ? "would be upgraded" : "upgraded";
   const failureSummary =
     summary.failedCount > 0
       ? ` ${summary.failedCount} document(s) could not be migrated.`
       : "";
 
   return {
-    summary: `Schema backfill completed. ${summary.migratedCount} of ${summary.scannedCount} document(s) upgraded${suffix}${failureSummary}`,
+    summary: `Schema backfill completed. ${summary.migratedCount} of ${summary.scannedCount} document(s) ${action}${suffix}${failureSummary}`,
   };
 }
 
@@ -323,11 +323,11 @@ async function backfillReviewCyclesJob(
     });
 
     if (step.records.length > 0) {
-      // Only merge cycles that are not already stored, so re-running the job
-      // after it completes cannot count the same cycle twice.
-      newCycleRecords.push(...(await findNewCycleRecords(step.records)));
-      await upsertReviewCycles(step.records);
-      cyclesWritten += step.records.length;
+      // Claim only cycles that are not already stored, so concurrent runs do
+      // not double-count and only claimed records have contributions applied.
+      const createdRecords = await createNewReviewCycles(step.records);
+      newCycleRecords.push(...createdRecords);
+      cyclesWritten += createdRecords.length;
       for (const record of step.records) {
         affectedLogins.add(record.reviewerLogin);
       }

@@ -1,5 +1,7 @@
 import { DB_PATHS } from "@/db/db-paths";
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
+import { logDbError } from "@/db/db-logger";
+import { chunkValues } from "@/db/utils/batch.utils";
 import {
   isDocumentAtCurrentSchemaVersion,
   migrateDocument,
@@ -37,23 +39,6 @@ const WRITE_CONCURRENCY = 50;
  * mid-write and leaving the run stuck in `RUNNING`.
  */
 const DEFAULT_TIME_BUDGET_MS = 240_000;
-
-/**
- * Splits a list into fixed-size chunks.
- *
- * @param values The values to split.
- * @param size The maximum chunk size.
- * @returns The chunked values.
- */
-function chunkValues<T>(values: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-
-  return chunks;
-}
 
 /**
  * Builds the error used when a backfill stops early to stay within the
@@ -200,7 +185,8 @@ function buildSchemaCollectionTargets(): SchemaCollectionTarget[] {
  * @param options Backfill options.
  * @param options.dryRun When true, scans and reports without writing.
  * @param options.timeBudgetMs Optional maximum time to spend before pausing.
- * @returns The number of scanned, migrated, and failed documents.
+ * @returns The number of scanned, migrated (or that would be migrated in a dry
+ * run), and failed documents.
  * @throws {Error} When the time budget is exhausted before every collection is
  * scanned. Re-running the job continues where the previous pass stopped because
  * documents already at the current version are skipped.
@@ -240,9 +226,9 @@ export async function backfillSchemaVersions(options: {
         }
 
         summary.failedCount += 1;
-        console.error(
+        logDbError(
           `Failed to persist migrated document ${chunk[index].ref.path}.`,
-          result.reason,
+          result.reason as object,
         );
       });
     }
@@ -288,9 +274,9 @@ export async function backfillSchemaVersions(options: {
         }
       } catch (error) {
         summary.failedCount += 1;
-        console.error(
+        logDbError(
           `Failed to backfill schema version for ${target.label}/${doc.id}.`,
-          error,
+          error as object,
         );
       }
     }

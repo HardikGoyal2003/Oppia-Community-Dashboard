@@ -11,7 +11,7 @@ import {
   DbInvalidStateError,
   DbNotFoundError,
   DbValidationError,
-} from "@/db/db.errors";
+} from "@/lib/errors";
 
 type VerificationRequestBody = {
   url: string;

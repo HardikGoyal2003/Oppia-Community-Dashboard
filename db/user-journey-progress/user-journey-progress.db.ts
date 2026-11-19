@@ -1,38 +1,45 @@
-import { Timestamp } from "firebase-admin/firestore";
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import type {
   DerivedJourneyKey,
   DerivedProgressState,
   UserJourneyProgressModel,
 } from "@/lib/domain/contributor-journey.types";
+import { DERIVED_JOURNEY_KEYS } from "@/lib/domain/contributor-journey.types";
 import { DB_PATHS } from "@/db/db-paths";
-import { getRequiredDocumentRef } from "@/db/utils/document.utils";
+import { DbValidationError } from "@/db/db.errors";
+import {
+  getRequiredTransactionDocumentSnapshot,
+  updateRequiredDocument,
+} from "@/db/utils/document.utils";
+import { assertNonEmptyId } from "@/db/utils/validation.utils";
 import {
   FirestoreUserJourneyProgress,
   normalizeUserJourneyProgressDocument,
-  serializeDerivedProgressState,
+  serializeDerivedJourneyStateUpdate,
   serializeUserJourneyProgress,
 } from "./user-journey-progress.mapper";
+
+/**
+ * Validates that a derived journey key is allowlisted.
+ *
+ * @param key The derived journey key to validate.
+ * @returns Nothing. Throws when the key is not supported.
+ */
+function assertDerivedJourneyKey(
+  key: string,
+): asserts key is DerivedJourneyKey {
+  if (!DERIVED_JOURNEY_KEYS.includes(key as DerivedJourneyKey)) {
+    throw new DbValidationError(
+      "key",
+      "Derived journey key must be a supported value.",
+    );
+  }
+}
 
 const db = getAdminFirestore();
 const userJourneyProgressCollection = db.collection(
   DB_PATHS.USER_JOURNEY_PROGRESS.COLLECTION,
 ) as FirebaseFirestore.CollectionReference<FirestoreUserJourneyProgress>;
-
-/**
- * Resolves a user journey progress document reference and guarantees it exists.
- *
- * @param uid The user id whose journey progress document is required.
- * @returns The existing journey progress document reference.
- */
-async function getRequiredJourneyProgressDocRefByUid(
-  uid: string,
-): Promise<FirebaseFirestore.DocumentReference<FirestoreUserJourneyProgress>> {
-  return getRequiredDocumentRef(
-    "User journey progress",
-    userJourneyProgressCollection.doc(uid),
-  );
-}
 
 /**
  * Retrieves stored user journey progress by uid.
@@ -43,6 +50,7 @@ async function getRequiredJourneyProgressDocRefByUid(
 export async function getUserJourneyProgressByUid(
   uid: string,
 ): Promise<UserJourneyProgressModel | null> {
+  assertNonEmptyId("uid", uid);
   const snap = await userJourneyProgressCollection.doc(uid).get();
 
   if (!snap.exists) {
@@ -63,6 +71,7 @@ export async function saveUserJourneyProgressByUid(
   uid: string,
   progress: Omit<UserJourneyProgressModel, "schemaVersion">,
 ): Promise<void> {
+  assertNonEmptyId("uid", uid);
   await userJourneyProgressCollection
     .doc(uid)
     .set(serializeUserJourneyProgress(progress));
@@ -73,31 +82,42 @@ export async function saveUserJourneyProgressByUid(
  *
  * @param uid The user id to update.
  * @param itemId The stable manual item id to mark complete.
- * @returns A promise that resolves when the write finishes.
+ * @returns The persisted journey progress model after the write attempt.
  */
 export async function markManualJourneyItemCompletedByUid(
   uid: string,
   itemId: string,
-): Promise<void> {
-  const docRef = await getRequiredJourneyProgressDocRefByUid(uid);
+): Promise<UserJourneyProgressModel> {
+  assertNonEmptyId("uid", uid);
+  assertNonEmptyId("itemId", itemId);
+  const docRef = userJourneyProgressCollection.doc(uid);
 
-  await userJourneyProgressCollection.firestore.runTransaction(
+  return userJourneyProgressCollection.firestore.runTransaction(
     async (transaction) => {
-      const snap = await transaction.get(docRef);
+      const snap = await getRequiredTransactionDocumentSnapshot(
+        transaction,
+        "User journey progress",
+        docRef,
+      );
       const progress = normalizeUserJourneyProgressDocument(snap.data()!);
       const currentState = progress.manualProgress[itemId];
 
       if (currentState?.completed) {
-        return;
+        return progress;
       }
+
+      const completedAt = new Date();
+      const updatedAt = new Date();
 
       progress.manualProgress[itemId] = {
         completed: true,
-        completedAt: new Date(),
+        completedAt,
       };
-      progress.updatedAt = new Date();
+      progress.updatedAt = updatedAt;
 
       transaction.set(docRef, serializeUserJourneyProgress(progress));
+
+      return progress;
     },
   );
 }
@@ -108,17 +128,22 @@ export async function markManualJourneyItemCompletedByUid(
  * @param uid The user id to update.
  * @param key The derived journey key to update.
  * @param state The derived progress state to persist.
- * @returns A promise that resolves when the write finishes.
+ * @returns The persisted derived progress state and document update timestamp.
  */
 export async function setDerivedJourneyStateByUid(
   uid: string,
   key: DerivedJourneyKey,
   state: DerivedProgressState,
-): Promise<void> {
-  const docRef = await getRequiredJourneyProgressDocRefByUid(uid);
+): Promise<{ state: DerivedProgressState; updatedAt: Date }> {
+  assertNonEmptyId("uid", uid);
+  assertDerivedJourneyKey(key);
+  const updatedAt = new Date();
 
-  await docRef.update({
-    [`derivedState.${key}`]: serializeDerivedProgressState(state),
-    updatedAt: Timestamp.now(),
-  });
+  await updateRequiredDocument(
+    "User journey progress",
+    userJourneyProgressCollection.doc(uid),
+    serializeDerivedJourneyStateUpdate(key, state, updatedAt),
+  );
+
+  return { state, updatedAt };
 }

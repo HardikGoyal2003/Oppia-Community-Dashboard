@@ -2,6 +2,10 @@ import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import type { ReviewerDocument } from "@/lib/domain/reviewer-teams.types";
 import { DB_PATHS } from "@/db/db-paths";
 import {
+  FIRESTORE_READ_CHUNK_SIZE,
+  FIRESTORE_WRITE_BATCH_SIZE,
+} from "@/db/utils/batch.utils";
+import {
   type FirestoreReviewer,
   normalizeReviewer,
   serializeReviewer,
@@ -38,12 +42,17 @@ export async function upsertReviewers(
     doc: Omit<ReviewerDocument, "schemaVersion">;
   }>,
 ): Promise<void> {
-  const BATCH_SIZE = 400;
+  for (
+    let start = 0;
+    start < entries.length;
+    start += FIRESTORE_WRITE_BATCH_SIZE
+  ) {
+    const batch = collection.firestore.batch();
 
-  for (let start = 0; start < entries.length; start += BATCH_SIZE) {
-    const batch = db.batch();
-
-    for (const { login, doc } of entries.slice(start, start + BATCH_SIZE)) {
+    for (const { login, doc } of entries.slice(
+      start,
+      start + FIRESTORE_WRITE_BATCH_SIZE,
+    )) {
       batch.set(collection.doc(login), serializeReviewer(doc));
     }
 
@@ -65,11 +74,14 @@ export async function getReviewers(
 ): Promise<Map<string, ReviewerDocument>> {
   const uniqueLogins = Array.from(new Set(logins));
   const reviewers = new Map<string, ReviewerDocument>();
-  const CHUNK_SIZE = 300;
 
-  for (let start = 0; start < uniqueLogins.length; start += CHUNK_SIZE) {
-    const chunk = uniqueLogins.slice(start, start + CHUNK_SIZE);
-    const snapshots = await db.getAll(
+  for (
+    let start = 0;
+    start < uniqueLogins.length;
+    start += FIRESTORE_READ_CHUNK_SIZE
+  ) {
+    const chunk = uniqueLogins.slice(start, start + FIRESTORE_READ_CHUNK_SIZE);
+    const snapshots = await collection.firestore.getAll(
       ...chunk.map((login) => collection.doc(login)),
     );
 

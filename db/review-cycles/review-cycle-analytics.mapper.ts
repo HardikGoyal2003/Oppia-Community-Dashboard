@@ -2,7 +2,6 @@ import { Timestamp } from "firebase-admin/firestore";
 import { DbValidationError } from "@/db/db.errors";
 import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
@@ -30,7 +29,7 @@ export type FirestoreReviewCycleAnalytics = ReviewerTeamsAnalytics & {
 function assertArrayOfObjects(
   field: string,
   value: FirebaseFirestore.DocumentData | undefined,
-): void {
+): asserts value is FirebaseFirestore.DocumentData[] {
   if (!Array.isArray(value)) {
     throw new DbValidationError(field, `${field} must be an array.`);
   }
@@ -54,68 +53,85 @@ function assertFirestoreReviewCycleAnalytics(
   data: FirebaseFirestore.DocumentData,
 ): asserts data is FirestoreReviewCycleAnalytics {
   assertArrayOfObjects("weeklyReviews", data.weeklyReviews);
-  for (const point of data.weeklyReviews as Array<FirebaseFirestore.DocumentData>) {
+  for (const point of data.weeklyReviews) {
     if (
       typeof point.weekStart !== "string" ||
-      typeof point.reviews !== "number"
+      typeof point.reviews !== "number" ||
+      !Number.isFinite(point.reviews) ||
+      point.reviews < 0
     ) {
       throw new DbValidationError(
         "weeklyReviews",
-        "Each weekly review must have a string weekStart and a numeric reviews.",
+        "Each weekly review must have a string weekStart and a finite non-negative reviews.",
       );
     }
   }
 
   assertArrayOfObjects("monthlyUniqueReviewers", data.monthlyUniqueReviewers);
-  for (const point of data.monthlyUniqueReviewers as Array<FirebaseFirestore.DocumentData>) {
+  for (const point of data.monthlyUniqueReviewers) {
     if (
       typeof point.month !== "string" ||
-      typeof point.uniqueReviewers !== "number"
+      typeof point.uniqueReviewers !== "number" ||
+      !Number.isFinite(point.uniqueReviewers) ||
+      point.uniqueReviewers < 0
     ) {
       throw new DbValidationError(
         "monthlyUniqueReviewers",
-        "Each monthly point must have a string month and a numeric uniqueReviewers.",
+        "Each monthly point must have a string month and a finite non-negative uniqueReviewers.",
       );
     }
   }
 
   assertArrayOfObjects("topApprovers", data.topApprovers);
-  for (const point of data.topApprovers as Array<FirebaseFirestore.DocumentData>) {
+  for (const point of data.topApprovers) {
     if (
       typeof point.username !== "string" ||
       typeof point.approvals !== "number" ||
-      typeof point.sharePct !== "number"
+      !Number.isFinite(point.approvals) ||
+      point.approvals < 0 ||
+      typeof point.sharePct !== "number" ||
+      !Number.isFinite(point.sharePct) ||
+      point.sharePct < 0
     ) {
       throw new DbValidationError(
         "topApprovers",
-        "Each approver must have a string username and numeric approvals/sharePct.",
+        "Each approver must have a string username and finite non-negative approvals/sharePct.",
       );
     }
   }
 
   assertArrayOfObjects("prSizeScatter", data.prSizeScatter);
-  for (const point of data.prSizeScatter as Array<FirebaseFirestore.DocumentData>) {
+  for (const point of data.prSizeScatter) {
     if (
       typeof point.prNumber !== "number" ||
+      !Number.isFinite(point.prNumber) ||
+      point.prNumber < 0 ||
       typeof point.additions !== "number" ||
-      typeof point.reviewTimeHours !== "number"
+      !Number.isFinite(point.additions) ||
+      point.additions < 0 ||
+      typeof point.reviewTimeHours !== "number" ||
+      !Number.isFinite(point.reviewTimeHours) ||
+      point.reviewTimeHours < 0
     ) {
       throw new DbValidationError(
         "prSizeScatter",
-        "Each scatter point must have numeric prNumber, additions, and reviewTimeHours.",
+        "Each scatter point must have finite non-negative prNumber, additions, and reviewTimeHours.",
       );
     }
   }
 
-  if (typeof data.totalApprovals !== "number") {
+  if (
+    typeof data.totalApprovals !== "number" ||
+    !Number.isFinite(data.totalApprovals) ||
+    data.totalApprovals < 0
+  ) {
     throw new DbValidationError(
       "totalApprovals",
-      "totalApprovals must be a number.",
+      "totalApprovals must be a finite non-negative number.",
     );
   }
 
   assertTimestamp("ReviewCycleAnalytics", "computedAt", data.computedAt);
-  assertSchemaVersion(SCHEMA_KEYS.REVIEW_CYCLE_ANALYTICS, data.schemaVersion);
 }
 
 /**
@@ -151,6 +167,6 @@ export function serializeReviewCycleAnalytics(
   return {
     ...analytics,
     schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.REVIEW_CYCLE_ANALYTICS),
-    computedAt: Timestamp.fromDate(new Date()),
+    computedAt: Timestamp.now(),
   };
 }

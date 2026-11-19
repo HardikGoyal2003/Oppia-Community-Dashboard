@@ -2,7 +2,6 @@ import { Timestamp } from "firebase-admin/firestore";
 import { DbValidationError } from "@/db/db.errors";
 import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
@@ -10,6 +9,7 @@ import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
+import { assertFiniteNumber } from "@/db/utils/validation.utils";
 
 /**
  * Per-reviewer facts derived from a reviewer's cycles on one PR.
@@ -40,26 +40,10 @@ export type ReviewCyclePrStatsDocument = {
   schemaVersion: number;
 };
 
-type FirestoreReviewCyclePrStats = Omit<
+export type FirestoreReviewCyclePrStats = Omit<
   ReviewCyclePrStatsDocument,
   "lastUpdated"
 > & { lastUpdated: Timestamp };
-
-/**
- * Asserts that a field is a finite number.
- *
- * @param field The field name being validated.
- * @param value The raw value.
- * @returns Nothing. Throws when the value is invalid.
- */
-function assertFiniteNumber(
-  field: string,
-  value: FirebaseFirestore.DocumentData[string],
-): asserts value is number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new DbValidationError(field, `${field} must be a finite number.`);
-  }
-}
 
 /**
  * Asserts that a value is a reviewer fact.
@@ -86,13 +70,10 @@ function assertReviewerFact(
     throw new DbValidationError(`${field}.month`, "month must be a string.");
   }
   assertFiniteNumber(`${field}.submissions`, value.submissions);
-  if (
-    value.roundsBeforeApproval !== null &&
-    (typeof value.roundsBeforeApproval !== "number" ||
-      !Number.isFinite(value.roundsBeforeApproval))
-  ) {
-    throw new DbValidationError(
+  if (value.roundsBeforeApproval !== null) {
+    assertFiniteNumber(
       `${field}.roundsBeforeApproval`,
+      value.roundsBeforeApproval,
       "roundsBeforeApproval must be a finite number or null.",
     );
   }
@@ -115,12 +96,10 @@ function assertFirestoreReviewCyclePrStats(
   data: FirebaseFirestore.DocumentData,
 ): asserts data is FirestoreReviewCyclePrStats {
   assertFiniteNumber("prNumber", data.prNumber);
-  if (
-    data.additions !== null &&
-    (typeof data.additions !== "number" || !Number.isFinite(data.additions))
-  ) {
-    throw new DbValidationError(
+  if (data.additions !== null) {
+    assertFiniteNumber(
       "additions",
+      data.additions,
       "additions must be a finite number or null.",
     );
   }
@@ -145,7 +124,6 @@ function assertFirestoreReviewCyclePrStats(
   }
 
   assertTimestamp("ReviewCyclePrStats", "lastUpdated", data.lastUpdated);
-  assertSchemaVersion(SCHEMA_KEYS.REVIEW_CYCLE_PR_STATS, data.schemaVersion);
 }
 
 /**

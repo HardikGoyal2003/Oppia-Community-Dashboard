@@ -1,65 +1,65 @@
-export const DB_PATHS = {
-  ARCHIVED_ISSUES: {
+export const DB_PATHS = Object.freeze({
+  ARCHIVED_ISSUES: Object.freeze({
     COLLECTION: "archivedIssues",
-  },
-  ARCHIVED_DISCUSSIONS: {
+  }),
+  ARCHIVED_DISCUSSIONS: Object.freeze({
     COLLECTION: "archivedDiscussions",
-  },
-  DATA_JOB_RUNS: {
+  }),
+  DATA_JOB_RUNS: Object.freeze({
     COLLECTION: "dataJobRuns",
-  },
-  USER_JOURNEY_PROGRESS: {
+  }),
+  USER_JOURNEY_PROGRESS: Object.freeze({
     COLLECTION: "userJourneyProgress",
-  },
-  MEMBER_ACCESS_REQUESTS: {
+  }),
+  MEMBER_ACCESS_REQUESTS: Object.freeze({
     COLLECTION: "memberAccessRequests",
-  },
-  ACTION_ITEMS: {
+  }),
+  ACTION_ITEMS: Object.freeze({
     COLLECTION: "actionItems",
-  },
-  NOTIFICATION_DELIVERIES: {
+  }),
+  NOTIFICATION_DELIVERIES: Object.freeze({
     COLLECTION: "notificationDeliveries",
-  },
-  TEAMS: {
+  }),
+  TEAMS: Object.freeze({
     COLLECTION: "teams",
-  },
-  DAILY_TEAM_METRICS: {
+  }),
+  DAILY_TEAM_METRICS: Object.freeze({
     COLLECTION: "dailyTeamMetrics",
-  },
-  DAILY_DISCUSSION_METRICS: {
+  }),
+  DAILY_DISCUSSION_METRICS: Object.freeze({
     COLLECTION: "dailyDiscussionMetrics",
-  },
-  USERS: {
+  }),
+  USERS: Object.freeze({
     COLLECTION: "users",
     NOTIFICATIONS_SUBCOLLECTION: "notifications",
-  },
-  ORG_META: {
+  }),
+  ORG_META: Object.freeze({
     COLLECTION: "orgMeta",
-  },
-  TEAM_REVIEWERS: {
+  }),
+  TEAM_REVIEWERS: Object.freeze({
     COLLECTION: "teamReviewers",
-  },
-  REVIEWERS: {
+  }),
+  REVIEWERS: Object.freeze({
     COLLECTION: "reviewers",
-  },
-  REVIEW_CYCLES: {
+  }),
+  REVIEW_CYCLES: Object.freeze({
     COLLECTION: "reviewCycles",
-  },
-  REVIEWER_CYCLE_AGGREGATES: {
+  }),
+  REVIEWER_CYCLE_AGGREGATES: Object.freeze({
     COLLECTION: "reviewerCycleAggregates",
-  },
-  REVIEW_CYCLE_PR_STATS: {
+  }),
+  REVIEW_CYCLE_PR_STATS: Object.freeze({
     COLLECTION: "reviewCyclePrStats",
-  },
-  REVIEW_CYCLE_MONTHLY_REVIEWERS: {
+  }),
+  REVIEW_CYCLE_MONTHLY_REVIEWERS: Object.freeze({
     COLLECTION: "reviewCycleMonthlyReviewers",
-  },
-  REVIEW_CYCLE_ANALYTICS: {
+  }),
+  REVIEW_CYCLE_ANALYTICS: Object.freeze({
     COLLECTION: "reviewCycleAnalytics",
     SNAPSHOT_DOC: "WEB",
-  },
-  REVIEW_CYCLE_BACKFILL: {
+  }),
+  REVIEW_CYCLE_BACKFILL: Object.freeze({
     COLLECTION: "reviewCycleBackfill",
     STATE_DOC: "state",
-  },
-} as const;
+  }),
+});

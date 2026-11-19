@@ -1,4 +1,4 @@
-import { createDailyTeamMetric } from "@/db/team-metrics/daily-team-metrics.db";
+import { createDailyTeamMetric } from "@/db/daily-team-metrics/daily-team-metrics.db";
 import { upsertTeam } from "@/db/teams/teams.db";
 import { TEAM_DEFINITIONS } from "@/lib/domain/team-definitions";
 import type { TeamLead, TeamMember } from "@/lib/domain/teams.types";

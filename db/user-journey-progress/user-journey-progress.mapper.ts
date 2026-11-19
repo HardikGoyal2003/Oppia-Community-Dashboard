@@ -1,20 +1,38 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { DbValidationError } from "@/db/db.errors";
 import {
+  assertOptionalTimestamp,
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
 import type {
+  DerivedJourneyKey,
   DerivedProgressState,
   ManualProgressState,
   UserJourneyProgressModel,
 } from "@/lib/domain/contributor-journey.types";
 import { DERIVED_JOURNEY_KEYS } from "@/lib/domain/contributor-journey.types";
+
+/**
+ * Validates that a derived journey key is allowlisted.
+ *
+ * @param key The derived journey key to validate.
+ * @returns Nothing. Throws when the key is not supported.
+ */
+function assertDerivedJourneyKey(
+  key: DerivedJourneyKey | string,
+): asserts key is DerivedJourneyKey {
+  if (!DERIVED_JOURNEY_KEYS.includes(key as DerivedJourneyKey)) {
+    throw new DbValidationError(
+      "key",
+      "Derived journey key must be a supported value.",
+    );
+  }
+}
 import { isContributionPlatform } from "@/lib/auth/auth.types";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
@@ -71,14 +89,11 @@ function assertManualProgressState(
     );
   }
 
-  const completedAt = value.completedAt as Timestamp | null;
-  if (completedAt !== null) {
-    assertTimestamp(
-      "Journey manual progress",
-      `manualProgress.${itemId}.completedAt`,
-      completedAt,
-    );
-  }
+  assertOptionalTimestamp(
+    "Journey manual progress",
+    `manualProgress.${itemId}.completedAt`,
+    value.completedAt,
+  );
 }
 
 /**
@@ -113,14 +128,11 @@ function assertDerivedProgressState(
     );
   }
 
-  const completedAt = value.completedAt as Timestamp | null;
-  if (completedAt !== null) {
-    assertTimestamp(
-      "Journey derived progress",
-      `derivedState.${key}.completedAt`,
-      completedAt,
-    );
-  }
+  assertOptionalTimestamp(
+    "Journey derived progress",
+    `derivedState.${key}.completedAt`,
+    value.completedAt,
+  );
 
   if (
     !("sourceUrl" in value) ||
@@ -161,8 +173,11 @@ function assertFirestoreUserJourneyProgress(
   }
 
   for (const [itemId, value] of Object.entries(
-    progress.manualProgress,
-  ) as Array<[string, FirebaseFirestore.DocumentData | null]>) {
+    progress.manualProgress as Record<
+      string,
+      FirebaseFirestore.DocumentData | null
+    >,
+  )) {
     assertManualProgressState(itemId, value);
   }
 
@@ -190,10 +205,6 @@ function assertFirestoreUserJourneyProgress(
 
   assertTimestamp("Journey progress", "createdAt", progress.createdAt);
   assertTimestamp("Journey progress", "updatedAt", progress.updatedAt);
-  assertSchemaVersion(
-    SCHEMA_KEYS.USER_JOURNEY_PROGRESS,
-    progress.schemaVersion,
-  );
 }
 
 /**
@@ -246,14 +257,21 @@ export function normalizeUserJourneyProgressDocument(
   );
   assertFirestoreUserJourneyProgress(migratedProgress);
 
+  const derivedState: UserJourneyProgressModel["derivedState"] = {
+    FIRST_ISSUE_CLAIMED: normalizeDerivedProgressState(
+      migratedProgress.derivedState.FIRST_ISSUE_CLAIMED,
+    ),
+    FIRST_PR_MERGED: normalizeDerivedProgressState(
+      migratedProgress.derivedState.FIRST_PR_MERGED,
+    ),
+    SECOND_PR_MERGED: normalizeDerivedProgressState(
+      migratedProgress.derivedState.SECOND_PR_MERGED,
+    ),
+  };
+
   return {
     createdAt: normalizeTimestamp(migratedProgress.createdAt),
-    derivedState: Object.fromEntries(
-      DERIVED_JOURNEY_KEYS.map((key) => [
-        key,
-        normalizeDerivedProgressState(migratedProgress.derivedState[key]),
-      ]),
-    ) as UserJourneyProgressModel["derivedState"],
+    derivedState,
     manualProgress: Object.fromEntries(
       Object.entries(migratedProgress.manualProgress).map(([itemId, state]) => [
         itemId,
@@ -327,5 +345,26 @@ export function serializeUserJourneyProgress(
     platform: progress.platform,
     updatedAt: Timestamp.fromDate(progress.updatedAt),
     schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.USER_JOURNEY_PROGRESS),
+  };
+}
+
+/**
+ * Builds the Firestore update payload for one derived journey state entry.
+ *
+ * @param key The derived journey key to update.
+ * @param state The derived progress state to persist.
+ * @param updatedAt The document update timestamp to persist.
+ * @returns The Firestore-ready partial update document.
+ */
+export function serializeDerivedJourneyStateUpdate(
+  key: DerivedJourneyKey,
+  state: DerivedProgressState,
+  updatedAt: Date,
+): Record<string, FirestoreDerivedProgressState | Timestamp> {
+  assertDerivedJourneyKey(key);
+
+  return {
+    [`derivedState.${key}`]: serializeDerivedProgressState(state),
+    updatedAt: Timestamp.fromDate(updatedAt),
   };
 }

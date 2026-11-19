@@ -39,6 +39,23 @@ function addSchemaVersionField(version: number): SchemaMigration {
 }
 
 /**
+ * Determines whether a value is a valid GFI count.
+ *
+ * @param value The raw value to inspect.
+ * @returns True when the value is a finite, non-negative integer.
+ */
+function isValidGfiCount(
+  value: FirebaseFirestore.DocumentData[string],
+): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value >= 0 &&
+    Number.isInteger(value)
+  );
+}
+
+/**
  * Builds the migration that collapses the per-domain GFI count object into a
  * single total GFI count.
  *
@@ -48,32 +65,71 @@ function collapseTeamGfiCounts(): SchemaMigration {
   return {
     toVersion: 2,
     migrate: (document) => {
-      const rawCounts = document.gfiCounts;
-      const counts =
-        rawCounts !== null && typeof rawCounts === "object"
-          ? (rawCounts as Record<string, number | undefined>)
-          : null;
-      const totalFromCounts = [
+      const legacyFields = [
         "backend",
         "frontend",
         "fullstack",
         "uncategorized",
-      ].reduce((sum, field) => {
-        const value = counts?.[field];
+      ] as const;
 
-        return (
-          sum +
-          (typeof value === "number" && Number.isFinite(value) ? value : 0)
+      if (
+        document.gfiCount !== undefined &&
+        !isValidGfiCount(document.gfiCount)
+      ) {
+        throw new DbValidationError(
+          "gfiCount",
+          "gfiCount must be a finite non-negative integer.",
         );
-      }, 0);
-      const existingTotal =
-        typeof document.gfiCount === "number" &&
-        Number.isFinite(document.gfiCount)
-          ? document.gfiCount
-          : 0;
+      }
+
+      const hasExistingGfiCount = isValidGfiCount(document.gfiCount);
+      const rawCounts = document.gfiCounts;
+      let gfiCount = hasExistingGfiCount ? document.gfiCount : 0;
+
+      if (rawCounts !== undefined) {
+        if (
+          rawCounts === null ||
+          typeof rawCounts !== "object" ||
+          Array.isArray(rawCounts)
+        ) {
+          throw new DbValidationError(
+            "gfiCounts",
+            "Legacy gfiCounts must be an object when present.",
+          );
+        }
+
+        const counts = rawCounts as Record<
+          string,
+          FirebaseFirestore.DocumentData[string]
+        >;
+        let hasLegacyCount = false;
+        let derivedTotal = 0;
+
+        for (const field of legacyFields) {
+          if (!(field in counts)) {
+            continue;
+          }
+
+          const value = counts[field];
+          if (!isValidGfiCount(value)) {
+            throw new DbValidationError(
+              `gfiCounts.${field}`,
+              "Legacy GFI counts must be finite non-negative integers.",
+            );
+          }
+
+          hasLegacyCount = true;
+          derivedTotal += value;
+        }
+
+        if (!hasExistingGfiCount && hasLegacyCount) {
+          gfiCount = derivedTotal;
+        }
+      }
+
       const migratedDocument: FirebaseFirestore.DocumentData = {
         ...document,
-        gfiCount: counts ? totalFromCounts : existingTotal,
+        gfiCount,
         schemaVersion: 2,
       };
 
@@ -114,6 +170,54 @@ const SCHEMA_MIGRATIONS: Record<SchemaKey, readonly SchemaMigration[]> = {
   [SCHEMA_KEYS.USER_NOTIFICATIONS]: [addSchemaVersionField(1)],
   [SCHEMA_KEYS.USERS]: [addSchemaVersionField(1)],
 };
+
+/**
+ * Validates that the migration registry is contiguous and consistent with the
+ * supported schema versions.
+ *
+ * @returns Nothing. Throws when the registry is misconfigured.
+ */
+function assertMigrationRegistryInvariants(): void {
+  for (const key of Object.keys(SCHEMA_MIGRATIONS) as SchemaKey[]) {
+    const migrations = SCHEMA_MIGRATIONS[key];
+    const currentVersion = getCurrentSchemaVersion(key);
+    const seenVersions = new Set<number>();
+
+    for (const [index, migration] of migrations.entries()) {
+      if (!Number.isInteger(migration.toVersion) || migration.toVersion <= 0) {
+        throw new DbValidationError(
+          "schemaVersion",
+          `Migration for ${key} must target a positive integer schema version.`,
+        );
+      }
+
+      if (seenVersions.has(migration.toVersion)) {
+        throw new DbValidationError(
+          "schemaVersion",
+          `Duplicate migration for ${key} schema version ${migration.toVersion}.`,
+        );
+      }
+      seenVersions.add(migration.toVersion);
+
+      const expectedVersion = index + 1;
+      if (migration.toVersion !== expectedVersion) {
+        throw new DbValidationError(
+          "schemaVersion",
+          `Migrations for ${key} must be contiguous from version 1; expected ${expectedVersion} but found ${migration.toVersion}.`,
+        );
+      }
+    }
+
+    if (migrations.length !== currentVersion) {
+      throw new DbValidationError(
+        "schemaVersion",
+        `Migrations for ${key} must cover versions 1 through ${currentVersion}.`,
+      );
+    }
+  }
+}
+
+assertMigrationRegistryInvariants();
 
 /**
  * Upgrades a raw Firestore document from its stored schema version to the

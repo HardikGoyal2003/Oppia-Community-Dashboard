@@ -10,15 +10,19 @@ import {
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
 import {
+  assertDateKey,
+  assertNonEmptyString,
+  assertNonNegativeNumber,
+} from "@/db/utils/validation.utils";
+import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
 
 export type FirestoreNotificationDelivery = Omit<
   NotificationDeliveryModel,
-  "recordedAt"
+  "id" | "recordedAt"
 > & {
   recordedAt: Timestamp;
 };
@@ -43,19 +47,11 @@ const DELIVERY_STATUSES: readonly NotificationDeliveryStatus[] = [
 function assertFirestoreNotificationDelivery(
   delivery: FirebaseFirestore.DocumentData,
 ): asserts delivery is FirestoreNotificationDelivery {
-  if (typeof delivery.id !== "string" || !delivery.id.trim()) {
-    throw new DbValidationError(
-      "id",
-      "Delivery id must be a non-empty string.",
-    );
-  }
-
-  if (typeof delivery.kind !== "string" || !delivery.kind.trim()) {
-    throw new DbValidationError(
-      "kind",
-      "Delivery kind must be a non-empty string.",
-    );
-  }
+  assertNonEmptyString(
+    "kind",
+    delivery.kind,
+    "Delivery kind must be a non-empty string.",
+  );
 
   if (!NOTIFICATION_CHANNELS.includes(delivery.channel)) {
     throw new DbValidationError(
@@ -64,19 +60,16 @@ function assertFirestoreNotificationDelivery(
     );
   }
 
-  if (typeof delivery.teamKey !== "string" || !delivery.teamKey.trim()) {
-    throw new DbValidationError(
-      "teamKey",
-      "Delivery teamKey must be a non-empty string.",
-    );
-  }
-
-  if (typeof delivery.periodKey !== "string" || !delivery.periodKey.trim()) {
-    throw new DbValidationError(
-      "periodKey",
-      "Delivery periodKey must be a non-empty string.",
-    );
-  }
+  assertNonEmptyString(
+    "teamKey",
+    delivery.teamKey,
+    "Delivery teamKey must be a non-empty string.",
+  );
+  assertDateKey(
+    "periodKey",
+    delivery.periodKey,
+    "Delivery periodKey must be a YYYY-MM-DD date key.",
+  );
 
   if (
     !Array.isArray(delivery.recipientUids) ||
@@ -99,16 +92,11 @@ function assertFirestoreNotificationDelivery(
     );
   }
 
-  if (
-    typeof delivery.itemCount !== "number" ||
-    Number.isNaN(delivery.itemCount) ||
-    delivery.itemCount < 0
-  ) {
-    throw new DbValidationError(
-      "itemCount",
-      "Delivery itemCount must be a non-negative number.",
-    );
-  }
+  assertNonNegativeNumber(
+    "itemCount",
+    delivery.itemCount,
+    "Delivery itemCount must be a non-negative number.",
+  );
 
   if (!DELIVERY_STATUSES.includes(delivery.status)) {
     throw new DbValidationError(
@@ -125,46 +113,48 @@ function assertFirestoreNotificationDelivery(
   }
 
   assertTimestamp("NotificationDelivery", "recordedAt", delivery.recordedAt);
-  assertSchemaVersion(
-    SCHEMA_KEYS.NOTIFICATION_DELIVERIES,
-    delivery.schemaVersion,
-  );
 }
 
 /**
  * Normalizes raw Firestore notification delivery data into the app model.
  *
- * @param delivery The raw Firestore notification delivery data with its id.
+ * @param id The notification delivery document id.
+ * @param delivery The raw Firestore notification delivery data.
  * @returns The normalized notification delivery model.
  */
 export function normalizeNotificationDeliveryDocument(
-  delivery: FirebaseFirestore.DocumentData & { id: string },
+  id: string,
+  delivery: FirebaseFirestore.DocumentData,
 ): NotificationDeliveryModel {
+  if (typeof id !== "string" || !id.trim()) {
+    throw new DbValidationError(
+      "id",
+      "Delivery id must be a non-empty string.",
+    );
+  }
+
   const migratedDelivery = migrateDocument(
     SCHEMA_KEYS.NOTIFICATION_DELIVERIES,
     delivery,
   );
 
-  // Assert before destructuring: the assertion validates the id field too.
   assertFirestoreNotificationDelivery(migratedDelivery);
-
-  const { id, ...rawDelivery } = migratedDelivery;
 
   return {
     id,
-    kind: rawDelivery.kind,
-    channel: rawDelivery.channel,
-    teamKey: rawDelivery.teamKey,
-    periodKey: rawDelivery.periodKey,
-    actionItemIds: Array.isArray(rawDelivery.actionItemIds)
-      ? [...rawDelivery.actionItemIds]
+    kind: migratedDelivery.kind,
+    channel: migratedDelivery.channel,
+    teamKey: migratedDelivery.teamKey,
+    periodKey: migratedDelivery.periodKey,
+    actionItemIds: Array.isArray(migratedDelivery.actionItemIds)
+      ? [...migratedDelivery.actionItemIds]
       : [],
-    recipientUids: [...rawDelivery.recipientUids],
-    itemCount: rawDelivery.itemCount,
-    status: rawDelivery.status,
-    error: rawDelivery.error,
-    recordedAt: normalizeTimestamp(rawDelivery.recordedAt),
-    schemaVersion: rawDelivery.schemaVersion,
+    recipientUids: [...migratedDelivery.recipientUids],
+    itemCount: migratedDelivery.itemCount,
+    status: migratedDelivery.status,
+    error: migratedDelivery.error,
+    recordedAt: normalizeTimestamp(migratedDelivery.recordedAt),
+    schemaVersion: migratedDelivery.schemaVersion,
   };
 }
 
@@ -178,7 +168,6 @@ export function serializeNotificationDelivery(
   delivery: Omit<NotificationDeliveryModel, "schemaVersion">,
 ): FirestoreNotificationDelivery {
   return {
-    id: delivery.id,
     kind: delivery.kind,
     channel: delivery.channel,
     teamKey: delivery.teamKey,

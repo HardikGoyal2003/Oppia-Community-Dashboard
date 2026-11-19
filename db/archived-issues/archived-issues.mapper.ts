@@ -8,17 +8,52 @@ import {
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
 import {
+  assertHttpUrl,
+  assertNonEmptyString,
+  assertPositiveInteger,
+} from "@/db/utils/validation.utils";
+import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
+
+export type ArchiveIssueInput = {
+  issueNumber: number;
+  issueUrl: string;
+  issueTitle: string;
+  lastCommentCreatedAt: string;
+  linkedProject: string;
+};
+
+/**
+ * Validates archived issue input at the DB boundary.
+ *
+ * @param issue The archived issue input to validate.
+ * @returns Nothing. Throws when the input is invalid.
+ */
+export function assertArchiveIssueInput(issue: ArchiveIssueInput): void {
+  assertPositiveInteger("issueNumber", issue.issueNumber);
+  assertHttpUrl("issueUrl", issue.issueUrl);
+  assertNonEmptyString("issueTitle", issue.issueTitle);
+  if (typeof issue.lastCommentCreatedAt !== "string") {
+    throw new DbValidationError(
+      "lastCommentCreatedAt",
+      "lastCommentCreatedAt must be a valid date string.",
+    );
+  }
+  if (typeof issue.linkedProject !== "string") {
+    throw new DbValidationError(
+      "linkedProject",
+      "linkedProject must be a string.",
+    );
+  }
+}
 
 export type FirestoreArchivedIssue = {
   issueNumber: number;
   issueUrl: string;
   issueTitle: string;
-  isArchived?: boolean;
   lastCommentCreatedAt: Timestamp;
   linkedProject: string;
   platform: ContributionPlatform;
@@ -63,13 +98,6 @@ function assertFirestoreArchivedIssue(
     );
   }
 
-  if (issue.isArchived !== undefined && typeof issue.isArchived !== "boolean") {
-    throw new DbValidationError(
-      "isArchived",
-      "Archived issue isArchived must be a boolean.",
-    );
-  }
-
   assertTimestamp(
     "Archived issue",
     "lastCommentCreatedAt",
@@ -100,8 +128,6 @@ function assertFirestoreArchivedIssue(
   if (issue.archivedAt !== undefined) {
     assertTimestamp("Archived issue", "archivedAt", issue.archivedAt);
   }
-
-  assertSchemaVersion(SCHEMA_KEYS.ARCHIVED_ISSUES, issue.schemaVersion);
 }
 
 /**
@@ -148,16 +174,20 @@ export function normalizeArchivedIssueDocument(
 /**
  * Serializes an archived issue for Firestore storage.
  *
- * @param issue The normalized archived issue.
+ * @param issue The validated archived issue input.
  * @param platform The contribution platform to persist.
  * @param archivedBy The GitHub username of the user who archived the issue.
+ * @param archivedAt The server-generated archive timestamp.
  * @returns The Firestore-ready archived issue document.
  */
 export function serializeArchivedIssue(
-  issue: Issue,
+  issue: ArchiveIssueInput,
   platform: ContributionPlatform,
   archivedBy: string,
+  archivedAt: Date,
 ): FirestoreArchivedIssue {
+  assertArchiveIssueInput(issue);
+
   const lastCommentCreatedAt = parseDateValue(issue.lastCommentCreatedAt);
 
   if (!lastCommentCreatedAt) {
@@ -175,7 +205,7 @@ export function serializeArchivedIssue(
     linkedProject: issue.linkedProject,
     platform,
     archivedBy,
-    archivedAt: Timestamp.now(),
+    archivedAt: Timestamp.fromDate(archivedAt),
     schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.ARCHIVED_ISSUES),
   };
 }

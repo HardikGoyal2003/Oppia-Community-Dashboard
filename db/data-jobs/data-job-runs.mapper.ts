@@ -9,10 +9,10 @@ import {
   assertOptionalTimestamp,
   assertTimestamp,
   normalizeTimestamp,
+  toFirestoreTimestamp,
 } from "@/db/utils/timestamp.utils";
 import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
@@ -37,6 +37,13 @@ export type FirestoreDataJobRun = Omit<
   startedAt: Timestamp;
   finishedAt: Timestamp | null;
 };
+
+/** Summary recorded when a data-job run fails or is interrupted. */
+export const FAILED_DATA_JOB_SUMMARY = "Job failed.";
+
+/** Error recorded on runs that were interrupted before finishing. */
+export const STALE_DATA_JOB_RUN_ERROR_MESSAGE =
+  "Run timed out or was interrupted before it could finish. Re-run the job to continue.";
 
 /**
  * Validates the raw Firestore data-job run document shape.
@@ -112,7 +119,6 @@ function assertFirestoreDataJobRun(
 
   assertTimestamp("Data job run", "startedAt", run.startedAt);
   assertOptionalTimestamp("Data job run", "finishedAt", run.finishedAt);
-  assertSchemaVersion(SCHEMA_KEYS.DATA_JOB_RUNS, run.schemaVersion);
 }
 
 /**
@@ -175,8 +181,88 @@ export function serializeDataJobRun(
     triggeredByGithubUsername: run.triggeredByGithubUsername,
     summary: run.summary,
     errorMessage: run.errorMessage,
-    startedAt: Timestamp.fromDate(run.startedAt),
-    finishedAt: run.finishedAt ? Timestamp.fromDate(run.finishedAt) : null,
+    startedAt: toFirestoreTimestamp(run.startedAt),
+    finishedAt: run.finishedAt ? toFirestoreTimestamp(run.finishedAt) : null,
     schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.DATA_JOB_RUNS),
+  };
+}
+
+/**
+ * Builds the Firestore update payload for marking a run as succeeded.
+ *
+ * @param summary The completion summary to persist.
+ * @returns The Firestore-ready success update.
+ */
+export function serializeDataJobRunSuccessUpdate(summary: string): Pick<
+  FirestoreDataJobRun,
+  "status" | "summary" | "errorMessage"
+> & {
+  finishedAt: Timestamp;
+} {
+  return {
+    status: "SUCCEEDED",
+    summary,
+    errorMessage: null,
+    finishedAt: Timestamp.now(),
+  };
+}
+
+/**
+ * Builds the Firestore update payload for marking a run as failed.
+ *
+ * @param errorMessage The failure message to persist.
+ * @returns The Firestore-ready failure update.
+ */
+export function serializeDataJobRunFailureUpdate(errorMessage: string): Pick<
+  FirestoreDataJobRun,
+  "status" | "summary" | "errorMessage"
+> & {
+  finishedAt: Timestamp;
+} {
+  return {
+    status: "FAILED",
+    summary: FAILED_DATA_JOB_SUMMARY,
+    errorMessage,
+    finishedAt: Timestamp.now(),
+  };
+}
+
+/**
+ * Builds the Firestore update payload for marking a stale running run as failed.
+ *
+ * @param finishedAt The time the stale run is treated as finished.
+ * @returns The Firestore-ready stale-failure update.
+ */
+export function serializeStaleDataJobRunFailureUpdate(finishedAt: Date): Pick<
+  FirestoreDataJobRun,
+  "status" | "summary" | "errorMessage"
+> & {
+  finishedAt: Timestamp;
+} {
+  return {
+    status: "FAILED",
+    summary: FAILED_DATA_JOB_SUMMARY,
+    errorMessage: STALE_DATA_JOB_RUN_ERROR_MESSAGE,
+    finishedAt: toFirestoreTimestamp(finishedAt),
+  };
+}
+
+/**
+ * Applies stale-run failure fields to a normalized in-memory data-job run.
+ *
+ * @param run The normalized data-job run.
+ * @param finishedAt The time the stale run is treated as finished.
+ * @returns A failed run reflecting stale interruption.
+ */
+export function normalizeStaleDataJobRun(
+  run: DataJobRun,
+  finishedAt: Date,
+): DataJobRun {
+  return {
+    ...run,
+    status: "FAILED",
+    summary: FAILED_DATA_JOB_SUMMARY,
+    errorMessage: STALE_DATA_JOB_RUN_ERROR_MESSAGE,
+    finishedAt,
   };
 }

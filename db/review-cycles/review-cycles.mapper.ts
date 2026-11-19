@@ -1,16 +1,16 @@
 import { DbValidationError } from "@/db/db.errors";
 import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
+import { assertFiniteNumber } from "@/db/utils/validation.utils";
 import type { ReviewCycleRecord } from "@/lib/domain/reviewer-teams.types";
 
 export type FirestoreReviewCycle = ReviewCycleRecord;
 
 /**
- * Asserts that a value is a non-empty string field.
+ * Asserts that a value is a string field.
  *
  * @param field The field name being validated.
  * @param value The raw value.
@@ -22,22 +22,6 @@ function assertStringField(
 ): asserts value is string {
   if (typeof value !== "string") {
     throw new DbValidationError(field, `${field} must be a string.`);
-  }
-}
-
-/**
- * Asserts that a value is a finite number.
- *
- * @param field The field name being validated.
- * @param value The raw value.
- * @returns Nothing. Throws when the value is invalid.
- */
-function assertNumberField(
-  field: string,
-  value: FirebaseFirestore.DocumentData[string],
-): asserts value is number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new DbValidationError(field, `${field} must be a number.`);
   }
 }
 
@@ -56,7 +40,7 @@ function assertOptionalNumberField(
   value: FirebaseFirestore.DocumentData[string],
 ): void {
   if (value === undefined || value === null) return;
-  assertNumberField(field, value);
+  assertFiniteNumber(field, value, `${field} must be a number.`);
 }
 
 /**
@@ -84,12 +68,16 @@ function assertFirestoreReviewCycle(
   data: FirebaseFirestore.DocumentData,
 ): void {
   assertStringField("reviewerLogin", data.reviewerLogin);
-  assertNumberField("prNumber", data.prNumber);
+  assertFiniteNumber("prNumber", data.prNumber, "prNumber must be a number.");
   assertStringField("prTitle", data.prTitle);
   assertStringField("prUrl", data.prUrl);
   assertStringField("assignedAt", data.assignedAt);
   assertStringField("completedAt", data.completedAt);
-  assertNumberField("durationMs", data.durationMs);
+  assertFiniteNumber(
+    "durationMs",
+    data.durationMs,
+    "durationMs must be a number.",
+  );
 
   assertOptionalNumberField(
     "reviewRoundsBeforeApproval",
@@ -103,8 +91,6 @@ function assertFirestoreReviewCycle(
   assertOptionalStringField("approvedAt", data.approvedAt);
   assertOptionalNumberField("approvalDurationMs", data.approvalDurationMs);
   assertOptionalNumberField("prAdditions", data.prAdditions);
-
-  assertSchemaVersion(SCHEMA_KEYS.REVIEW_CYCLES, data.schemaVersion);
 }
 
 /**

@@ -7,6 +7,12 @@ import { fetchRecentIssueNodes } from "./github.query-helpers";
 import { fetchGitHubRateLimit } from "./github.rate-limit";
 import type { GitHubIssue, GitHubRepoTarget } from "./github.types";
 
+const IGNORED_UNANSWERED_COMMENTERS = new Set([
+  "oppia-github-app",
+  "github-actions",
+  "github-actions[bot]",
+]);
+
 /**
  * Fetches unanswered issues whose latest recent comment came from a non-maintainer.
  *
@@ -62,7 +68,7 @@ export async function fetchUnansweredIssues(
       orgMembers.has(commenter) ||
       collabAll.has(commenter) ||
       maintainers.has(commenter) ||
-      commenter === "oppia-github-app";
+      IGNORED_UNANSWERED_COMMENTERS.has(commenter);
 
     return !isAllowed;
   });

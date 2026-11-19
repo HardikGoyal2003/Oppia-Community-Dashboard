@@ -8,10 +8,13 @@ import type {
 import { USER_ROLES } from "@/lib/auth/roles";
 import { TEAM_KEYS } from "@/lib/domain/team-definitions";
 import { DbValidationError } from "../db.errors";
-import { assertTimestamp, normalizeTimestamp } from "../utils/timestamp.utils";
+import {
+  assertTimestamp,
+  normalizeTimestamp,
+  toFirestoreTimestamp,
+} from "@/db/utils/timestamp.utils";
 import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
@@ -79,7 +82,6 @@ function assertFirestoreUser(
   }
 
   assertTimestamp("User", "createdAt", user.createdAt);
-  assertSchemaVersion(SCHEMA_KEYS.USERS, user.schemaVersion);
 }
 
 /**
@@ -135,10 +137,7 @@ export function serializeUser(
     role: user.role,
     team: user.team,
     platform: user.platform,
-    createdAt:
-      user.createdAt instanceof Timestamp
-        ? user.createdAt
-        : Timestamp.fromDate(user.createdAt),
+    createdAt: toFirestoreTimestamp(user.createdAt),
     schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.USERS),
   };
 }

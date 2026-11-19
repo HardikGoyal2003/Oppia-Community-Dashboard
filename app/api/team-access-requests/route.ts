@@ -1,50 +1,20 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
-import { getKnownRoleDisplayLabel } from "@/lib/auth/role-display";
-import {
-  getMemberAccessRequestById,
-  getPendingMemberAccessRequestsByPlatformAndRoles,
-  resolveMemberAccessRequest,
-} from "@/db/member-access-requests/member-access-request.db";
 import { UserRole } from "@/lib/auth/auth.types";
-import { isAssignableUserRole } from "@/lib/auth/roles";
 import {
+  DbAuthorizationError,
   DbInvalidStateError,
   DbNotFoundError,
   DbValidationError,
-} from "@/db/db.errors";
-
-const TEAM_LEAD_MANAGEABLE_ROLES = ["TEAM_MEMBER", "LEAD_TRAINEE"];
+} from "@/lib/errors";
+import {
+  listPendingTeamMemberAccessRequests,
+  resolveTeamMemberAccessRequest,
+} from "@/lib/member-access-requests/member-access-requests.service";
 
 function canManageTeamRequests(role: UserRole): boolean {
   return role === "TEAM_LEAD" || role === "LEAD_TRAINEE";
-}
-
-function getPromotionMessage(role: UserRole, team: string): string {
-  const roleLabel = getKnownRoleDisplayLabel(role);
-
-  switch (role) {
-    case "TEAM_MEMBER":
-      return `Great news! You are now a ${roleLabel} on ${team}. We're really happy to have you onboard.`;
-    case "LEAD_TRAINEE":
-      return `Amazing! You have been promoted to ${roleLabel} on ${team}. We're truly excited to have you leading with us onboard.`;
-    default:
-      return `Welcome! Your access request has been approved and your role is now ${roleLabel} on ${team}. We're happy to have you onboard.`;
-  }
-}
-
-function getDeclineMessage(
-  reason: string,
-  changedByGithubUsername?: string,
-): string {
-  const actor = changedByGithubUsername ?? "Team Lead";
-
-  return [
-    `Thank you for your request. ${actor} reviewed it and we are unable to approve it at this moment.`,
-    `Reason: ${reason}`,
-    "Please refine your request and apply again. We appreciate your interest in contributing with us.",
-  ].join("\n");
 }
 
 export async function GET() {
@@ -61,9 +31,8 @@ export async function GET() {
     );
   }
 
-  const requests = await getPendingMemberAccessRequestsByPlatformAndRoles(
+  const requests = await listPendingTeamMemberAccessRequests(
     session.user.platform,
-    TEAM_LEAD_MANAGEABLE_ROLES,
     session.user.team,
   );
 
@@ -110,55 +79,22 @@ export async function PATCH(req: Request) {
   }
 
   try {
-    const request = await getMemberAccessRequestById(requestId);
-
-    if (!TEAM_LEAD_MANAGEABLE_ROLES.includes(request.role)) {
-      return NextResponse.json(
-        {
-          error:
-            "You do not have permission to resolve requests for this role.",
-        },
-        { status: 403 },
-      );
-    }
-
-    if (request.team !== team) {
-      return NextResponse.json(
-        {
-          error:
-            "You do not have permission to resolve requests for another team.",
-        },
-        { status: 403 },
-      );
-    }
-
-    if (request.platform !== platform) {
-      return NextResponse.json(
-        {
-          error:
-            "You do not have permission to resolve requests for another platform.",
-        },
-        { status: 403 },
-      );
-    }
-
-    let notificationMessage: string;
-
-    if (decision === "ACCEPT") {
-      if (!isAssignableUserRole(request.role)) {
-        return NextResponse.json(
-          { error: "Invalid role in request." },
-          { status: 400 },
-        );
-      }
-
-      notificationMessage = getPromotionMessage(request.role, request.team);
-    } else {
-      notificationMessage = getDeclineMessage(reason, githubUsername);
-    }
-
-    await resolveMemberAccessRequest(requestId, decision, notificationMessage);
+    await resolveTeamMemberAccessRequest({
+      requestId,
+      decision: decision as "ACCEPT" | "DECLINE",
+      reason,
+      actor: {
+        role: session.user.role,
+        team: session.user.team ?? null,
+        platform: session.user.platform ?? null,
+        githubUsername,
+      },
+    });
   } catch (error) {
+    if (error instanceof DbAuthorizationError) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+
     if (error instanceof DbNotFoundError) {
       return NextResponse.json({ error: error.message }, { status: 404 });
     }

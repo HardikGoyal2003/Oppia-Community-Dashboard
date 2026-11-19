@@ -5,23 +5,27 @@ import {
 } from "@/lib/github/github.fetcher";
 import { getReviewers, upsertReviewers } from "@/db/reviewers/reviewers.db";
 import type { ReviewerDocument } from "@/lib/domain/reviewer-teams.types";
-import { getReviewerTeamLogins } from "@/lib/team-activity/reviewer-team-logins";
+import { getReviewerTeamLogins } from "@/lib/team-activity/reviewer-team-logins.service";
+import { createNewReviewCycles } from "@/db/review-cycles/review-cycles.db";
 import {
-  upsertReviewCycles,
-  findNewCycleRecords,
-  getReviewCycleAggregatesForLogins,
   applyReviewCycleContributions,
-  type ReviewCycleAggregate,
-  type ReviewCycleLoginContribution,
-} from "@/db/review-cycles/review-cycles.db";
+  getReviewCycleAggregatesForLogins,
+} from "@/lib/team-activity/review-cycle-analytics.service";
+import type {
+  ReviewCycleAggregate,
+  ReviewCycleLoginContribution,
+} from "@/lib/reviewer-teams/review-cycle-calculations";
+import {
+  getReviewerCycleAggregates,
+  upsertReviewerCycleAggregates,
+} from "@/db/reviewer-cycle-aggregates/reviewer-cycle-aggregates.db";
 import {
   aggregateDocumentToReviewCycleAggregate,
   applyReviewCycleContribution,
   createEmptyReviewerCycleAggregate,
-  getReviewerCycleAggregates,
   reviewCycleAggregateToDocument,
-  upsertReviewerCycleAggregates,
-} from "@/db/reviewer-cycle-aggregates/reviewer-cycle-aggregates.db";
+  type ReviewerCycleAggregateWrite,
+} from "@/lib/team-activity/reviewer-cycle-aggregate.utils";
 
 type SyncSummary = {
   completedCyclesCount: number;
@@ -192,7 +196,7 @@ export async function refreshReviewerStats(
   const aggregates = new Map<string, ReviewCycleAggregate>();
   const aggregateWrites: Array<{
     login: string;
-    aggregate: ReturnType<typeof createEmptyReviewerCycleAggregate>;
+    aggregate: ReviewerCycleAggregateWrite;
   }> = [];
 
   for (const login of targetLogins) {
@@ -290,11 +294,7 @@ export async function syncReviewCycles(
 
   const filtered = allCompleted.filter((c) => knownLogins.has(c.reviewerLogin));
 
-  const newRecords = await findNewCycleRecords(filtered);
-
-  if (filtered.length > 0) {
-    await upsertReviewCycles(filtered);
-  }
+  const newRecords = await createNewReviewCycles(filtered);
 
   const affectedLogins = new Set<string>();
   for (const cycle of filtered) {

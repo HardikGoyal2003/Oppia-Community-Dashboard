@@ -3,10 +3,10 @@ import { DbValidationError } from "@/db/db.errors";
 import {
   assertTimestamp,
   normalizeTimestamp,
+  toFirestoreTimestamp,
 } from "@/db/utils/timestamp.utils";
 import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
@@ -57,13 +57,25 @@ function assertFirestoreOrgMeta(
   }
 
   for (const entry of data.collaborators) {
-    if (typeof entry.login !== "string") {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new DbValidationError(
+        "collaborators",
+        "Each collaborator entry must be an object.",
+      );
+    }
+
+    const collaborator = entry as Record<
+      string,
+      FirebaseFirestore.DocumentData[string]
+    >;
+
+    if (typeof collaborator.login !== "string") {
       throw new DbValidationError(
         "collaborators.login",
         "Each collaborator entry must have a login string.",
       );
     }
-    if (typeof entry.permission !== "string") {
+    if (typeof collaborator.permission !== "string") {
       throw new DbValidationError(
         "collaborators.permission",
         "Each collaborator entry must have a permission string.",
@@ -72,7 +84,6 @@ function assertFirestoreOrgMeta(
   }
 
   assertTimestamp("OrgMeta", "lastUpdated", data.lastUpdated);
-  assertSchemaVersion(SCHEMA_KEYS.ORG_META, data.schemaVersion);
 }
 
 /**
@@ -109,10 +120,7 @@ export function serializeOrgMeta(
   return {
     orgMembers: orgMeta.orgMembers,
     collaborators: orgMeta.collaborators,
-    lastUpdated:
-      orgMeta.lastUpdated instanceof Timestamp
-        ? orgMeta.lastUpdated
-        : Timestamp.fromDate(orgMeta.lastUpdated),
+    lastUpdated: toFirestoreTimestamp(orgMeta.lastUpdated),
     schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.ORG_META),
   };
 }

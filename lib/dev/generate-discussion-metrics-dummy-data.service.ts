@@ -1,4 +1,4 @@
-import { createDailyDiscussionMetric } from "@/db/discussion-metrics/daily-discussion-metrics.db";
+import { createDailyDiscussionMetric } from "@/db/daily-discussion-metrics/daily-discussion-metrics.db";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { getIstDateKey } from "@/lib/utils/date.utils";
 import { getFixedIstCaptureDate } from "./dummy-data.utils";

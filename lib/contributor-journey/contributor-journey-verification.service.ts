@@ -289,17 +289,19 @@ export async function verifyContributorJourneyMilestoneByUid(
   }
 
   if (!progress.derivedState[result.derivedKey].completed) {
-    await setDerivedJourneyStateByUid(uid, result.derivedKey, {
-      completed: result.verified,
-      completedAt: result.verified ? new Date() : null,
-      sourceUrl: result.sourceUrl,
-    });
-
-    progress.derivedState[result.derivedKey] = {
+    const persistedState = {
       completed: result.verified,
       completedAt: result.verified ? new Date() : null,
       sourceUrl: result.sourceUrl,
     };
+    const persisted = await setDerivedJourneyStateByUid(
+      uid,
+      result.derivedKey,
+      persistedState,
+    );
+
+    progress.derivedState[result.derivedKey] = persisted.state;
+    progress.updatedAt = persisted.updatedAt;
   }
 
   return {

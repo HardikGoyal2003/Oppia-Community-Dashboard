@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
-import { updateUserPlatformByUid } from "@/db/users/users.db";
+import { updateUserPlatform } from "@/lib/users/users.service";
 import { ContributionPlatform } from "@/lib/auth/auth.types";
-import { DbNotFoundError } from "@/db/db.errors";
+import { DbNotFoundError } from "@/lib/errors";
 
 type PlatformRequestBody = {
   platform?: string | null;
@@ -40,7 +40,7 @@ export async function PATCH(req: Request) {
   }
 
   try {
-    await updateUserPlatformByUid(session.user.id, platform);
+    await updateUserPlatform(session.user.id, platform);
   } catch (error) {
     if (error instanceof DbNotFoundError) {
       return NextResponse.json({ error: error.message }, { status: 404 });

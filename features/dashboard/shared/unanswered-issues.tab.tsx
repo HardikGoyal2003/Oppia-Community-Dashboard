@@ -18,7 +18,7 @@ import {
   getCachedData,
   setCachedData,
   computeTtlFromLastUpdated,
-} from "@/lib/utils/local-storage-cache";
+} from "@/lib/utils/local-storage-cache.utils";
 import { getErrorCodeMeta } from "@/lib/errors/error-codes";
 import { ErrorCard } from "@/components/error/error-card";
 import { formatDisplayValue } from "@/lib/utils/display.utils";

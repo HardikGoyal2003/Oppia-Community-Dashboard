@@ -1,11 +1,19 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import type { DataJobRun } from "@/lib/domain/data-jobs.types";
 import { DB_PATHS } from "@/db/db-paths";
-import { getRequiredDocumentSnapshot } from "@/db/utils/document.utils";
+import {
+  getRequiredDocumentSnapshot,
+  updateRequiredDocument,
+} from "@/db/utils/document.utils";
+import { logDbError } from "@/db/db-logger";
 import {
   type FirestoreDataJobRun,
   normalizeDataJobRunDocument,
+  normalizeStaleDataJobRun,
   serializeDataJobRun,
+  serializeDataJobRunFailureUpdate,
+  serializeDataJobRunSuccessUpdate,
+  serializeStaleDataJobRunFailureUpdate,
 } from "./data-job-runs.mapper";
 
 const db = getAdminFirestore();
@@ -19,10 +27,6 @@ const dataJobRunsCollection = db.collection(
  * was killed by the platform before it could update its own record.
  */
 const STALE_RUN_THRESHOLD_MS = 6 * 60 * 1000;
-
-/** Error recorded on runs that were interrupted before finishing. */
-const STALE_RUN_ERROR_MESSAGE =
-  "Run timed out or was interrupted before it could finish. Re-run the job to continue.";
 
 /**
  * Persists a new data-job run record.
@@ -85,8 +89,11 @@ export async function listDataJobRuns(limit = 20): Promise<DataJobRun[]> {
       .map((doc) => doc.id),
   );
 
+  let staleFinishedAt: Date | null = null;
+
   if (staleRunIds.size > 0) {
-    const finishedAt = new Date();
+    staleFinishedAt = new Date();
+    const staleUpdate = serializeStaleDataJobRunFailureUpdate(staleFinishedAt);
     const batch = dataJobRunsCollection.firestore.batch();
 
     for (const doc of snapshot.docs) {
@@ -94,35 +101,27 @@ export async function listDataJobRuns(limit = 20): Promise<DataJobRun[]> {
         continue;
       }
 
-      batch.update(doc.ref, {
-        status: "FAILED",
-        summary: "Job failed.",
-        errorMessage: STALE_RUN_ERROR_MESSAGE,
-        finishedAt,
-      });
+      batch.update(doc.ref, staleUpdate);
     }
 
     try {
       await batch.commit();
     } catch (error) {
-      console.error("Failed to mark stale data job runs as failed.", error);
+      logDbError(
+        "Failed to mark stale data job runs as failed.",
+        error as object,
+      );
     }
   }
 
   return snapshot.docs.map((doc) => {
     const run = normalizeDataJobRunDocument(doc.id, doc.data());
 
-    if (!staleRunIds.has(doc.id)) {
+    if (!staleRunIds.has(doc.id) || !staleFinishedAt) {
       return run;
     }
 
-    return {
-      ...run,
-      status: "FAILED",
-      summary: "Job failed.",
-      errorMessage: STALE_RUN_ERROR_MESSAGE,
-      finishedAt: new Date(),
-    };
+    return normalizeStaleDataJobRun(run, staleFinishedAt);
   });
 }
 
@@ -138,14 +137,12 @@ export async function markDataJobRunSucceeded(
   summary: string,
 ): Promise<void> {
   const runRef = dataJobRunsCollection.doc(runId);
-  await getRequiredDocumentSnapshot("Data job run", runRef);
 
-  await runRef.update({
-    status: "SUCCEEDED",
-    summary,
-    errorMessage: null,
-    finishedAt: new Date(),
-  });
+  await updateRequiredDocument(
+    "Data job run",
+    runRef,
+    serializeDataJobRunSuccessUpdate(summary),
+  );
 }
 
 /**
@@ -160,12 +157,10 @@ export async function markDataJobRunFailed(
   errorMessage: string,
 ): Promise<void> {
   const runRef = dataJobRunsCollection.doc(runId);
-  await getRequiredDocumentSnapshot("Data job run", runRef);
 
-  await runRef.update({
-    status: "FAILED",
-    summary: "Job failed.",
-    errorMessage,
-    finishedAt: new Date(),
-  });
+  await updateRequiredDocument(
+    "Data job run",
+    runRef,
+    serializeDataJobRunFailureUpdate(errorMessage),
+  );
 }

@@ -2,7 +2,6 @@ import { Timestamp } from "firebase-admin/firestore";
 import { DbValidationError } from "@/db/db.errors";
 import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
@@ -10,6 +9,7 @@ import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
+import { assertFiniteNumber } from "@/db/utils/validation.utils";
 
 export type ReviewerCycleAggregateDocument = {
   completedReviews: number;
@@ -26,25 +26,10 @@ export type ReviewerCycleAggregateDocument = {
   schemaVersion: number;
 };
 
-type FirestoreReviewerCycleAggregate = Omit<
+export type FirestoreReviewerCycleAggregate = Omit<
   ReviewerCycleAggregateDocument,
   "lastUpdated"
 > & { lastUpdated: Timestamp };
-
-/**
- * Validates a finite numeric field.
- * @param field Field name.
- * @param value Raw field value.
- * @returns Nothing.
- */
-function assertFiniteNumber(
-  field: string,
-  value: FirebaseFirestore.DocumentData[string],
-): asserts value is number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new DbValidationError(field, `${field} must be a finite number.`);
-  }
-}
 
 /**
  * Validates an array of string values.
@@ -91,10 +76,6 @@ export function normalizeReviewerCycleAggregate(
     "ReviewerCycleAggregate",
     "lastUpdated",
     migrated.lastUpdated,
-  );
-  assertSchemaVersion(
-    SCHEMA_KEYS.REVIEWER_CYCLE_AGGREGATES,
-    migrated.schemaVersion,
   );
   return {
     completedReviews: migrated.completedReviews,

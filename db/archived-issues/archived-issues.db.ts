@@ -1,10 +1,15 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
-import type { Issue } from "@/lib/domain/issues.types";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { DB_PATHS } from "../db-paths";
 import {
+  assertNonEmptyId,
+  assertPositiveInteger,
+} from "@/db/utils/validation.utils";
+import {
+  type ArchiveIssueInput,
   type ArchivedIssueRecord,
   type FirestoreArchivedIssue,
+  assertArchiveIssueInput,
   normalizeArchivedIssueDocument,
   serializeArchivedIssue,
 } from "./archived-issues.mapper";
@@ -55,13 +60,16 @@ export async function getArchivedIssues(
  * @returns A promise that resolves when the archive record has been written.
  */
 export async function archiveIssue(
-  issue: Issue,
+  issue: ArchiveIssueInput,
   platform: ContributionPlatform,
   archivedBy: string,
 ): Promise<void> {
+  assertArchiveIssueInput(issue);
+  assertNonEmptyId("archivedBy", archivedBy);
+
   await archivedIssuesCollection
     .doc(getArchivedIssueDocId(platform, issue.issueNumber))
-    .set(serializeArchivedIssue(issue, platform, archivedBy));
+    .set(serializeArchivedIssue(issue, platform, archivedBy, new Date()));
 }
 
 /**
@@ -75,6 +83,8 @@ export async function unarchiveIssue(
   issueNumber: number,
   platform: ContributionPlatform,
 ): Promise<void> {
+  assertPositiveInteger("issueNumber", issueNumber);
+
   await archivedIssuesCollection
     .doc(getArchivedIssueDocId(platform, issueNumber))
     .delete();

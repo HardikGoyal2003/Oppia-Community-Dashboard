@@ -8,11 +8,42 @@ import {
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
 import {
+  assertHttpUrl,
+  assertNonEmptyString,
+  assertPositiveInteger,
+} from "@/db/utils/validation.utils";
+import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
+
+export type ArchiveDiscussionInput = {
+  discussionNumber: number;
+  discussionUrl: string;
+  discussionTitle: string;
+  createdAt: string;
+};
+
+/**
+ * Validates archived discussion input at the DB boundary.
+ *
+ * @param discussion The archived discussion input to validate.
+ * @returns Nothing. Throws when the input is invalid.
+ */
+export function assertArchiveDiscussionInput(
+  discussion: ArchiveDiscussionInput,
+): void {
+  assertPositiveInteger("discussionNumber", discussion.discussionNumber);
+  assertHttpUrl("discussionUrl", discussion.discussionUrl);
+  assertNonEmptyString("discussionTitle", discussion.discussionTitle);
+  if (typeof discussion.createdAt !== "string") {
+    throw new DbValidationError(
+      "createdAt",
+      "createdAt must be a valid date string.",
+    );
+  }
+}
 
 export type FirestoreArchivedDiscussion = {
   discussionNumber: number;
@@ -82,11 +113,6 @@ function assertFirestoreArchivedDiscussion(
   if (discussion.archivedAt !== undefined) {
     assertTimestamp("Archived discussion", "archivedAt", discussion.archivedAt);
   }
-
-  assertSchemaVersion(
-    SCHEMA_KEYS.ARCHIVED_DISCUSSIONS,
-    discussion.schemaVersion,
-  );
 }
 
 /**
@@ -133,16 +159,20 @@ export function normalizeArchivedDiscussionDocument(
 /**
  * Serializes an archived discussion for Firestore storage.
  *
- * @param discussion The normalized archived discussion.
+ * @param discussion The validated archived discussion input.
  * @param platform The contribution platform to persist.
  * @param archivedBy The GitHub username of the user who archived the discussion.
+ * @param archivedAt The server-generated archive timestamp.
  * @returns The Firestore-ready archived discussion document.
  */
 export function serializeArchivedDiscussion(
-  discussion: Discussion,
+  discussion: ArchiveDiscussionInput,
   platform: ContributionPlatform,
   archivedBy: string,
+  archivedAt: Date,
 ): FirestoreArchivedDiscussion {
+  assertArchiveDiscussionInput(discussion);
+
   const createdAt = parseDateValue(discussion.createdAt);
 
   if (!createdAt) {
@@ -159,7 +189,7 @@ export function serializeArchivedDiscussion(
     createdAt: Timestamp.fromDate(createdAt),
     platform,
     archivedBy,
-    archivedAt: Timestamp.now(),
+    archivedAt: Timestamp.fromDate(archivedAt),
     schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.ARCHIVED_DISCUSSIONS),
   };
 }

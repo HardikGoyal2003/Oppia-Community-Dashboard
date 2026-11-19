@@ -2,9 +2,9 @@ import { upsertTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
 import { upsertReviewer } from "@/db/reviewers/reviewers.db";
 import {
   deleteReviewCyclesForReviewers,
-  refreshReviewCycleAnalytics,
   upsertReviewCycles,
 } from "@/db/review-cycles/review-cycles.db";
+import { refreshReviewCycleAnalytics } from "@/lib/team-activity/review-cycle-analytics.service";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type {
   PendingReview,

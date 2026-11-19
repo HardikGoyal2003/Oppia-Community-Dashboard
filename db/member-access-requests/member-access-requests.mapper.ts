@@ -2,17 +2,16 @@ import { Timestamp } from "firebase-admin/firestore";
 import type {
   MemberAccessRequestModel,
   MemberAccessRequestRecord,
-} from "@/db/member-access-requests/member-access-request.types";
+} from "@/db/member-access-requests/member-access-requests.types";
 import { DbValidationError } from "@/db/db.errors";
 import {
   assertTimestamp,
   normalizeTimestamp,
 } from "@/db/utils/timestamp.utils";
 import { isContributionPlatform } from "@/lib/auth/auth.types";
-import type { MemberAccessRequestStatus } from "@/db/member-access-requests/member-access-request.types";
+import type { MemberAccessRequestStatus } from "@/db/member-access-requests/member-access-requests.types";
 import {
   SCHEMA_KEYS,
-  assertSchemaVersion,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
 import { migrateDocument } from "@/db/schema/schema-migrations";
@@ -89,10 +88,6 @@ function assertFirestoreMemberAccessRequest(
   }
 
   assertTimestamp("Member access request", "createdAt", request.createdAt);
-  assertSchemaVersion(
-    SCHEMA_KEYS.MEMBER_ACCESS_REQUESTS,
-    request.schemaVersion,
-  );
 }
 
 /**
@@ -152,6 +147,81 @@ export function normalizeMemberAccessRequestRecord(
 }
 
 /**
+ * Validates a member-access request model before it is serialized for storage.
+ *
+ * @param request The member-access request model to persist.
+ * @returns Nothing. Throws when the request is invalid.
+ */
+export function assertMemberAccessRequestModel(
+  request: Omit<MemberAccessRequestModel, "schemaVersion">,
+): void {
+  if (
+    typeof request.userId !== "string" ||
+    request.userId.trim().length === 0
+  ) {
+    throw new DbValidationError(
+      "userId",
+      "Member access request userId must be a non-empty string.",
+    );
+  }
+
+  if (!isContributionPlatform(request.platform)) {
+    throw new DbValidationError(
+      "platform",
+      "Member access request platform must be WEB or ANDROID.",
+    );
+  }
+
+  if (typeof request.team !== "string" || request.team.trim().length === 0) {
+    throw new DbValidationError(
+      "team",
+      "Member access request team must be a non-empty string.",
+    );
+  }
+
+  if (typeof request.role !== "string" || request.role.trim().length === 0) {
+    throw new DbValidationError(
+      "role",
+      "Member access request role must be a non-empty string.",
+    );
+  }
+
+  if (typeof request.note !== "string") {
+    throw new DbValidationError(
+      "note",
+      "Member access request note must be a string.",
+    );
+  }
+
+  if (
+    typeof request.username !== "string" ||
+    request.username.trim().length === 0
+  ) {
+    throw new DbValidationError(
+      "username",
+      "Member access request username must be a non-empty string.",
+    );
+  }
+
+  if (!MEMBER_ACCESS_REQUEST_STATUSES.includes(request.status)) {
+    throw new DbValidationError(
+      "status",
+      "Member access request status must be PENDING, ACCEPTED, or REJECTED.",
+    );
+  }
+
+  if (
+    !(request.createdAt instanceof Date) ||
+    Number.isNaN(request.createdAt.getTime())
+  ) {
+    throw new DbValidationError(
+      "createdAt",
+      "Member access request createdAt must be a valid Date.",
+    );
+  }
+}
+
+/**
  * Serializes a member-access request model for Firestore storage.
  *
  * @param request The normalized member-access request model.
@@ -160,6 +230,8 @@ export function normalizeMemberAccessRequestRecord(
 export function serializeMemberAccessRequest(
   request: Omit<MemberAccessRequestModel, "schemaVersion">,
 ): FirestoreMemberAccessRequest {
+  assertMemberAccessRequestModel(request);
+
   return {
     ...request,
     createdAt: Timestamp.fromDate(request.createdAt),

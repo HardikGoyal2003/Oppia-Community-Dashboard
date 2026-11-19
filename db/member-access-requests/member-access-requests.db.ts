@@ -1,10 +1,17 @@
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DB_PATHS } from "@/db/db-paths";
-import { DbInvalidStateError, DbValidationError } from "@/db/db.errors";
+import {
+  DbAuthorizationError,
+  DbInvalidStateError,
+  DbValidationError,
+  PendingMemberAccessRequestError,
+} from "@/db/db.errors";
+import { chunkValues } from "@/db/utils/batch.utils";
 import {
   getRequiredDocumentSnapshot,
   getRequiredTransactionDocumentSnapshot,
 } from "@/db/utils/document.utils";
+import { assertNonEmptyId } from "@/db/utils/validation.utils";
 import {
   appendUserNotificationInTransaction,
   updateUserRoleAndTeamWithNotificationInTransaction,
@@ -12,34 +19,38 @@ import {
 import { isAssignableUserRole } from "@/lib/auth/roles";
 import {
   type FirestoreMemberAccessRequest,
+  assertMemberAccessRequestModel,
   normalizeMemberAccessRequestDocument,
   normalizeMemberAccessRequestRecord,
   serializeMemberAccessRequest,
-} from "@/db/member-access-requests/member-access-request.mapper";
+} from "@/db/member-access-requests/member-access-requests.mapper";
 import {
   MemberAccessDecision,
   MemberAccessRequestModel,
   MemberAccessRequestRecord,
-} from "./member-access-request.types";
-import type { ContributionPlatform } from "@/lib/auth/auth.types";
+} from "./member-access-requests.types";
+import type { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
+
+const ADMIN_MANAGEABLE_REQUEST_ROLES: readonly string[] = [
+  "TEAM_LEAD",
+  "ADMIN",
+];
+const TEAM_LEAD_MANAGEABLE_REQUEST_ROLES: readonly string[] = [
+  "TEAM_MEMBER",
+  "LEAD_TRAINEE",
+];
+
+/** Actor context required to authorize member-access request resolution. */
+export type ResolveMemberAccessRequestActor = {
+  role: UserRole;
+  team: string | null;
+  platform: ContributionPlatform | null;
+};
 
 const db = getAdminFirestore();
 const memberAccessRequestsCollection = db.collection(
   DB_PATHS.MEMBER_ACCESS_REQUESTS.COLLECTION,
 ) as FirebaseFirestore.CollectionReference<FirestoreMemberAccessRequest>;
-
-/**
- * Error raised when a duplicate pending member-access request already exists.
- */
-export class PendingMemberAccessRequestError extends Error {
-  request: MemberAccessRequestModel;
-
-  constructor(request: MemberAccessRequestModel) {
-    super("A pending member access request already exists.");
-    this.name = "PendingMemberAccessRequestError";
-    this.request = request;
-  }
-}
 
 /**
  * Retrieves pending member-access requests filtered by platform, roles, and team.
@@ -64,25 +75,49 @@ export async function getPendingMemberAccessRequestsByPlatformAndRoles(
   roles?: string[],
   team?: string,
 ): Promise<MemberAccessRequestRecord[]> {
-  let query: FirebaseFirestore.Query<FirestoreMemberAccessRequest> =
-    memberAccessRequestsCollection.where("status", "==", "PENDING");
+  const buildQuery = (
+    roleChunk?: string[],
+  ): FirebaseFirestore.Query<FirestoreMemberAccessRequest> => {
+    let query: FirebaseFirestore.Query<FirestoreMemberAccessRequest> =
+      memberAccessRequestsCollection.where("status", "==", "PENDING");
 
-  if (platform) {
-    query = query.where("platform", "==", platform);
+    if (platform) {
+      query = query.where("platform", "==", platform);
+    }
+
+    if (roleChunk && roleChunk.length > 0) {
+      query = query.where("role", "in", roleChunk);
+    }
+
+    if (team) {
+      query = query.where("team", "==", team);
+    }
+
+    return query.orderBy("createdAt", "desc");
+  };
+
+  const roleChunks =
+    roles && roles.length > 0 ? chunkValues(roles, 30) : [undefined];
+
+  const snapshots = await Promise.all(
+    roleChunks.map((roleChunk) => buildQuery(roleChunk).get()),
+  );
+
+  const recordsById = new Map<string, MemberAccessRequestRecord>();
+
+  for (const snapshot of snapshots) {
+    for (const doc of snapshot.docs) {
+      if (!recordsById.has(doc.id)) {
+        recordsById.set(
+          doc.id,
+          normalizeMemberAccessRequestRecord(doc.id, doc.data()),
+        );
+      }
+    }
   }
 
-  if (roles && roles.length > 0) {
-    query = query.where("role", "in", roles);
-  }
-
-  if (team) {
-    query = query.where("team", "==", team);
-  }
-
-  const snapshot = await query.orderBy("createdAt", "desc").get();
-
-  return snapshot.docs.map((doc) =>
-    normalizeMemberAccessRequestRecord(doc.id, doc.data()),
+  return Array.from(recordsById.values()).sort(
+    (left, right) => right.createdAt.getTime() - left.createdAt.getTime(),
   );
 }
 
@@ -98,13 +133,21 @@ export async function submitMemberAccessRequest(
     "createdAt" | "status" | "schemaVersion"
   >,
 ): Promise<void> {
+  const memberAccessRequest: Omit<MemberAccessRequestModel, "schemaVersion"> = {
+    ...request,
+    status: "PENDING",
+    createdAt: new Date(),
+  };
+
+  assertMemberAccessRequestModel(memberAccessRequest);
+
   const collectionRef = memberAccessRequestsCollection;
   const pendingQuery = collectionRef
     .where("userId", "==", request.userId)
     .where("status", "==", "PENDING");
   const newRequestRef = collectionRef.doc();
 
-  await db.runTransaction(async (tx) => {
+  await memberAccessRequestsCollection.firestore.runTransaction(async (tx) => {
     const existingPending = await tx.get(pendingQuery);
 
     if (!existingPending.empty) {
@@ -115,14 +158,7 @@ export async function submitMemberAccessRequest(
       throw new PendingMemberAccessRequestError(pendingRequest);
     }
 
-    tx.set(
-      newRequestRef,
-      serializeMemberAccessRequest({
-        ...request,
-        status: "PENDING",
-        createdAt: new Date(),
-      }),
-    );
+    tx.set(newRequestRef, serializeMemberAccessRequest(memberAccessRequest));
   });
 }
 
@@ -136,6 +172,7 @@ export async function submitMemberAccessRequest(
 export async function getMemberAccessRequestById(
   requestId: string,
 ): Promise<MemberAccessRequestRecord> {
+  assertNonEmptyId("requestId", requestId);
   const requestRef = memberAccessRequestsCollection.doc(requestId);
   const snapshot = await getRequiredDocumentSnapshot(
     "Member access request",
@@ -146,24 +183,73 @@ export async function getMemberAccessRequestById(
 }
 
 /**
+ * Asserts that an actor may resolve a member-access request.
+ *
+ * @param actor The actor attempting to resolve the request.
+ * @param request The pending request to resolve.
+ * @returns Nothing. Throws when the actor is not authorized.
+ */
+function assertCanResolveMemberAccessRequest(
+  actor: ResolveMemberAccessRequestActor,
+  request: MemberAccessRequestRecord,
+): void {
+  if (actor.role === "ADMIN" || actor.role === "SUPER_ADMIN") {
+    if (!ADMIN_MANAGEABLE_REQUEST_ROLES.includes(request.role)) {
+      throw new DbAuthorizationError(
+        "You do not have permission to resolve requests for this role.",
+      );
+    }
+    return;
+  }
+
+  if (actor.role === "TEAM_LEAD" || actor.role === "LEAD_TRAINEE") {
+    if (!TEAM_LEAD_MANAGEABLE_REQUEST_ROLES.includes(request.role)) {
+      throw new DbAuthorizationError(
+        "You do not have permission to resolve requests for this role.",
+      );
+    }
+
+    if (!actor.team || request.team !== actor.team) {
+      throw new DbAuthorizationError(
+        "You do not have permission to resolve requests for another team.",
+      );
+    }
+
+    if (!actor.platform || request.platform !== actor.platform) {
+      throw new DbAuthorizationError(
+        "You do not have permission to resolve requests for another platform.",
+      );
+    }
+
+    return;
+  }
+
+  throw new DbAuthorizationError();
+}
+
+/**
  * Resolves the pending member-access request for a request id.
  *
  * The request status, user role/team, and notification are written in one
  * transaction so an authorized decision either commits fully or not at all.
+ * Authorization is re-checked inside the transaction.
  *
  * @param requestId The member-access request document id.
  * @param decision The resolution decision to apply.
  * @param notificationMessage The notification to append to the requester.
+ * @param actor The actor resolving the request.
  * @returns The normalized request record that was resolved.
  */
 export async function resolveMemberAccessRequest(
   requestId: string,
   decision: MemberAccessDecision,
   notificationMessage: string,
+  actor: ResolveMemberAccessRequestActor,
 ): Promise<MemberAccessRequestRecord> {
+  assertNonEmptyId("requestId", requestId);
   const requestRef = memberAccessRequestsCollection.doc(requestId);
 
-  return db.runTransaction(async (tx) => {
+  return memberAccessRequestsCollection.firestore.runTransaction(async (tx) => {
     const snapshot = await getRequiredTransactionDocumentSnapshot(
       tx,
       "Member access request",
@@ -181,6 +267,8 @@ export async function resolveMemberAccessRequest(
         "Member access request is no longer pending.",
       );
     }
+
+    assertCanResolveMemberAccessRequest(actor, request);
 
     if (decision === "ACCEPT") {
       if (!isAssignableUserRole(request.role)) {
@@ -205,15 +293,11 @@ export async function resolveMemberAccessRequest(
 
     const status = decision === "ACCEPT" ? "ACCEPTED" : "REJECTED";
 
-    tx.set(
-      requestRef,
-      serializeMemberAccessRequest({
-        ...request,
-        status,
-      }),
-      { merge: false },
-    );
+    tx.update(requestRef, { status });
 
-    return request;
+    return {
+      ...request,
+      status,
+    };
   });
 }

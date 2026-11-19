@@ -1,4 +1,4 @@
-import { getDailyTeamMetricsSinceDateKey } from "@/db/team-metrics/daily-team-metrics.db";
+import { getDailyTeamMetricsSinceDateKey } from "@/db/daily-team-metrics/daily-team-metrics.db";
 import { getTeams } from "@/db/teams/teams.db";
 import { TEAM_DEFINITIONS_BY_KEY } from "@/lib/domain/team-definitions";
 import type { TeamModel } from "@/lib/domain/teams.types";

@@ -1,59 +1,19 @@
 import { NextResponse } from "next/server";
-import {
-  getUsersByPlatform,
-  type UserRecord,
-  updateUserRoleAndTeamWithNotificationByUid,
-} from "@/db/users/users.db";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
-import { getKnownRoleDisplayLabel } from "@/lib/auth/role-display";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
-import { isAssignableUserRole } from "@/lib/auth/roles";
-import { DbNotFoundError, DbValidationError } from "@/db/db.errors";
-
-type ManagedUser = Pick<
-  UserRecord,
-  "id" | "fullName" | "email" | "githubUsername" | "platform" | "role" | "team"
->;
+import {
+  DbAuthorizationError,
+  DbNotFoundError,
+  DbValidationError,
+} from "@/lib/errors";
+import {
+  getManagedUsers,
+  updateManagedUserAccess,
+} from "@/lib/users/users.service";
 
 function canManageUsers(role: UserRole): boolean {
   return role === "ADMIN" || role === "SUPER_ADMIN";
-}
-
-/**
- * Selects only the user fields required by the user-role manager UI.
- *
- * @param user The full user record.
- * @returns The minimal user payload exposed to the client.
- */
-function toManagedUser(user: UserRecord): ManagedUser {
-  return {
-    id: user.id,
-    fullName: user.fullName,
-    email: user.email,
-    githubUsername: user.githubUsername,
-    platform: user.platform,
-    role: user.role,
-    team: user.team,
-  };
-}
-
-function getUserAccessUpdatedMessage(
-  role: UserRole,
-  team: string | null,
-  reason: string,
-  changedByGithubUsername?: string,
-): string {
-  const roleLabel = getKnownRoleDisplayLabel(role);
-  const teamLabel = team ?? "Unassigned";
-  const actor = changedByGithubUsername ?? "Admin";
-
-  return [
-    `Your access details were updated by ${actor}.`,
-    `New role: ${roleLabel}`,
-    `New team: ${teamLabel}`,
-    `Reason: ${reason}`,
-  ].join("\n");
 }
 
 export async function GET(req: Request) {
@@ -70,8 +30,8 @@ export async function GET(req: Request) {
       ? (platformParam as ContributionPlatform)
       : undefined;
 
-  const users = await getUsersByPlatform(platform);
-  return NextResponse.json(users.map(toManagedUser));
+  const users = await getManagedUsers(platform);
+  return NextResponse.json(users);
 }
 
 export async function PATCH(req: Request) {
@@ -89,13 +49,7 @@ export async function PATCH(req: Request) {
     typeof body.githubUsername === "string" ? body.githubUsername.trim() : "";
   const reason = typeof body.reason === "string" ? body.reason.trim() : "";
 
-  if (
-    !uid ||
-    !role ||
-    !isAssignableUserRole(role) ||
-    !githubUsername ||
-    !reason
-  ) {
+  if (!uid || !role || !githubUsername || !reason) {
     return NextResponse.json(
       { error: "Invalid payload for user update." },
       { status: 400 },
@@ -103,19 +57,23 @@ export async function PATCH(req: Request) {
   }
 
   try {
-    await updateUserRoleAndTeamWithNotificationByUid(
+    await updateManagedUserAccess({
       uid,
-      role,
+      role: role as UserRole,
       team,
       githubUsername,
-      getUserAccessUpdatedMessage(
-        role,
-        team,
-        reason,
-        session.user?.githubUsername,
-      ),
-    );
+      reason,
+      actor: {
+        role: session.user.role,
+        team: session.user.team ?? null,
+        githubUsername: session.user.githubUsername,
+      },
+    });
   } catch (error) {
+    if (error instanceof DbAuthorizationError) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+
     if (error instanceof DbNotFoundError) {
       return NextResponse.json({ error: error.message }, { status: 404 });
     }

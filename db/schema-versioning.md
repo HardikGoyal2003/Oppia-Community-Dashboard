@@ -29,14 +29,20 @@ The source of truth for versions lives in `db/schema/schema-version.ts`:
 
 ## Reading Documents
 
-Mappers are the only place that read raw Firestore documents. Every normalizer
-follows the same order:
+Mappers own migration and normalization of stored documents into app-layer
+models. Most reads follow the same order in a normalizer:
 
 1. Call `migrateDocument(key, rawDocument)` from
    `db/schema/schema-migrations.ts`.
 2. Validate the migrated document (including `assertSchemaVersion`).
 3. Normalize timestamps and return the app-layer model, including the migrated
    `schemaVersion`.
+
+A few db-layer operations also inspect raw Firestore document data for
+operational control flow (for example, stale-run detection in
+`db/data-jobs/data-job-runs.db.ts` and schema-version checks/writes in
+`db/schema/schema-migration-runner.ts`). These paths must not bypass the schema
+migration and validation semantics required for the data they persist or expose.
 
 This means old documents are upgraded lazily on read. A document at a version
 newer than the app supports is rejected with `DbValidationError` rather than

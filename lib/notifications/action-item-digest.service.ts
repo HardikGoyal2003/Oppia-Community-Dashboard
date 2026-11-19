@@ -22,7 +22,7 @@ import { NOTIFICATION_CHANNELS } from "@/lib/notifications/channels";
 import {
   buildWeeklyActionItemsDigest,
   type WeeklyDigestItem,
-} from "@/lib/notifications/templates/action-items-weekly-digest";
+} from "@/lib/notifications/templates/action-items-weekly-digest.template";
 import { getIstDateKey, getIstWeekStartDateKey } from "@/lib/utils/date.utils";
 
 /** Delivery kind recorded for weekly action-item digests. */
@@ -147,13 +147,21 @@ export async function sendWeeklyActionItemDigest(
 
   const items = await getActionItems();
   const groupedItems = groupActiveItemsByTeam(items);
+  const recipientsByTeam = new Map(
+    await Promise.all(
+      Array.from(groupedItems.keys()).map(
+        async (teamKey) =>
+          [teamKey, await getDigestRecipientsForTeam(teamKey)] as const,
+      ),
+    ),
+  );
   const appBaseUrl = getAppBaseUrl();
   const teams: DigestTeamOutcome[] = [];
   const skippedTeamKeys: string[] = [];
   let teamsNotified = 0;
 
   for (const [teamKey, teamItems] of groupedItems) {
-    const recipients = await getDigestRecipientsForTeam(teamKey);
+    const recipients = recipientsByTeam.get(teamKey) ?? [];
     const teamEmail = resolveTeamLeadEmail(teamKey);
     const emailRecipients = teamEmail
       ? recipients.length > 0

@@ -1,7 +1,7 @@
 /**
  * Base error for domain-aware DB failures.
  */
-class DbError extends Error {
+export class DbError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "DbError";
@@ -44,5 +44,30 @@ export class DbValidationError extends DbError {
     super(message);
     this.name = "DbValidationError";
     this.field = field;
+  }
+}
+
+/**
+ * Error raised when a duplicate pending member-access request already exists.
+ */
+export class PendingMemberAccessRequestError extends DbError {
+  request: import("@/db/member-access-requests/member-access-requests.types").MemberAccessRequestModel;
+
+  constructor(
+    request: import("@/db/member-access-requests/member-access-requests.types").MemberAccessRequestModel,
+  ) {
+    super("A pending member access request already exists.");
+    this.name = "PendingMemberAccessRequestError";
+    this.request = request;
+  }
+}
+
+/**
+ * Error raised when an actor is not authorized to perform a DB command.
+ */
+export class DbAuthorizationError extends DbError {
+  constructor(message = "Not authorized to perform this action.") {
+    super(message);
+    this.name = "DbAuthorizationError";
   }
 }
