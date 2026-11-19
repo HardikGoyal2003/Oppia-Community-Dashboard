@@ -25,7 +25,7 @@ import {
   createEmptyReviewerCycleAggregate,
   reviewCycleAggregateToDocument,
   type ReviewerCycleAggregateWrite,
-} from "@/lib/team-activity/reviewer-cycle-aggregate";
+} from "@/lib/team-activity/reviewer-cycle-aggregate.utils";
 
 type SyncSummary = {
   completedCyclesCount: number;
