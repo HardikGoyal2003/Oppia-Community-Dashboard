@@ -161,45 +161,22 @@ const SCHEMA_MIGRATIONS: Record<SchemaKey, readonly SchemaMigration[]> = {
     {
       toVersion: 1,
       migrate: (document) => ({
-        teams: Array.isArray(document.teams) ? document.teams : document.teams,
+        ...document,
+        teams: Array.isArray(document.teams) ? document.teams : [],
         pendingReviews: Array.isArray(document.pendingReviews)
           ? document.pendingReviews
-          : document.pendingReviews,
-        completedReviews:
-          document.completedReviews === undefined
-            ? 0
-            : document.completedReviews,
-        reviewedPrCount:
-          document.reviewedPrCount === undefined ? 0 : document.reviewedPrCount,
-        completedReviewSubmissions:
-          document.completedReviewSubmissions === undefined
-            ? 0
-            : document.completedReviewSubmissions,
-        approvedPrCount:
-          document.approvedPrCount === undefined ? 0 : document.approvedPrCount,
-        authoredPrCount:
-          document.authoredPrCount === undefined ? 0 : document.authoredPrCount,
-        avgReviewTimeHours:
-          document.avgReviewTimeHours === undefined
-            ? null
-            : document.avgReviewTimeHours,
-        avgTimeToApprovalHours:
-          document.avgTimeToApprovalHours === undefined
-            ? null
-            : document.avgTimeToApprovalHours,
+          : [],
+        completedReviews: document.completedReviews ?? 0,
+        reviewedPrCount: document.reviewedPrCount ?? 0,
+        completedReviewSubmissions: document.completedReviewSubmissions ?? 0,
+        approvedPrCount: document.approvedPrCount ?? 0,
+        authoredPrCount: document.authoredPrCount ?? 0,
+        avgReviewTimeHours: document.avgReviewTimeHours ?? null,
+        avgTimeToApprovalHours: document.avgTimeToApprovalHours ?? null,
         avgReviewRoundsBeforeApproval:
-          document.avgReviewRoundsBeforeApproval === undefined
-            ? null
-            : document.avgReviewRoundsBeforeApproval,
-        avgCommentsPerReview:
-          document.avgCommentsPerReview === undefined
-            ? null
-            : document.avgCommentsPerReview,
-        avgReviewsPerWeek:
-          document.avgReviewsPerWeek === undefined
-            ? null
-            : document.avgReviewsPerWeek,
-        lastUpdated: document.lastUpdated,
+          document.avgReviewRoundsBeforeApproval ?? null,
+        avgCommentsPerReview: document.avgCommentsPerReview ?? null,
+        avgReviewsPerWeek: document.avgReviewsPerWeek ?? null,
         schemaVersion: 1,
       }),
     },
