@@ -14,7 +14,7 @@ import {
 import type {
   ReviewCycleAggregate,
   ReviewCycleLoginContribution,
-} from "@/lib/reviewer-teams/review-cycle-analytics";
+} from "@/lib/reviewer-teams/review-cycle-calculations";
 import {
   getReviewerCycleAggregates,
   upsertReviewerCycleAggregates,

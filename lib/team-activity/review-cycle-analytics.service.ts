@@ -28,7 +28,7 @@ import {
   PR_SIZE_SCATTER_LIMIT,
   type ReviewCycleAggregate,
   type ReviewCycleLoginContribution,
-} from "@/lib/reviewer-teams/review-cycle-analytics";
+} from "@/lib/reviewer-teams/review-cycle-calculations";
 
 /**
  * Computes aggregate stats for the given reviewers only.

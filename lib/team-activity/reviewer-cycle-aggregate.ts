@@ -1,7 +1,7 @@
 import type {
   ReviewCycleAggregate,
   ReviewCycleLoginContribution,
-} from "@/lib/reviewer-teams/review-cycle-analytics";
+} from "@/lib/reviewer-teams/review-cycle-calculations";
 import type { ReviewerCycleAggregateDocument } from "@/db/reviewer-cycle-aggregates/reviewer-cycle-aggregates.mapper";
 
 export type ReviewerCycleAggregateWrite = Omit<
