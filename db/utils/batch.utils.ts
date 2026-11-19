@@ -12,6 +12,10 @@ export const FIRESTORE_READ_CHUNK_SIZE = 300;
  * @returns The chunked values.
  */
 export function chunkValues<T>(values: T[], size: number): T[][] {
+  if (size <= 0) {
+    throw new RangeError("Chunk size must be greater than zero.");
+  }
+
   const chunks: T[][] = [];
 
   for (let index = 0; index < values.length; index += size) {
