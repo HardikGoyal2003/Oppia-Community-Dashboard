@@ -4,22 +4,16 @@ import { authOptions } from "@/lib/auth/auth.options";
 import { getKnownRoleDisplayLabel } from "@/lib/auth/role-display";
 import { UserRole } from "@/lib/auth/auth.types";
 import {
-  isAssignableUserRole,
-  isTeamLeadAssignableRole,
-} from "@/lib/auth/roles";
-import {
   getUserById,
   getUsersByTeam,
   type UserRecord,
   updateUserRoleAndTeamWithNotificationByUid,
 } from "@/db/users/users.db";
-import { DbNotFoundError, DbValidationError } from "@/db/db.errors";
-
-const TEAM_LEAD_UNMANAGEABLE_ROLES: UserRole[] = [
-  "SUPER_ADMIN",
-  "ADMIN",
-  "TEAM_LEAD",
-];
+import {
+  DbAuthorizationError,
+  DbNotFoundError,
+  DbValidationError,
+} from "@/db/db.errors";
 
 type TeamMemberSummary = Pick<
   UserRecord,
@@ -48,10 +42,6 @@ function toTeamMemberSummary(member: UserRecord): TeamMemberSummary {
     role: member.role,
     team: member.team,
   };
-}
-
-function isAllowedRole(role: UserRole): boolean {
-  return isTeamLeadAssignableRole(role);
 }
 
 function getUserAccessUpdatedMessage(
@@ -115,19 +105,10 @@ export async function PATCH(req: Request) {
   const requestedTeam = typeof body.team === "string" ? body.team.trim() : "";
   const reason = typeof body.reason === "string" ? body.reason.trim() : "";
 
-  if (!uid || !role || !isAssignableUserRole(role) || !reason) {
+  if (!uid || !role || !reason) {
     return NextResponse.json(
       { error: "Invalid payload for user update." },
       { status: 400 },
-    );
-  }
-
-  if (!isAllowedRole(role as UserRole)) {
-    return NextResponse.json(
-      {
-        error: "You do not have permission to assign this role.",
-      },
-      { status: 403 },
     );
   }
 
@@ -147,25 +128,6 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "User not found." }, { status: 404 });
     }
 
-    if (target.team !== callerTeam) {
-      return NextResponse.json(
-        {
-          error:
-            "You do not have permission to update users outside your team.",
-        },
-        { status: 403 },
-      );
-    }
-
-    if (TEAM_LEAD_UNMANAGEABLE_ROLES.includes(target.role)) {
-      return NextResponse.json(
-        {
-          error: "You do not have permission to update this user.",
-        },
-        { status: 403 },
-      );
-    }
-
     await updateUserRoleAndTeamWithNotificationByUid(
       uid,
       role as UserRole,
@@ -177,8 +139,16 @@ export async function PATCH(req: Request) {
         reason,
         session.user.githubUsername,
       ),
+      {
+        role: session.user.role,
+        team: session.user.team ?? null,
+      },
     );
   } catch (error) {
+    if (error instanceof DbAuthorizationError) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+
     if (error instanceof DbNotFoundError) {
       return NextResponse.json({ error: error.message }, { status: 404 });
     }

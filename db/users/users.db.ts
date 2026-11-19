@@ -4,19 +4,37 @@ import {
   UserModel,
   isContributionPlatform,
 } from "@/lib/auth/auth.types";
+import {
+  isAssignableUserRole,
+  isTeamLeadAssignableRole,
+} from "@/lib/auth/roles";
 import { Timestamp } from "firebase-admin/firestore";
-import { DbNotFoundError, DbValidationError } from "../db.errors";
+import { DbAuthorizationError, DbValidationError } from "../db.errors";
 import { chunkValues, FIRESTORE_WRITE_BATCH_SIZE } from "../utils/batch.utils";
+import {
+  getRequiredTransactionDocumentSnapshot,
+  updateRequiredDocument,
+} from "../utils/document.utils";
 import {
   getRequiredUserDocRefInTransaction,
   getUserNotificationsCollection,
-  getUserNotificationsCollectionByUid,
   usersCollection,
 } from "./users.refs";
-import { updateRequiredDocument } from "../utils/document.utils";
 import { serializeNotification } from "./notifications/notifications.mapper";
 import { normalizeUserDocument, serializeUser } from "./users.mapper";
 import type { FirestoreUser } from "./users.mapper";
+
+/** Actor context required to authorize user role/team updates. */
+export type UpdateUserRoleAndTeamActor = {
+  role: UserRole;
+  team: string | null;
+};
+
+const TEAM_LEAD_UNMANAGEABLE_TARGET_ROLES: readonly UserRole[] = [
+  "SUPER_ADMIN",
+  "ADMIN",
+  "TEAM_LEAD",
+];
 
 export type UserRecord = UserModel & {
   id: string;
@@ -206,13 +224,74 @@ export async function updateUserPlatformByUid(
 }
 
 /**
+ * Asserts that an actor may update a user's role and team.
+ *
+ * @param actor The actor attempting the update.
+ * @param target The current target user record.
+ * @param role The requested role.
+ * @param team The requested team.
+ * @returns Nothing. Throws when the actor is not authorized.
+ */
+function assertCanUpdateUserRoleAndTeam(
+  actor: UpdateUserRoleAndTeamActor,
+  target: UserRecord,
+  role: UserRole,
+  team: string | null,
+): void {
+  if (actor.role === "ADMIN" || actor.role === "SUPER_ADMIN") {
+    if (!isAssignableUserRole(role)) {
+      throw new DbValidationError("role", "Invalid payload for user update.");
+    }
+    return;
+  }
+
+  if (actor.role === "TEAM_LEAD" || actor.role === "LEAD_TRAINEE") {
+    if (!actor.team) {
+      throw new DbAuthorizationError("You are not assigned to any team.");
+    }
+
+    if (!isAssignableUserRole(role) || !isTeamLeadAssignableRole(role)) {
+      throw new DbAuthorizationError(
+        "You do not have permission to assign this role.",
+      );
+    }
+
+    if (team && team !== actor.team) {
+      throw new DbAuthorizationError(
+        "You do not have permission to assign users to another team.",
+      );
+    }
+
+    if (target.team !== actor.team) {
+      throw new DbAuthorizationError(
+        "You do not have permission to update users outside your team.",
+      );
+    }
+
+    if (TEAM_LEAD_UNMANAGEABLE_TARGET_ROLES.includes(target.role)) {
+      throw new DbAuthorizationError(
+        "You do not have permission to update this user.",
+      );
+    }
+
+    return;
+  }
+
+  throw new DbAuthorizationError();
+}
+
+/**
  * Updates a user's role and team by uid and appends a notification atomically.
+ *
+ * Authorization is re-checked inside the transaction against the current target
+ * user state.
  *
  * @param uid The user id to update.
  * @param role The new role value.
  * @param team The new team value.
  * @param githubUsername The GitHub username to persist.
  * @param message The notification message to append.
+ * @param actor The actor performing the update.
  * @returns A promise that resolves when the update and notification write have been committed.
  */
 export async function updateUserRoleAndTeamWithNotificationByUid(
@@ -221,41 +300,36 @@ export async function updateUserRoleAndTeamWithNotificationByUid(
   team: string | null,
   githubUsername: string,
   message: string,
+  actor: UpdateUserRoleAndTeamActor,
 ): Promise<void> {
   assertGithubUsernameProvided(githubUsername);
 
-  const userDocRef = usersCollection.doc(uid);
-  const notificationRef = getUserNotificationsCollectionByUid(uid).doc();
-  const batch = usersCollection.firestore.batch();
+  await usersCollection.firestore.runTransaction(async (tx) => {
+    const userDocRef = usersCollection.doc(uid);
+    const snapshot = await getRequiredTransactionDocumentSnapshot(
+      tx,
+      "User",
+      userDocRef,
+    );
+    const target: UserRecord = {
+      id: snapshot.id,
+      ...normalizeUserDocument(snapshot.data()!),
+    };
 
-  batch.update(userDocRef, {
-    role,
-    team,
-    githubUsername,
+    assertCanUpdateUserRoleAndTeam(actor, target, role, team);
+
+    const effectiveTeam =
+      actor.role === "TEAM_LEAD" || actor.role === "LEAD_TRAINEE"
+        ? actor.team
+        : team;
+
+    tx.update(userDocRef, {
+      role,
+      team: effectiveTeam,
+      githubUsername,
+    });
+    appendNotificationInTransaction(tx, userDocRef, message);
   });
-  batch.set(
-    notificationRef,
-    serializeNotification({
-      message,
-      read: false,
-      createdAt: new Date(),
-    }),
-  );
-
-  try {
-    await batch.commit();
-  } catch (error) {
-    if (
-      error &&
-      typeof error === "object" &&
-      "code" in error &&
-      error.code === 5
-    ) {
-      throw new DbNotFoundError("User");
-    }
-
-    throw error;
-  }
 }
 
 /**

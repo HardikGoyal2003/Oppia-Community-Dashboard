@@ -8,8 +8,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
 import { getKnownRoleDisplayLabel } from "@/lib/auth/role-display";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
-import { isAssignableUserRole } from "@/lib/auth/roles";
-import { DbNotFoundError, DbValidationError } from "@/db/db.errors";
+import {
+  DbAuthorizationError,
+  DbNotFoundError,
+  DbValidationError,
+} from "@/db/db.errors";
 
 type ManagedUser = Pick<
   UserRecord,
@@ -89,13 +92,7 @@ export async function PATCH(req: Request) {
     typeof body.githubUsername === "string" ? body.githubUsername.trim() : "";
   const reason = typeof body.reason === "string" ? body.reason.trim() : "";
 
-  if (
-    !uid ||
-    !role ||
-    !isAssignableUserRole(role) ||
-    !githubUsername ||
-    !reason
-  ) {
+  if (!uid || !role || !githubUsername || !reason) {
     return NextResponse.json(
       { error: "Invalid payload for user update." },
       { status: 400 },
@@ -105,17 +102,25 @@ export async function PATCH(req: Request) {
   try {
     await updateUserRoleAndTeamWithNotificationByUid(
       uid,
-      role,
+      role as UserRole,
       team,
       githubUsername,
       getUserAccessUpdatedMessage(
-        role,
+        role as UserRole,
         team,
         reason,
         session.user?.githubUsername,
       ),
+      {
+        role: session.user.role,
+        team: session.user.team ?? null,
+      },
     );
   } catch (error) {
+    if (error instanceof DbAuthorizationError) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+
     if (error instanceof DbNotFoundError) {
       return NextResponse.json({ error: error.message }, { status: 404 });
     }
