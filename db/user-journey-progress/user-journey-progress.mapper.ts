@@ -12,6 +12,23 @@ import type {
   UserJourneyProgressModel,
 } from "@/lib/domain/contributor-journey.types";
 import { DERIVED_JOURNEY_KEYS } from "@/lib/domain/contributor-journey.types";
+
+/**
+ * Validates that a derived journey key is allowlisted.
+ *
+ * @param key The derived journey key to validate.
+ * @returns Nothing. Throws when the key is not supported.
+ */
+function assertDerivedJourneyKey(
+  key: DerivedJourneyKey | string,
+): asserts key is DerivedJourneyKey {
+  if (!DERIVED_JOURNEY_KEYS.includes(key as DerivedJourneyKey)) {
+    throw new DbValidationError(
+      "key",
+      "Derived journey key must be a supported value.",
+    );
+  }
+}
 import { isContributionPlatform } from "@/lib/auth/auth.types";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import {
@@ -344,6 +361,8 @@ export function serializeDerivedJourneyStateUpdate(
   state: DerivedProgressState,
   updatedAt: Date,
 ): Record<string, FirestoreDerivedProgressState | Timestamp> {
+  assertDerivedJourneyKey(key);
+
   return {
     [`derivedState.${key}`]: serializeDerivedProgressState(state),
     updatedAt: Timestamp.fromDate(updatedAt),

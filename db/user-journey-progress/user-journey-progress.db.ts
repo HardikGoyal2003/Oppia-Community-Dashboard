@@ -4,7 +4,9 @@ import type {
   DerivedProgressState,
   UserJourneyProgressModel,
 } from "@/lib/domain/contributor-journey.types";
+import { DERIVED_JOURNEY_KEYS } from "@/lib/domain/contributor-journey.types";
 import { DB_PATHS } from "@/db/db-paths";
+import { DbValidationError } from "@/db/db.errors";
 import {
   getRequiredTransactionDocumentSnapshot,
   updateRequiredDocument,
@@ -15,6 +17,36 @@ import {
   serializeDerivedJourneyStateUpdate,
   serializeUserJourneyProgress,
 } from "./user-journey-progress.mapper";
+
+/**
+ * Validates that a Firestore document id input is a non-empty string.
+ *
+ * @param field The field name being validated.
+ * @param value The id value to validate.
+ * @returns Nothing. Throws when the value is invalid.
+ */
+function assertNonEmptyId(field: string, value: string): void {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new DbValidationError(field, `${field} must be a non-empty string.`);
+  }
+}
+
+/**
+ * Validates that a derived journey key is allowlisted.
+ *
+ * @param key The derived journey key to validate.
+ * @returns Nothing. Throws when the key is not supported.
+ */
+function assertDerivedJourneyKey(
+  key: string,
+): asserts key is DerivedJourneyKey {
+  if (!DERIVED_JOURNEY_KEYS.includes(key as DerivedJourneyKey)) {
+    throw new DbValidationError(
+      "key",
+      "Derived journey key must be a supported value.",
+    );
+  }
+}
 
 const db = getAdminFirestore();
 const userJourneyProgressCollection = db.collection(
@@ -30,6 +62,7 @@ const userJourneyProgressCollection = db.collection(
 export async function getUserJourneyProgressByUid(
   uid: string,
 ): Promise<UserJourneyProgressModel | null> {
+  assertNonEmptyId("uid", uid);
   const snap = await userJourneyProgressCollection.doc(uid).get();
 
   if (!snap.exists) {
@@ -50,6 +83,7 @@ export async function saveUserJourneyProgressByUid(
   uid: string,
   progress: Omit<UserJourneyProgressModel, "schemaVersion">,
 ): Promise<void> {
+  assertNonEmptyId("uid", uid);
   await userJourneyProgressCollection
     .doc(uid)
     .set(serializeUserJourneyProgress(progress));
@@ -66,6 +100,8 @@ export async function markManualJourneyItemCompletedByUid(
   uid: string,
   itemId: string,
 ): Promise<UserJourneyProgressModel> {
+  assertNonEmptyId("uid", uid);
+  assertNonEmptyId("itemId", itemId);
   const docRef = userJourneyProgressCollection.doc(uid);
 
   return userJourneyProgressCollection.firestore.runTransaction(
@@ -111,6 +147,8 @@ export async function setDerivedJourneyStateByUid(
   key: DerivedJourneyKey,
   state: DerivedProgressState,
 ): Promise<{ state: DerivedProgressState; updatedAt: Date }> {
+  assertNonEmptyId("uid", uid);
+  assertDerivedJourneyKey(key);
   const updatedAt = new Date();
 
   await updateRequiredDocument(
