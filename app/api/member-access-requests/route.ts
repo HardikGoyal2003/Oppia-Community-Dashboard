@@ -1,13 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth.options";
-import { getKnownRoleDisplayLabel } from "@/lib/auth/role-display";
-import {
-  getMemberAccessRequestById,
-  getPendingMemberAccessRequestsByPlatformAndRoles,
-  resolveMemberAccessRequest,
-  submitMemberAccessRequest,
-} from "@/db/member-access-requests/member-access-requests.db";
 import { ContributionPlatform, UserRole } from "@/lib/auth/auth.types";
 import { isAssignableUserRole } from "@/lib/auth/roles";
 import {
@@ -16,40 +9,15 @@ import {
   DbNotFoundError,
   DbValidationError,
   PendingMemberAccessRequestError,
-} from "@/db/db.errors";
+} from "@/lib/errors";
+import {
+  listPendingAdminMemberAccessRequests,
+  resolveAdminMemberAccessRequest,
+  submitMemberAccessRequest,
+} from "@/lib/member-access-requests/member-access-requests.service";
 
 function canManageRequests(role: UserRole): boolean {
   return role === "ADMIN" || role === "SUPER_ADMIN";
-}
-
-function getPromotionMessage(role: UserRole, team: string): string {
-  const roleLabel = getKnownRoleDisplayLabel(role);
-
-  switch (role) {
-    case "TEAM_MEMBER":
-      return `Great news! You are now a ${roleLabel} on ${team}. We're really happy to have you onboard.`;
-    case "TEAM_LEAD":
-      return `Amazing! You have been promoted to ${roleLabel} on ${team}. We're truly excited to have you leading with us onboard.`;
-    case "ADMIN":
-      return `Outstanding! You have been promoted to ${roleLabel} on ${team}. We're incredibly grateful and thrilled to have you onboard in this key role.`;
-    default:
-      return `Welcome! Your access request has been approved and your role is now ${roleLabel} on ${team}. We're happy to have you onboard.`;
-  }
-}
-
-const ADMIN_MANAGEABLE_ROLES = ["TEAM_LEAD", "ADMIN"];
-
-function getDeclineMessage(
-  reason: string,
-  changedByGithubUsername?: string,
-): string {
-  const actor = changedByGithubUsername ?? "Admin";
-
-  return [
-    `Thank you for your request. ${actor} reviewed it and we are unable to approve it at this moment.`,
-    `Reason: ${reason}`,
-    "Please refine your request and apply again. We appreciate your interest in contributing with us.",
-  ].join("\n");
 }
 
 export async function GET(req: Request) {
@@ -66,10 +34,7 @@ export async function GET(req: Request) {
       ? (platformParam as ContributionPlatform)
       : undefined;
 
-  const requests = await getPendingMemberAccessRequestsByPlatformAndRoles(
-    platform,
-    ADMIN_MANAGEABLE_ROLES,
-  );
+  const requests = await listPendingAdminMemberAccessRequests(platform);
   return NextResponse.json({
     pending: requests,
   });
@@ -182,30 +147,16 @@ export async function PATCH(req: Request) {
   }
 
   try {
-    const request = await getMemberAccessRequestById(requestId);
-
-    let notificationMessage: string;
-
-    if (decision === "ACCEPT") {
-      if (!isAssignableUserRole(request.role)) {
-        return NextResponse.json(
-          { error: "Invalid role in request." },
-          { status: 400 },
-        );
-      }
-
-      notificationMessage = getPromotionMessage(request.role, request.team);
-    } else {
-      notificationMessage = getDeclineMessage(
-        reason,
-        session.user.githubUsername,
-      );
-    }
-
-    await resolveMemberAccessRequest(requestId, decision, notificationMessage, {
-      role: session.user.role,
-      team: session.user.team ?? null,
-      platform: session.user.platform ?? null,
+    await resolveAdminMemberAccessRequest({
+      requestId,
+      decision: decision as "ACCEPT" | "DECLINE",
+      reason,
+      actor: {
+        role: session.user.role,
+        team: session.user.team ?? null,
+        platform: session.user.platform ?? null,
+        githubUsername: session.user.githubUsername,
+      },
     });
   } catch (error) {
     if (error instanceof DbAuthorizationError) {
