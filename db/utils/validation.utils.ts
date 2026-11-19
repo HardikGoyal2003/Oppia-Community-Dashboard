@@ -3,6 +3,24 @@ import { DbValidationError } from "@/db/db.errors";
 type RawValue = FirebaseFirestore.DocumentData[string];
 
 /**
+ * Asserts that an operation input is a non-empty, trimmed string identifier.
+ *
+ * @param field The field name being validated.
+ * @param value The identifier value to validate.
+ * @param message Optional custom validation message.
+ * @returns Nothing. Throws when the value is not a non-empty string.
+ */
+export function assertNonEmptyId(
+  field: string,
+  value: string,
+  message = `${field} must be a non-empty string.`,
+): asserts value is string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new DbValidationError(field, message);
+  }
+}
+
+/**
  * Asserts that a raw value is a non-empty, trimmed string.
  *
  * @param field The field name being validated.

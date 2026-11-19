@@ -11,25 +11,13 @@ import {
   getRequiredTransactionDocumentSnapshot,
   updateRequiredDocument,
 } from "@/db/utils/document.utils";
+import { assertNonEmptyId } from "@/db/utils/validation.utils";
 import {
   FirestoreUserJourneyProgress,
   normalizeUserJourneyProgressDocument,
   serializeDerivedJourneyStateUpdate,
   serializeUserJourneyProgress,
 } from "./user-journey-progress.mapper";
-
-/**
- * Validates that a Firestore document id input is a non-empty string.
- *
- * @param field The field name being validated.
- * @param value The id value to validate.
- * @returns Nothing. Throws when the value is invalid.
- */
-function assertNonEmptyId(field: string, value: string): void {
-  if (typeof value !== "string" || !value.trim()) {
-    throw new DbValidationError(field, `${field} must be a non-empty string.`);
-  }
-}
 
 /**
  * Validates that a derived journey key is allowlisted.
