@@ -1,8 +1,9 @@
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DB_PATHS } from "@/db/db-paths";
 import { DbValidationError } from "@/db/db.errors";
 import {
+  FIRESTORE_READ_CHUNK_SIZE,
   chunkValues,
   FIRESTORE_WRITE_BATCH_SIZE,
 } from "@/db/utils/batch.utils";
@@ -194,38 +195,77 @@ export async function deleteActionItems(
 /**
  * Marks items as notified by the latest digest.
  *
- * Uses per-document transactions so concurrent digest runs do not lose
- * notification count increments or overwrite an existing first notification time.
+ * Uses chunked reads and batched updates so notification counters are
+ * incremented efficiently while preserving existing first-notification times and
+ * never moving the last-notification time backwards.
  *
  * @param items The items that were included in a digest.
  * @param notifiedAt The time the digest was delivered.
- * @returns A promise that resolves when all updates are committed.
+ * @returns The ids of updated and skipped (missing) action items.
  */
 export async function markActionItemsNotified(
   items: ActionItemModel[],
   notifiedAt: Date,
-): Promise<void> {
-  for (const item of items) {
-    const ref = getActionItemDocumentRef(item.teamId, item.id);
+): Promise<{ updatedIds: string[]; skippedIds: string[] }> {
+  if (items.length === 0) {
+    return { updatedIds: [], skippedIds: [] };
+  }
 
-    await actionItemsCollectionGroup.firestore.runTransaction(async (tx) => {
-      const snapshot = await tx.get(ref);
+  const notifiedAtTimestamp = Timestamp.fromDate(notifiedAt);
+  const notifiedAtMs = notifiedAt.getTime();
+  const updatedIds: string[] = [];
+  const skippedIds: string[] = [];
+  const updates: Array<{
+    ref: FirebaseFirestore.DocumentReference<FirestoreActionItem>;
+    data: FirebaseFirestore.UpdateData<FirestoreActionItem>;
+  }> = [];
 
+  const refs = items.map((item) =>
+    getActionItemDocumentRef(item.teamId, item.id),
+  );
+
+  for (const refChunk of chunkValues(refs, FIRESTORE_READ_CHUNK_SIZE)) {
+    const snapshots = (await actionItemsCollectionGroup.firestore.getAll(
+      ...refChunk,
+    )) as FirebaseFirestore.DocumentSnapshot<FirestoreActionItem>[];
+
+    for (const snapshot of snapshots) {
       if (!snapshot.exists) {
-        return;
+        skippedIds.push(snapshot.id);
+        continue;
       }
 
       const data = snapshot.data();
+      const existingLastNotifiedAt = data?.lastNotifiedAt;
+      const lastNotifiedAt =
+        existingLastNotifiedAt &&
+        existingLastNotifiedAt.toMillis() > notifiedAtMs
+          ? existingLastNotifiedAt
+          : notifiedAtTimestamp;
+
       const update: FirebaseFirestore.UpdateData<FirestoreActionItem> = {
         notificationCount: FieldValue.increment(1),
-        lastNotifiedAt: notifiedAt,
+        lastNotifiedAt,
       };
 
       if (!data?.firstNotifiedAt) {
-        update.firstNotifiedAt = notifiedAt;
+        update.firstNotifiedAt = notifiedAtTimestamp;
       }
 
-      tx.update(ref, update);
-    });
+      updates.push({ ref: snapshot.ref, data: update });
+      updatedIds.push(snapshot.id);
+    }
   }
+
+  for (const chunk of chunkValues(updates, FIRESTORE_WRITE_BATCH_SIZE)) {
+    const batch = actionItemsCollectionGroup.firestore.batch();
+
+    for (const update of chunk) {
+      batch.update(update.ref, update.data);
+    }
+
+    await batch.commit();
+  }
+
+  return { updatedIds, skippedIds };
 }
