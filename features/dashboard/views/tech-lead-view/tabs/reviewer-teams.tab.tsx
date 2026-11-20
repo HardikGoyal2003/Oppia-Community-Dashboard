@@ -310,21 +310,6 @@ export function ReviewerReportsTab() {
     void load();
   }, []);
 
-  const totalAssignedPRs = useMemo(() => {
-    if (!data) return 0;
-
-    const seen = new Set<string>();
-    for (const team of data.teams) {
-      for (const member of team.members) {
-        for (const pr of member.assignedPRs) {
-          seen.add(`${member.username.toLowerCase()}:${pr.prNumber}`);
-        }
-      }
-    }
-
-    return seen.size;
-  }, [data]);
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -420,19 +405,6 @@ export function ReviewerReportsTab() {
           </p>
         </div>
         <ReviewerAnalyticsSection analytics={data.analytics} />
-      </div>
-
-      <div className="rounded-lg border border-slate-200 bg-slate-50 px-5 py-3">
-        <p className="text-xs text-slate-500">
-          <strong className="font-medium text-slate-700">
-            {data.teams.length}
-          </strong>{" "}
-          teams,{" "}
-          <strong className="font-medium text-slate-700">
-            {totalAssignedPRs}
-          </strong>{" "}
-          open PRs awaiting review. Synced daily via cron.
-        </p>
       </div>
     </div>
   );
