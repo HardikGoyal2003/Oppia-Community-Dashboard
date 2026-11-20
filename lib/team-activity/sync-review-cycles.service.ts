@@ -12,6 +12,7 @@ import {
   getReviewCycleAggregatesForLogins,
 } from "@/lib/team-activity/review-cycle-analytics.service";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import { normalizeGithubUsername } from "@/lib/utils/username.utils";
 import { REVIEWER_REPORT_PLATFORM } from "./reviewer-platform.constants";
 import type {
   ReviewCycleAggregate,
@@ -300,22 +301,28 @@ export async function syncReviewCycles(
 
   const allCompleted = [...openResult.completed, ...closedResult.completed];
 
-  const filtered = allCompleted.filter((c) => knownLogins.has(c.reviewerLogin));
+  const filtered = allCompleted.filter((c) =>
+    knownLogins.has(normalizeGithubUsername(c.reviewerLogin)),
+  );
 
   const newRecords = await createNewReviewCycles(
     platform,
-    filtered.map((cycle) => ({ ...cycle, platform })),
+    filtered.map((cycle) => ({
+      ...cycle,
+      reviewerLogin: normalizeGithubUsername(cycle.reviewerLogin),
+      platform,
+    })),
   );
 
   const affectedLogins = new Set<string>();
   for (const cycle of filtered) {
-    affectedLogins.add(cycle.reviewerLogin);
+    affectedLogins.add(normalizeGithubUsername(cycle.reviewerLogin));
   }
   for (const login of openResult.authorLogins) {
-    affectedLogins.add(login);
+    affectedLogins.add(normalizeGithubUsername(login));
   }
   for (const login of closedResult.authorLogins) {
-    affectedLogins.add(login);
+    affectedLogins.add(normalizeGithubUsername(login));
   }
 
   const contributions = await applyReviewCycleContributions(

@@ -6,6 +6,8 @@ import {
   type GitHubPullResponse,
 } from "@/lib/github/github.fetcher";
 
+import { normalizeGithubUsername } from "@/lib/utils/username.utils";
+
 type ReviewCycleBackfillStepInput = {
   /** Inclusive start of the window. */
   sinceDate: Date;
@@ -63,7 +65,7 @@ export async function runReviewCycleBackfillStep(
   const authorLogins = new Set<string>();
   for (const pr of prsByNumber.values()) {
     const author = pr.user?.login;
-    if (author) authorLogins.add(author);
+    if (author) authorLogins.add(normalizeGithubUsername(author));
   }
 
   const records: CycleRecord[] = [];
@@ -80,9 +82,14 @@ export async function runReviewCycleBackfillStep(
 
     const result = await extractCycleRecordsForPR(pr, false);
     records.push(
-      ...result.completed.filter((cycle) =>
-        input.knownLogins.has(cycle.reviewerLogin),
-      ),
+      ...result.completed
+        .filter((cycle) =>
+          input.knownLogins.has(normalizeGithubUsername(cycle.reviewerLogin)),
+        )
+        .map((cycle) => ({
+          ...cycle,
+          reviewerLogin: normalizeGithubUsername(cycle.reviewerLogin),
+        })),
     );
     processedPrNumbers.push(pr.number);
   }

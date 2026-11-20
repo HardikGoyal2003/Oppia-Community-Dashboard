@@ -1,5 +1,6 @@
 import { fetchWebReviewerTeams } from "@/lib/github/github.fetcher";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import { normalizeGithubUsername } from "@/lib/utils/username.utils";
 import { REVIEWER_REPORT_PLATFORM } from "./reviewer-platform.constants";
 import { upsertTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
 import { getReviewers, upsertReviewers } from "@/db/reviewers/reviewers.db";
@@ -85,7 +86,7 @@ export async function syncReviewerTeams(): Promise<SyncSummary> {
       teamName: team.teamName,
       description: team.description,
       members: team.members.map((m) => ({
-        username: m.username,
+        username: normalizeGithubUsername(m.username),
         avatarUrl: m.avatarUrl,
       })),
     })),
@@ -97,9 +98,10 @@ export async function syncReviewerTeams(): Promise<SyncSummary> {
   const memberToTeams = new Map<string, string[]>();
   for (const team of fetchedTeams) {
     for (const member of team.members) {
-      const existing = memberToTeams.get(member.username) ?? [];
+      const login = normalizeGithubUsername(member.username);
+      const existing = memberToTeams.get(login) ?? [];
       existing.push(team.teamSlug);
-      memberToTeams.set(member.username, existing);
+      memberToTeams.set(login, existing);
     }
   }
 

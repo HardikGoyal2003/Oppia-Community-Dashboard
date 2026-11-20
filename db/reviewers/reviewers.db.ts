@@ -3,6 +3,7 @@ import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import type { ReviewerDocument } from "@/lib/domain/reviewer-teams.types";
 import { DB_PATHS } from "@/db/db-paths";
 import { buildReviewerDocId } from "@/db/reviewer-doc-ids";
+import { normalizeGithubUsername } from "@/lib/utils/username.utils";
 import {
   FIRESTORE_READ_CHUNK_SIZE,
   FIRESTORE_WRITE_BATCH_SIZE,
@@ -79,13 +80,13 @@ export async function upsertReviewers(
  *
  * @param platform The repository platform the reviewers belong to.
  * @param logins The GitHub logins to fetch.
- * @returns A map of login to reviewer document for the logins that exist.
+ * @returns A map of normalized login to reviewer document for the logins that exist.
  */
 export async function getReviewers(
   platform: ContributionPlatform,
   logins: string[],
 ): Promise<Map<string, ReviewerDocument>> {
-  const uniqueLogins = Array.from(new Set(logins));
+  const uniqueLogins = Array.from(new Set(logins.map(normalizeGithubUsername)));
   const reviewers = new Map<string, ReviewerDocument>();
 
   for (
