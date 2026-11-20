@@ -5,7 +5,6 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
-  ExternalLink,
   RefreshCw,
   Shield,
   Users,
@@ -16,64 +15,12 @@ import type {
   ReviewerTeamMember,
 } from "@/lib/domain/reviewer-teams.types";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  PendingReviewRows,
+  ReviewerStats,
+} from "@/features/dashboard/shared/reviewer-reports/reviewer-report-parts";
 import { ReviewerAnalyticsSection } from "../components/reviewer-analytics-section";
 
 type Tab = "individual" | "teams";
-
-const PENDING_STALE_CUTOFF_HOURS = 48;
-
-function waitingSince(iso: string): string {
-  const hours = (Date.now() - new Date(iso).getTime()) / 3_600_000;
-  if (hours < 1) return `${Math.round(hours * 60)}m`;
-  if (hours < 24) return `${Math.round(hours)}h`;
-  const days = Math.floor(hours / 24);
-  const remaining = Math.round(hours % 24);
-  return `${days}d ${remaining}h`;
-}
-
-function formatHours(hours: number | null): string {
-  if (hours === null) return "—";
-  if (hours < 1) return `${Math.round(hours * 60)}m`;
-  if (hours < 24) return `${Math.round(hours)}h`;
-  const days = Math.floor(hours / 24);
-  const remaining = Math.round(hours % 24);
-  return remaining === 0 ? `${days}d` : `${days}d ${remaining}h`;
-}
-
-function Stat({
-  label,
-  value,
-  tooltip,
-  tone = "default",
-}: {
-  label: string;
-  value: React.ReactNode;
-  tooltip: string;
-  tone?: "default" | "warning" | "danger";
-}) {
-  const valueClass =
-    tone === "danger"
-      ? "text-red-600"
-      : tone === "warning"
-        ? "text-amber-600"
-        : "text-slate-800";
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <div className="cursor-help text-center">
-          <p className={`text-sm font-semibold ${valueClass}`}>{value}</p>
-          <p className="text-[11px] leading-tight text-slate-500">{label}</p>
-        </div>
-      </TooltipTrigger>
-      <TooltipContent className="max-w-xs">{tooltip}</TooltipContent>
-    </Tooltip>
-  );
-}
 
 function IndividualView({ data }: { data: ReviewerTeamsDocument }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -160,114 +107,9 @@ function IndividualView({ data }: { data: ReviewerTeamsDocument }) {
               </span>
             </button>
 
-            <div className="grid grid-cols-3 gap-x-2 gap-y-3 border-t border-slate-100 px-3 py-3">
-              <Stat
-                label="Reviews"
-                value={member.completedReviewSubmissions}
-                tooltip="Every review submission (comment, request changes, or approval). One PR can receive multiple reviews, so this is not the same as PRs reviewed."
-              />
-              <Stat
-                label="PRs reviewed"
-                value={member.reviewedPrCount}
-                tooltip="Distinct PRs this reviewer submitted at least one review on."
-              />
-              <Stat
-                label="Pending"
-                value={member.pendingReviews}
-                tone={member.pendingStaleCount > 0 ? "warning" : "default"}
-                tooltip="Open PRs currently assigned for review and not yet reviewed or unassigned."
-              />
-              <Stat
-                label="First review"
-                value={formatHours(member.avgReviewTimeHours)}
-                tooltip="Average time from initial assignment to the reviewer's first review submission."
-              />
-              <Stat
-                label="To approval"
-                value={formatHours(member.avgTimeToApprovalHours)}
-                tooltip="Average time from initial assignment to the reviewer's first approval."
-              />
-              <Stat
-                label="Reviews/week"
-                value={
-                  member.avgReviewsPerWeek !== null
-                    ? Math.round(member.avgReviewsPerWeek)
-                    : "—"
-                }
-                tooltip="Average review submissions per active week. A review is any submitted review, not only an approval. Rounded to a whole number."
-              />
-            </div>
+            <ReviewerStats reviewer={member} />
 
-            <div className="grid grid-cols-3 gap-x-2 gap-y-3 border-t border-slate-100 bg-slate-50/60 px-3 py-3">
-              <Stat
-                label="Rounds"
-                value={
-                  member.avgReviewRoundsBeforeApproval !== null
-                    ? Math.round(member.avgReviewRoundsBeforeApproval)
-                    : "—"
-                }
-                tooltip="Average number of review submissions before the first approval, across PRs that were eventually approved. Rounded to a whole number."
-              />
-              <Stat
-                label="Comments"
-                value={
-                  member.avgCommentsPerReview !== null
-                    ? Math.round(member.avgCommentsPerReview)
-                    : "—"
-                }
-                tooltip="Average non-empty review bodies plus inline code comments per completed review cycle. Rounded to a whole number."
-              />
-              <Stat
-                label="Approved / Authored"
-                value={
-                  member.approvalToAuthoredRatio !== null
-                    ? `${member.approvalToAuthoredRatio.toFixed(2)}×`
-                    : "—"
-                }
-                tooltip={`Approvals given: ${member.approvedPrCount} PRs. PRs authored: ${member.authoredPrCount}. A large gap between team members may indicate uneven review load.`}
-              />
-            </div>
-
-            {isExpanded && prs.length > 0 && (
-              <div className="divide-y divide-slate-100 border-t border-slate-100 bg-slate-50">
-                {prs.map((pr) => {
-                  const waitHours =
-                    (Date.now() - new Date(pr.assignedAt).getTime()) /
-                    3_600_000;
-                  const isStale = waitHours >= PENDING_STALE_CUTOFF_HOURS;
-
-                  return (
-                    <div
-                      key={pr.prNumber}
-                      className="flex items-center gap-2 px-4 py-2.5"
-                    >
-                      <a
-                        href={pr.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
-                      >
-                        #{pr.prNumber}
-                        <ExternalLink className="h-3 w-3 shrink-0" />
-                      </a>
-                      <span className="min-w-0 flex-1 truncate text-xs text-slate-600">
-                        {pr.title}
-                      </span>
-                      <span
-                        className={`flex shrink-0 items-center gap-1 text-xs ${
-                          isStale
-                            ? "font-medium text-red-600"
-                            : "text-slate-400"
-                        }`}
-                      >
-                        <Clock className="h-3 w-3" />
-                        {waitingSince(pr.assignedAt)}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            {isExpanded && prs.length > 0 && <PendingReviewRows prs={prs} />}
 
             {isExpanded && prs.length === 0 && (
               <div className="border-t border-slate-100 px-4 py-4 text-center text-sm text-slate-400">
@@ -406,45 +248,7 @@ function TeamsView({ data }: { data: ReviewerTeamsDocument }) {
                       </button>
 
                       {isMemberExpanded && count > 0 && (
-                        <div className="border-t border-slate-100 bg-white">
-                          {member.assignedPRs.map((pr) => {
-                            const waitHours =
-                              (Date.now() - new Date(pr.assignedAt).getTime()) /
-                              3_600_000;
-                            const isStale =
-                              waitHours >= PENDING_STALE_CUTOFF_HOURS;
-
-                            return (
-                              <div
-                                key={pr.prNumber}
-                                className="flex items-center gap-2 px-4 py-2 pl-8"
-                              >
-                                <a
-                                  href={pr.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
-                                >
-                                  #{pr.prNumber}
-                                  <ExternalLink className="h-2.5 w-2.5 shrink-0" />
-                                </a>
-                                <span className="min-w-0 flex-1 truncate text-[11px] text-slate-600">
-                                  {pr.title}
-                                </span>
-                                <span
-                                  className={`flex shrink-0 items-center gap-0.5 text-[10px] ${
-                                    isStale
-                                      ? "font-medium text-red-600"
-                                      : "text-slate-400"
-                                  }`}
-                                >
-                                  <Clock className="h-2.5 w-2.5" />
-                                  {waitingSince(pr.assignedAt)}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
+                        <PendingReviewRows prs={member.assignedPRs} compact />
                       )}
 
                       {isMemberExpanded && count === 0 && (

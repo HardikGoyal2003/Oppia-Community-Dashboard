@@ -151,3 +151,16 @@ export type ReviewerTeamsDocument = {
   teams: ReviewerTeam[];
   analytics: ReviewerTeamsAnalytics;
 };
+
+/** Self-scoped reviewer report returned by the reviewer reports API. */
+export type MyReviewerReport = {
+  platform: ContributionPlatform;
+  /** GitHub login the report belongs to. */
+  username: string;
+  /** ISO timestamp of the last reviewer data sync. */
+  lastSyncedAt: string;
+  /** Names of the reviewer teams this login belongs to. */
+  teams: string[];
+  /** Enriched metrics for this reviewer. */
+  reviewer: ReviewerTeamMember;
+};
