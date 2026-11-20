@@ -10,7 +10,7 @@ import {
 } from "@/lib/auth/roles";
 import { Timestamp } from "firebase-admin/firestore";
 import { DbAuthorizationError, DbValidationError } from "../db.errors";
-import { chunkValues, FIRESTORE_WRITE_BATCH_SIZE } from "../utils/batch.utils";
+import { chunkValues } from "../utils/batch.utils";
 import {
   getRequiredTransactionDocumentSnapshot,
   updateRequiredDocument,
@@ -209,30 +209,6 @@ export async function getUsersByRoles(
       };
     }),
   );
-}
-
-/**
- * Updates the role of many users using batched writes.
- *
- * This is intended for bulk maintenance jobs where the user documents were
- * just read, so no per-user existence check is required. Batching keeps the
- * number of network round trips low enough for serverless execution limits.
- *
- * @param updates The user ids and the role to assign to each one.
- * @returns A promise that resolves when all batches have been committed.
- */
-export async function updateUserRoles(
-  updates: Array<{ uid: string; role: UserRole }>,
-): Promise<void> {
-  for (const chunk of chunkValues(updates, FIRESTORE_WRITE_BATCH_SIZE)) {
-    const batch = usersCollection.firestore.batch();
-
-    for (const { uid, role } of chunk) {
-      batch.update(usersCollection.doc(uid), { role });
-    }
-
-    await batch.commit();
-  }
 }
 
 /**
