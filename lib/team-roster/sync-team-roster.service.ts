@@ -1,11 +1,9 @@
 import {
+  deleteLegacyResolvedUnregisteredMembers,
   getUnregisteredMembers,
   saveUnregisteredMemberChanges,
 } from "@/db/unregistered-members/unregistered-members.db";
-import type {
-  UnregisteredMemberResolution,
-  UnregisteredMemberWrite,
-} from "@/db/unregistered-members/unregistered-members.types";
+import type { UnregisteredMemberWrite } from "@/db/unregistered-members/unregistered-members.types";
 import { getAllUsers } from "@/db/users/users.db";
 import { TEAM_ROSTER_SOURCES } from "@/lib/config/team-roster.constants";
 import { TEAM_DEFINITIONS_BY_KEY } from "@/lib/domain/team-definitions";
@@ -16,11 +14,11 @@ import type { ContributionPlatform } from "@/lib/auth/auth.types";
 /** Outcome for one team's roster reconciliation. */
 export type TeamRosterSyncTeamSummary = {
   activeMemberCount: number;
+  deletedCount: number;
   error: string | null;
   missingCount: number;
   newlyFlaggedCount: number;
   platform: ContributionPlatform;
-  resolvedCount: number;
   teamKey: string;
   teamName: string;
 };
@@ -48,15 +46,17 @@ function buildRosterGapId(teamKey: string, normalizedUsername: string): string {
  * Reconciles each configured public team roster against dashboard users.
  *
  * Active roster members without a user account, or whose account is still
- * marked as alumni, are stored as open items. Items are resolved automatically
- * when the person registers or leaves the active roster. A team whose sheet
- * cannot be read is skipped entirely, so a transient outage never closes or
- * opens items for that team.
+ * marked as alumni, are stored as open items. Their documents are deleted when
+ * the person registers or leaves the active roster. A team whose sheet cannot
+ * be read is skipped entirely, so a transient outage never deletes or creates
+ * items for that team.
  *
  * @returns A summary of the run for cron and control-panel reporting.
  */
 export async function syncTeamRoster(): Promise<TeamRosterSyncSummary> {
   const startedAt = new Date();
+  await deleteLegacyResolvedUnregisteredMembers();
+
   const [storedItems, users] = await Promise.all([
     getUnregisteredMembers(),
     getAllUsers(),
@@ -64,7 +64,6 @@ export async function syncTeamRoster(): Promise<TeamRosterSyncSummary> {
   const storedById = new Map(storedItems.map((item) => [item.id, item]));
 
   const registeredUsernames = new Set<string>();
-  const alumniUsernames = new Set<string>();
 
   for (const user of users) {
     const normalizedUsername = normalizeGithubUsername(user.githubUsername);
@@ -73,22 +72,17 @@ export async function syncTeamRoster(): Promise<TeamRosterSyncSummary> {
       continue;
     }
 
-    if (user.role === "ALUMNI") {
-      alumniUsernames.add(normalizedUsername);
-    } else {
+    // Alumni accounts do not count as active registrations, so they stay flagged.
+    if (user.role !== "ALUMNI") {
       registeredUsernames.add(normalizedUsername);
     }
   }
 
   const upserts: UnregisteredMemberWrite[] = [];
-  const resolutions: Array<{
-    id: string;
-    resolution: UnregisteredMemberResolution;
-    resolvedAt: Date;
-  }> = [];
+  const deleteIds: string[] = [];
   const touchedIds = new Set<string>();
-  const activeRosterUsernames = new Set<string>();
-  const resolvedCountByTeam = new Map<string, number>();
+  const successfulTeamKeys = new Set<string>();
+  const deletedCountByTeam = new Map<string, number>();
   const teams: TeamRosterSyncTeamSummary[] = [];
 
   for (const source of TEAM_ROSTER_SOURCES) {
@@ -99,12 +93,12 @@ export async function syncTeamRoster(): Promise<TeamRosterSyncSummary> {
     } catch (error) {
       teams.push({
         activeMemberCount: 0,
+        deletedCount: 0,
         error:
           error instanceof Error ? error.message : "Unknown roster sync error.",
         missingCount: 0,
         newlyFlaggedCount: 0,
         platform: source.platform,
-        resolvedCount: 0,
         teamKey: source.teamKey,
         teamName:
           TEAM_DEFINITIONS_BY_KEY[source.teamKey]?.teamName ?? source.teamKey,
@@ -112,58 +106,44 @@ export async function syncTeamRoster(): Promise<TeamRosterSyncSummary> {
       continue;
     }
 
+    successfulTeamKeys.add(source.teamKey);
     let newlyFlaggedCount = 0;
 
     for (const member of members) {
       const normalizedUsername = normalizeGithubUsername(member.githubUsername);
 
-      if (!normalizedUsername) {
-        continue;
-      }
-
-      activeRosterUsernames.add(normalizedUsername);
-
-      if (registeredUsernames.has(normalizedUsername)) {
+      if (!normalizedUsername || registeredUsernames.has(normalizedUsername)) {
         continue;
       }
 
       const id = buildRosterGapId(source.teamKey, normalizedUsername);
       const prior = storedById.get(id);
-      const reason = alumniUsernames.has(normalizedUsername)
-        ? "ALUMNI_ACCOUNT"
-        : "NOT_REGISTERED";
 
-      if (!prior || prior.state === "RESOLVED") {
+      if (!prior) {
         newlyFlaggedCount += 1;
       }
 
       touchedIds.add(id);
       upserts.push({
+        createdAt: prior?.createdAt ?? startedAt,
         email: member.email,
         fullName: member.fullName,
         githubUsername: member.githubUsername,
         id,
-        normalizedUsername,
         platform: source.platform,
-        reason,
-        resolution: null,
-        resolvedAt: null,
-        sheetStatus: member.status,
-        state: "OPEN",
         teamKey: source.teamKey,
-        createdAt: prior?.createdAt ?? startedAt,
         updatedAt: startedAt,
       });
     }
 
     teams.push({
       activeMemberCount: members.length,
+      deletedCount: 0,
       error: null,
       missingCount: upserts.filter((item) => item.teamKey === source.teamKey)
         .length,
       newlyFlaggedCount,
       platform: source.platform,
-      resolvedCount: 0,
       teamKey: source.teamKey,
       teamName:
         TEAM_DEFINITIONS_BY_KEY[source.teamKey]?.teamName ?? source.teamKey,
@@ -171,29 +151,23 @@ export async function syncTeamRoster(): Promise<TeamRosterSyncSummary> {
   }
 
   for (const item of storedItems) {
-    if (item.state !== "OPEN" || touchedIds.has(item.id)) {
+    if (!successfulTeamKeys.has(item.teamKey) || touchedIds.has(item.id)) {
       continue;
     }
 
-    resolutions.push({
-      id: item.id,
-      resolution: activeRosterUsernames.has(item.normalizedUsername)
-        ? "REGISTERED"
-        : "LEFT_ROSTER",
-      resolvedAt: startedAt,
-    });
-    resolvedCountByTeam.set(
+    deleteIds.push(item.id);
+    deletedCountByTeam.set(
       item.teamKey,
-      (resolvedCountByTeam.get(item.teamKey) ?? 0) + 1,
+      (deletedCountByTeam.get(item.teamKey) ?? 0) + 1,
     );
   }
 
   for (const team of teams) {
-    team.resolvedCount = resolvedCountByTeam.get(team.teamKey) ?? 0;
+    team.deletedCount = deletedCountByTeam.get(team.teamKey) ?? 0;
   }
 
-  if (upserts.length > 0 || resolutions.length > 0) {
-    await saveUnregisteredMemberChanges({ resolutions, upserts });
+  if (upserts.length > 0 || deleteIds.length > 0) {
+    await saveUnregisteredMemberChanges({ deleteIds, upserts });
   }
 
   return {

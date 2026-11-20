@@ -94,29 +94,25 @@ Fields:
 
 Document id:
 
-- `${teamKey}__${normalizedUsername}` where `normalizedUsername` is the trimmed,
-  lowercased GitHub username (for example `CORE__nithish084`)
+- `${teamKey}__${normalizedUsername}` where `normalizedUsername` is derived at
+  runtime from `githubUsername` by trimming and lowercasing it (for example
+  `CORE__nithish084`)
 
 Fields:
 
 - `teamKey: "LEAP" | "CORE" | "DEV_WORKFLOW" | "CLAM" | "DEV_WORKFLOW_INFRA"`
 - `platform: "WEB" | "ANDROID"`
 - `githubUsername: string` **(username as written in the roster sheet)**
-- `normalizedUsername: string`
 - `email: string`
 - `fullName: string`
-- `sheetStatus: string`
-- `reason: "NOT_REGISTERED" | "ALUMNI_ACCOUNT"`
-- `state: "OPEN" | "RESOLVED"`
 - `createdAt: Timestamp` **(first time the person was flagged)**
 - `updatedAt: Timestamp` **(last roster reconciliation for this person)**
-- `resolvedAt: Timestamp | null`
-- `resolution: "REGISTERED" | "LEFT_ROSTER" | null`
 - `schemaVersion: number`
 
-This collection is written by the daily `sync-team-roster` cron. Open items feed
-the `unregistered-members` team-report rule, which in turn drives the weekly
-action-item digest. Resolved documents are kept for history and excluded from reports.
+Every document in this collection is an open gap. This collection is written by
+the daily `sync-team-roster` cron; documents are hard-deleted when the person
+registers or leaves the active roster. Items feed the `unregistered-members`
+team-report rule, which in turn drives the weekly action-item digest.
 
 ### `teams`
 

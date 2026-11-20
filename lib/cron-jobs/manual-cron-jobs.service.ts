@@ -60,7 +60,7 @@ const CRON_JOBS: CronJobDefinition[] = [
     key: "sync_team_roster",
     name: "Sync Team Roster",
     description:
-      "Read each web team's public roster sheet, flag active members who are not registered on the dashboard, and resolve items when they register or leave the roster. Runs daily; team reports and the weekly digest read the resulting action items.",
+      "Read each web team's public roster sheet, flag active members who are not registered on the dashboard, and delete items when they register or leave the roster. Runs daily; team reports and the weekly digest read the resulting action items.",
   },
   {
     key: "send_action_item_digest",
@@ -240,7 +240,7 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
           `Open roster gaps: ${result.totalOpenCount}.`,
           ...result.teams.map(
             (team) =>
-              `${team.teamKey}: ${team.missingCount} missing, ${team.newlyFlaggedCount} new, ${team.resolvedCount} resolved, ${team.activeMemberCount} active roster rows${team.error ? ` — ERROR: ${team.error}` : ""}.`,
+              `${team.teamKey}: ${team.missingCount} missing, ${team.newlyFlaggedCount} new, ${team.deletedCount} deleted, ${team.activeMemberCount} active roster rows${team.error ? ` — ERROR: ${team.error}` : ""}.`,
           ),
           `Finished at: ${finishedAt.toLocaleString("en-IN")}.`,
         ].join("\n"),

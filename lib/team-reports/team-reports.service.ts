@@ -71,11 +71,8 @@ type TeamReportsSnapshot = {
   reports: TeamReport[];
 };
 
-/** Maximum number of missing usernames shown inline in a next step. */
-const MAX_LISTED_UNREGISTERED_MEMBERS = 3;
-
 /**
- * Builds the next step for active roster members without a dashboard account.
+ * Builds the next step for team-sheet members without a dashboard account.
  *
  * @param members The open roster gaps for this team.
  * @returns The recommended next step.
@@ -84,22 +81,17 @@ function getUnregisteredMembersNextStep(
   members: UnregisteredMemberRecord[],
 ): TeamReportNextStep {
   const usernames = members
-    .slice(0, MAX_LISTED_UNREGISTERED_MEMBERS)
     .map((member) => `@${member.githubUsername}`)
     .join(", ");
-  const remainder =
-    members.length > MAX_LISTED_UNREGISTERED_MEMBERS
-      ? ` and ${members.length - MAX_LISTED_UNREGISTERED_MEMBERS} more`
-      : "";
-  const plural = members.length === 1 ? "" : "s";
+  const personLabel = members.length === 1 ? "person" : "people";
   const verb = members.length === 1 ? "is" : "are";
 
   return {
     ruleKey: "unregistered-members",
-    message: `${members.length} active roster member${plural} ${verb} not registered on the dashboard: ${usernames}${remainder}.`,
+    message: `${members.length} ${personLabel} from the team sheet ${verb} not registered on the dashboard: ${usernames}.`,
     priority: "high",
     reason:
-      "Everyone marked active in the team roster should have an active dashboard account. Accounts still marked as alumni remain flagged until their role is updated.",
+      "Everyone listed in the team member sheet should be registered on this dashboard so they can help with the team activities tracked here.",
   };
 }
 
