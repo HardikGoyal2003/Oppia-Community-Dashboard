@@ -6,7 +6,6 @@ import {
   markDataJobRunFailed,
   markDataJobRunSucceeded,
 } from "@/db/data-jobs/data-job-runs.db";
-import { backfillSchemaVersions } from "@/db/schema/schema-migration-runner";
 import {
   clearReviewCycleBackfillState,
   getReviewCycleBackfillState,
@@ -200,29 +199,6 @@ async function cleanupTeamContributorsToAlumni(
       .slice(0, 10)
       .map((u) => u.githubUsername)
       .join(", ")}${flaggedUsers.length > 10 ? "..." : ""}`,
-  };
-}
-
-/**
- * Upgrades every stored document to the latest schema version and persists the
- * migrated document. Unversioned legacy documents are stamped with version 1.
- *
- * @param context The data-job execution context.
- * @returns A summary of the schema backfill results.
- */
-async function backfillSchemaVersionsJob(
-  context: DataJobHandlerContext,
-): Promise<DataJobResult> {
-  const summary = await backfillSchemaVersions({ dryRun: context.dryRun });
-  const suffix = context.dryRun ? " (dry run — no changes persisted)" : ".";
-  const action = context.dryRun ? "would be upgraded" : "upgraded";
-  const failureSummary =
-    summary.failedCount > 0
-      ? ` ${summary.failedCount} document(s) could not be migrated.`
-      : "";
-
-  return {
-    summary: `Schema backfill completed. ${summary.migratedCount} of ${summary.scannedCount} document(s) ${action}${suffix}${failureSummary}`,
   };
 }
 
@@ -467,15 +443,6 @@ const DATA_JOB_REGISTRY: RegisteredDataJob[] = [
     kind: "AUDIT",
     supportsDryRun: true,
     handler: auditPrivilegedUsersMissingTeam,
-  },
-  {
-    key: "backfill_schema_versions",
-    name: "Backfill Schema Versions",
-    description:
-      "Upgrades stored documents to the latest schema version and persists the migrated shape.",
-    kind: "MIGRATION",
-    supportsDryRun: true,
-    handler: backfillSchemaVersionsJob,
   },
   {
     key: "backfill_review_cycles",
