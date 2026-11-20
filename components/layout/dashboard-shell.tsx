@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import {
   BarChart3,
   Bug,
+  ClipboardList,
   Inbox,
   LayoutDashboard,
   Map,
@@ -20,6 +21,12 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import type { SidebarNavigationItem } from "@/components/layout/sidebar/sidebar-tabs";
+
+const MY_REVIEWER_REPORTS_ITEM: SidebarNavigationItem = {
+  name: "My Reviewer Reports",
+  icon: ClipboardList,
+  url: "/dashboard/my-reviewer-reports",
+};
 
 function getSidebarItems(role: UserRole): SidebarNavigationItem[] {
   switch (role) {
@@ -47,6 +54,7 @@ function getSidebarItems(role: UserRole): SidebarNavigationItem[] {
           icon: Shield,
           url: "/dashboard/reviewer-teams",
         },
+        MY_REVIEWER_REPORTS_ITEM,
         {
           name: "Unanswered Issues",
           icon: Bug,
@@ -61,6 +69,7 @@ function getSidebarItems(role: UserRole): SidebarNavigationItem[] {
     case "TEAM_LEAD":
       return [
         { name: "Overview", icon: LayoutDashboard, url: "/dashboard/overview" },
+        MY_REVIEWER_REPORTS_ITEM,
         {
           name: "Incoming Requests",
           icon: Inbox,
@@ -81,6 +90,7 @@ function getSidebarItems(role: UserRole): SidebarNavigationItem[] {
     case "LEAD_TRAINEE":
       return [
         { name: "Overview", icon: LayoutDashboard, url: "/dashboard/overview" },
+        MY_REVIEWER_REPORTS_ITEM,
         {
           name: "Unanswered Issues",
           icon: Bug,
@@ -95,6 +105,7 @@ function getSidebarItems(role: UserRole): SidebarNavigationItem[] {
     case "TEAM_MEMBER":
       return [
         { name: "Overview", icon: LayoutDashboard, url: "/dashboard/overview" },
+        MY_REVIEWER_REPORTS_ITEM,
         {
           name: "Unanswered Discussions",
           icon: MessageSquare,
@@ -109,6 +120,7 @@ function getSidebarItems(role: UserRole): SidebarNavigationItem[] {
           icon: Map,
           url: "/dashboard/my-contribution-journey",
         },
+        MY_REVIEWER_REPORTS_ITEM,
       ];
   }
 }

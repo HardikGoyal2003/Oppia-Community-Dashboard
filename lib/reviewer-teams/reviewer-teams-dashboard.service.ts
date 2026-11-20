@@ -7,7 +7,9 @@ import {
   SCHEMA_KEYS,
   getCurrentSchemaVersion,
 } from "@/db/schema/schema-version";
+import { normalizeGithubUsername } from "@/lib/utils/username.utils";
 import type {
+  MyReviewerReport,
   PendingReview,
   ReviewerDocument,
   ReviewerTeamsAnalytics,
@@ -168,5 +170,51 @@ export async function getReviewerTeamsDashboard(): Promise<ReviewerTeamsDocument
     lastSyncedAt: doc.lastUpdated,
     teams,
     analytics,
+  };
+}
+
+/**
+ * Builds the report belonging to a single GitHub login for the current session.
+ *
+ * Reviewer identity comes from the synced reviewer documents rather than a
+ * dashboard role, so the lookup is intentionally scoped to the supplied login.
+ *
+ * @param githubUsername The authenticated user's GitHub login.
+ * @returns The reviewer's own report, or null when they are not in the synced
+ * reviewer data.
+ */
+export async function getMyReviewerReport(
+  githubUsername: string,
+): Promise<MyReviewerReport | null> {
+  const platform = REVIEWER_REPORT_PLATFORM;
+  const normalizedLogin = normalizeGithubUsername(githubUsername);
+  const logins = Array.from(new Set([githubUsername.trim(), normalizedLogin]));
+
+  const [reviewerMap, teamReviewers] = await Promise.all([
+    getReviewers(platform, logins),
+    getTeamReviewers(platform),
+  ]);
+
+  const matchedLogin = logins.find((login) => reviewerMap.has(login));
+  const reviewer = matchedLogin ? reviewerMap.get(matchedLogin) : undefined;
+
+  if (!matchedLogin || !reviewer) {
+    return null;
+  }
+
+  const avatarUrl =
+    teamReviewers?.teams
+      .flatMap((team) => team.members)
+      .find(
+        (member) =>
+          normalizeGithubUsername(member.username) === normalizedLogin,
+      )?.avatarUrl ?? "";
+
+  return {
+    platform,
+    username: matchedLogin,
+    lastSyncedAt: reviewer.lastUpdated.toISOString(),
+    teams: reviewer.teams,
+    reviewer: buildMember(matchedLogin, avatarUrl, reviewer, Date.now()),
   };
 }
