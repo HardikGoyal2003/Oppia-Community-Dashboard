@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { readEnv } from "@/lib/config/server";
-import { syncTeamRoster } from "@/lib/team-roster/sync-team-roster.service";
+import { syncTeamMemberSheet } from "@/lib/team-member-sheet/sync-team-member-sheet.service";
 
 function isAuthorizedCronRequest(req: Request): boolean {
   const cronSecret = readEnv("CRON_SECRET");
@@ -14,7 +14,7 @@ function isAuthorizedCronRequest(req: Request): boolean {
 }
 
 /**
- * Reconciles the public team roster sheets with registered dashboard users.
+ * Reconciles the public team member sheets with registered dashboard users.
  */
 export async function GET(req: Request) {
   if (!isAuthorizedCronRequest(req)) {
@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const summary = await syncTeamRoster();
+    const summary = await syncTeamMemberSheet();
     return NextResponse.json(summary);
   } catch (error) {
     console.error(error);
@@ -32,7 +32,7 @@ export async function GET(req: Request) {
         error:
           error instanceof Error
             ? error.message
-            : "Failed to sync team rosters.",
+            : "Failed to sync team member sheets.",
       },
       { status: 500 },
     );

@@ -74,7 +74,7 @@ type TeamReportsSnapshot = {
 /**
  * Builds the next step for team-sheet members without a dashboard account.
  *
- * @param members The open roster gaps for this team.
+ * @param members The people missing from this team's member sheet.
  * @returns The recommended next step.
  */
 function getUnregisteredMembersNextStep(
@@ -100,7 +100,7 @@ function getUnregisteredMembersNextStep(
  *
  * @param team The report to evaluate.
  * @param unansweredDiscussionsCount The latest unanswered-discussion count for the team's platform.
- * @param unregisteredMembers Open roster gaps for this team.
+ * @param unregisteredMembers People missing from this team's member sheet.
  * @returns The ordered list of recommended next steps.
  */
 function getNextSteps(

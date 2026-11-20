@@ -10,7 +10,7 @@ import { syncOrgMeta } from "@/lib/org-meta/sync-org-meta.service";
 import { syncReviewerTeams } from "@/lib/team-activity/sync-reviewer-teams.service";
 import { syncReviewCycles } from "@/lib/team-activity/sync-review-cycles.service";
 import { syncPendingReviews } from "@/lib/team-activity/sync-pending-reviews.service";
-import { syncTeamRoster } from "@/lib/team-roster/sync-team-roster.service";
+import { syncTeamMemberSheet } from "@/lib/team-member-sheet/sync-team-member-sheet.service";
 import { sendWeeklyActionItemDigest } from "@/lib/notifications/action-item-digest.service";
 
 const CRON_JOBS: CronJobDefinition[] = [
@@ -57,10 +57,10 @@ const CRON_JOBS: CronJobDefinition[] = [
       "Fetch current open PR assignments and replace pendingReviews on current reviewer-team members only, leaving review cycle history and metrics untouched. Runs daily; run after Sync Review Cycles, never concurrently.",
   },
   {
-    key: "sync_team_roster",
-    name: "Sync Team Roster",
+    key: "sync_team_member_sheet",
+    name: "Sync Team Member Sheet",
     description:
-      "Read each web team's public roster sheet, flag active members who are not registered on the dashboard, and delete items when they register or leave the roster. Runs daily; team reports and the weekly digest read the resulting action items.",
+      "Read each web team's public member sheet, flag people who are not registered on the dashboard, and delete items when they register or leave the sheet. Runs daily; team reports and the weekly digest read the resulting action items.",
   },
   {
     key: "send_action_item_digest",
@@ -226,8 +226,8 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
         ].join("\n"),
       };
     }
-    case "sync_team_roster": {
-      const result = await syncTeamRoster();
+    case "sync_team_member_sheet": {
+      const result = await syncTeamMemberSheet();
       const finishedAt = new Date();
 
       return {
@@ -237,10 +237,10 @@ export async function runCronJob(jobKey: string): Promise<CronJobRunResult> {
         startedAt,
         summary: [
           "Cron job completed.",
-          `Open roster gaps: ${result.totalOpenCount}.`,
+          `Missing people: ${result.totalOpenCount}.`,
           ...result.teams.map(
             (team) =>
-              `${team.teamKey}: ${team.missingCount} missing, ${team.newlyFlaggedCount} new, ${team.deletedCount} deleted, ${team.activeMemberCount} active roster rows${team.error ? ` — ERROR: ${team.error}` : ""}.`,
+              `${team.teamKey}: ${team.missingCount} missing, ${team.newlyFlaggedCount} new, ${team.deletedCount} deleted, ${team.sheetMemberCount} rows in the sheet${team.error ? ` — ERROR: ${team.error}` : ""}.`,
           ),
           `Finished at: ${finishedAt.toLocaleString("en-IN")}.`,
         ].join("\n"),

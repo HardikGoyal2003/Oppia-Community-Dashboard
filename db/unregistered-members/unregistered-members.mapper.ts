@@ -27,7 +27,7 @@ export type FirestoreUnregisteredMember = Omit<
 };
 
 /**
- * Validates a raw Firestore roster-gap document.
+ * Validates a raw Firestore missing-person document.
  *
  * @param document The raw document data.
  * @returns Nothing. Throws when the document shape is invalid.
@@ -58,7 +58,7 @@ function assertFirestoreUnregisteredMember(
 }
 
 /**
- * Normalizes a stored roster-gap document into the app-layer model.
+ * Normalizes a stored missing-person document into the app-layer model.
  *
  * @param document The raw Firestore document data.
  * @returns The normalized model.
@@ -82,7 +82,7 @@ export function normalizeUnregisteredMemberDocument(
 }
 
 /**
- * Normalizes a stored roster-gap document together with its id.
+ * Normalizes a stored missing-person document together with its id.
  *
  * @param id The Firestore document id.
  * @param document The raw Firestore document data.
@@ -99,7 +99,7 @@ export function normalizeUnregisteredMemberRecord(
 }
 
 /**
- * Validates and serializes a roster-gap model for Firestore storage.
+ * Validates and serializes a missing-person model for Firestore storage.
  *
  * @param member The model to persist.
  * @returns The Firestore-ready document.

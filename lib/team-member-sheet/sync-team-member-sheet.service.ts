@@ -5,55 +5,55 @@ import {
 } from "@/db/unregistered-members/unregistered-members.db";
 import type { UnregisteredMemberWrite } from "@/db/unregistered-members/unregistered-members.types";
 import { getAllUsers } from "@/db/users/users.db";
-import { TEAM_ROSTER_SOURCES } from "@/lib/config/team-roster.constants";
+import { TEAM_MEMBER_SHEET_SOURCES } from "@/lib/config/team-member-sheet.constants";
 import { TEAM_DEFINITIONS_BY_KEY } from "@/lib/domain/team-definitions";
-import { fetchTeamRoster } from "@/lib/team-roster/team-roster.fetcher";
+import { fetchTeamMemberSheet } from "@/lib/team-member-sheet/team-member-sheet.fetcher";
 import { normalizeGithubUsername } from "@/lib/utils/username.utils";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 
-/** Outcome for one team's roster reconciliation. */
-export type TeamRosterSyncTeamSummary = {
-  activeMemberCount: number;
+/** Outcome for one team's member-sheet reconciliation. */
+export type TeamMemberSheetSyncTeamSummary = {
   deletedCount: number;
   error: string | null;
   missingCount: number;
   newlyFlaggedCount: number;
   platform: ContributionPlatform;
+  sheetMemberCount: number;
   teamKey: string;
   teamName: string;
 };
 
-/** Summary returned by the daily roster reconciliation cron. */
-export type TeamRosterSyncSummary = {
+/** Summary returned by the daily member-sheet reconciliation cron. */
+export type TeamMemberSheetSyncSummary = {
   finishedAt: string;
   startedAt: string;
-  teams: TeamRosterSyncTeamSummary[];
+  teams: TeamMemberSheetSyncTeamSummary[];
   totalOpenCount: number;
 };
 
 /**
- * Builds the stable document id for a roster gap.
+ * Builds the stable document id for a missing-person record.
  *
  * @param teamKey The team key stored on user records.
  * @param normalizedUsername The normalized GitHub username.
- * @returns The roster-gap document id.
+ * @returns The document id.
  */
-function buildRosterGapId(teamKey: string, normalizedUsername: string): string {
+function buildGapId(teamKey: string, normalizedUsername: string): string {
   return `${teamKey}__${normalizedUsername}`;
 }
 
 /**
- * Reconciles each configured public team roster against dashboard users.
+ * Reconciles each configured public team member sheet against dashboard users.
  *
- * Active roster members without a user account, or whose account is still
- * marked as alumni, are stored as open items. Their documents are deleted when
- * the person registers or leaves the active roster. A team whose sheet cannot
- * be read is skipped entirely, so a transient outage never deletes or creates
- * items for that team.
+ * People listed in a team member sheet without a user account, or whose account
+ * is still marked as alumni, are stored as open items. Their documents are
+ * deleted when the person registers or leaves the sheet. A team whose sheet
+ * cannot be read is skipped entirely, so a transient outage never deletes or
+ * creates items for that team.
  *
  * @returns A summary of the run for cron and control-panel reporting.
  */
-export async function syncTeamRoster(): Promise<TeamRosterSyncSummary> {
+export async function syncTeamMemberSheet(): Promise<TeamMemberSheetSyncSummary> {
   const startedAt = new Date();
   await deleteLegacyResolvedUnregisteredMembers();
 
@@ -83,22 +83,24 @@ export async function syncTeamRoster(): Promise<TeamRosterSyncSummary> {
   const touchedIds = new Set<string>();
   const successfulTeamKeys = new Set<string>();
   const deletedCountByTeam = new Map<string, number>();
-  const teams: TeamRosterSyncTeamSummary[] = [];
+  const teams: TeamMemberSheetSyncTeamSummary[] = [];
 
-  for (const source of TEAM_ROSTER_SOURCES) {
+  for (const source of TEAM_MEMBER_SHEET_SOURCES) {
     let members;
 
     try {
-      members = await fetchTeamRoster(source);
+      members = await fetchTeamMemberSheet(source);
     } catch (error) {
       teams.push({
-        activeMemberCount: 0,
         deletedCount: 0,
         error:
-          error instanceof Error ? error.message : "Unknown roster sync error.",
+          error instanceof Error
+            ? error.message
+            : "Unknown team member sheet sync error.",
         missingCount: 0,
         newlyFlaggedCount: 0,
         platform: source.platform,
+        sheetMemberCount: 0,
         teamKey: source.teamKey,
         teamName:
           TEAM_DEFINITIONS_BY_KEY[source.teamKey]?.teamName ?? source.teamKey,
@@ -116,7 +118,7 @@ export async function syncTeamRoster(): Promise<TeamRosterSyncSummary> {
         continue;
       }
 
-      const id = buildRosterGapId(source.teamKey, normalizedUsername);
+      const id = buildGapId(source.teamKey, normalizedUsername);
       const prior = storedById.get(id);
 
       if (!prior) {
@@ -137,13 +139,13 @@ export async function syncTeamRoster(): Promise<TeamRosterSyncSummary> {
     }
 
     teams.push({
-      activeMemberCount: members.length,
       deletedCount: 0,
       error: null,
       missingCount: upserts.filter((item) => item.teamKey === source.teamKey)
         .length,
       newlyFlaggedCount,
       platform: source.platform,
+      sheetMemberCount: members.length,
       teamKey: source.teamKey,
       teamName:
         TEAM_DEFINITIONS_BY_KEY[source.teamKey]?.teamName ?? source.teamKey,

@@ -102,17 +102,18 @@ Fields:
 
 - `teamKey: "LEAP" | "CORE" | "DEV_WORKFLOW" | "CLAM" | "DEV_WORKFLOW_INFRA"`
 - `platform: "WEB" | "ANDROID"`
-- `githubUsername: string` **(username as written in the roster sheet)**
+- `githubUsername: string` **(username as written in the team member sheet)**
 - `email: string`
 - `fullName: string`
 - `createdAt: Timestamp` **(first time the person was flagged)**
-- `updatedAt: Timestamp` **(last roster reconciliation for this person)**
+- `updatedAt: Timestamp` **(last member-sheet reconciliation for this person)**
 - `schemaVersion: number`
 
 Every document in this collection is an open gap. This collection is written by
-the daily `sync-team-roster` cron; documents are hard-deleted when the person
-registers or leaves the active roster. Items feed the `unregistered-members`
-team-report rule, which in turn drives the weekly action-item digest.
+the daily `sync-team-member-sheet` cron; documents are hard-deleted when the
+person registers or leaves the team member sheet. Items feed the
+`unregistered-members` team-report rule, which in turn drives the weekly
+action-item digest.
 
 ### `teams`
 

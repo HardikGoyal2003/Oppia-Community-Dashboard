@@ -1,12 +1,12 @@
 import { parse } from "csv-parse/sync";
-import { buildTeamRosterCsvUrl } from "@/lib/config/team-roster.constants";
-import type { TeamRosterSource } from "@/lib/config/team-roster.constants";
-import type { TeamRosterMember } from "@/lib/team-roster/team-roster.types";
+import { buildTeamMemberSheetCsvUrl } from "@/lib/config/team-member-sheet.constants";
+import type { TeamMemberSheetSource } from "@/lib/config/team-member-sheet.constants";
+import type { TeamMemberSheetMember } from "@/lib/team-member-sheet/team-member-sheet.types";
 
 /** Maximum time allowed for one public sheet request. */
 const FETCH_TIMEOUT_MS = 15_000;
 
-/** Column names used to locate fields in the roster's header row. */
+/** Column names used to locate fields in the sheet's header row. */
 const COLUMNS = {
   email: ["email"],
   fullName: ["full name"],
@@ -14,13 +14,13 @@ const COLUMNS = {
   status: ["status"],
 } as const;
 
-type RosterColumn = keyof typeof COLUMNS;
+type SheetColumn = keyof typeof COLUMNS;
 
 /**
  * Normalizes a sheet header for matching.
  *
- * Roster headers contain line breaks followed by notes, so only the first
- * line is used and whitespace is collapsed.
+ * Sheet headers contain line breaks followed by notes, so only the first line
+ * is used and whitespace is collapsed.
  *
  * @param value The raw header text.
  * @returns The normalized header text.
@@ -30,7 +30,7 @@ function normalizeHeader(value: string): string {
 }
 
 /**
- * Locates the required columns in the roster header row.
+ * Locates the required columns in the sheet header row.
  *
  * @param headers The parsed header row.
  * @param teamKey The team key used in error messages.
@@ -39,18 +39,18 @@ function normalizeHeader(value: string): string {
 function getColumnIndexes(
   headers: string[],
   teamKey: string,
-): Record<RosterColumn, number> {
+): Record<SheetColumn, number> {
   const normalizedHeaders = headers.map(normalizeHeader);
-  const indexes = {} as Record<RosterColumn, number>;
+  const indexes = {} as Record<SheetColumn, number>;
 
-  for (const column of Object.keys(COLUMNS) as RosterColumn[]) {
+  for (const column of Object.keys(COLUMNS) as SheetColumn[]) {
     const index = normalizedHeaders.findIndex((header) =>
       COLUMNS[column].some((alias) => header === alias),
     );
 
     if (index === -1) {
       throw new Error(
-        `Roster sheet for ${teamKey} is missing the "${column}" column.`,
+        `Team member sheet for ${teamKey} is missing the "${column}" column.`,
       );
     }
 
@@ -72,27 +72,27 @@ function getCell(row: string[], index: number): string {
 }
 
 /**
- * Checks whether a roster status marks someone as currently active.
+ * Checks whether a sheet status marks someone as currently listed.
  *
  * A word boundary is required so `Inactive` does not match `active`.
  *
- * @param status The roster status value.
- * @returns True when the status marks an active member.
+ * @param status The sheet status value.
+ * @returns True when the status marks a listed member.
  */
-function isActiveStatus(status: string): boolean {
+function isListedStatus(status: string): boolean {
   return /\bactive\b/i.test(status);
 }
 
 /**
- * Fetches the active members of one team's public Google Sheet roster.
+ * Fetches the listed members of one team's public Google Sheet.
  *
- * @param source The roster sheet to read.
- * @returns The active roster members with a non-empty GitHub username.
+ * @param source The team member sheet to read.
+ * @returns The listed members with a non-empty GitHub username.
  */
-export async function fetchTeamRoster(
-  source: TeamRosterSource,
-): Promise<TeamRosterMember[]> {
-  const url = buildTeamRosterCsvUrl(source);
+export async function fetchTeamMemberSheet(
+  source: TeamMemberSheetSource,
+): Promise<TeamMemberSheetMember[]> {
+  const url = buildTeamMemberSheetCsvUrl(source);
   const response = await fetch(url, {
     cache: "no-store",
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
@@ -100,7 +100,7 @@ export async function fetchTeamRoster(
 
   if (!response.ok) {
     throw new Error(
-      `Roster sheet request for ${source.teamKey} failed with HTTP ${response.status}.`,
+      `Team member sheet request for ${source.teamKey} failed with HTTP ${response.status}.`,
     );
   }
 
@@ -111,18 +111,18 @@ export async function fetchTeamRoster(
   }) as string[][];
 
   if (rows.length === 0) {
-    throw new Error(`Roster sheet for ${source.teamKey} is empty.`);
+    throw new Error(`Team member sheet for ${source.teamKey} is empty.`);
   }
 
   const indexes = getColumnIndexes(rows[0], source.teamKey);
-  const members: TeamRosterMember[] = [];
+  const members: TeamMemberSheetMember[] = [];
   const seenUsernames = new Set<string>();
 
   for (const row of rows.slice(1)) {
     const status = getCell(row, indexes.status);
     const githubUsername = getCell(row, indexes.githubUsername);
 
-    if (!isActiveStatus(status) || !githubUsername) {
+    if (!isListedStatus(status) || !githubUsername) {
       continue;
     }
 

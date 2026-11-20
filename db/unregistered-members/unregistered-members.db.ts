@@ -19,9 +19,9 @@ const unregisteredMembersCollection = db.collection(
   DB_PATHS.UNREGISTERED_MEMBERS.COLLECTION,
 ) as FirebaseFirestore.CollectionReference<FirestoreUnregisteredMember>;
 
-/** Changes produced by one roster reconciliation run. */
+/** Changes produced by one team member sheet reconciliation run. */
 export type UnregisteredMemberChanges = {
-  /** Document ids to remove: the person registered or left the roster. */
+  /** Document ids to remove: the person registered or left the sheet. */
   deleteIds: string[];
   upserts: UnregisteredMemberWrite[];
 };
@@ -38,12 +38,12 @@ type PendingWrite =
     };
 
 /**
- * Retrieves every currently open roster gap.
+ * Retrieves every currently open gap.
  *
  * Every document in this collection is open by construction: resolved gaps
  * are deleted rather than retained as historical records.
  *
- * @returns All stored roster-gap records.
+ * @returns All stored missing-person records.
  */
 export async function getUnregisteredMembers(): Promise<
   UnregisteredMemberRecord[]
@@ -56,7 +56,7 @@ export async function getUnregisteredMembers(): Promise<
 }
 
 /**
- * Retrieves the currently open roster gaps in a stable display order.
+ * Retrieves the currently open gaps in a stable display order.
  *
  * @returns Open records sorted by team key, then first-detected time.
  */
@@ -100,7 +100,7 @@ export async function deleteLegacyResolvedUnregisteredMembers(): Promise<number>
 }
 
 /**
- * Applies roster-gap upserts and deletions in Firestore batches.
+ * Applies missing-person upserts and deletions in Firestore batches.
  *
  * @param changes The writes produced by a reconciliation run.
  * @returns A promise that resolves when every batch has been committed.
