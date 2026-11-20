@@ -19,7 +19,6 @@ const unregisteredMembersCollection = db.collection(
   DB_PATHS.UNREGISTERED_MEMBERS.COLLECTION,
 ) as FirebaseFirestore.CollectionReference<FirestoreUnregisteredMember>;
 
-/** Changes produced by one team member sheet reconciliation run. */
 export type UnregisteredMemberChanges = {
   /** Document ids to remove: the person registered or left the sheet. */
   deleteIds: string[];
@@ -38,10 +37,11 @@ type PendingWrite =
     };
 
 /**
- * Retrieves every currently open gap.
+ * Lists everyone currently missing from a team member sheet.
  *
- * Every document in this collection is open by construction: resolved gaps
- * are deleted rather than retained as historical records.
+ * There is no "resolved" flag: when a person registers or leaves the sheet,
+ * their document is deleted. So every document stored here is still open and
+ * no status filter is needed.
  *
  * @returns All stored missing-person records.
  */
@@ -56,9 +56,9 @@ export async function getUnregisteredMembers(): Promise<
 }
 
 /**
- * Retrieves the currently open gaps in a stable display order.
+ * Lists everyone currently missing from a team member sheet in display order.
  *
- * @returns Open records sorted by team key, then first-detected time.
+ * @returns Records sorted by team key, then first-detected time.
  */
 export async function getOpenUnregisteredMembers(): Promise<
   UnregisteredMemberRecord[]
@@ -72,31 +72,6 @@ export async function getOpenUnregisteredMembers(): Promise<
 
     return left.createdAt.getTime() - right.createdAt.getTime();
   });
-}
-
-/**
- * Removes documents left behind by the earlier soft-delete version of this
- * model. Safe to call on every run; normally removes nothing.
- *
- * @returns The number of legacy documents removed.
- */
-export async function deleteLegacyResolvedUnregisteredMembers(): Promise<number> {
-  const snapshot = await unregisteredMembersCollection
-    .where("state", "==", "RESOLVED")
-    .get();
-  const ids = snapshot.docs.map((doc) => doc.id);
-
-  for (const chunk of chunkValues(ids, FIRESTORE_WRITE_BATCH_SIZE)) {
-    const batch = db.batch();
-
-    for (const id of chunk) {
-      batch.delete(unregisteredMembersCollection.doc(id));
-    }
-
-    await batch.commit();
-  }
-
-  return ids.length;
 }
 
 /**

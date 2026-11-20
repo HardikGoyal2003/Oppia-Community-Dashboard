@@ -106,7 +106,6 @@ Fields:
 - `email: string`
 - `fullName: string`
 - `createdAt: Timestamp` **(first time the person was flagged)**
-- `updatedAt: Timestamp` **(last member-sheet reconciliation for this person)**
 - `schemaVersion: number`
 
 Every document in this collection is an open gap. This collection is written by

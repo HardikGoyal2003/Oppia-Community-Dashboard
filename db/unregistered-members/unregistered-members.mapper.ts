@@ -20,10 +20,9 @@ import type {
 
 export type FirestoreUnregisteredMember = Omit<
   UnregisteredMemberModel,
-  "createdAt" | "updatedAt"
+  "createdAt"
 > & {
   createdAt: Timestamp;
-  updatedAt: Timestamp;
 };
 
 /**
@@ -53,7 +52,6 @@ function assertFirestoreUnregisteredMember(
   }
 
   assertTimestamp("Unregistered member", "createdAt", document.createdAt);
-  assertTimestamp("Unregistered member", "updatedAt", document.updatedAt);
   assertSchemaVersion(SCHEMA_KEYS.UNREGISTERED_MEMBERS, document.schemaVersion);
 }
 
@@ -76,7 +74,6 @@ export function normalizeUnregisteredMemberDocument(
     email: migrated.email,
     fullName: migrated.fullName,
     createdAt: normalizeTimestamp(migrated.createdAt),
-    updatedAt: normalizeTimestamp(migrated.updatedAt),
     schemaVersion: migrated.schemaVersion,
   };
 }
@@ -124,7 +121,6 @@ export function serializeUnregisteredMember(
     email: member.email,
     fullName: member.fullName,
     createdAt: toFirestoreTimestamp(member.createdAt),
-    updatedAt: toFirestoreTimestamp(member.updatedAt),
     schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.UNREGISTERED_MEMBERS),
   };
 }

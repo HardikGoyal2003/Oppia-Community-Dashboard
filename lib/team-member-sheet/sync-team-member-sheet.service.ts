@@ -1,5 +1,4 @@
 import {
-  deleteLegacyResolvedUnregisteredMembers,
   getUnregisteredMembers,
   saveUnregisteredMemberChanges,
 } from "@/db/unregistered-members/unregistered-members.db";
@@ -55,8 +54,6 @@ function buildGapId(teamKey: string, normalizedUsername: string): string {
  */
 export async function syncTeamMemberSheet(): Promise<TeamMemberSheetSyncSummary> {
   const startedAt = new Date();
-  await deleteLegacyResolvedUnregisteredMembers();
-
   const [storedItems, users] = await Promise.all([
     getUnregisteredMembers(),
     getAllUsers(),
@@ -134,7 +131,6 @@ export async function syncTeamMemberSheet(): Promise<TeamMemberSheetSyncSummary>
         id,
         platform: source.platform,
         teamKey: source.teamKey,
-        updatedAt: startedAt,
       });
     }
 

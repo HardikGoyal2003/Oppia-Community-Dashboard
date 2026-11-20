@@ -16,8 +16,6 @@ export type UnregisteredMemberModel = SchemaVersioned & {
   fullName: string;
   /** When the person was first flagged as missing. */
   createdAt: Date;
-  /** When the team member sheet was last reconciled for this person. */
-  updatedAt: Date;
 };
 
 export type UnregisteredMemberRecord = UnregisteredMemberModel & {
