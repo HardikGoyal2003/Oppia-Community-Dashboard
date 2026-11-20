@@ -39,31 +39,19 @@ type PendingWrite =
 /**
  * Lists everyone currently missing from a team member sheet.
  *
- * There is no "resolved" flag: when a person registers or leaves the sheet,
- * their document is deleted. So every document stored here is still open and
- * no status filter is needed.
+ * When a person registers or leaves the sheet, their document is deleted.
+ * Everything stored here therefore still needs follow-up, so no status filter
+ * is needed.
  *
- * @returns All stored missing-person records.
+ * @returns All stored records, sorted by team key then first-detected time.
  */
 export async function getUnregisteredMembers(): Promise<
   UnregisteredMemberRecord[]
 > {
   const snapshot = await unregisteredMembersCollection.get();
-
-  return snapshot.docs.map((doc) =>
+  const members = snapshot.docs.map((doc) =>
     normalizeUnregisteredMemberRecord(doc.id, doc.data()),
   );
-}
-
-/**
- * Lists everyone currently missing from a team member sheet in display order.
- *
- * @returns Records sorted by team key, then first-detected time.
- */
-export async function getOpenUnregisteredMembers(): Promise<
-  UnregisteredMemberRecord[]
-> {
-  const members = await getUnregisteredMembers();
 
   return members.sort((left, right) => {
     if (left.teamKey !== right.teamKey) {

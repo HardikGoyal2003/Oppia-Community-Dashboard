@@ -108,7 +108,7 @@ Fields:
 - `createdAt: Timestamp` **(first time the person was flagged)**
 - `schemaVersion: number`
 
-Every document in this collection is an open gap. This collection is written by
+Every document in this collection still needs follow-up. This collection is written by
 the daily `sync-team-member-sheet` cron; documents are hard-deleted when the
 person registers or leaves the team member sheet. Items feed the
 `unregistered-members` team-report rule, which in turn drives the weekly

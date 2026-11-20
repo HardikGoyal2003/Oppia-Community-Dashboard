@@ -1,5 +1,5 @@
 import { getDailyTeamMetricsSinceDateKey } from "@/db/daily-team-metrics/daily-team-metrics.db";
-import { getOpenUnregisteredMembers } from "@/db/unregistered-members/unregistered-members.db";
+import { getUnregisteredMembers } from "@/db/unregistered-members/unregistered-members.db";
 import type { UnregisteredMemberRecord } from "@/db/unregistered-members/unregistered-members.types";
 import { getTeams } from "@/db/teams/teams.db";
 import {
@@ -227,7 +227,7 @@ export async function getTeamReportsSnapshot(): Promise<TeamReportsSnapshot> {
       getTeams(),
       getDailyTeamMetricsSinceDateKey(sinceDateKey),
       getLatestUnansweredDiscussionsByPlatform(),
-      getOpenUnregisteredMembers(),
+      getUnregisteredMembers(),
     ]);
 
   const unregisteredByTeamKey = new Map<string, UnregisteredMemberRecord[]>();

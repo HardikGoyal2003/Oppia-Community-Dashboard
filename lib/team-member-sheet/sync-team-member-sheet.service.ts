@@ -45,7 +45,7 @@ function buildGapId(teamKey: string, normalizedUsername: string): string {
  * Reconciles each configured public team member sheet against dashboard users.
  *
  * People listed in a team member sheet without a user account, or whose account
- * is still marked as alumni, are stored as open items. Their documents are
+ * is still marked as alumni, are stored for follow-up. Their documents are
  * deleted when the person registers or leaves the sheet. A team whose sheet
  * cannot be read is skipped entirely, so a transient outage never deletes or
  * creates items for that team.
