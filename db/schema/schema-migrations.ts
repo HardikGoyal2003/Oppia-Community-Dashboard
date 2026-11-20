@@ -1,7 +1,6 @@
 import { DbValidationError } from "@/db/db.errors";
 import {
   SCHEMA_KEYS,
-  SCHEMA_VERSIONS,
   getCurrentSchemaVersion,
   readSchemaVersion,
   type SchemaKey,
@@ -272,18 +271,4 @@ export function migrateDocument(
     ...migratedDocument,
     schemaVersion: version,
   };
-}
-
-/**
- * Indicates whether a raw document already matches the latest schema version.
- *
- * @param key The stable schema key of the model.
- * @param document The raw Firestore document data.
- * @returns True when the document is already at the current version.
- */
-export function isDocumentAtCurrentSchemaVersion(
-  key: SchemaKey,
-  document: FirebaseFirestore.DocumentData,
-): boolean {
-  return readSchemaVersion(key, document) === SCHEMA_VERSIONS[key];
 }

@@ -6,7 +6,6 @@ import {
   markDataJobRunFailed,
   markDataJobRunSucceeded,
 } from "@/db/data-jobs/data-job-runs.db";
-import { backfillSchemaVersions } from "@/db/schema/schema-migration-runner";
 import {
   clearReviewCycleBackfillState,
   getReviewCycleBackfillState,
@@ -18,7 +17,6 @@ import {
   refreshReviewCycleAnalytics,
 } from "@/lib/team-activity/review-cycle-analytics.service";
 import { getTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
-import { getAllUsers, updateUserRoles } from "@/db/users/users.db";
 import { LibInvalidStateError } from "@/lib/lib.errors";
 import { runReviewCycleBackfillStep } from "@/lib/team-activity/backfill-review-cycles.service";
 import { REVIEWER_REPORT_PLATFORM } from "@/lib/team-activity/reviewer-platform.constants";
@@ -109,121 +107,6 @@ function minDateKey(a: string, b: string): string {
  */
 function maxDateKey(a: string, b: string): string {
   return a > b ? a : b;
-}
-
-/**
- * Audits users and reports accounts that do not yet have a selected platform.
- *
- * @param context The data-job execution context.
- * @returns A summary of the audit findings.
- */
-async function auditUsersMissingPlatform(
-  context: DataJobHandlerContext,
-): Promise<DataJobResult> {
-  void context.dryRun;
-  const users = await getAllUsers();
-  const missingPlatformUsers = users.filter((user) => user.platform === null);
-
-  return {
-    summary:
-      missingPlatformUsers.length === 0
-        ? "Audit completed. All users have a platform."
-        : `Audit completed. ${missingPlatformUsers.length} users are missing a platform: ${missingPlatformUsers
-            .slice(0, 10)
-            .map((user) => user.githubUsername)
-            .join(", ")}.`,
-  };
-}
-
-/**
- * Audits non-contributor users and reports accounts that are missing a team assignment.
- *
- * @param context The data-job execution context.
- * @returns A summary of the audit findings.
- */
-async function auditPrivilegedUsersMissingTeam(
-  context: DataJobHandlerContext,
-): Promise<DataJobResult> {
-  void context.dryRun;
-  const users = await getAllUsers();
-  const flaggedUsers = users.filter(
-    (user) => user.role !== "CONTRIBUTOR" && user.team === null,
-  );
-
-  return {
-    summary:
-      flaggedUsers.length === 0
-        ? "Audit completed. All non-contributor users have a team."
-        : `Audit completed. ${flaggedUsers.length} non-contributor users are missing a team: ${flaggedUsers
-            .slice(0, 10)
-            .map((user) => user.githubUsername)
-            .join(", ")}.`,
-  };
-}
-
-/**
- * Moves users who have a team assignment but still hold the CONTRIBUTOR role
- * to ALUMNI. These are likely former members whose role was never updated.
- *
- * @param context The data-job execution context.
- * @returns A summary of the cleanup results.
- */
-async function cleanupTeamContributorsToAlumni(
-  context: DataJobHandlerContext,
-): Promise<DataJobResult> {
-  const users = await getAllUsers();
-  const flaggedUsers = users.filter(
-    (user) => user.team !== null && user.role === "CONTRIBUTOR",
-  );
-
-  if (flaggedUsers.length === 0) {
-    return {
-      summary:
-        "Cleanup completed. No users found with a team assignment and CONTRIBUTOR role.",
-    };
-  }
-
-  if (!context.dryRun) {
-    // Persist the role changes in batched writes instead of one read + write
-    // round trip per user, which previously pushed large cleanups past the
-    // serverless execution limit.
-    await updateUserRoles(
-      flaggedUsers.map((user) => ({ uid: user.id, role: "ALUMNI" })),
-    );
-  }
-
-  const updatedCount = flaggedUsers.length;
-  const suffix = context.dryRun ? " (dry run — no changes persisted)" : ".";
-
-  return {
-    summary: `Cleanup completed. ${updatedCount} user(s) moved from CONTRIBUTOR to ALUMNI${suffix}. Affected users: ${flaggedUsers
-      .slice(0, 10)
-      .map((u) => u.githubUsername)
-      .join(", ")}${flaggedUsers.length > 10 ? "..." : ""}`,
-  };
-}
-
-/**
- * Upgrades every stored document to the latest schema version and persists the
- * migrated document. Unversioned legacy documents are stamped with version 1.
- *
- * @param context The data-job execution context.
- * @returns A summary of the schema backfill results.
- */
-async function backfillSchemaVersionsJob(
-  context: DataJobHandlerContext,
-): Promise<DataJobResult> {
-  const summary = await backfillSchemaVersions({ dryRun: context.dryRun });
-  const suffix = context.dryRun ? " (dry run — no changes persisted)" : ".";
-  const action = context.dryRun ? "would be upgraded" : "upgraded";
-  const failureSummary =
-    summary.failedCount > 0
-      ? ` ${summary.failedCount} document(s) could not be migrated.`
-      : "";
-
-  return {
-    summary: `Schema backfill completed. ${summary.migratedCount} of ${summary.scannedCount} document(s) ${action}${suffix}${failureSummary}`,
-  };
 }
 
 /**
@@ -441,42 +324,6 @@ async function repairReviewerAnalyticsJob(
 }
 
 const DATA_JOB_REGISTRY: RegisteredDataJob[] = [
-  {
-    key: "cleanup_team_contributors_to_alumni",
-    name: "Move Team Contributors to Alumni",
-    description:
-      "Finds users with a team assignment but CONTRIBUTOR role and updates their role to ALUMNI.",
-    kind: "CLEANUP",
-    supportsDryRun: true,
-    handler: cleanupTeamContributorsToAlumni,
-  },
-  {
-    key: "audit_users_missing_platform",
-    name: "Audit Users Missing Platform",
-    description:
-      "Scans users and reports accounts that still do not have a selected platform.",
-    kind: "AUDIT",
-    supportsDryRun: true,
-    handler: auditUsersMissingPlatform,
-  },
-  {
-    key: "audit_privileged_users_missing_team",
-    name: "Audit Privileged Users Missing Team",
-    description:
-      "Scans non-contributor users and reports accounts that are missing a team assignment.",
-    kind: "AUDIT",
-    supportsDryRun: true,
-    handler: auditPrivilegedUsersMissingTeam,
-  },
-  {
-    key: "backfill_schema_versions",
-    name: "Backfill Schema Versions",
-    description:
-      "Upgrades stored documents to the latest schema version and persists the migrated shape.",
-    kind: "MIGRATION",
-    supportsDryRun: true,
-    handler: backfillSchemaVersionsJob,
-  },
   {
     key: "backfill_review_cycles",
     name: "Backfill Review Cycles (Jan 1 2026)",

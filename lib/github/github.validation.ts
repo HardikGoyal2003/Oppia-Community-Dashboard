@@ -187,35 +187,6 @@ export function expectNullableString(
 }
 
 /**
- * Reads a nullable number field from a record.
- *
- * @param record The record to read from.
- * @param field The field name.
- * @param context A description of where the record came from.
- * @returns The finite number value, or null when absent or null.
- */
-export function expectNullableNumber(
-  record: JsonObject,
-  field: string,
-  context: string,
-): number | null {
-  const value = record[field];
-
-  if (value === null || value === undefined) {
-    return null;
-  }
-
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new GitHubPayloadError(
-      context,
-      `Expected "${field}" to be a number or null`,
-    );
-  }
-
-  return value;
-}
-
-/**
  * Validates a GitHub user object down to its login.
  *
  * @param value The value to validate.

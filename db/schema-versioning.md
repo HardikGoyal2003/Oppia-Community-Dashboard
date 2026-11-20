@@ -40,8 +40,7 @@ models. Most reads follow the same order in a normalizer:
 
 A few db-layer operations also inspect raw Firestore document data for
 operational control flow (for example, stale-run detection in
-`db/data-jobs/data-job-runs.db.ts` and schema-version checks/writes in
-`db/schema/schema-migration-runner.ts`). These paths must not bypass the schema
+`db/data-jobs/data-job-runs.db.ts`). Those paths must not bypass the schema
 migration and validation semantics required for the data they persist or expose.
 
 This means old documents are upgraded lazily on read. A document at a version
@@ -58,7 +57,7 @@ current version cannot drift between call sites.
 Do **not** add `schemaVersion` to partial `.update()` payloads. Marking a
 document as current without running the field migrations would corrupt its
 version. Partial updates should leave the existing `schemaVersion` untouched;
-the next migration/backfill pass will stamp it.
+full writes through mappers stamp the current version.
 
 ## Migrations
 
@@ -92,8 +91,7 @@ To change a persisted model:
    version plus one.
 3. Update the Firestore type, mapper, and app-layer/domain types.
 4. Update `db/db-schema.md` and this document if the process changes.
-5. Run the backfill job (see below) to persist the new shape.
-6. Run `npm run type-check` and `npm run lint`.
+5. Run `npm run type-check` and `npm run lint`.
 
 Example migration for version 2 of a model that adds a `status` field:
 
@@ -108,26 +106,9 @@ Example migration for version 2 of a model that adds a `status` field:
 }
 ```
 
-## Backfill Job
-
-Reads migrate lazily, but persisted data should eventually be upgraded so that
-queries and exports see the current shape. The manual **Backfill Schema
-Versions** data job (`backfill_schema_versions`) scans every versioned
-collection and collection group, migrates documents through `migrateDocument`,
-and writes the result.
-
-- It is registered in `lib/data-jobs/data-jobs.service.ts`.
-- It supports dry-run mode; use dry-run first to inspect the counts.
-- Documents already at the current version are skipped.
-- Failures are counted and logged per document; the job does not abort the
-  whole pass.
-- Because `migrateDocument` is idempotent, rerunning the job is safe.
-
 ## Adding a New Versioned Model
 
 1. Add a key to `SCHEMA_KEYS` and set its current version in `SCHEMA_VERSIONS`.
 2. Add an entry to `SCHEMA_MIGRATIONS` for the new key.
-3. Add the model to `buildSchemaCollectionTargets` in
-   `db/schema/schema-migration-runner.ts` so the backfill job covers it.
-4. Add `schemaVersion` to the Firestore type, mapper, and domain type.
-5. Document the collection in `db/db-schema.md`.
+3. Add `schemaVersion` to the Firestore type, mapper, and domain type.
+4. Document the collection in `db/db-schema.md`.
