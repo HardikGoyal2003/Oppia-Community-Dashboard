@@ -90,6 +90,24 @@ Fields:
 - `createdAt: Timestamp`
 - `schemaVersion: number`
 
+### `unregisteredMembers`
+
+Document id:
+
+- `${teamKey}__${normalizedUsername}` where `normalizedUsername` is derived at
+  runtime from `githubUsername` by trimming and lowercasing it (for example
+  `CORE__nithish084`)
+
+Fields:
+
+- `teamKey: "LEAP" | "CORE" | "DEV_WORKFLOW" | "CLAM" | "DEV_WORKFLOW_INFRA"`
+- `platform: "WEB" | "ANDROID"`
+- `githubUsername: string` **(username as written in the team member sheet)**
+- `email: string`
+- `fullName: string`
+- `createdAt: Timestamp` **(first time the person was flagged)**
+- `schemaVersion: number`
+
 ### `teams`
 
 Document id:

@@ -20,6 +20,9 @@ export const DB_PATHS = Object.freeze({
   NOTIFICATION_DELIVERIES: Object.freeze({
     COLLECTION: "notificationDeliveries",
   }),
+  UNREGISTERED_MEMBERS: Object.freeze({
+    COLLECTION: "unregisteredMembers",
+  }),
   TEAMS: Object.freeze({
     COLLECTION: "teams",
   }),

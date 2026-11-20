@@ -1,0 +1,174 @@
+import {
+  getUnregisteredMembers,
+  saveUnregisteredMemberChanges,
+} from "@/db/unregistered-members/unregistered-members.db";
+import type { UnregisteredMemberWrite } from "@/db/unregistered-members/unregistered-members.types";
+import { getAllUsers } from "@/db/users/users.db";
+import { TEAM_MEMBER_SHEET_SOURCES } from "@/lib/config/team-member-sheet.constants";
+import { TEAM_DEFINITIONS_BY_KEY } from "@/lib/domain/team-definitions";
+import { fetchTeamMemberSheet } from "@/lib/team-member-sheet/team-member-sheet.fetcher";
+import { normalizeGithubUsername } from "@/lib/utils/username.utils";
+import type { ContributionPlatform } from "@/lib/auth/auth.types";
+
+/** Outcome for one team's member-sheet check. */
+export type TeamMemberSheetSyncTeamSummary = {
+  deletedCount: number;
+  error: string | null;
+  missingCount: number;
+  newlyFlaggedCount: number;
+  platform: ContributionPlatform;
+  sheetMemberCount: number;
+  teamKey: string;
+  teamName: string;
+};
+
+/** Summary returned by the daily member-sheet check cron. */
+export type TeamMemberSheetSyncSummary = {
+  finishedAt: string;
+  startedAt: string;
+  teams: TeamMemberSheetSyncTeamSummary[];
+  totalOpenCount: number;
+};
+
+/**
+ * Builds the stable document id for a missing-person record.
+ *
+ * @param teamKey The team key stored on user records.
+ * @param normalizedUsername The normalized GitHub username.
+ * @returns The document id.
+ */
+function buildGapId(teamKey: string, normalizedUsername: string): string {
+  return `${teamKey}__${normalizedUsername}`;
+}
+
+/**
+ * Compares each configured public team member sheet against dashboard users.
+ *
+ * People listed in a team member sheet who have no dashboard account are stored
+ * for follow-up. Their documents are deleted when the person registers or
+ * leaves the sheet. A team whose sheet
+ * cannot be read is skipped entirely, so a transient outage never deletes or
+ * creates items for that team.
+ *
+ * @returns A summary of the run for cron and control-panel reporting.
+ */
+export async function syncTeamMemberSheet(): Promise<TeamMemberSheetSyncSummary> {
+  const startedAt = new Date();
+  const [storedItems, users] = await Promise.all([
+    getUnregisteredMembers(),
+    getAllUsers(),
+  ]);
+  const storedById = new Map(storedItems.map((item) => [item.id, item]));
+
+  const registeredUsernames = new Set<string>();
+
+  for (const user of users) {
+    const normalizedUsername = normalizeGithubUsername(user.githubUsername);
+
+    if (!normalizedUsername) {
+      continue;
+    }
+
+    registeredUsernames.add(normalizedUsername);
+  }
+
+  const upserts: UnregisteredMemberWrite[] = [];
+  const deleteIds: string[] = [];
+  const touchedIds = new Set<string>();
+  const successfulTeamKeys = new Set<string>();
+  const deletedCountByTeam = new Map<string, number>();
+  const teams: TeamMemberSheetSyncTeamSummary[] = [];
+
+  for (const source of TEAM_MEMBER_SHEET_SOURCES) {
+    let members;
+
+    try {
+      members = await fetchTeamMemberSheet(source);
+    } catch (error) {
+      teams.push({
+        deletedCount: 0,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unknown team member sheet sync error.",
+        missingCount: 0,
+        newlyFlaggedCount: 0,
+        platform: source.platform,
+        sheetMemberCount: 0,
+        teamKey: source.teamKey,
+        teamName:
+          TEAM_DEFINITIONS_BY_KEY[source.teamKey]?.teamName ?? source.teamKey,
+      });
+      continue;
+    }
+
+    successfulTeamKeys.add(source.teamKey);
+    let newlyFlaggedCount = 0;
+
+    for (const member of members) {
+      const normalizedUsername = normalizeGithubUsername(member.githubUsername);
+
+      if (!normalizedUsername || registeredUsernames.has(normalizedUsername)) {
+        continue;
+      }
+
+      const id = buildGapId(source.teamKey, normalizedUsername);
+      const prior = storedById.get(id);
+
+      if (!prior) {
+        newlyFlaggedCount += 1;
+      }
+
+      touchedIds.add(id);
+      upserts.push({
+        createdAt: prior?.createdAt ?? startedAt,
+        email: member.email,
+        fullName: member.fullName,
+        githubUsername: member.githubUsername,
+        id,
+        platform: source.platform,
+        teamKey: source.teamKey,
+      });
+    }
+
+    teams.push({
+      deletedCount: 0,
+      error: null,
+      missingCount: upserts.filter((item) => item.teamKey === source.teamKey)
+        .length,
+      newlyFlaggedCount,
+      platform: source.platform,
+      sheetMemberCount: members.length,
+      teamKey: source.teamKey,
+      teamName:
+        TEAM_DEFINITIONS_BY_KEY[source.teamKey]?.teamName ?? source.teamKey,
+    });
+  }
+
+  for (const item of storedItems) {
+    if (!successfulTeamKeys.has(item.teamKey) || touchedIds.has(item.id)) {
+      continue;
+    }
+
+    deleteIds.push(item.id);
+    deletedCountByTeam.set(
+      item.teamKey,
+      (deletedCountByTeam.get(item.teamKey) ?? 0) + 1,
+    );
+  }
+
+  for (const team of teams) {
+    team.deletedCount = deletedCountByTeam.get(team.teamKey) ?? 0;
+  }
+
+  if (upserts.length > 0 || deleteIds.length > 0) {
+    await saveUnregisteredMemberChanges({ deleteIds, upserts });
+  }
+
+  return {
+    finishedAt: new Date().toISOString(),
+    startedAt: startedAt.toISOString(),
+    teams,
+    totalOpenCount: upserts.length,
+  };
+}

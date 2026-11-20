@@ -1,6 +1,11 @@
 import { getDailyTeamMetricsSinceDateKey } from "@/db/daily-team-metrics/daily-team-metrics.db";
+import { getUnregisteredMembers } from "@/db/unregistered-members/unregistered-members.db";
+import type { UnregisteredMemberRecord } from "@/db/unregistered-members/unregistered-members.types";
 import { getTeams } from "@/db/teams/teams.db";
-import { TEAM_DEFINITIONS_BY_KEY } from "@/lib/domain/team-definitions";
+import {
+  TEAM_DEFINITIONS_BY_ID,
+  TEAM_DEFINITIONS_BY_KEY,
+} from "@/lib/domain/team-definitions";
 import type { TeamModel } from "@/lib/domain/teams.types";
 import {
   CONTRIBUTION_PLATFORMS,
@@ -67,15 +72,41 @@ type TeamReportsSnapshot = {
 };
 
 /**
+ * Builds the next step for team-sheet members without a dashboard account.
+ *
+ * @param members The people missing from this team's member sheet.
+ * @returns The recommended next step.
+ */
+function getUnregisteredMembersNextStep(
+  members: UnregisteredMemberRecord[],
+): TeamReportNextStep {
+  const usernames = members
+    .map((member) => `@${member.githubUsername}`)
+    .join(", ");
+  const personLabel = members.length === 1 ? "person" : "people";
+  const verb = members.length === 1 ? "is" : "are";
+
+  return {
+    ruleKey: "unregistered-members",
+    message: `${members.length} ${personLabel} from the team sheet ${verb} not registered on the dashboard: ${usernames}.`,
+    priority: "high",
+    reason:
+      "Everyone listed in the team member sheet should be registered on this dashboard so they can help with the team activities tracked here.",
+  };
+}
+
+/**
  * Derives recommended next steps for a team report based on staffing, GFI coverage, and trend data.
  *
  * @param team The report to evaluate.
  * @param unansweredDiscussionsCount The latest unanswered-discussion count for the team's platform.
+ * @param unregisteredMembers People missing from this team's member sheet.
  * @returns The ordered list of recommended next steps.
  */
 function getNextSteps(
   team: TeamReport,
   unansweredDiscussionsCount: number,
+  unregisteredMembers: UnregisteredMemberRecord[],
 ): TeamReportNextStep[] {
   const nextSteps: TeamReportNextStep[] = [];
   const totalGfiCount = team.gfiCount;
@@ -85,6 +116,10 @@ function getNextSteps(
   const traineeLeadCount = team.leads.filter(
     (lead) => lead.role === "LEAD_TRAINEE",
   ).length;
+
+  if (unregisteredMembers.length > 0) {
+    nextSteps.push(getUnregisteredMembersNextStep(unregisteredMembers));
+  }
 
   if (team.members.length < 4) {
     nextSteps.push({
@@ -187,11 +222,25 @@ function getNextSteps(
  */
 export async function getTeamReportsSnapshot(): Promise<TeamReportsSnapshot> {
   const sinceDateKey = getIstDateKeyDaysAgo(13);
-  const [teams, metrics, unansweredDiscussionsByPlatform] = await Promise.all([
-    getTeams(),
-    getDailyTeamMetricsSinceDateKey(sinceDateKey),
-    getLatestUnansweredDiscussionsByPlatform(),
-  ]);
+  const [teams, metrics, unansweredDiscussionsByPlatform, unregisteredMembers] =
+    await Promise.all([
+      getTeams(),
+      getDailyTeamMetricsSinceDateKey(sinceDateKey),
+      getLatestUnansweredDiscussionsByPlatform(),
+      getUnregisteredMembers(),
+    ]);
+
+  const unregisteredByTeamKey = new Map<string, UnregisteredMemberRecord[]>();
+
+  for (const member of unregisteredMembers) {
+    const existing = unregisteredByTeamKey.get(member.teamKey);
+
+    if (existing) {
+      existing.push(member);
+    } else {
+      unregisteredByTeamKey.set(member.teamKey, [member]);
+    }
+  }
 
   const reports: TeamReport[] = teams.map((team) => {
     const teamMetrics = metrics
@@ -212,11 +261,14 @@ export async function getTeamReportsSnapshot(): Promise<TeamReportsSnapshot> {
       nextSteps: [],
     };
 
+    const teamKey = TEAM_DEFINITIONS_BY_ID[team.id]?.teamKey ?? team.id;
+
     return {
       ...report,
       nextSteps: getNextSteps(
         report,
         unansweredDiscussionsByPlatform[team.platform],
+        unregisteredByTeamKey.get(teamKey) ?? [],
       ),
     };
   });
