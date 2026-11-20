@@ -14,7 +14,7 @@ function isAuthorizedCronRequest(req: Request): boolean {
 }
 
 /**
- * Reconciles the public team member sheets with registered dashboard users.
+ * Compares the public team member sheets with registered dashboard users.
  */
 export async function GET(req: Request) {
   if (!isAuthorizedCronRequest(req)) {

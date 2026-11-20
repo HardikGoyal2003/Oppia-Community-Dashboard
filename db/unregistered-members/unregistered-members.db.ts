@@ -65,7 +65,7 @@ export async function getUnregisteredMembers(): Promise<
 /**
  * Applies missing-person upserts and deletions in Firestore batches.
  *
- * @param changes The writes produced by a reconciliation run.
+ * @param changes The writes produced by a sheet check.
  * @returns A promise that resolves when every batch has been committed.
  */
 export async function saveUnregisteredMemberChanges(

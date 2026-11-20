@@ -10,7 +10,6 @@ import type { SchemaVersioned } from "@/lib/domain/schema.types";
 export type UnregisteredMemberModel = SchemaVersioned & {
   teamKey: string;
   platform: ContributionPlatform;
-  /** Username exactly as written in the team member sheet. */
   githubUsername: string;
   email: string;
   fullName: string;

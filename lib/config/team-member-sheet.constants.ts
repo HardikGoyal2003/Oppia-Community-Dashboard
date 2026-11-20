@@ -27,7 +27,7 @@ export function buildTeamMemberSheetCsvUrl(
 }
 
 /**
- * Public team member sheets that the daily sync reconciles against dashboard
+ * Public team member sheets that the daily sync checks against dashboard
  * users. Android sheets are intentionally excluded until they are shared
  * publicly.
  */

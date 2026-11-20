@@ -10,7 +10,7 @@ import { fetchTeamMemberSheet } from "@/lib/team-member-sheet/team-member-sheet.
 import { normalizeGithubUsername } from "@/lib/utils/username.utils";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
 
-/** Outcome for one team's member-sheet reconciliation. */
+/** Outcome for one team's member-sheet check. */
 export type TeamMemberSheetSyncTeamSummary = {
   deletedCount: number;
   error: string | null;
@@ -22,7 +22,7 @@ export type TeamMemberSheetSyncTeamSummary = {
   teamName: string;
 };
 
-/** Summary returned by the daily member-sheet reconciliation cron. */
+/** Summary returned by the daily member-sheet check cron. */
 export type TeamMemberSheetSyncSummary = {
   finishedAt: string;
   startedAt: string;
@@ -42,11 +42,11 @@ function buildGapId(teamKey: string, normalizedUsername: string): string {
 }
 
 /**
- * Reconciles each configured public team member sheet against dashboard users.
+ * Compares each configured public team member sheet against dashboard users.
  *
- * People listed in a team member sheet without a user account, or whose account
- * is still marked as alumni, are stored for follow-up. Their documents are
- * deleted when the person registers or leaves the sheet. A team whose sheet
+ * People listed in a team member sheet who have no dashboard account are stored
+ * for follow-up. Their documents are deleted when the person registers or
+ * leaves the sheet. A team whose sheet
  * cannot be read is skipped entirely, so a transient outage never deletes or
  * creates items for that team.
  *
@@ -69,10 +69,7 @@ export async function syncTeamMemberSheet(): Promise<TeamMemberSheetSyncSummary>
       continue;
     }
 
-    // Alumni accounts do not count as active registrations, so they stay flagged.
-    if (user.role !== "ALUMNI") {
-      registeredUsernames.add(normalizedUsername);
-    }
+    registeredUsernames.add(normalizedUsername);
   }
 
   const upserts: UnregisteredMemberWrite[] = [];
