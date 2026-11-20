@@ -3,6 +3,7 @@ import type { ContributionPlatform } from "@/lib/auth/auth.types";
 import { DB_PATHS } from "@/db/db-paths";
 import { buildReviewerCycleAggregateDocId } from "@/db/reviewer-doc-ids";
 import { FIRESTORE_WRITE_BATCH_SIZE } from "@/db/utils/batch.utils";
+import { normalizeGithubUsername } from "@/lib/utils/username.utils";
 import {
   normalizeReviewerCycleAggregate,
   serializeReviewerCycleAggregate,
@@ -31,16 +32,17 @@ export async function getReviewerCycleAggregates(
   logins: string[],
 ): Promise<Map<string, ReviewerCycleAggregateDocument>> {
   const result = new Map<string, ReviewerCycleAggregateDocument>();
-  if (logins.length === 0) return result;
+  const uniqueLogins = Array.from(new Set(logins.map(normalizeGithubUsername)));
+  if (uniqueLogins.length === 0) return result;
   const snapshots = await collection.firestore.getAll(
-    ...logins.map((login) =>
+    ...uniqueLogins.map((login) =>
       collection.doc(buildReviewerCycleAggregateDocId(platform, login)),
     ),
   );
   snapshots.forEach((snapshot, index) => {
     const data = snapshot.data();
     if (snapshot.exists && data) {
-      result.set(logins[index], normalizeReviewerCycleAggregate(data));
+      result.set(uniqueLogins[index], normalizeReviewerCycleAggregate(data));
     }
   });
   return result;
@@ -49,7 +51,8 @@ export async function getReviewerCycleAggregates(
 /**
  * Writes reviewer aggregate documents in chunks.
  * @param platform The repository platform the reviewers belong to.
- * @param entries Aggregates keyed by reviewer login.
+ * @param entries Aggregates keyed by reviewer login. Logins are normalized
+ * before they are used as document ids.
  * @returns A promise that resolves after every chunk is written.
  */
 export async function upsertReviewerCycleAggregates(

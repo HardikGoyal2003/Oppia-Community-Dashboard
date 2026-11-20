@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
+import { UnauthorizedScreen } from "@/components/error/unauthorized-screen";
 import { Navbar } from "@/components/layout/navbar";
 import { authOptions } from "@/lib/auth/auth.options";
 import { ControlPanelTabs } from "@/features/control-panel/components/control-panel-tabs";
@@ -13,7 +14,7 @@ export default async function ControlPanelPage() {
   }
 
   if (session.user.role !== "SUPER_ADMIN") {
-    redirect("/unauthorized");
+    return <UnauthorizedScreen />;
   }
 
   return (

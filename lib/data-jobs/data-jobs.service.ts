@@ -20,6 +20,7 @@ import { getTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
 import { LibInvalidStateError } from "@/lib/lib.errors";
 import { runReviewCycleBackfillStep } from "@/lib/team-activity/backfill-review-cycles.service";
 import { REVIEWER_REPORT_PLATFORM } from "@/lib/team-activity/reviewer-platform.constants";
+import { getReviewerTeamLogins } from "@/lib/team-activity/reviewer-team-logins.service";
 import { refreshReviewerStats } from "@/lib/team-activity/sync-review-cycles.service";
 import type { ReviewCycleBackfillState } from "@/lib/domain/review-cycle-backfill.types";
 import type { ReviewCycleRecord } from "@/lib/domain/reviewer-teams.types";
@@ -136,12 +137,7 @@ async function backfillReviewCyclesJob(
     );
   }
 
-  const knownLogins = new Set<string>();
-  for (const team of teamDoc.teams) {
-    for (const member of team.members) {
-      knownLogins.add(member.username);
-    }
-  }
+  const knownLogins = await getReviewerTeamLogins();
 
   const deadlineMs = Date.now() + REVIEW_CYCLE_BACKFILL_TIME_BUDGET_MS;
   const todayKey = toUtcDateKey(new Date());

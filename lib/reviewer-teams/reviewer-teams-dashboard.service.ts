@@ -136,8 +136,12 @@ export async function getReviewerTeamsDashboard(): Promise<ReviewerTeamsDocument
     );
   }
 
-  const memberLogins = doc.teams.flatMap((team) =>
-    team.members.map((member) => member.username),
+  const memberLogins = Array.from(
+    new Set(
+      doc.teams.flatMap((team) =>
+        team.members.map((member) => normalizeGithubUsername(member.username)),
+      ),
+    ),
   );
 
   const [reviewerMap, analyticsSnapshot] = await Promise.all([
@@ -159,7 +163,7 @@ export async function getReviewerTeamsDashboard(): Promise<ReviewerTeamsDocument
         buildMember(
           member.username,
           member.avatarUrl,
-          reviewerMap.get(member.username) ?? null,
+          reviewerMap.get(normalizeGithubUsername(member.username)) ?? null,
           nowMs,
         ),
       ),
@@ -187,34 +191,29 @@ export async function getMyReviewerReport(
   githubUsername: string,
 ): Promise<MyReviewerReport | null> {
   const platform = REVIEWER_REPORT_PLATFORM;
-  const normalizedLogin = normalizeGithubUsername(githubUsername);
-  const logins = Array.from(new Set([githubUsername.trim(), normalizedLogin]));
+  const login = normalizeGithubUsername(githubUsername);
 
   const [reviewerMap, teamReviewers] = await Promise.all([
-    getReviewers(platform, logins),
+    getReviewers(platform, [login]),
     getTeamReviewers(platform),
   ]);
 
-  const matchedLogin = logins.find((login) => reviewerMap.has(login));
-  const reviewer = matchedLogin ? reviewerMap.get(matchedLogin) : undefined;
-
-  if (!matchedLogin || !reviewer) {
+  const reviewer = reviewerMap.get(login);
+  if (!reviewer) {
     return null;
   }
 
   const avatarUrl =
     teamReviewers?.teams
       .flatMap((team) => team.members)
-      .find(
-        (member) =>
-          normalizeGithubUsername(member.username) === normalizedLogin,
-      )?.avatarUrl ?? "";
+      .find((member) => normalizeGithubUsername(member.username) === login)
+      ?.avatarUrl ?? "";
 
   return {
     platform,
-    username: matchedLogin,
+    username: login,
     lastSyncedAt: reviewer.lastUpdated.toISOString(),
     teams: reviewer.teams,
-    reviewer: buildMember(matchedLogin, avatarUrl, reviewer, Date.now()),
+    reviewer: buildMember(login, avatarUrl, reviewer, Date.now()),
   };
 }

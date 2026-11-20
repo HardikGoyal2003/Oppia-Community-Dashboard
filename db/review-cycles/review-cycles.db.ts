@@ -2,6 +2,7 @@ import { getAdminFirestore } from "@/lib/firebase/firebase-admin";
 import { DbValidationError } from "@/db/db.errors";
 import { FIRESTORE_WRITE_BATCH_SIZE } from "@/db/utils/batch.utils";
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import { normalizeGithubUsername } from "@/lib/utils/username.utils";
 import { DB_PATHS } from "@/db/db-paths";
 import {
   buildReviewCycleAnalyticsDocId,
@@ -46,6 +47,22 @@ function getAnalyticsDoc(
 const AGGREGATE_LOGIN_CHUNK_SIZE = 30;
 
 /**
+ * Normalizes a cycle record's reviewer login before it is used as a key or
+ * stored, so capitalization differences do not create separate reviewers.
+ *
+ * @param record The cycle record to normalize.
+ * @returns The record with a normalized reviewer login.
+ */
+function normalizeCycleRecord<T extends { reviewerLogin: string }>(
+  record: T,
+): T {
+  return {
+    ...record,
+    reviewerLogin: normalizeGithubUsername(record.reviewerLogin),
+  };
+}
+
+/**
  * Batch upserts multiple review cycle records.
  *
  * A 2-month backfill can produce well over the Firestore batch limit.
@@ -65,10 +82,11 @@ export async function upsertReviewCycles(
   ) {
     const batch = collection.firestore.batch();
 
-    for (const record of records.slice(
+    for (const rawRecord of records.slice(
       start,
       start + FIRESTORE_WRITE_BATCH_SIZE,
     )) {
+      const record = normalizeCycleRecord(rawRecord);
       const key = buildReviewCycleDocId(
         platform,
         record.reviewerLogin,
@@ -98,7 +116,7 @@ export async function deleteReviewCyclesForReviewers(
   platform: ContributionPlatform,
   logins: string[],
 ): Promise<number> {
-  const uniqueLogins = Array.from(new Set(logins));
+  const uniqueLogins = Array.from(new Set(logins.map(normalizeGithubUsername)));
   let deleted = 0;
 
   for (
@@ -190,10 +208,10 @@ export async function createNewReviewCycles(
 
   const uniqueRecords = Array.from(
     new Map(
-      records.map((record) => [
-        getReviewCycleDocumentId(platform, record),
-        record,
-      ]),
+      records.map((rawRecord) => {
+        const record = normalizeCycleRecord(rawRecord);
+        return [getReviewCycleDocumentId(platform, record), record];
+      }),
     ).values(),
   );
   const createdRecords: Array<Omit<ReviewCycleRecord, "schemaVersion">> = [];
@@ -296,7 +314,7 @@ export async function getReviewCyclesByReviewerLogins(
   platform: ContributionPlatform,
   logins: string[],
 ): Promise<ReviewCycleRecord[]> {
-  const uniqueLogins = Array.from(new Set(logins));
+  const uniqueLogins = Array.from(new Set(logins.map(normalizeGithubUsername)));
   if (uniqueLogins.length === 0) return [];
 
   const records: ReviewCycleRecord[] = [];

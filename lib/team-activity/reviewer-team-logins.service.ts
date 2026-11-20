@@ -1,4 +1,5 @@
 import { getTeamReviewers } from "@/db/team-reviewers/team-reviewers.db";
+import { normalizeGithubUsername } from "@/lib/utils/username.utils";
 import { REVIEWER_REPORT_PLATFORM } from "./reviewer-platform.constants";
 
 /**
@@ -8,7 +9,8 @@ import { REVIEWER_REPORT_PLATFORM } from "./reviewer-platform.constants";
  * logins, so the cycle sync and the pending-review sync both filter to this
  * set.
  *
- * @returns The set of current reviewer logins.
+ * @returns The set of current reviewer logins, normalized for case-insensitive
+ * matching against GitHub responses.
  */
 export async function getReviewerTeamLogins(): Promise<Set<string>> {
   const teamDoc = await getTeamReviewers(REVIEWER_REPORT_PLATFORM);
@@ -18,7 +20,7 @@ export async function getReviewerTeamLogins(): Promise<Set<string>> {
 
   for (const team of teamDoc.teams) {
     for (const member of team.members) {
-      logins.add(member.username);
+      logins.add(normalizeGithubUsername(member.username));
     }
   }
 

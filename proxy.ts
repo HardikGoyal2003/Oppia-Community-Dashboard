@@ -48,7 +48,11 @@ export default withAuth(
       }
 
       if (!isSuperAdmin) {
-        return NextResponse.redirect(new URL("/unauthorized", req.url));
+        // Rewrite keeps the requested URL in the address bar while rendering
+        // the unauthorized screen.
+        return NextResponse.rewrite(new URL("/unauthorized", req.url), {
+          status: 403,
+        });
       }
     }
 

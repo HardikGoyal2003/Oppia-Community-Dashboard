@@ -9,6 +9,7 @@ import {
   assertFiniteNumber,
 } from "@/db/utils/validation.utils";
 import type { ReviewCycleRecord } from "@/lib/domain/reviewer-teams.types";
+import { normalizeGithubUsername } from "@/lib/utils/username.utils";
 
 export type FirestoreReviewCycle = ReviewCycleRecord;
 
@@ -148,7 +149,7 @@ export function normalizeReviewCycle(
 
   return {
     platform: migrated.platform,
-    reviewerLogin: migrated.reviewerLogin,
+    reviewerLogin: normalizeGithubUsername(migrated.reviewerLogin),
     prNumber: migrated.prNumber,
     prTitle: migrated.prTitle,
     prUrl: migrated.prUrl,
@@ -178,6 +179,7 @@ export function serializeReviewCycle(
 ): FirestoreReviewCycle {
   return {
     ...record,
+    reviewerLogin: normalizeGithubUsername(record.reviewerLogin),
     schemaVersion: getCurrentSchemaVersion(SCHEMA_KEYS.REVIEW_CYCLES),
   };
 }

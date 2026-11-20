@@ -1,4 +1,6 @@
 import { fetchAssignedPRs } from "@/lib/github/github.fetcher";
+import type { OpenPRAssignment } from "@/lib/github/github-prs.fetcher";
+import { normalizeGithubUsername } from "@/lib/utils/username.utils";
 import { getReviewers, upsertReviewers } from "@/db/reviewers/reviewers.db";
 import { getReviewerTeamLogins } from "@/lib/team-activity/reviewer-team-logins.service";
 import { REVIEWER_REPORT_PLATFORM } from "./reviewer-platform.constants";
@@ -90,6 +92,17 @@ export async function syncPendingReviews(): Promise<SyncSummary> {
     getReviewers(platform, Array.from(teamLogins)),
   ]);
 
+  // GitHub responses and team data can disagree on the casing of the same
+  // login, so index assignments by the normalized identity before matching.
+  const assignmentsByLogin = new Map<string, OpenPRAssignment[]>();
+  for (const [login, assignments] of memberPRs) {
+    const normalizedLogin = normalizeGithubUsername(login);
+    assignmentsByLogin.set(normalizedLogin, [
+      ...(assignmentsByLogin.get(normalizedLogin) ?? []),
+      ...assignments,
+    ]);
+  }
+
   const updates: Array<{
     login: string;
     doc: Omit<ReviewerDocument, "schemaVersion">;
@@ -97,7 +110,7 @@ export async function syncPendingReviews(): Promise<SyncSummary> {
   let totalPending = 0;
 
   for (const login of teamLogins) {
-    const pendingReviews = (memberPRs.get(login) ?? []).map((pr) => ({
+    const pendingReviews = (assignmentsByLogin.get(login) ?? []).map((pr) => ({
       prNumber: pr.prNumber,
       title: pr.title,
       url: pr.url,

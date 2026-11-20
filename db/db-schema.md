@@ -261,11 +261,13 @@ Fields:
 
 All reviewer-report collections below are platform-scoped. Document ids carry a platform prefix (or are the platform itself for singleton docs), and every document stores a `platform` field. Web and Android reviewer data can therefore coexist in the same collections without future migrations.
 
+GitHub logins used in reviewer document ids, aggregation keys, and `reviewerLogin` fields are normalized with `trim().toLowerCase()` at ingestion, so login capitalization differences cannot create duplicate reviewer documents or split metrics.
+
 ### `reviewers`
 
 Document id:
 
-- `${platform}_${githubLogin}` (e.g. `WEB_octocat`, `ANDROID_octocat`)
+- `${platform}_${normalizedGithubLogin}` (e.g. `WEB_octocat`, `ANDROID_octocat`)
 
 Fields:
 
@@ -289,12 +291,12 @@ Fields:
 
 Document id:
 
-- `${platform}_${reviewerLogin}:${prNumber}:${assignedAt}`
+- `${platform}_${normalizedReviewerLogin}:${prNumber}:${assignedAt}`
 
 Fields:
 
 - `platform: "WEB" | "ANDROID"`
-- `reviewerLogin: string`
+- `reviewerLogin: string` — normalized GitHub login
 - `prNumber: number`
 - `prTitle: string`
 - `prUrl: string`
@@ -363,7 +365,7 @@ Fields:
 
 Document id:
 
-- `${platform}_${githubLogin}`
+- `${platform}_${normalizedGithubLogin}`
 
 Fields:
 

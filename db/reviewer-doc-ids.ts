@@ -1,10 +1,13 @@
 import type { ContributionPlatform } from "@/lib/auth/auth.types";
+import { normalizeGithubUsername } from "@/lib/utils/username.utils";
 
 /**
  * Builds the Firestore document id for a reviewer.
  *
  * The platform prefix keeps reviewers from different repositories from
  * overwriting each other when a contributor reviews on both platforms.
+ * Logins are normalized so the same person cannot be stored under multiple
+ * spelling variants.
  *
  * @param platform The contribution platform.
  * @param login The GitHub login of the reviewer.
@@ -14,7 +17,7 @@ export function buildReviewerDocId(
   platform: ContributionPlatform,
   login: string,
 ): string {
-  return `${platform}_${login}`;
+  return `${platform}_${normalizeGithubUsername(login)}`;
 }
 
 /**
@@ -28,7 +31,7 @@ export function buildReviewerCycleAggregateDocId(
   platform: ContributionPlatform,
   login: string,
 ): string {
-  return `${platform}_${login}`;
+  return `${platform}_${normalizeGithubUsername(login)}`;
 }
 
 /**
@@ -46,7 +49,7 @@ export function buildReviewCycleDocId(
   prNumber: number,
   assignedAt: string,
 ): string {
-  return `${platform}_${login}:${prNumber}:${assignedAt}`;
+  return `${platform}_${normalizeGithubUsername(login)}:${prNumber}:${assignedAt}`;
 }
 
 /**
