@@ -1,6 +1,12 @@
 import { LibInvalidStateError } from "@/lib/lib.errors";
 import { getGitHubToken } from "./github.auth";
 import {
+  getGitHubRetryDelayMs,
+  hasGitHubRetriesLeft,
+  isRetryableGitHubStatus,
+  waitForGitHubRetry,
+} from "./github.retry";
+import {
   GitHubPayloadError,
   type JsonObject,
   type JsonValue,
@@ -221,34 +227,72 @@ function validateRestPayload<T>(
 /**
  * Executes a single authenticated GitHub REST request.
  *
- * Centralizes token handling, headers, rate-limit capture, and error parsing so
- * the single-page and paginated helpers cannot drift apart.
+ * Centralizes token handling, headers, rate-limit capture, retries, and error
+ * parsing so the single-page and paginated helpers cannot drift apart.
  *
  * @param url The fully qualified GitHub REST URL to request.
  * @returns The successful response.
- * @throws {GitHubRestError} When GitHub returns a non-success response.
+ * @throws {GitHubRestError} When GitHub returns a non-success response after
+ * transient failures have been retried.
  * @throws {LibConfigError} When GITHUB_TOKEN is not configured.
  */
 async function executeGitHubRestRequest(url: string): Promise<Response> {
-  const res = await fetch(url, {
-    cache: "no-store",
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${getGitHubToken()}`,
-      "X-GitHub-Api-Version": API_VERSION,
-    },
-  });
+  const token = getGitHubToken();
 
-  if (!res.ok) {
+  for (let attempt = 1; ; attempt++) {
+    let res: Response;
+
+    try {
+      res = await fetch(url, {
+        cache: "no-store",
+        headers: {
+          Accept: "application/vnd.github+json",
+          Authorization: `Bearer ${token}`,
+          "X-GitHub-Api-Version": API_VERSION,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Error && hasGitHubRetriesLeft(attempt)) {
+        console.warn(
+          `[github] REST request failed on attempt ${attempt}; retrying...`,
+          error,
+        );
+        await waitForGitHubRetry(getGitHubRetryDelayMs(attempt));
+        continue;
+      }
+
+      throw error;
+    }
+
     // GitHub includes rate limit headers on rejected requests too, and those
     // are the most useful ones after a 403/429.
     captureRateLimit(res);
-    throw await buildRestError(res);
+
+    if (!res.ok) {
+      const error = await buildRestError(res);
+
+      if (
+        isRetryableGitHubStatus(res.status) &&
+        hasGitHubRetriesLeft(attempt)
+      ) {
+        console.warn(
+          `[github] REST ${res.status} on attempt ${attempt}; retrying...`,
+        );
+        await waitForGitHubRetry(
+          getGitHubRetryDelayMs(attempt, res.headers.get("retry-after")),
+        );
+        continue;
+      }
+
+      if (attempt > 1) {
+        error.details.push(`Failed after ${attempt} attempts.`);
+      }
+
+      throw error;
+    }
+
+    return res;
   }
-
-  captureRateLimit(res);
-
-  return res;
 }
 
 /**

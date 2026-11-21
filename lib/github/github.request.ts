@@ -1,6 +1,12 @@
 import { LibInvalidStateError } from "@/lib/lib.errors";
 import { getGitHubToken } from "./github.auth";
 import {
+  getGitHubRetryDelayMs,
+  hasGitHubRetriesLeft,
+  isRetryableGitHubStatus,
+  waitForGitHubRetry,
+} from "./github.retry";
+import {
   expectArray,
   expectRecord,
   GitHubPayloadError,
@@ -130,52 +136,88 @@ function buildGraphQLError(errors: GraphQLErrorPayload[]): GitHubGraphQLError {
  * @param validate Validator for the expected `data` payload.
  * @param variables The variables to send with the request.
  * @returns The validated GraphQL data payload.
- * @throws {GitHubGraphQLError} When GitHub returns an HTTP or GraphQL error, or the response is malformed.
+ * @throws {GitHubGraphQLError} When GitHub returns an HTTP or GraphQL error, or
+ * the response is malformed. Transient HTTP failures are retried first.
  */
 export async function requestGitHubGraphQL<T>(
   query: string,
   validate: Validator<T>,
   variables: JsonObject = {},
 ): Promise<T> {
-  const res = await fetch(API_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${getGitHubToken()}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ query, variables }),
-  });
+  const token = getGitHubToken();
 
-  if (!res.ok) {
-    throw new GitHubGraphQLError(
-      `GitHub GraphQL request failed with status ${res.status}.`,
-      [res.statusText],
-    );
-  }
+  for (let attempt = 1; ; attempt++) {
+    let res: Response;
 
-  const response = parseGraphQLEnvelope((await res.json()) as JsonValue);
+    try {
+      res = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query, variables }),
+      });
+    } catch (error) {
+      if (error instanceof Error && hasGitHubRetriesLeft(attempt)) {
+        console.warn(
+          `[github] GraphQL request failed on attempt ${attempt}; retrying...`,
+          error,
+        );
+        await waitForGitHubRetry(getGitHubRetryDelayMs(attempt));
+        continue;
+      }
 
-  if (response.errors && response.errors.length > 0) {
-    throw buildGraphQLError(response.errors);
-  }
+      throw error;
+    }
 
-  if (response.data === undefined) {
-    throw new GitHubGraphQLError(
-      "GitHub GraphQL response did not contain a data payload.",
-      [],
-    );
-  }
+    if (!res.ok) {
+      if (
+        isRetryableGitHubStatus(res.status) &&
+        hasGitHubRetriesLeft(attempt)
+      ) {
+        console.warn(
+          `[github] GraphQL ${res.status} on attempt ${attempt}; retrying...`,
+        );
+        await waitForGitHubRetry(
+          getGitHubRetryDelayMs(attempt, res.headers.get("retry-after")),
+        );
+        continue;
+      }
 
-  try {
-    return validate(response.data, "GitHub GraphQL response.data");
-  } catch (error) {
-    if (error instanceof GitHubPayloadError) {
       throw new GitHubGraphQLError(
-        "GitHub GraphQL response contained an unexpected payload.",
-        [error.message],
+        `GitHub GraphQL request failed with status ${res.status}.`,
+        [
+          res.statusText,
+          ...(attempt > 1 ? [`Failed after ${attempt} attempts.`] : []),
+        ],
       );
     }
 
-    throw error;
+    const response = parseGraphQLEnvelope((await res.json()) as JsonValue);
+
+    if (response.errors && response.errors.length > 0) {
+      throw buildGraphQLError(response.errors);
+    }
+
+    if (response.data === undefined) {
+      throw new GitHubGraphQLError(
+        "GitHub GraphQL response did not contain a data payload.",
+        [],
+      );
+    }
+
+    try {
+      return validate(response.data, "GitHub GraphQL response.data");
+    } catch (error) {
+      if (error instanceof GitHubPayloadError) {
+        throw new GitHubGraphQLError(
+          "GitHub GraphQL response contained an unexpected payload.",
+          [error.message],
+        );
+      }
+
+      throw error;
+    }
   }
 }
