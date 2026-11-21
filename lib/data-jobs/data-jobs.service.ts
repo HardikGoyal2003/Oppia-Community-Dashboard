@@ -1,4 +1,5 @@
 import { DbNotFoundError } from "@/db/db.errors";
+import { fetchGitHubRateLimit } from "@/lib/github/github.rate-limit";
 import {
   createDataJobRun,
   getDataJobRunById,
@@ -264,6 +265,10 @@ async function backfillReviewCyclesJob(
   if (completed) {
     await clearReviewCycleBackfillState(platform);
   }
+
+  const rate = await fetchGitHubRateLimit();
+  console.log("\nRate Limit (REST):");
+  console.log(rate.core ?? "unavailable");
 
   const progressSummary = completed
     ? "Backfill complete."
