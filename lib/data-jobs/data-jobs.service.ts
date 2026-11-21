@@ -147,18 +147,12 @@ async function backfillReviewCyclesJob(
   const targetEndKey = savedState
     ? maxDateKey(savedState.targetEnd, todayKey)
     : todayKey;
-  const windowStartKey = savedState
-    ? minDateKey(savedState.windowStart, defaultStartKey)
-    : defaultStartKey;
-  const windowWasExtended =
-    savedState !== null && windowStartKey !== savedState.windowStart;
+  // Resume from the saved window. The fixed start date is only used for the
+  // first run; resetting it on every resume would re-scan completed windows
+  // and discard the PR-level checkpoint for the in-flight window.
+  const windowStartKey = savedState ? savedState.windowStart : defaultStartKey;
   const windowEndKey = savedState
-    ? windowWasExtended
-      ? minDateKey(
-          maxDateKey(savedState.windowEnd, windowStartKey),
-          targetEndKey,
-        )
-      : savedState.windowEnd
+    ? minDateKey(savedState.windowEnd, targetEndKey)
     : minDateKey(
         addDaysToDateKey(
           defaultStartKey,
@@ -174,11 +168,6 @@ async function backfillReviewCyclesJob(
         windowStart: windowStartKey,
         windowEnd: windowEndKey,
         targetEnd: targetEndKey,
-        // PR progress belongs to the old, narrower window and cannot be reused
-        // once the window is widened back to the fixed start date.
-        processedPrNumbers: windowWasExtended
-          ? []
-          : savedState.processedPrNumbers,
         updatedAt: new Date(),
       }
     : {
